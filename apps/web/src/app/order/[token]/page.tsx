@@ -179,25 +179,25 @@ export default function PublicTableOrderPage() {
                 <h2 className="text-2xl font-black text-foreground">Order Cancelled</h2>
                 <p className="text-sm font-bold text-rose-500 mt-1">Order #{orderPlaced.orderNumber}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  This order was not confirmed. If you are seated at <strong>{table.name}</strong>, please notify your dining captain.
+                  This order was not confirmed. If you are seated at <strong>{table.name}</strong>, please speak with our staff for assistance.
                 </p>
               </div>
             </>
           ) : isPendingVerification ? (
             <>
-              <div className="w-20 h-20 bg-amber-500/15 text-amber-500 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
-                ⏳
+              <div className="w-20 h-20 bg-emerald-500/15 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl animate-pulse">
+                ✨
               </div>
               <div className="space-y-2">
-                <h2 className="text-xl font-black text-foreground">Verifying Table Presence...</h2>
-                <p className="text-sm font-bold text-amber-500">Order #{orderPlaced.orderNumber}</p>
-                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-300 text-left space-y-1">
-                  <p className="font-bold flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 shrink-0 text-amber-500" />
-                    Staff check in progress
+                <h2 className="text-xl font-black text-foreground">Order Received!</h2>
+                <p className="text-sm font-bold text-emerald-400">Order #{orderPlaced.orderNumber}</p>
+                <div className="p-3.5 rounded-2xl bg-muted/60 border border-border text-xs text-muted-foreground text-center space-y-1">
+                  <p className="font-bold text-foreground flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Your order is received and ready to be accepted
                   </p>
                   <p className="text-[11px] opacity-90">
-                    Our waitstaff is confirming your seating at <strong>{table.name}</strong> before sending your tickets to the kitchen.
+                    We are getting your delicious dishes lined up for <strong>{table.name}</strong>.
                   </p>
                 </div>
               </div>
@@ -211,7 +211,7 @@ export default function PublicTableOrderPage() {
                 <h2 className="text-2xl font-black text-foreground">Order Accepted & Cooking!</h2>
                 <p className="text-sm font-bold text-emerald-500 mt-1">Order #{orderPlaced.orderNumber}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Verified by staff! Your ticket has been sent to our chefs for <strong>{table.name}</strong>.
+                  Our chefs have started preparing your meal for <strong>{table.name}</strong>.
                 </p>
               </div>
             </>
