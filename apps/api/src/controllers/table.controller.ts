@@ -164,7 +164,7 @@ export class TableController {
     const table = await prisma.restaurantTable.findFirst({
       where: { qrCodeToken: token, isActive: true },
       include: {
-        tenant: { select: { id: true, name: true, slug: true, settings: true } },
+        tenant: { select: { id: true, name: true, slug: true, logoUrl: true, settings: true } },
         branch: { select: { id: true, name: true, phone: true, address: true } },
       },
     });
@@ -222,6 +222,7 @@ export class TableController {
       restaurant: {
         name: table.tenant.name,
         slug: table.tenant.slug,
+        logoUrl: table.tenant.logoUrl,
         branchName: table.branch.name,
         address: table.branch.address,
         phone: table.branch.phone,

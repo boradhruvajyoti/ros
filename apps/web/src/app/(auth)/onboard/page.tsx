@@ -62,6 +62,7 @@ import { apiPost } from '@/lib/api';
 import { connectSocket } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { downscaleImage } from '@/lib/image-utils';
 
 // Cuisine options (Expanded to 13 popular restaurant concepts)
 const CUISINE_OPTIONS = [
@@ -114,20 +115,20 @@ export default function OnboardingPage() {
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [plan, setPlan] = useState<'starter' | 'professional' | 'enterprise'>('professional');
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File Too Large', 'Please upload a logo image under 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Please upload a logo image under 10MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setLogoUrl(base64);
-      toast.success('Logo Uploaded', 'Restaurant logo preview is ready.');
-    };
-    reader.readAsDataURL(file);
+    try {
+      const downscaledBase64 = await downscaleImage(file, 150);
+      setLogoUrl(downscaledBase64);
+      toast.success('Logo Optimized & Uploaded', 'Restaurant logo auto-downscaled to 150px.');
+    } catch (err: any) {
+      toast.error('Upload Failed', err.message || 'Could not process logo image');
+    }
   };
 
   // Step 2: Branch Location & Taxes

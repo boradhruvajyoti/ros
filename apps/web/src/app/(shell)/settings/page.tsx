@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPatch } from '@/lib/api';
+import { downscaleImage } from '@/lib/image-utils';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'logo' | 'tax' | 'printer' | 'security'>('general');
@@ -82,21 +83,21 @@ export default function SettingsPage() {
     }
   }, [tenant]);
 
-  // Handle Logo file upload (base64 Data URI)
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Logo file upload (auto-downscaled to max 150px)
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File Too Large', 'Please select an image under 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Please select an image under 10MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setLogoUrl(base64);
-      toast.success('Logo Selected', 'Click "Save All Changes" to persist your brand logo.');
-    };
-    reader.readAsDataURL(file);
+    try {
+      const downscaledBase64 = await downscaleImage(file, 150);
+      setLogoUrl(downscaledBase64);
+      toast.success('Logo Optimized & Selected', 'Logo auto-downscaled to 150px. Click "Save All Changes" to persist.');
+    } catch (err: any) {
+      toast.error('Upload Failed', err.message || 'Could not process logo');
+    }
   };
 
   // Save Settings Mutation

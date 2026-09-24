@@ -200,6 +200,16 @@ export default function PublicTableOrderPage() {
     <div className="min-h-screen bg-background text-foreground pb-36 max-w-lg mx-auto shadow-2xl border-x border-border">
       {/* Top Restaurant & Table Banner */}
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border p-4 shadow-sm space-y-3">
+        {restaurant.logoUrl && (
+          <div className="flex justify-center pb-0.5">
+            <img
+              src={restaurant.logoUrl}
+              alt={restaurant.name}
+              className="max-h-12 max-w-[140px] object-contain mx-auto"
+            />
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-black text-foreground">{restaurant.name}</h1>
@@ -343,6 +353,16 @@ export default function PublicTableOrderPage() {
 
               {/* Itemized Order Breakdown with Rate & Qty */}
               <div className="p-4 rounded-3xl bg-card border border-border space-y-3">
+                {restaurant.logoUrl && (
+                  <div className="flex justify-center pb-1 border-b border-border/50">
+                    <img
+                      src={restaurant.logoUrl}
+                      alt={restaurant.name}
+                      className="max-h-12 max-w-[140px] object-contain mx-auto"
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between border-b border-border pb-2.5">
                   <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">
                     Ordered Dishes ({currentActiveOrder.items?.length || 0})

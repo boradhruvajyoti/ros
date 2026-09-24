@@ -69,6 +69,11 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [verifyingOrder, setVerifyingOrder] = useState<Order | null>(null);
 
+  const { data: tenant } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: () => apiGet<any>('/tenants/current'),
+  });
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['orders', statusFilter, typeFilter],
     queryFn: () => apiGet<{ orders: Order[]; total: number; page: number; limit: number }>(
@@ -148,10 +153,13 @@ export default function OrdersPage() {
             .row-flex { display: flex; justify-content: space-between; margin: 3px 0; }
             .grand-total { font-size: 14px; font-weight: 900; }
             .kot-box { border: 2px solid #000; padding: 4px; text-align: center; font-size: 14px; font-weight: 900; margin-bottom: 6px; }
+            .logo-header { text-align: center; margin-bottom: 8px; }
+            .logo-img { max-height: 55px; max-width: 140px; margin: 0 auto; object-fit: contain; display: block; }
           </style>
         </head>
         <body>
           ${isKot ? `
+            ${tenant?.logoUrl ? `<div class="logo-header"><img src="${tenant.logoUrl}" class="logo-img" alt="Logo" /></div>` : ''}
             <div class="kot-box">*** KITCHEN ORDER TICKET (KOT) ***</div>
             <p class="center bold title">${order.table ? `TABLE: ${order.table.name}` : order.type}</p>
             <p class="center">Order #${order.orderNumber} · ${format(new Date(order.createdAt), 'dd MMM yyyy, h:mm a')}</p>
@@ -179,8 +187,9 @@ export default function OrdersPage() {
             <div class="divider"></div>
             <p class="center bold" style="font-size: 11px;">--- END OF KOT ---</p>
           ` : `
+            ${tenant?.logoUrl ? `<div class="logo-header"><img src="${tenant.logoUrl}" class="logo-img" alt="Logo" /></div>` : ''}
             <div class="center">
-              <div class="title">RESTAURANT RECEIPT</div>
+              <div class="title">${tenant?.name || 'RESTAURANT RECEIPT'}</div>
               <div class="subtitle">Tax Invoice / Dining Bill</div>
               <div class="subtitle">Order #${order.orderNumber}</div>
               <div class="subtitle">${order.table ? `Table: ${order.table.name}` : `Type: ${order.type}`}</div>
@@ -651,6 +660,17 @@ export default function OrdersPage() {
       {selectedOrder && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+            {/* Top Center Restaurant Logo */}
+            {tenant?.logoUrl && (
+              <div className="flex justify-center pb-1">
+                <img
+                  src={tenant.logoUrl}
+                  alt={tenant.name || 'Restaurant Logo'}
+                  className="max-h-14 max-w-[150px] object-contain mx-auto"
+                />
+              </div>
+            )}
+
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-border pb-4">
               <div>
