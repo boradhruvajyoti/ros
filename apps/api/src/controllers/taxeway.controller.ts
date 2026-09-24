@@ -28,49 +28,20 @@ interface EWayBillRecord {
   status: 'ACTIVE_IN_TRANSIT' | 'DELIVERED_CLOSED';
 }
 
-const mockInvoices: EInvoiceRecord[] = [
-  {
-    id: 'EINV-01',
-    invoiceNumber: 'INV-2026-B2B-049',
-    irnHash: '8e4f129c78b4a03e54f9d21c081e74a89bc213ef5421a7cd9812e45bf0912ab4',
-    ackNumber: '112233445566778',
-    buyerName: 'Tata Consultancy Services Ltd (Corporate Event)',
-    buyerGstin: '27AAACT2727Q1ZW',
-    taxableValueINR: 180000,
-    cgstINR: 4500,
-    sgstINR: 4500,
-    totalInvoiceValueINR: 189000,
-    qrPayload: 'GSTIN:27AABCT3514Q1Z8|INV:INV-2026-B2B-049|AMT:189000|IRN:8e4f...',
-    status: 'IRN_GENERATED',
-    generatedAt: '2026-09-22 18:30:14'
-  }
-];
-
-const mockEwayBills: EWayBillRecord[] = [
-  {
-    id: 'EWAY-01',
-    ewayBillNumber: '241088921455',
-    transferSlipId: 'TRF-COMM-004',
-    fromLocation: 'Central Commissary Warehouse (Bhiwandi)',
-    toLocation: 'Spice Garden Flagship (Bandra)',
-    vehicleNumber: 'MH-04-AZ-8812',
-    cargoValueINR: 320000,
-    validUntil: '2026-09-24 23:59:00',
-    status: 'ACTIVE_IN_TRANSIT'
-  }
-];
+const mockInvoices: EInvoiceRecord[] = [];
+const mockEwayBills: EWayBillRecord[] = [];
 
 export const getTaxOverview = async (req: Request, res: Response) => {
   return res.json({
     success: true,
     data: {
       portalStatus: 'NIC_GSTN_PORTAL_ACTIVE',
-      digitalSignatureStatus: 'DSC_VALID_2028',
+      digitalSignatureStatus: 'DSC_READY',
       monthlyTaxLiabilityINR: {
-        cgstPayable: 142800,
-        sgstPayable: 142800,
-        inputTaxCreditAvailable: 94500,
-        netPayableINR: 191100
+        cgstPayable: 0,
+        sgstPayable: 0,
+        inputTaxCreditAvailable: 0,
+        netPayableINR: 0
       },
       eInvoices: mockInvoices,
       ewayBills: mockEwayBills

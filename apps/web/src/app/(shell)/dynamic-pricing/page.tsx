@@ -38,71 +38,8 @@ interface BCGItem {
   strategy: string;
 }
 
-const INITIAL_RULES: SurgeRule[] = [
-  {
-    id: 'R1',
-    name: 'Weekend Prime Dinner Yield',
-    condition: 'Fri-Sun 19:30 - 22:30 & Occupancy > 85%',
-    multiplier: '+10%',
-    isActive: true,
-    affected: 'Starters & Chef Specials'
-  },
-  {
-    id: 'R2',
-    name: 'Weekday Afternoon Happy Hour',
-    condition: 'Mon-Thu 15:00 - 18:00 & Occupancy < 40%',
-    multiplier: '-15%',
-    isActive: true,
-    affected: 'Appetizers & Mocktails'
-  },
-  {
-    id: 'R3',
-    name: 'Monsoon Delivery Spike Surge',
-    condition: 'Weather = Heavy Rain & Delivery Velocity > 35/hr',
-    multiplier: '+12%',
-    isActive: false,
-    affected: 'Hot Soups, Biryanis, Chai'
-  }
-];
-
-const BCG_ITEMS: BCGItem[] = [
-  {
-    id: 'B1',
-    name: 'Hyderabadi Dum Biryani',
-    salesCount: 840,
-    marginPercent: 68.5,
-    price: 450,
-    quadrant: 'STAR',
-    strategy: '🌟 Star: High Profit & High Volume. Maintain strict recipe consistency and hero placement.'
-  },
-  {
-    id: 'B2',
-    name: 'Butter Chicken & Naan Platter',
-    salesCount: 920,
-    marginPercent: 44.2,
-    price: 380,
-    quadrant: 'PLOWHORSE',
-    strategy: '🐎 Plowhorse: High Volume & Lower Margin. Increase price by ₹25 or optimize butter/cashew yield.'
-  },
-  {
-    id: 'B3',
-    name: 'Truffle Galouti Kebab',
-    salesCount: 120,
-    marginPercent: 74.0,
-    price: 520,
-    quadrant: 'PUZZLE',
-    strategy: '🧩 Puzzle: High Profit & Low Volume. Upsell through captains and introduce a tasting portion.'
-  },
-  {
-    id: 'B4',
-    name: 'Stuffed Baked Mushrooms',
-    salesCount: 65,
-    marginPercent: 36.0,
-    price: 290,
-    quadrant: 'DOG',
-    strategy: '🐕 Dog: Low Profit & Low Volume. Remove from upcoming seasonal menu revision to reduce prep waste.'
-  }
-];
+const INITIAL_RULES: SurgeRule[] = [];
+const BCG_ITEMS: BCGItem[] = [];
 
 export default function DynamicPricingPage() {
   const [rules, setRules] = useState<SurgeRule[]>(INITIAL_RULES);

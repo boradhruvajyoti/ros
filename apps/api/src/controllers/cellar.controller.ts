@@ -15,64 +15,7 @@ interface WineBottle {
   tasteNotes: string;
 }
 
-const mockCellar: WineBottle[] = [
-  {
-    id: 'WINE-01',
-    name: 'Château Margaux Premier Grand Cru',
-    winery: 'Château Margaux',
-    vintage: 2015,
-    region: 'Bordeaux (Margaux)',
-    country: 'France',
-    varietal: 'Cabernet Sauvignon / Merlot Blend',
-    rfidBinRack: 'Vault Rack A-04 (Climate Zone 1)',
-    stockCount: 14,
-    bottlePriceINR: 78000,
-    sommelierPairings: ['Wagyu Ribeye', 'Slow Braised Lamb Shank', 'Aged Truffle Gouda'],
-    tasteNotes: 'Vibrant blackcurrant, cedar wood, violet florals with velvety structured tannins.'
-  },
-  {
-    id: 'WINE-02',
-    name: 'Sula Rasa Cabernet Sauvignon',
-    winery: 'Sula Vineyards Reserve',
-    vintage: 2020,
-    region: 'Nashik Valley',
-    country: 'India',
-    varietal: 'Cabernet Sauvignon',
-    rfidBinRack: 'Rack B-12 (Climate Zone 2)',
-    stockCount: 38,
-    bottlePriceINR: 4200,
-    sommelierPairings: ['Hyderabadi Dum Biryani', 'Mutton Galouti Kebab', 'Tandoori Raan'],
-    tasteNotes: 'Rich notes of ripe blackberries, dark chocolate, tobacco, aged 14 months in French oak.'
-  },
-  {
-    id: 'WINE-03',
-    name: 'Cloudy Bay Sauvignon Blanc',
-    winery: 'Cloudy Bay Vineyards',
-    vintage: 2022,
-    region: 'Marlborough',
-    country: 'New Zealand',
-    varietal: 'Sauvignon Blanc',
-    rfidBinRack: 'Chilled Vault C-01 (10.5°C)',
-    stockCount: 22,
-    bottlePriceINR: 8500,
-    sommelierPairings: ['Pan Seared Sea Bass', 'Burrata with Heirloom Tomatoes', 'Lemon Butter Prawns'],
-    tasteNotes: 'Zesty lime, passionfruit, lemongrass, vibrant acidity with a crisp mineral finish.'
-  },
-  {
-    id: 'WINE-04',
-    name: 'Dom Pérignon Vintage Brut Champagne',
-    winery: 'Moët & Chandon',
-    vintage: 2013,
-    region: 'Champagne',
-    country: 'France',
-    varietal: 'Chardonnay / Pinot Noir',
-    rfidBinRack: 'Champagne Cellar D-02 (9.0°C)',
-    stockCount: 9,
-    bottlePriceINR: 34000,
-    sommelierPairings: ['Lobster Thermidor', 'Caviar Blinis', 'Truffle French Fries'],
-    tasteNotes: 'Aromas of toasted brioche, white peach, crushed stone minerals and microscopic effervescence.'
-  }
-];
+const mockCellar: WineBottle[] = [];
 
 export const getCellarInventory = async (req: Request, res: Response) => {
   const totalBottles = mockCellar.reduce((acc, w) => acc + w.stockCount, 0);
@@ -82,8 +25,8 @@ export const getCellarInventory = async (req: Request, res: Response) => {
     success: true,
     data: {
       cellarClimate: {
-        ambientTempC: 13.2,
-        humidityPercent: 68,
+        ambientTempC: 13.0,
+        humidityPercent: 65,
         status: 'OPTIMAL_AGING'
       },
       metrics: {

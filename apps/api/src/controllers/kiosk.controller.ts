@@ -6,48 +6,27 @@ import { Request, Response } from 'express';
 import { sendSuccess } from '../middlewares/error.middleware';
 import { getIO } from '../socket';
 
+import { prisma } from '../lib/prisma';
+
 export class KioskController {
   static async getKioskMenu(req: Request, res: Response): Promise<void> {
-    const categories = [
-      { id: 'cat-combos', name: 'Meal Combos & Value Boxes', icon: 'Sparkles' },
-      { id: 'cat-burgers', name: 'Biryani & Bowls', icon: 'Utensils' },
-      { id: 'cat-starters', name: 'Hot Starters & Wings', icon: 'Flame' },
-      { id: 'cat-drinks', name: 'Beverages & Shakes', icon: 'Coffee' },
-      { id: 'cat-desserts', name: 'Desserts & Ice Cream', icon: 'Heart' },
-    ];
+    const tenantId = req.user?.tid;
+    if (!tenantId) {
+      sendSuccess(res, { categories: [], popularCombos: [] });
+      return;
+    }
 
-    const popularCombos = [
-      {
-        id: 'combo-01',
-        name: 'Royal Biryani Meal for 1',
-        description: 'Chicken Dum Biryani + Fresh Lime Soda + 1 Gulab Jamun',
-        price: 399,
-        originalPrice: 480,
-        imageUrl: '/images/combo1.jpg',
-        calories: '650 kcal',
-        foodType: 'NON_VEG',
-      },
-      {
-        id: 'combo-02',
-        name: 'Makhani Feast Combo',
-        description: 'Paneer Tikka Makhani + 2 Butter Naan + Mango Lassi',
-        price: 349,
-        originalPrice: 420,
-        imageUrl: '/images/combo2.jpg',
-        calories: '580 kcal',
-        foodType: 'VEG',
-      },
-      {
-        id: 'combo-03',
-        name: 'Family Tandoor Platter',
-        description: 'Paneer Tikka (Full) + Chicken 65 (Full) + 4 Naans + 2 Lassi',
-        price: 999,
-        originalPrice: 1250,
-        imageUrl: '/images/combo3.jpg',
-        calories: '1450 kcal',
-        foodType: 'NON_VEG',
-      },
-    ];
+    const categories = await prisma.menuCategory.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    const popularCombos = await prisma.menuItem.findMany({
+      where: { tenantId, isActive: true },
+      include: { variants: true },
+      take: 10,
+    });
 
     sendSuccess(res, { categories, popularCombos });
   }

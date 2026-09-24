@@ -13,41 +13,7 @@ interface RobotUnit {
   uptimeHours: number;
 }
 
-const mockRobots: RobotUnit[] = [
-  {
-    id: 'ROBOT-01',
-    name: 'Bella #1 (Fluffy)',
-    model: 'BellaBot Pro',
-    batteryPercent: 88,
-    status: 'DELIVERING_TO_TABLE',
-    currentLocation: 'Aisle B (Main Dining)',
-    targetDestination: 'Table 14',
-    assignedOrder: '#4092 (Truffle Risotto & Mocktails)',
-    deliveredTripsToday: 64,
-    uptimeHours: 6.5
-  },
-  {
-    id: 'ROBOT-02',
-    name: 'Pudu #2 (Speedy)',
-    model: 'PuduBot 2',
-    batteryPercent: 74,
-    status: 'IDLE_DOCK',
-    currentLocation: 'Kitchen Charging Bay 1',
-    deliveredTripsToday: 51,
-    uptimeHours: 5.8
-  },
-  {
-    id: 'ROBOT-03',
-    name: 'Keenon #3 (Titan)',
-    model: 'Keenon DinerBot',
-    batteryPercent: 92,
-    status: 'RETURNING_TO_KITCHEN',
-    currentLocation: 'Aisle D (Booth Section)',
-    targetDestination: 'Kitchen Pass',
-    deliveredTripsToday: 47,
-    uptimeHours: 5.2
-  }
-];
+const mockRobots: RobotUnit[] = [];
 
 export const getRoboticsFleet = async (req: Request, res: Response) => {
   return res.json({
@@ -55,7 +21,7 @@ export const getRoboticsFleet = async (req: Request, res: Response) => {
     data: {
       activeFleetCount: mockRobots.length,
       totalDeliveriesToday: mockRobots.reduce((acc, r) => acc + r.deliveredTripsToday, 0),
-      fleetBatteryAvg: Math.round(mockRobots.reduce((acc, r) => acc + r.batteryPercent, 0) / mockRobots.length),
+      fleetBatteryAvg: mockRobots.length > 0 ? Math.round(mockRobots.reduce((acc, r) => acc + r.batteryPercent, 0) / mockRobots.length) : 0,
       fleet: mockRobots
     }
   });
