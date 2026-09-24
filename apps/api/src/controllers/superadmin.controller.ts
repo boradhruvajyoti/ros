@@ -210,15 +210,35 @@ export class SuperAdminController {
   static async listTenants(req: Request, res: Response): Promise<void> {
     const tenants = await prisma.tenant.findMany({
       include: {
-        branches: true,
+        branches: {
+          select: { id: true, name: true, isActive: true, timezone: true, currency: true },
+        },
         _count: {
           select: { users: true, orders: true, restaurantTables: true },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
-    sendSuccess(res, tenants);
+
+    const sanitized = tenants.map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      plan: t.plan,
+      status: t.status,
+      logoUrl: t.logoUrl,
+      branchesCount: t.branches.length,
+      branches: t.branches,
+      usersCount: t._count.users,
+      ordersCount: t._count.orders,
+      tablesCount: t._count.restaurantTables,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    }));
+
+    sendSuccess(res, sanitized);
   }
+
 
   static async provisionTenant(req: Request, res: Response): Promise<void> {
     const { name, slug, plan, adminEmail, adminName, adminPassword } = req.body;

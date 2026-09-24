@@ -421,6 +421,29 @@ export class AuthService {
       { expiresIn: ACCESS_EXPIRY as any }
     );
 
+    if (isSuperAdmin && user.tenantId !== targetTenantId) {
+      try {
+        await prisma.auditLog.create({
+          data: {
+            tenantId: targetTenantId,
+            branchId: branch.id,
+            userId: user.id,
+            action: 'PLATFORM_SUPERADMIN_ACCESS',
+            entity: 'TenantWorkspace',
+            entityId: targetTenantId,
+            newValue: JSON.stringify({
+              operatorEmail: user.email,
+              operatorName: user.name,
+              reason: 'SuperAdmin workspace impersonation',
+              timestamp: new Date().toISOString(),
+            }),
+          },
+        });
+      } catch (auditErr) {
+        console.warn('Audit logging error:', auditErr);
+      }
+    }
+
     return {
       accessToken,
       tenant: {
