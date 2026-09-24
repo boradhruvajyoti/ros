@@ -213,6 +213,141 @@ export class OrderService {
     });
   }
 
+  // ── Update Order Items (Before Sending to Kitchen) ─────────────────────────
+  async updateOrderItems(
+    orderId: string,
+    dto: {
+      items: Array<{ menuItemId: string; variantId?: string; quantity: number; notes?: string; modifierIds?: string[] }>;
+      sendToKitchen?: boolean;
+      notes?: string;
+    },
+    userId: string
+  ): Promise<any> {
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tenantId: this.tenantId },
+      include: { items: true },
+    });
+
+    if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
+
+    if (!['DRAFT', 'CONFIRMED'].includes(order.status)) {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        `Cannot modify items for an order in status ${order.status}. Only un-dispatched orders (Draft / Pending) can be modified.`,
+        400
+      );
+    }
+
+    const menuItemIds = dto.items.map((i) => i.menuItemId);
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds }, tenantId: this.tenantId, isActive: true },
+      include: { variants: true },
+    });
+
+    const itemMap = new Map(menuItems.map((m) => [m.id, m]));
+
+    const allModifierIds = dto.items.flatMap((i) => i.modifierIds || []);
+    const modifiers = allModifierIds.length > 0
+      ? await prisma.modifier.findMany({ where: { id: { in: allModifierIds } } })
+      : [];
+    const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
+
+    let subtotal = 0;
+    const orderItemsData = dto.items.map((item) => {
+      const menuItem = itemMap.get(item.menuItemId);
+      if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
+
+      const variant = (item.variantId ? menuItem.variants.find((v) => v.id === item.variantId) : null) || menuItem.variants[0];
+
+      const itemModifiers = (item.modifierIds || []).map((mid) => {
+        const mod = modifierMap.get(mid);
+        if (!mod) throw new AppError(ErrorCodes.NOT_FOUND, `Modifier ${mid} not found`);
+        return { modifierId: mod.id, name: mod.name, price: toAmount(mod.price) };
+      });
+
+      const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
+      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : 0;
+      const lineTotal = multiplyAmount(unitPrice, item.quantity);
+      subtotal = addAmounts(subtotal, lineTotal);
+
+      return {
+        menuItemId: item.menuItemId,
+        variantId: variant?.id || null,
+        quantity: item.quantity,
+        unitPrice,
+        lineTotal,
+        notes: item.notes,
+        modifiers: itemModifiers,
+        kitchenStationId: menuItem.kitchenStationId,
+      };
+    });
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: this.tenantId },
+      select: { settings: true },
+    });
+    let taxRate = 0;
+    if (tenant?.settings) {
+      try {
+        const parsed = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : tenant.settings;
+        if (parsed?.taxRate !== undefined) taxRate = Number(parsed.taxRate) || 0;
+      } catch {}
+    }
+    const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
+    const total = toAmount(addAmounts(subtotal, taxAmount));
+
+    const effectiveBranchId = order.branchId || this.branchId;
+
+    return prisma.$transaction(async (tx) => {
+      await tx.orderItemModifier.deleteMany({
+        where: { orderItem: { orderId } },
+      });
+      await tx.orderItem.deleteMany({
+        where: { orderId },
+      });
+
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          subtotal,
+          taxAmount,
+          total,
+          notes: dto.notes !== undefined ? dto.notes : order.notes,
+          status: dto.sendToKitchen ? 'SENT_TO_KITCHEN' : order.status,
+          updatedBy: userId,
+          items: {
+            create: orderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
+              ...itemData,
+              modifiers: {
+                create: modifiers.map((m) => ({
+                  modifierId: m.modifierId,
+                  name: m.name,
+                  price: m.price,
+                })),
+              },
+            })),
+          },
+        },
+        include: this.orderInclude(),
+      });
+
+      if (dto.sendToKitchen) {
+        await this.generateKots(orderId, tx as any, effectiveBranchId);
+        emitToRoom(this.tenantId, effectiveBranchId, {
+          type: 'ORDER_STATUS_CHANGED',
+          payload: { orderId, orderNumber: order.orderNumber, status: 'SENT_TO_KITCHEN' },
+        });
+      }
+
+      emitToRoom(this.tenantId, effectiveBranchId, {
+        type: 'ORDER_UPDATED',
+        payload: { orderId, orderNumber: order.orderNumber, total, itemCount: orderItemsData.length },
+      });
+
+      return updatedOrder;
+    });
+  }
+
   // ── State Transition ───────────────────────────────────────────────────────
   async updateStatus(orderId: string, dto: UpdateOrderStatusDto): Promise<any> {
     const order = await prisma.order.findFirst({

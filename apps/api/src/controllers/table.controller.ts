@@ -116,7 +116,16 @@ export class TableController {
       }
     }
 
-    sendSuccess(res, tables);
+    const tablesWithSession = tables.map((t) => {
+      const session = generateGuestSessionToken(t);
+      return {
+        ...t,
+        guestSessionToken: session.guestSessionToken,
+        qrUrlSuffix: `?session=${session.guestSessionToken}`,
+      };
+    });
+
+    sendSuccess(res, tablesWithSession);
   }
 
   static async create(req: Request, res: Response): Promise<void> {
@@ -192,7 +201,15 @@ export class TableController {
       where: { id: req.params.id },
       data: { qrCodeToken: token },
     });
-    sendSuccess(res, { token, qrCodeToken: token, tableId: table.id, tableName: table.name });
+    const sessionInfo = generateGuestSessionToken(table);
+    sendSuccess(res, {
+      token,
+      qrCodeToken: token,
+      tableId: table.id,
+      tableName: table.name,
+      guestSessionToken: sessionInfo.guestSessionToken,
+      qrUrlSuffix: `?session=${sessionInfo.guestSessionToken}`,
+    });
   }
 
   // ── Public Guest QR Endpoints (No Auth Required) ─────────────────────────
@@ -249,11 +266,31 @@ export class TableController {
       orderBy: { createdAt: 'desc' },
     });
 
-    const sessionInfo = generateGuestSessionToken(table);
+    const rawSession = (req.query.session || req.query.token || req.query.diningToken || req.headers['x-guest-session-token']) as string | undefined;
+
+    let canOrder = false;
+    let validSessionToken: string | null = null;
+    let sessionExpiresAt: number | null = null;
+
+    if (rawSession && typeof rawSession === 'string') {
+      try {
+        const decoded = jwt.verify(rawSession, JWT_SECRET) as any;
+        if (
+          decoded.type === 'QR_GUEST_SESSION' &&
+          decoded.tableId === table.id &&
+          decoded.tenantId === table.tenantId
+        ) {
+          canOrder = true;
+          validSessionToken = rawSession;
+          sessionExpiresAt = decoded.sessionExpiresAt || (decoded.exp ? decoded.exp * 1000 : null);
+        }
+      } catch {}
+    }
 
     sendSuccess(res, {
-      guestSessionToken: sessionInfo.guestSessionToken,
-      sessionExpiresAt: sessionInfo.sessionExpiresAt,
+      canOrder,
+      guestSessionToken: validSessionToken,
+      sessionExpiresAt,
       sessionDurationMinutes: 45,
       table: {
         id: table.id,

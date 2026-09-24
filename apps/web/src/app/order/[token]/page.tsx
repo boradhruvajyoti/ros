@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag, CheckCircle2,
   Clock, Sparkles, ChefHat, Phone, MapPin, AlertCircle, ArrowRight,
-  ShieldCheck, RefreshCw, Lock
+  ShieldCheck, RefreshCw, Lock, Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v
 
 export default function PublicTableOrderPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const token = (params?.token as string) || '';
+  const urlSession = searchParams
+    ? (searchParams.get('session') || searchParams.get('token') || searchParams.get('diningToken'))
+    : null;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +37,10 @@ export default function PublicTableOrderPage() {
   const fetchTableData = () => {
     if (!token) return;
     setLoading(true);
-    fetch(`${API_BASE}/tables/public/qr/${token}`)
+    const sessionParam = urlSession || guestSessionToken;
+    const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
+
+    fetch(`${API_BASE}/tables/public/qr/${token}${query}`)
       .then((res) => {
         if (!res.ok) throw new Error('Table QR token not found or expired');
         return res.json();
@@ -58,8 +65,10 @@ export default function PublicTableOrderPage() {
   useEffect(() => {
     if (!token) return;
     let isMounted = true;
+    const sessionParam = urlSession;
+    const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
 
-    fetch(`${API_BASE}/tables/public/qr/${token}`)
+    fetch(`${API_BASE}/tables/public/qr/${token}${query}`)
       .then((res) => {
         if (!res.ok) throw new Error('Table QR token not found or expired');
         return res.json();
@@ -84,7 +93,7 @@ export default function PublicTableOrderPage() {
     return () => {
       isMounted = false;
     };
-  }, [token]);
+  }, [token, urlSession]);
 
   // Real-time 45-min Session Timer countdown
   useEffect(() => {
@@ -107,7 +116,9 @@ export default function PublicTableOrderPage() {
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/tables/public/qr/${token}`);
+        const sessionParam = guestSessionToken || urlSession;
+        const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
+        const res = await fetch(`${API_BASE}/tables/public/qr/${token}${query}`);
         if (!res.ok) return;
         const json = await res.json();
         if (json.data) {
@@ -123,15 +134,16 @@ export default function PublicTableOrderPage() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [token, orderPlaced?.id]);
+  }, [token, guestSessionToken, urlSession, orderPlaced?.id]);
 
   const isSessionExpired = sessionExpiresAt ? Date.now() > sessionExpiresAt : false;
+  const canOrder = Boolean(tableData?.canOrder && guestSessionToken && !isSessionExpired);
   const minutesLeft = Math.floor(timeRemainingSeconds / 60);
   const secondsLeft = timeRemainingSeconds % 60;
 
   const addToCart = (item: any) => {
-    if (isSessionExpired) {
-      alert('Your 45-minute dining session has expired. Please refresh or re-scan your table QR standee.');
+    if (!canOrder) {
+      alert('Please scan the QR code at your dining table to unlock ordering.');
       return;
     }
     const variant = item.variants?.[0];
@@ -173,8 +185,8 @@ export default function PublicTableOrderPage() {
 
   const handlePlaceOrder = async () => {
     if (cartList.length === 0) return;
-    if (isSessionExpired || !guestSessionToken) {
-      alert('Your 45-minute dining session has expired for security. Please re-scan your table QR standee.');
+    if (!canOrder || !guestSessionToken) {
+      alert('Ordering is only available when scanning the QR code inside the restaurant.');
       return;
     }
 
@@ -273,42 +285,24 @@ export default function PublicTableOrderPage() {
           </div>
         </div>
 
-        {/* 45-Minute Unique Guest Session Security Indicator */}
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-muted/60 border border-border text-[11px]">
-          <div className="flex items-center gap-1.5 font-bold text-muted-foreground">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span className="truncate">In-Restaurant QR Session</span>
-          </div>
-          <div className="flex items-center gap-1 shrink-0 font-mono">
-            {isSessionExpired ? (
-              <span className="text-rose-500 font-black flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Expired
-              </span>
-            ) : (
-              <span className={cn(
-                'font-bold',
-                minutesLeft < 10 ? 'text-amber-500' : 'text-emerald-500'
-              )}>
-                ⏳ {minutesLeft}m {secondsLeft < 10 ? `0${secondsLeft}` : secondsLeft}s
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Session Expired Banner Notice */}
-        {isSessionExpired && (
-          <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 flex items-center justify-between gap-2 animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>45-min session expired for security.</span>
+        {/* Security & Access State Indicator */}
+        {canOrder ? (
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px]">
+            <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">In-Restaurant Session Active</span>
             </div>
-            <button
-              type="button"
-              onClick={fetchTableData}
-              className="px-2.5 py-1 rounded-lg bg-rose-500 text-white font-bold text-[11px] shrink-0 hover:bg-rose-600 flex items-center gap-1 cursor-pointer"
-            >
-              <RefreshCw className="w-3 h-3" /> Refresh
-            </button>
+            <div className="flex items-center gap-1 shrink-0 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              ⏳ {minutesLeft}m {secondsLeft < 10 ? `0${secondsLeft}` : secondsLeft}s
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-900 dark:text-amber-200">
+            <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
+              <Eye className="w-3.5 h-3.5 shrink-0" />
+              <span>View-Only Digital Menu</span>
+            </div>
+            <span className="text-[10px] opacity-90 font-medium">Scan Table QR to Order</span>
           </div>
         )}
 
@@ -518,14 +512,16 @@ export default function PublicTableOrderPage() {
                 </div>
               </div>
 
-              {/* Order More Items Action */}
-              <Button
-                onClick={() => setViewTab('MENU')}
-                className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add More Dishes to this Table</span>
-              </Button>
+              {/* Order More Items Action (if session is active) */}
+              {canOrder && (
+                <Button
+                  onClick={() => setViewTab('MENU')}
+                  className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add More Dishes to this Table</span>
+                </Button>
+              )}
             </div>
           ) : (
             <div className="py-16 text-center space-y-3 bg-card rounded-3xl border border-border p-6">
@@ -534,7 +530,9 @@ export default function PublicTableOrderPage() {
               </div>
               <h3 className="text-base font-black text-foreground">No Active Orders Yet</h3>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                Browse our delicious menu and place an order directly from your phone.
+                {canOrder
+                  ? 'Browse our delicious menu and place an order directly from your phone.'
+                  : 'Browse our menu below. To order, please scan the QR standee on your dining table.'}
               </p>
               <Button
                 onClick={() => setViewTab('MENU')}
@@ -620,33 +618,38 @@ export default function PublicTableOrderPage() {
                     <p className="text-xs font-black text-primary font-mono">{formatCurrency(price)}</p>
                   </div>
 
-                  {/* Add / Counter Controls */}
+                  {/* Ordering Controls vs View-Only Badge */}
                   <div className="shrink-0">
-                    {inCart ? (
-                      <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-xs font-black text-primary px-1">{inCart.qty}</span>
-                        <button
+                    {canOrder ? (
+                      inCart ? (
+                        <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
+                          <button
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-xs font-black text-primary px-1">{inCart.qty}</span>
+                          <button
+                            onClick={() => addToCart(item)}
+                            className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
                           onClick={() => addToCart(item)}
-                          className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer"
+                          className="h-8 text-xs font-bold rounded-xl gap-1 bg-primary text-primary-foreground cursor-pointer"
                         >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                          <Plus className="w-3.5 h-3.5" /> Add
+                        </Button>
+                      )
                     ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => addToCart(item)}
-                        disabled={isSessionExpired}
-                        className="h-8 text-xs font-bold rounded-xl gap-1 bg-primary text-primary-foreground cursor-pointer disabled:opacity-50"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Add
-                      </Button>
+                      <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-xl border border-border">
+                        View Only
+                      </span>
                     )}
                   </div>
                 </div>
@@ -664,8 +667,8 @@ export default function PublicTableOrderPage() {
         </main>
       )}
 
-      {/* Floating Bottom Cart Bar (When Items Added) */}
-      {cartList.length > 0 && (
+      {/* Floating Bottom Cart Bar (Only when In-Store Session is Active) */}
+      {canOrder && cartList.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-4 bg-card/95 backdrop-blur-lg border-t border-border shadow-2xl z-40 space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-foreground flex items-center gap-1.5">
@@ -697,11 +700,11 @@ export default function PublicTableOrderPage() {
               await handlePlaceOrder();
               setViewTab('LIVE_STATUS');
             }}
-            disabled={isSubmitting || isSessionExpired}
-            className="w-full h-12 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer disabled:opacity-50"
+            disabled={isSubmitting}
+            className="w-full h-12 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer"
           >
             <UtensilsCrossed className="w-4 h-4" />
-            {isSubmitting ? 'Sending to Kitchen...' : isSessionExpired ? 'Session Expired (Re-scan QR)' : 'Send Order to Kitchen'}
+            {isSubmitting ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}
           </Button>
         </div>
       )}

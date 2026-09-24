@@ -92,6 +92,11 @@ export async function apiPatch<T>(url: string, data?: unknown): Promise<T> {
   return res.data.data;
 }
 
+export async function apiPut<T>(url: string, data?: unknown): Promise<T> {
+  const res = await api.put<ApiSuccess<T>>(url, data);
+  return res.data.data;
+}
+
 export async function apiDelete<T = void>(url: string): Promise<T> {
   const res = await api.delete<ApiSuccess<T>>(url);
   return res.data.data;

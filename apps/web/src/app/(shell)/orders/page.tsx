@@ -1,18 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, RefreshCw, Eye, Receipt, CheckCircle,
   Clock, XCircle, Download, LayoutGrid, List,
   Printer, ArrowRight, UtensilsCrossed, AlertCircle,
-  Volume2, CreditCard, Banknote, QrCode, User, Check, AlertTriangle
+  Volume2, CreditCard, Banknote, QrCode, User, Check, AlertTriangle,
+  Plus, Minus, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPatch } from '@/lib/api';
+import { apiGet, apiPatch, apiPut } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@ros/utils';
 import { format } from 'date-fns';
@@ -35,11 +36,13 @@ const STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: string; 
 interface OrderItem {
   id: string;
   name?: string;
+  menuItemId?: string;
+  variantId?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  menuItem?: { name: string; foodType?: string };
-  variant?: { name: string };
+  menuItem?: { id?: string; name: string; foodType?: string };
+  variant?: { id?: string; name: string };
   notes?: string;
 }
 
@@ -52,6 +55,7 @@ interface Order {
   taxAmount?: number;
   discountAmount?: number;
   total: number;
+  notes?: string;
   table?: { name: string };
   customer?: { name: string; phone?: string };
   items?: OrderItem[];
@@ -68,11 +72,34 @@ export default function OrdersPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [verifyingOrder, setVerifyingOrder] = useState<Order | null>(null);
+  const [editableItems, setEditableItems] = useState<any[]>([]);
+  const [selectedAddDishId, setSelectedAddDishId] = useState<string>('');
 
   const { data: tenant } = useQuery({
     queryKey: ['current-tenant'],
     queryFn: () => apiGet<any>('/tenants/current'),
   });
+
+  const { data: menuItems = [] } = useQuery<any[]>({
+    queryKey: ['menu', 'items'],
+    queryFn: () => apiGet<any[]>('/menu/items'),
+  });
+
+  useEffect(() => {
+    if (verifyingOrder) {
+      setEditableItems(
+        (verifyingOrder.items || []).map((it) => ({
+          ...it,
+          menuItemId: it.menuItemId || it.menuItem?.id,
+          variantId: it.variantId || it.variant?.id,
+          name: it.menuItem?.name || it.name || 'Dish',
+          unitPrice: Number(it.unitPrice || 0),
+          quantity: Number(it.quantity || 1),
+        }))
+      );
+      setSelectedAddDishId('');
+    }
+  }, [verifyingOrder]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['orders', statusFilter, typeFilter],
@@ -95,11 +122,36 @@ export default function OrdersPage() {
     onSuccess: (_, vars) => {
       toast.success('Status Updated', `Order changed to ${vars.status}`);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
       if (selectedOrder && selectedOrder.id === vars.orderId) {
         setSelectedOrder((prev) => prev ? { ...prev, status: vars.status } : null);
       }
     },
     onError: () => toast.error('Update Failed', 'Could not update order status'),
+  });
+
+  const updateOrderItemsMutation = useMutation({
+    mutationFn: ({ orderId, items, sendToKitchen }: { orderId: string; items: any[]; sendToKitchen?: boolean }) =>
+      apiPut(`/orders/${orderId}/items`, {
+        items: items.map((i) => ({
+          menuItemId: i.menuItemId || i.id,
+          variantId: i.variantId,
+          quantity: i.quantity || 1,
+          notes: i.notes,
+        })),
+        sendToKitchen,
+      }),
+    onSuccess: (_, vars) => {
+      toast.success(
+        vars.sendToKitchen ? 'Order Sent to Kitchen' : 'Order Updated',
+        vars.sendToKitchen ? 'Dispatched to kitchen stations & KOT generated.' : 'Order items updated.'
+      );
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['kds-kots'] });
+      setVerifyingOrder(null);
+    },
+    onError: (err: any) => toast.error('Update Failed', err.message || 'Could not update order items'),
   });
 
   const handleAdvanceStatus = (order: Order, targetStatus: string) => {
@@ -857,77 +909,248 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* PHYSICAL PRESENCE VERIFICATION MODAL FOR QR ORDERS */}
+      {/* PHYSICAL PRESENCE & ORDER MODIFICATION MODAL FOR QR / PENDING ORDERS */}
       {verifyingOrder && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border-2 border-amber-500/50 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto text-2xl shadow-inner">
-                ⚠️
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-card border-2 border-primary/40 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 my-8">
+            <div className="flex items-center justify-between pb-2 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center text-xl font-bold shadow-inner">
+                  🍳
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-foreground">Review & Edit Order</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Order <span className="font-mono font-bold text-foreground">#{verifyingOrder.orderNumber}</span> • <strong className="text-foreground">{verifyingOrder.table ? `Table ${verifyingOrder.table.name}` : 'Dine-In Table'}</strong>
+                  </p>
+                </div>
               </div>
-              <h3 className="text-lg font-black text-foreground">Verify Guest Physical Presence</h3>
-              <p className="text-xs text-muted-foreground">
-                Order <span className="font-mono font-bold text-foreground">#{verifyingOrder.orderNumber}</span> for <strong className="text-foreground">{verifyingOrder.table ? `Table ${verifyingOrder.table.name}` : 'Dine-In Table'}</strong>
-              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVerifyingOrder(null)}
+                className="h-8 w-8 p-0 rounded-full text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </Button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 text-amber-900 dark:text-amber-200">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1 text-amber-900 dark:text-amber-200">
               <p className="font-bold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
-                Please look at the table before confirming!
+                Staff Order Customization & Presence Verification
               </p>
               <p className="text-[11px] leading-relaxed opacity-90">
-                To prevent fake orders from saved photos or remote scans, verify that guests are physically seated at <strong>{verifyingOrder.table?.name || 'this table'}</strong> before dispatching tickets to the kitchen.
+                Verify guest presence at <strong>{verifyingOrder.table?.name || 'the table'}</strong>. You can modify quantities, delete, or add extra dishes before sending the order to kitchen stations.
               </p>
             </div>
 
-            <div className="space-y-2 text-xs border rounded-2xl p-3 bg-muted/20">
-              <div className="flex justify-between font-bold text-muted-foreground uppercase text-[10px]">
-                <span>Dish Description</span>
-                <span>Qty × Rate = Line Total</span>
+            {/* Editable Items List */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+                <span>Ordered Dishes ({editableItems.length})</span>
+                <span>Qty & Total</span>
               </div>
-              {verifyingOrder.items && verifyingOrder.items.length > 0 && (
-                <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                  {verifyingOrder.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between items-start text-[11px]">
-                      <div>
-                        <span className="font-bold">{it.quantity}x</span> {it.menuItem?.name || it.name || 'Dish'}
-                        {it.variant?.name && <span className="text-muted-foreground text-[10px]"> ({it.variant.name})</span>}
+
+              <div className="border rounded-2xl divide-y bg-muted/10 max-h-56 overflow-y-auto">
+                {editableItems.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground text-xs font-medium">
+                    No items in order. Please add dishes below or cancel.
+                  </div>
+                ) : (
+                  editableItems.map((it, idx) => {
+                    const lineTotal = (Number(it.unitPrice) || 0) * (Number(it.quantity) || 1);
+                    return (
+                      <div key={idx} className="p-3 flex items-center justify-between gap-3 hover:bg-muted/30 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-xs text-foreground truncate">{it.name || it.menuItem?.name || 'Dish'}</p>
+                          {it.variant?.name && <p className="text-[10px] text-muted-foreground">Variant: {it.variant.name}</p>}
+                          <p className="text-[11px] font-mono text-muted-foreground">
+                            {formatCurrency(it.unitPrice)} each
+                          </p>
+                        </div>
+
+                        {/* Quantity Controls */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center border rounded-xl bg-background/80 shadow-xs overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditableItems((prev) =>
+                                  prev
+                                    .map((item, i) => (i === idx ? { ...item, quantity: (item.quantity || 1) - 1 } : item))
+                                    .filter((item) => item.quantity > 0)
+                                );
+                              }}
+                              className="px-2.5 py-1 text-xs hover:bg-muted font-bold text-muted-foreground transition-colors"
+                            >
+                              -
+                            </button>
+                            <span className="px-2 font-mono font-bold text-xs">{it.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditableItems((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, quantity: (item.quantity || 1) + 1 } : item))
+                                );
+                              }}
+                              className="px-2.5 py-1 text-xs hover:bg-muted font-bold text-muted-foreground transition-colors"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <span className="w-16 text-right font-mono font-bold text-xs text-foreground">
+                            {formatCurrency(lineTotal)}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => setEditableItems((prev) => prev.filter((_, i) => i !== idx))}
+                            className="p-1.5 rounded-lg text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+                            title="Remove item"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <span className="font-mono text-muted-foreground shrink-0">
-                        {it.quantity} × {formatCurrency(it.unitPrice)} = <strong className="text-foreground">{formatCurrency(it.totalPrice || it.quantity * it.unitPrice)}</strong>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex justify-between items-center pt-2 border-t font-bold text-xs">
-                <span>Order Total:</span>
-                <span className="font-mono text-primary text-sm">{formatCurrency(verifyingOrder.total)}</span>
+                    );
+                  })
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            {/* Add New Dish to Order */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Add Dish to this Order:
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={selectedAddDishId}
+                  onChange={(e) => setSelectedAddDishId(e.target.value)}
+                  className="flex-1 h-10 px-3 rounded-xl border bg-background text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">-- Select a dish from menu --</option>
+                  {menuItems.map((mi: any) => (
+                    <option key={mi.id} value={mi.id}>
+                      {mi.name} ({formatCurrency(mi.basePrice || mi.price || 0)})
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (!selectedAddDishId) return;
+                    const item = menuItems.find((m: any) => m.id === selectedAddDishId);
+                    if (!item) return;
+                    const existingIndex = editableItems.findIndex((it) => (it.menuItemId || it.id) === item.id && !it.variantId);
+                    if (existingIndex >= 0) {
+                      setEditableItems((prev) =>
+                        prev.map((it, idx) => (idx === existingIndex ? { ...it, quantity: (it.quantity || 1) + 1 } : it))
+                      );
+                    } else {
+                      setEditableItems((prev) => [
+                        ...prev,
+                        {
+                          menuItemId: item.id,
+                          name: item.name,
+                          unitPrice: Number(item.basePrice || item.price || 0),
+                          quantity: 1,
+                          notes: '',
+                        },
+                      ]);
+                    }
+                    setSelectedAddDishId('');
+                  }}
+                  disabled={!selectedAddDishId}
+                  className="h-10 px-4 text-xs font-bold rounded-xl shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add
+                </Button>
+              </div>
+            </div>
+
+            {/* Order Summary Calculations */}
+            {(() => {
+              const subtotal = editableItems.reduce(
+                (acc, it) => acc + (Number(it.unitPrice) || 0) * (Number(it.quantity) || 1),
+                0
+              );
+              const taxRate = tenant?.taxRate !== undefined && tenant?.taxRate !== null ? Number(tenant.taxRate) : 5;
+              const taxAmount = taxRate > 0 ? (subtotal * taxRate) / 100 : 0;
+              const grandTotal = subtotal + taxAmount;
+
+              return (
+                <div className="p-3.5 rounded-2xl bg-muted/30 border space-y-1.5 text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal:</span>
+                    <span className="font-mono font-medium">{formatCurrency(subtotal)}</span>
+                  </div>
+                  {taxRate > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>GST ({taxRate}%):</span>
+                      <span className="font-mono font-medium">{formatCurrency(taxAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t font-black text-sm text-foreground">
+                    <span>New Total:</span>
+                    <span className="font-mono text-primary text-base">{formatCurrency(grandTotal)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   updateStatus.mutate({ orderId: verifyingOrder.id, status: 'CANCELLED' });
                   setVerifyingOrder(null);
                 }}
-                disabled={updateStatus.isPending}
-                className="h-11 rounded-xl text-rose-500 border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 font-bold text-xs"
+                disabled={updateStatus.isPending || updateOrderItemsMutation.isPending}
+                className="h-11 rounded-xl text-rose-500 border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 font-bold text-xs order-3 sm:order-1"
               >
-                ❌ Table Empty (Reject)
+                ❌ Cancel Order
               </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (editableItems.length === 0) {
+                    toast.error('Empty Order', 'Please add at least one dish');
+                    return;
+                  }
+                  updateOrderItemsMutation.mutate({
+                    orderId: verifyingOrder.id,
+                    items: editableItems,
+                    sendToKitchen: false,
+                  });
+                }}
+                disabled={updateOrderItemsMutation.isPending || editableItems.length === 0}
+                className="h-11 rounded-xl border-primary/40 text-primary hover:bg-primary/10 font-bold text-xs order-2"
+              >
+                💾 Save Edits
+              </Button>
+
               <Button
                 onClick={() => {
-                  updateStatus.mutate({ orderId: verifyingOrder.id, status: 'SENT_TO_KITCHEN' });
-                  setVerifyingOrder(null);
+                  if (editableItems.length === 0) {
+                    toast.error('Empty Order', 'Please add at least one dish');
+                    return;
+                  }
+                  updateOrderItemsMutation.mutate({
+                    orderId: verifyingOrder.id,
+                    items: editableItems,
+                    sendToKitchen: true,
+                  });
                 }}
-                disabled={updateStatus.isPending}
-                className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md"
+                disabled={updateOrderItemsMutation.isPending || editableItems.length === 0}
+                className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md order-1 sm:order-3"
               >
-                ✅ Guest Seated (Send)
+                🍳 Send to Kitchen
               </Button>
             </div>
           </div>

@@ -56,6 +56,19 @@ const discountSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+const updateOrderItemsSchema = z.object({
+  items: z.array(z.object({
+    menuItemId: z.string(),
+    variantId: z.string().optional(),
+    quantity: z.number().int().positive().max(999),
+    unitPrice: z.number().nonnegative().optional(),
+    notes: z.string().max(500).optional(),
+    modifierIds: z.array(z.string()).optional(),
+  })).min(1),
+  sendToKitchen: z.boolean().optional(),
+  notes: z.string().max(1000).optional(),
+});
+
 function getOrderService(req: Request): OrderService {
   return new OrderService(req.user!.tid, req.user!.bid);
 }
@@ -147,6 +160,21 @@ export class OrderController {
       entity: 'Order',
       entityId: req.params.id,
       newValue: { status: dto.status, reason: dto.reason },
+    });
+
+    sendSuccess(res, order);
+  }
+
+  static async updateItems(req: Request, res: Response): Promise<void> {
+    const dto = updateOrderItemsSchema.parse(req.body);
+    const svc = getOrderService(req);
+    const order = await svc.updateOrderItems(req.params.id, dto, req.user!.sub);
+
+    await writeAuditLog(req, {
+      action: AuditActions.ORDER_UPDATE,
+      entity: 'Order',
+      entityId: req.params.id,
+      newValue: { itemCount: dto.items.length, sendToKitchen: dto.sendToKitchen },
     });
 
     sendSuccess(res, order);

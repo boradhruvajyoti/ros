@@ -310,7 +310,8 @@ export default function TablesPage() {
   useEffect(() => {
     if (qrModalTable) {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const qrUrl = `${origin}/order/${qrModalTable.qrCodeToken || qrModalTable.id}`;
+      const suffix = (qrModalTable as any).qrUrlSuffix || ((qrModalTable as any).guestSessionToken ? `?session=${(qrModalTable as any).guestSessionToken}` : '');
+      const qrUrl = `${origin}/order/${qrModalTable.qrCodeToken || qrModalTable.id}${suffix}`;
       QRCode.toDataURL(qrUrl, {
         width: 300,
         margin: 2,
@@ -505,7 +506,8 @@ export default function TablesPage() {
 
     const cardsHtml = await Promise.all(
       tables.map(async (t) => {
-        const url = `${origin}/order/${t.qrCodeToken || t.id}`;
+        const suffix = (t as any).qrUrlSuffix || ((t as any).guestSessionToken ? `?session=${(t as any).guestSessionToken}` : '');
+        const url = `${origin}/order/${t.qrCodeToken || t.id}${suffix}`;
         const qrUrl = await QRCode.toDataURL(url, { width: 200, margin: 2 });
         return `
           <div class="standee">
@@ -786,7 +788,8 @@ export default function TablesPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  const url = `/order/${qrModalTable.qrCodeToken || qrModalTable.id}`;
+                  const suffix = (qrModalTable as any).qrUrlSuffix || ((qrModalTable as any).guestSessionToken ? `?session=${(qrModalTable as any).guestSessionToken}` : '');
+                  const url = `/order/${qrModalTable.qrCodeToken || qrModalTable.id}${suffix}`;
                   window.open(url, '_blank');
                 }}
                 className="flex-1 gap-1 text-xs font-bold"

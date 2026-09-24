@@ -26,6 +26,7 @@ export type RosEvent =
   | { type: 'RESERVATION_CONFIRMED'; payload: { reservationId: string; customerName: string; date: string; time: string } }
   | { type: 'STOCK_LOW';            payload: { ingredientId: string; name: string; currentStock: number; threshold: number } }
   | { type: 'QR_ORDER_PENDING';      payload: { orderId: string; orderNumber: string; tableId: string; tableName: string; customerName?: string; customerPhone?: string; total: number; itemCount: number } }
+  | { type: 'ORDER_UPDATED';        payload: { orderId: string; orderNumber: string; total: number; itemCount: number } }
   | { type: 'NOTIFICATION';         payload: NotificationPayload };
 
 // Socket.IO room naming convention

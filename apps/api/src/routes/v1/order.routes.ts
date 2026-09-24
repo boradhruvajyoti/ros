@@ -17,6 +17,8 @@ router.get('/active',            requirePermission('orders:view'),   asyncHandle
 router.post('/',                 requirePermission('orders:create'), asyncHandler(OrderController.create));
 router.get('/:id',               requirePermission('orders:view'),   asyncHandler(OrderController.getOne));
 router.patch('/:id/status',      requirePermission('orders:edit'),   asyncHandler(OrderController.updateStatus));
+router.put('/:id/items',         requirePermission('orders:edit'),   asyncHandler(OrderController.updateItems));
+router.patch('/:id/items',       requirePermission('orders:edit'),   asyncHandler(OrderController.updateItems));
 router.post('/:id/items',        requirePermission('orders:edit'),   asyncHandler(OrderController.addItem));
 router.delete('/:id/items/:itemId', requirePermission('orders:void'), asyncHandler(OrderController.voidItem));
 router.post('/:id/discount',     requirePermission('discount:apply'), asyncHandler(OrderController.applyDiscount));
