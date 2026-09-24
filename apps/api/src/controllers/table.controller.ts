@@ -10,6 +10,34 @@ import { emitToRoom } from '../socket';
 import { generateShortCode } from '@ros/utils';
 import { OrderService } from '../services/order.service';
 import { z } from 'zod';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'ros_jwt_secret_dev_key_change_in_production';
+
+export const generateGuestSessionToken = (table: { id: string; name: string; tenantId: string; branchId: string; qrCodeToken: string | null }) => {
+  const issuedAt = Date.now();
+  const sessionExpiresAt = issuedAt + 45 * 60 * 1000; // 45-minute strict expiration
+  const sessionNonce = crypto.randomBytes(8).toString('hex');
+
+  const guestSessionToken = jwt.sign(
+    {
+      type: 'QR_GUEST_SESSION',
+      tableId: table.id,
+      tableName: table.name,
+      tenantId: table.tenantId,
+      branchId: table.branchId,
+      qrCodeToken: table.qrCodeToken,
+      sessionNonce,
+      issuedAt,
+      sessionExpiresAt,
+    },
+    JWT_SECRET,
+    { expiresIn: '45m' }
+  );
+
+  return { guestSessionToken, sessionExpiresAt, sessionDurationMinutes: 45 };
+};
 
 const tableSchema = z.object({
   floorId: z.string().uuid().optional().nullable(),
@@ -221,7 +249,12 @@ export class TableController {
       orderBy: { createdAt: 'desc' },
     });
 
+    const sessionInfo = generateGuestSessionToken(table);
+
     sendSuccess(res, {
+      guestSessionToken: sessionInfo.guestSessionToken,
+      sessionExpiresAt: sessionInfo.sessionExpiresAt,
+      sessionDurationMinutes: 45,
       table: {
         id: table.id,
         name: table.name,
@@ -244,7 +277,7 @@ export class TableController {
 
   static async submitPublicTableOrder(req: Request, res: Response): Promise<void> {
     const { token } = req.params;
-    const { customerName, customerPhone, items, notes } = req.body;
+    const { customerName, customerPhone, items, notes, guestSessionToken } = req.body;
 
     const table = await prisma.restaurantTable.findFirst({
       where: { qrCodeToken: token, isActive: true },
@@ -252,6 +285,50 @@ export class TableController {
 
     if (!table) {
       throw new AppError(ErrorCodes.NOT_FOUND, 'Invalid table QR token', 404);
+    }
+
+    if (table.status === 'BLOCKED') {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'This table is currently blocked. Please speak with the dining host.', 403);
+    }
+
+    // ── Enforce 45-min Unique Ephemeral Guest Session Token ─────────────────
+    const sessionToken = guestSessionToken || req.headers['x-guest-session-token'];
+    if (!sessionToken || typeof sessionToken !== 'string') {
+      throw new AppError(
+        ErrorCodes.UNAUTHORIZED,
+        'Dining QR session token missing. Please scan the QR code at your dining table to place an order.',
+        401
+      );
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(sessionToken, JWT_SECRET);
+    } catch (err: any) {
+      if (err?.name === 'TokenExpiredError') {
+        throw new AppError(
+          ErrorCodes.UNAUTHORIZED,
+          'Your 45-minute dining QR session has expired. To prevent unauthorized orders from outside, please re-scan the table QR code.',
+          401
+        );
+      }
+      throw new AppError(
+        ErrorCodes.UNAUTHORIZED,
+        'Invalid or corrupted dining QR session token. Please re-scan the table QR code.',
+        401
+      );
+    }
+
+    if (
+      decoded.type !== 'QR_GUEST_SESSION' ||
+      decoded.tableId !== table.id ||
+      decoded.tenantId !== table.tenantId
+    ) {
+      throw new AppError(
+        ErrorCodes.UNAUTHORIZED,
+        'Dining QR session does not match this table. Please scan your designated table standee.',
+        401
+      );
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -341,7 +418,15 @@ export class TableController {
       },
     });
 
-    sendSuccess(res, order, 201);
+    // Provide a fresh 45-min renewed session for subsequent rounds during this dining sitting
+    const refreshedSession = generateGuestSessionToken(table);
+
+    sendSuccess(res, {
+      ...order,
+      guestSessionToken: refreshedSession.guestSessionToken,
+      sessionExpiresAt: refreshedSession.sessionExpiresAt,
+      sessionDurationMinutes: 45,
+    }, 201);
   }
 
   static async getPublicOrderStatus(req: Request, res: Response): Promise<void> {

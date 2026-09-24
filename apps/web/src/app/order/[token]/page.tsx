@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag, CheckCircle2,
-  Clock, Sparkles, ChefHat, Phone, MapPin, AlertCircle, ArrowRight
+  Clock, Sparkles, ChefHat, Phone, MapPin, AlertCircle, ArrowRight,
+  ShieldCheck, RefreshCw, Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,12 +20,39 @@ export default function PublicTableOrderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tableData, setTableData] = useState<any>(null);
+  const [guestSessionToken, setGuestSessionToken] = useState<string | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
+  const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(45 * 60);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [cart, setCart] = useState<{ [itemId: string]: { item: any; variant: any; qty: number } }>({});
   const [guestNotes, setGuestNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<any | null>(null);
   const [viewTab, setViewTab] = useState<'MENU' | 'LIVE_STATUS'>('MENU');
+
+  const fetchTableData = () => {
+    if (!token) return;
+    setLoading(true);
+    fetch(`${API_BASE}/tables/public/qr/${token}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Table QR token not found or expired');
+        return res.json();
+      })
+      .then((data) => {
+        setTableData(data.data);
+        if (data.data?.guestSessionToken) {
+          setGuestSessionToken(data.data.guestSessionToken);
+        }
+        if (data.data?.sessionExpiresAt) {
+          setSessionExpiresAt(data.data.sessionExpiresAt);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || 'Could not load table menu');
+        setLoading(false);
+      });
+  };
 
   // Initial table data load
   useEffect(() => {
@@ -39,6 +67,12 @@ export default function PublicTableOrderPage() {
       .then((data) => {
         if (!isMounted) return;
         setTableData(data.data);
+        if (data.data?.guestSessionToken) {
+          setGuestSessionToken(data.data.guestSessionToken);
+        }
+        if (data.data?.sessionExpiresAt) {
+          setSessionExpiresAt(data.data.sessionExpiresAt);
+        }
         setLoading(false);
       })
       .catch((err) => {
@@ -51,6 +85,21 @@ export default function PublicTableOrderPage() {
       isMounted = false;
     };
   }, [token]);
+
+  // Real-time 45-min Session Timer countdown
+  useEffect(() => {
+    if (!sessionExpiresAt) return;
+
+    const updateTimer = () => {
+      const remainingMs = sessionExpiresAt - Date.now();
+      const remainingSec = Math.max(0, Math.floor(remainingMs / 1000));
+      setTimeRemainingSeconds(remainingSec);
+    };
+
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+    return () => clearInterval(timerInterval);
+  }, [sessionExpiresAt]);
 
   // Live polling for table active orders & status updates
   useEffect(() => {
@@ -76,7 +125,15 @@ export default function PublicTableOrderPage() {
     return () => clearInterval(interval);
   }, [token, orderPlaced?.id]);
 
+  const isSessionExpired = sessionExpiresAt ? Date.now() > sessionExpiresAt : false;
+  const minutesLeft = Math.floor(timeRemainingSeconds / 60);
+  const secondsLeft = timeRemainingSeconds % 60;
+
   const addToCart = (item: any) => {
+    if (isSessionExpired) {
+      alert('Your 45-minute dining session has expired. Please refresh or re-scan your table QR standee.');
+      return;
+    }
     const variant = item.variants?.[0];
     setCart((prev) => {
       const existing = prev[item.id];
@@ -116,12 +173,21 @@ export default function PublicTableOrderPage() {
 
   const handlePlaceOrder = async () => {
     if (cartList.length === 0) return;
+    if (isSessionExpired || !guestSessionToken) {
+      alert('Your 45-minute dining session has expired for security. Please re-scan your table QR standee.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/tables/public/qr/${token}/order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-guest-session-token': guestSessionToken,
+        },
         body: JSON.stringify({
+          guestSessionToken,
           notes: guestNotes.trim() || undefined,
           items: cartList.map((c) => ({
             menuItemId: c.item.id,
@@ -135,6 +201,12 @@ export default function PublicTableOrderPage() {
       if (!res.ok) throw new Error(json.error?.message || 'Failed to place order');
 
       setOrderPlaced(json.data);
+      if (json.data?.guestSessionToken) {
+        setGuestSessionToken(json.data.guestSessionToken);
+      }
+      if (json.data?.sessionExpiresAt) {
+        setSessionExpiresAt(json.data.sessionExpiresAt);
+      }
       setCart({});
     } catch (err: any) {
       alert(err.message || 'Failed to send order to kitchen');
@@ -200,6 +272,45 @@ export default function PublicTableOrderPage() {
             <span>{table?.name || 'Table'}</span>
           </div>
         </div>
+
+        {/* 45-Minute Unique Guest Session Security Indicator */}
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-muted/60 border border-border text-[11px]">
+          <div className="flex items-center gap-1.5 font-bold text-muted-foreground">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span className="truncate">In-Restaurant QR Session</span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0 font-mono">
+            {isSessionExpired ? (
+              <span className="text-rose-500 font-black flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Expired
+              </span>
+            ) : (
+              <span className={cn(
+                'font-bold',
+                minutesLeft < 10 ? 'text-amber-500' : 'text-emerald-500'
+              )}>
+                ⏳ {minutesLeft}m {secondsLeft < 10 ? `0${secondsLeft}` : secondsLeft}s
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Session Expired Banner Notice */}
+        {isSessionExpired && (
+          <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 flex items-center justify-between gap-2 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>45-min session expired for security.</span>
+            </div>
+            <button
+              type="button"
+              onClick={fetchTableData}
+              className="px-2.5 py-1 rounded-lg bg-rose-500 text-white font-bold text-[11px] shrink-0 hover:bg-rose-600 flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3" /> Refresh
+            </button>
+          </div>
+        )}
 
         {/* Tab Navigation: Menu vs Live Order Status */}
         <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
@@ -531,7 +642,8 @@ export default function PublicTableOrderPage() {
                       <Button
                         size="sm"
                         onClick={() => addToCart(item)}
-                        className="h-8 text-xs font-bold rounded-xl gap-1 bg-primary text-primary-foreground cursor-pointer"
+                        disabled={isSessionExpired}
+                        className="h-8 text-xs font-bold rounded-xl gap-1 bg-primary text-primary-foreground cursor-pointer disabled:opacity-50"
                       >
                         <Plus className="w-3.5 h-3.5" /> Add
                       </Button>
@@ -585,11 +697,11 @@ export default function PublicTableOrderPage() {
               await handlePlaceOrder();
               setViewTab('LIVE_STATUS');
             }}
-            disabled={isSubmitting}
-            className="w-full h-12 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer"
+            disabled={isSubmitting || isSessionExpired}
+            className="w-full h-12 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer disabled:opacity-50"
           >
             <UtensilsCrossed className="w-4 h-4" />
-            {isSubmitting ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}
+            {isSubmitting ? 'Sending to Kitchen...' : isSessionExpired ? 'Session Expired (Re-scan QR)' : 'Send Order to Kitchen'}
           </Button>
         </div>
       )}
