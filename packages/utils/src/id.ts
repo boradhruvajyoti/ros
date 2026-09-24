@@ -1,9 +1,8 @@
 // =============================================================================
-// ID utilities — ULID + UUID generation
+// ID utilities — ULID + UUID generation (Universal / Browser & Node Safe)
 // =============================================================================
 
 import { ulid } from 'ulid';
-import { randomUUID } from 'crypto';
 
 /**
  * Generate a ULID — time-sortable, URL-safe, 26 characters.
@@ -16,9 +15,23 @@ export function generateULID(): string {
 /**
  * Generate a UUID v4 — use for client-side idempotency keys,
  * session tokens, and non-time-sortable identifiers.
+ * Fully compatible with Node.js and Browser (works on HTTP & HTTPS).
  */
 export function generateUUID(): string {
-  return randomUUID();
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    try {
+      return globalThis.crypto.randomUUID();
+    } catch {
+      // Fallback if in insecure HTTP context in older browsers
+    }
+  }
+
+  // RFC4122 v4 UUID fallback
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 /**
@@ -65,9 +78,8 @@ export function generateInvoiceNumber(date: Date, sequence: number): string {
 export function generateShortCode(length = 8): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
-  const bytes = randomUUID().replace(/-/g, '');
   for (let i = 0; i < length; i++) {
-    result += chars[parseInt(bytes[i * 2] + bytes[i * 2 + 1], 16) % chars.length];
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
 }
