@@ -20,6 +20,9 @@ import { redis } from './lib/redis';
 const app = express();
 const httpServer = createServer(app);
 
+// ── Trust Reverse Proxy (Nginx / Cloudflare / Caddy) ───────────────────────────
+app.set('trust proxy', 1);
+
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 initSocket(httpServer);
 

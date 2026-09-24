@@ -23,6 +23,7 @@ export const apiRateLimit = rateLimit({
   max,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false, default: false },
   message: errorResponse,
   keyGenerator: (req) => {
     const tenantId = req.user?.tid || 'anon';
@@ -37,6 +38,7 @@ export const authRateLimit = rateLimit({
   max: isDev ? 1000 : 30,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false, default: false },
   message: {
     success: false,
     error: {
