@@ -237,6 +237,11 @@ export default function KitchenPage() {
         status === 'READY' ? '✅ Food marked ready for pickup!' : 'Status updated'
       );
       queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['table-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: () => toast.error('Could not update KOT status'),
   });

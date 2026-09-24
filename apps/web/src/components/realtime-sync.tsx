@@ -52,14 +52,17 @@ export function RealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['table-stats'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           queryClient.invalidateQueries({ queryKey: ['kds-kots'] });
+          queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
           break;
 
         case 'KOT_CREATED':
         case 'KOT_STATUS_CHANGED':
         case 'KOT_ITEM_STATUS_CHANGED':
           queryClient.invalidateQueries({ queryKey: ['kds-kots'] });
+          queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
           queryClient.invalidateQueries({ queryKey: ['orders'] });
           queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           break;
 
         case 'TABLE_STATUS_CHANGED':
