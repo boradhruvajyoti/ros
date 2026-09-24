@@ -69,7 +69,17 @@ export default function LoginPage() {
       setAuth(result.accessToken, result.user);
       connectSocket(result.accessToken);
       toast.success('Welcome back!', result.user.name);
-      router.push('/dashboard');
+
+      const isPlatformSuperAdmin =
+        result.user?.roles?.includes('SUPER_ADMIN') ||
+        result.user?.tenantId === 'tenant-platform' ||
+        result.user?.permissions?.includes('tenants:manage');
+
+      if (isPlatformSuperAdmin) {
+        router.push('/super-admin');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err: any) {
       const message =
         err?.response?.data?.error?.message ||
