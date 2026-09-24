@@ -7,11 +7,15 @@
     "build": "tsc -p tsconfig.json",
     "start": "tsx src/server.ts",
     "db:generate": "prisma generate",
+    "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "ts-node prisma/seed.ts",
+    "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
+    "db:export-sqlite": "tsx scripts/export-sqlite-data.ts",
+    "db:import-postgres": "tsx scripts/import-to-postgres.ts",
+    "db:migrate-to-postgres": "prisma db push && tsx scripts/import-to-postgres.ts",
     "test": "tsx --test src/services/*.test.ts"
   },
   "dependencies": {
