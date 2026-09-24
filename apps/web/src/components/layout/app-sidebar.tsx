@@ -69,6 +69,32 @@ const restaurantNavItems = [
   { href: '/audit-vault',   label: 'Audit Vault',    icon: ShieldAlert,      permission: 'settings:view' },
 ];
 
+// Dedicated Navigation for Waiters
+const waiterNavItems = [
+  { type: 'divider', label: 'WAITER SERVICE' },
+  { href: '/tables',   label: '🍽️ Dining Tables', icon: Grid3X3, permission: null },
+  { href: '/pos',      label: '🛒 Take Order (POS)', icon: ShoppingCart, permission: null },
+  { href: '/orders',   label: '📋 Active Orders', icon: ClipboardList, permission: null },
+  { href: '/kitchen',  label: '🛎️ Kitchen Queue', icon: ChefHat, permission: null },
+];
+
+// Dedicated Navigation for Kitchen Cooks
+const kitchenNavItems = [
+  { type: 'divider', label: 'KITCHEN OPS' },
+  { href: '/kitchen',   label: '👨‍🍳 Kitchen Display (KDS)', icon: ChefHat, permission: null },
+  { href: '/inventory', label: '📦 Stock & Ingredients', icon: Package, permission: null },
+  { href: '/orders',    label: '📋 Orders Feed', icon: ClipboardList, permission: null },
+];
+
+// Dedicated Navigation for Cashiers
+const cashierNavItems = [
+  { type: 'divider', label: 'FAST BILLING & CASH' },
+  { href: '/pos',      label: '💳 Fast Billing (POS)', icon: ShoppingCart, permission: null },
+  { href: '/tables',   label: '🍽️ Dining Tables', icon: Grid3X3, permission: null },
+  { href: '/orders',   label: '📋 Orders & Bills', icon: ClipboardList, permission: null },
+  { href: '/expenses', label: '💰 Cash & Expenses', icon: Wallet, permission: null },
+];
+
 // Dedicated Navigation for Platform Super-Admin
 const platformSuperAdminNavItems = [
   { type: 'divider', label: 'PLATFORM SAAS CONTROL' },
@@ -96,6 +122,11 @@ export function AppSidebar() {
     user?.tenantId === 'tenant-platform' ||
     user?.permissions?.includes('tenants:manage');
 
+  const isOwnerOrAdmin = user?.roles?.some((r) => ['OWNER', 'ADMINISTRATOR', 'GENERAL_MANAGER', 'BRANCH_MANAGER'].includes(r));
+  const isWaiterOnly = !isOwnerOrAdmin && user?.roles?.includes('WAITER');
+  const isKitchenOnly = !isOwnerOrAdmin && user?.roles?.some((r) => ['CHEF', 'KITCHEN_STAFF'].includes(r));
+  const isCashierOnly = !isOwnerOrAdmin && user?.roles?.includes('CASHIER');
+
   const { data: platformDetails } = useQuery({
     queryKey: ['superadmin-platform-details'],
     queryFn: async () => {
@@ -113,7 +144,17 @@ export function AppSidebar() {
   const platformName = platformDetails?.platformName || 'ROS Platform';
   const platformTagline = platformDetails?.tagline || 'SaaS Control Plane';
 
-  const navItems = isPlatformSuperAdmin ? platformSuperAdminNavItems : restaurantNavItems;
+  let navItems = restaurantNavItems;
+  if (isPlatformSuperAdmin) {
+    navItems = platformSuperAdminNavItems;
+  } else if (isWaiterOnly) {
+    navItems = waiterNavItems;
+  } else if (isKitchenOnly) {
+    navItems = kitchenNavItems;
+  } else if (isCashierOnly) {
+    navItems = cashierNavItems;
+  }
+
 
   return (
     <aside

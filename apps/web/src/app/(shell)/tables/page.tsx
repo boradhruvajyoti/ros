@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Grid3X3, List, Plus, Users, Clock, CircleCheck, CircleDot,
-  Wrench, Ban, Edit3, Trash2, X, Check, QrCode
+  Wrench, Ban, Edit3, Trash2, X, Check, QrCode, ShoppingCart,
+  Utensils, DollarSign, CheckCircle2, AlertCircle, Sparkles, ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
-interface Table {
+export interface Table {
   id: string;
   name: string;
   capacity: number;
@@ -22,22 +24,63 @@ interface Table {
   floorId?: string;
   floor?: { id: string; name: string };
   orders?: any[];
-  posX: number; posY: number; width: number; height: number;
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
 }
 
 const STATUS_META = {
-  AVAILABLE: { label: 'Available', color: 'bg-green-500', icon: CircleCheck, bg: 'table-available', text: 'text-green-600' },
-  OCCUPIED:  { label: 'Occupied',  color: 'bg-red-500',   icon: CircleDot,  bg: 'table-occupied',  text: 'text-red-500'  },
-  RESERVED:  { label: 'Reserved',  color: 'bg-amber-500', icon: Clock,      bg: 'table-reserved',  text: 'text-amber-500'},
-  CLEANING:  { label: 'Cleaning',  color: 'bg-sky-500',   icon: Wrench,     bg: 'table-cleaning',  text: 'text-sky-500'  },
-  BLOCKED:   { label: 'Blocked',   color: 'bg-zinc-500',  icon: Ban,        bg: 'table-blocked',   text: 'text-zinc-500' },
+  AVAILABLE: {
+    label: '🟢 Available / Free',
+    shortLabel: 'Available',
+    color: 'bg-emerald-500',
+    border: 'border-emerald-500/40 hover:border-emerald-500',
+    bg: 'bg-emerald-950/20',
+    text: 'text-emerald-400',
+    action: 'Tap to Take Order',
+  },
+  OCCUPIED: {
+    label: '🔴 Dining / Occupied',
+    shortLabel: 'Dining',
+    color: 'bg-red-500',
+    border: 'border-red-500/40 hover:border-red-500',
+    bg: 'bg-red-950/25',
+    text: 'text-red-400',
+    action: 'Running Order',
+  },
+  RESERVED: {
+    label: '🔵 Reserved',
+    shortLabel: 'Reserved',
+    color: 'bg-blue-500',
+    border: 'border-blue-500/40 hover:border-blue-500',
+    bg: 'bg-blue-950/25',
+    text: 'text-blue-400',
+    action: 'Seat Guests',
+  },
+  CLEANING: {
+    label: '🟡 Needs Cleaning',
+    shortLabel: 'Cleaning',
+    color: 'bg-amber-500',
+    border: 'border-amber-500/40 hover:border-amber-500',
+    bg: 'bg-amber-950/25',
+    text: 'text-amber-400',
+    action: 'Mark Clean',
+  },
+  BLOCKED: {
+    label: '⚪ Out of Service',
+    shortLabel: 'Blocked',
+    color: 'bg-zinc-500',
+    border: 'border-zinc-700 hover:border-zinc-500',
+    bg: 'bg-zinc-900/40',
+    text: 'text-zinc-400',
+    action: 'Enable',
+  },
 };
 
-type ViewMode = 'grid' | 'floor';
-
 export default function TablesPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const [view, setView] = useState<ViewMode>('grid');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   // Edit / Create Table Modal State
@@ -54,10 +97,10 @@ export default function TablesPage() {
     queryFn: () => apiGet<any[]>('/tables/floors'),
   });
 
-  const { data: tables = [] } = useQuery<Table[]>({
+  const { data: tables = [], isLoading } = useQuery<Table[]>({
     queryKey: ['tables', statusFilter],
     queryFn: () => apiGet(`/tables${statusFilter ? `?status=${statusFilter}` : ''}`),
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 
   // Mutations
@@ -65,14 +108,14 @@ export default function TablesPage() {
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       return apiPatch(`/tables/${id}`, data);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['floors'] });
-      toast.success('Table Updated', `Table details and seating capacity updated.`);
+      toast.success('Table Updated', 'Seating status saved.');
       setEditingTable(null);
     },
     onError: (err: any) => {
-      toast.error('Update Failed', err.message || 'Could not update table capacity.');
+      toast.error('Update Failed', err.message || 'Could not update table.');
     },
   });
 
@@ -83,7 +126,7 @@ export default function TablesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['floors'] });
-      toast.success('Table Created', 'New table added to dining floor.');
+      toast.success('Table Added', 'New dining table ready.');
       setIsCreateModalOpen(false);
     },
     onError: (err: any) => {
@@ -98,13 +141,26 @@ export default function TablesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['floors'] });
-      toast.success('Table Removed', 'Table deactivated.');
+      toast.success('Table Deleted');
       setEditingTable(null);
     },
     onError: (err: any) => {
       toast.error('Delete Failed', err.message || 'Could not delete table.');
     },
   });
+
+  const handleTableClick = (table: Table) => {
+    if (table.status === 'AVAILABLE') {
+      // Direct jump to POS with table pre-selected
+      router.push(`/pos?table=${table.id}`);
+    } else if (table.status === 'OCCUPIED') {
+      // View active orders / add items
+      router.push(`/pos?table=${table.id}`);
+    } else {
+      // Toggle status easily
+      handleOpenEdit(table);
+    }
+  };
 
   const handleOpenEdit = (table: Table) => {
     setEditingTable(table);
@@ -131,7 +187,7 @@ export default function TablesPage() {
   };
 
   const handleOpenCreate = () => {
-    setTableNameInput(`T-${tables.length + 1 < 10 ? `0${tables.length + 1}` : tables.length + 1}`);
+    setTableNameInput(`Table ${tables.length + 1}`);
     setTableCapacityInput(4);
     setTableShapeInput('SQUARE');
     setTableStatusInput('AVAILABLE');
@@ -149,14 +205,11 @@ export default function TablesPage() {
     });
   };
 
-  // Quick inline capacity adjust
-  const handleQuickCapacityChange = (table: Table, delta: number, e: React.MouseEvent) => {
+  const handleQuickStatusToggle = (table: Table, nextStatus: Table['status'], e: React.MouseEvent) => {
     e.stopPropagation();
-    const newCap = Math.max(1, Math.min(table.capacity + delta, 50));
-    if (newCap === table.capacity) return;
     updateTableMutation.mutate({
       id: table.id,
-      data: { capacity: newCap },
+      data: { status: nextStatus },
     });
   };
 
@@ -166,422 +219,277 @@ export default function TablesPage() {
   }, {} as Record<string, number>);
 
   const totalSeats = tables.reduce((acc, t) => acc + (t.capacity || 0), 0);
+  const availableCount = statusCounts.AVAILABLE || 0;
+  const occupiedCount = statusCounts.OCCUPIED || 0;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Tables & Floor Management</h1>
-          <p className="text-sm text-muted-foreground">
-            {tables.length} tables · {totalSeats} total seating capacity · {statusCounts.OCCUPIED || 0} occupied
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <div className="flex border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setView('grid')}
-              className={cn('p-2 transition-colors', view === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
-              title="Grid View"
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setView('floor')}
-              className={cn('p-2 transition-colors', view === 'floor' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
-              title="Floor Layout"
-            >
-              <List className="w-4 h-4" />
-            </button>
+    <div className="space-y-5 animate-fade-in select-none">
+      {/* Top Banner & Quick Metrics */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-3xl bg-gradient-to-r from-card via-card/80 to-muted/40 border border-border shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-primary/15 text-primary flex items-center justify-center font-bold text-lg">
+              🍽️
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight text-foreground">Dining Floor & Table Seating</h1>
+              <p className="text-xs text-muted-foreground font-medium">
+                Tap any <span className="text-emerald-400 font-bold">Green Table</span> to take orders instantly.
+              </p>
+            </div>
           </div>
-          <Button size="sm" onClick={handleOpenCreate} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>{availableCount} Free Tables</span>
+          </div>
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-xs text-red-400 font-bold">
+            <span className="w-2 h-2 rounded-full bg-red-500" />
+            <span>{occupiedCount} Occupied</span>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleOpenCreate}
+            className="gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl shadow-md"
+          >
             <Plus className="w-4 h-4" /> Add Table
           </Button>
         </div>
       </div>
 
-      {/* Status summary */}
-      <div className="flex gap-2 flex-wrap items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setStatusFilter(null)}
-            className={cn('px-3 py-1.5 rounded-lg border text-xs font-medium transition-all',
-              !statusFilter ? 'bg-primary text-primary-foreground border-transparent font-bold' : 'border-border text-muted-foreground hover:border-primary/50'
-            )}
-          >
-            All ({tables.length})
-          </button>
-          {Object.entries(STATUS_META).map(([status, meta]) => (
+      {/* Big Filter Buttons */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+        <button
+          type="button"
+          onClick={() => setStatusFilter(null)}
+          className={cn(
+            'px-4 py-2 rounded-2xl text-xs font-black border transition-all cursor-pointer shadow-sm shrink-0',
+            !statusFilter
+              ? 'bg-foreground text-background border-transparent shadow-md scale-105'
+              : 'bg-card border-border text-muted-foreground hover:text-foreground'
+          )}
+        >
+          All Tables ({tables.length})
+        </button>
+
+        {Object.entries(STATUS_META).map(([status, meta]) => {
+          const count = statusCounts[status] || 0;
+          const active = statusFilter === status;
+          return (
             <button
               key={status}
-              onClick={() => setStatusFilter(status === statusFilter ? null : status)}
+              type="button"
+              onClick={() => setStatusFilter(active ? null : status)}
               className={cn(
-                'px-3 py-1.5 rounded-lg border text-xs font-medium transition-all flex items-center gap-1.5',
-                statusFilter === status ? `${meta.bg} border-transparent font-bold` : 'border-border text-muted-foreground hover:border-primary/50'
+                'px-4 py-2 rounded-2xl text-xs font-black border transition-all cursor-pointer shadow-sm shrink-0 flex items-center gap-2',
+                active
+                  ? `${meta.color} text-white border-transparent shadow-md scale-105`
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground'
               )}
             >
-              <div className={cn('w-2 h-2 rounded-full', meta.color)} />
-              {meta.label} ({statusCounts[status] || 0})
+              <div className={cn('w-2.5 h-2.5 rounded-full', meta.color)} />
+              <span>{meta.shortLabel}</span>
+              <span className="opacity-80 text-[11px]">({count})</span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {view === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {tables.map((table) => {
-            const meta = STATUS_META[table.status];
-            const Icon = meta.icon;
-            return (
-              <div
-                key={table.id}
-                onClick={() => handleOpenEdit(table)}
-                className={cn(
-                  'relative flex flex-col items-center justify-between p-4 rounded-2xl border-2 cursor-pointer',
-                  'transition-all duration-200 hover:scale-[1.02] hover:shadow-lg aspect-square group',
-                  table.status === 'AVAILABLE' ? 'border-green-500/30 bg-green-500/5 hover:bg-green-500/10' :
-                  table.status === 'OCCUPIED'  ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10' :
-                  table.status === 'RESERVED'  ? 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10' :
-                  table.status === 'CLEANING'  ? 'border-sky-500/30 bg-sky-500/5 hover:bg-sky-500/10' :
-                  'border-zinc-500/30 bg-zinc-500/5'
-                )}
-              >
-                {/* Header info */}
-                <div className="w-full flex items-center justify-between">
-                  <span className={cn('text-[10px] font-bold uppercase tracking-wider', meta.text)}>
-                    {meta.label}
-                  </span>
+      {/* Giant High-Contrast Table Cards Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        {tables.map((table) => {
+          const meta = STATUS_META[table.status] || STATUS_META.AVAILABLE;
+          const isFree = table.status === 'AVAILABLE';
+          const isDining = table.status === 'OCCUPIED';
+
+          return (
+            <div
+              key={table.id}
+              onClick={() => handleTableClick(table)}
+              className={cn(
+                'relative flex flex-col justify-between p-4 rounded-3xl border-2 transition-all duration-150 cursor-pointer shadow-sm select-none min-h-[170px] group active:scale-95',
+                meta.border,
+                meta.bg,
+                isFree && 'hover:shadow-emerald-500/20 hover:shadow-lg',
+                isDining && 'hover:shadow-red-500/20 hover:shadow-lg'
+              )}
+            >
+              {/* Top Row: Table Name & Seating Pax */}
+              <div className="flex items-start justify-between w-full">
+                <div>
+                  <h3 className="text-lg font-black text-foreground tracking-tight group-hover:text-primary transition-colors">
+                    {table.name}
+                  </h3>
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground mt-0.5">
+                    <Users className="w-3.5 h-3.5 text-primary" />
+                    <span>{table.capacity} Seats</span>
+                  </div>
+                </div>
+
+                <div className={cn('w-3.5 h-3.5 rounded-full shrink-0 shadow', meta.color, isDining && 'animate-pulse')} />
+              </div>
+
+              {/* Middle: Visual Table Avatar / State */}
+              <div className="my-auto py-2 text-center">
+                <span className={cn('text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full border', meta.text, 'border-current/30 bg-background/60')}>
+                  {meta.shortLabel}
+                </span>
+              </div>
+
+              {/* Bottom: 1-Tap Action Shortcut Button */}
+              <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-1.5">
+                {isFree ? (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleOpenEdit(table);
+                      router.push(`/pos?table=${table.id}`);
                     }}
-                    className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-background/80 text-muted-foreground transition-opacity"
-                    title="Edit capacity & properties"
+                    className="w-full py-1.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] flex items-center justify-center gap-1 shadow-sm"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Take Order</span>
+                    <ArrowRight className="w-3 h-3" />
                   </button>
-                </div>
-
-                {/* Table Identity */}
-                <div className="flex flex-col items-center justify-center my-auto">
-                  <Icon className={cn('w-5 h-5 mb-1.5', meta.text)} />
-                  <p className="text-base font-black text-foreground">{table.name}</p>
-                  {table.floor?.name && (
-                    <span className="text-[10px] text-muted-foreground line-clamp-1">{table.floor.name}</span>
-                  )}
-                </div>
-
-                {/* Seating Stepper */}
-                <div
-                  className="w-full flex items-center justify-between bg-card/80 backdrop-blur-sm rounded-xl px-2 py-1 border border-border/50 text-xs mt-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                ) : isDining ? (
                   <button
-                    onClick={(e) => handleQuickCapacityChange(table, -1, e)}
-                    disabled={table.capacity <= 1}
-                    className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-20 font-bold"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/pos?table=${table.id}`);
+                    }}
+                    className="w-full py-1.5 px-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[11px] flex items-center justify-center gap-1 shadow-sm"
+                  >
+                    <span>View Bill</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickStatusToggle(table, 'AVAILABLE', e)}
+                    className="w-full py-1.5 px-2 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold text-[11px]"
+                  >
+                    Mark Free
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {tables.length === 0 && !isLoading && (
+          <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <Utensils className="w-12 h-12 mb-3 opacity-30" />
+            <p className="text-base font-bold text-foreground">No Tables Created Yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Tap "Add Table" above to create dining tables.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: EDIT / CREATE TABLE
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {(editingTable || isCreateModalOpen) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+          <div className="w-full max-w-md bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-black text-foreground">
+                {editingTable ? `Edit ${editingTable.name}` : 'Add New Table'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTable(null);
+                  setIsCreateModalOpen(false);
+                }}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={editingTable ? handleSaveEdit : handleSaveCreate} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-foreground">Table Name / Number</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Table 05, VIP 1"
+                  value={tableNameInput}
+                  onChange={(e) => setTableNameInput(e.target.value)}
+                  className="w-full mt-1.5 h-11 px-3.5 rounded-xl border border-border bg-background text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground">Seating Capacity (Guests)</label>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setTableCapacityInput(Math.max(1, tableCapacityInput - 1))}
+                    className="w-11 h-11 rounded-xl bg-muted border border-border text-lg font-black text-foreground hover:bg-muted/80 flex items-center justify-center cursor-pointer"
                   >
                     -
                   </button>
-                  <div className="flex items-center gap-1 font-mono font-bold text-foreground">
-                    <Users className="w-3 h-3 text-primary" />
-                    <span>{table.capacity} pax</span>
+                  <div className="flex-1 text-center h-11 rounded-xl bg-background border border-border flex items-center justify-center text-base font-black text-foreground">
+                    {tableCapacityInput} Persons
                   </div>
                   <button
-                    onClick={(e) => handleQuickCapacityChange(table, 1, e)}
-                    disabled={table.capacity >= 50}
-                    className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-20 font-bold"
+                    type="button"
+                    onClick={() => setTableCapacityInput(tableCapacityInput + 1)}
+                    className="w-11 h-11 rounded-xl bg-primary text-primary-foreground text-lg font-black flex items-center justify-center cursor-pointer"
                   >
                     +
                   </button>
                 </div>
-
-                {table.status === 'OCCUPIED' && (
-                  <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                )}
-              </div>
-            );
-          })}
-
-          {tables.length === 0 && (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Grid3X3 className="w-12 h-12 mb-3 opacity-20" />
-              <p className="text-sm font-semibold">No tables found</p>
-              <p className="text-xs mt-1">Click &apos;Add Table&apos; to create dining seating</p>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Floor plan view */
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          {(floors as any[]).map((floor: any) => (
-            <div key={floor.id} className="p-6">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-widest">{floor.name}</h3>
-              <div className="relative bg-muted/30 rounded-xl" style={{ height: '500px' }}>
-                {(floor.tables || []).map((t: Table) => {
-                  const meta = STATUS_META[t.status];
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => handleOpenEdit(t)}
-                      style={{
-                        position: 'absolute',
-                        left: t.posX,
-                        top: t.posY,
-                        width: t.width,
-                        height: t.height,
-                      }}
-                      className={cn(
-                        'flex flex-col items-center justify-center rounded-xl border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-md text-center p-1',
-                        t.status === 'AVAILABLE' ? 'border-green-500/50 bg-green-500/10' :
-                        t.status === 'OCCUPIED'  ? 'border-red-500/50 bg-red-500/10' :
-                        t.status === 'RESERVED'  ? 'border-amber-500/50 bg-amber-500/10' :
-                        t.status === 'CLEANING'  ? 'border-sky-500/50 bg-sky-500/10' :
-                        'border-zinc-500/50 bg-zinc-500/10'
-                      )}
-                    >
-                      <p className="text-sm font-bold text-foreground">{t.name}</p>
-                      <p className="text-[10px] font-mono text-muted-foreground font-semibold">{t.capacity} seats</p>
-                      <div className={cn('mt-1 w-1.5 h-1.5 rounded-full', meta.color)} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* EDIT TABLE CAPACITY MODAL */}
-      {editingTable && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-primary" />
-                  Edit Table & Seating Capacity
-                </h3>
-                <p className="text-xs text-muted-foreground">Modify table properties and guest pax</p>
-              </div>
-              <button
-                onClick={() => setEditingTable(null)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Table Name</label>
-                <Input
-                  value={tableNameInput}
-                  onChange={(e) => setTableNameInput(e.target.value)}
-                  placeholder="e.g. T-01, VIP-A"
-                  required
-                />
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-foreground">Seating Capacity (Pax)</label>
-                  <span className="font-mono text-sm font-extrabold text-primary">{tableCapacityInput} Guests</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={tableCapacityInput}
-                    onChange={(e) => setTableCapacityInput(parseInt(e.target.value, 10) || 1)}
-                    className="font-mono font-bold"
-                  />
-                  <div className="flex gap-1">
-                    {[2, 4, 6, 8].map((cap) => (
-                      <button
-                        key={cap}
-                        type="button"
-                        onClick={() => setTableCapacityInput(cap)}
-                        className={cn(
-                          'px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors',
-                          tableCapacityInput === cap
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-muted/60 text-muted-foreground hover:bg-accent'
-                        )}
-                      >
-                        {cap}p
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Shape</label>
-                  <select
-                    value={tableShapeInput}
-                    onChange={(e) => setTableShapeInput(e.target.value as any)}
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-xs font-medium focus:outline-none"
-                  >
-                    <option value="SQUARE">Square ■</option>
-                    <option value="RECTANGLE">Rectangle ▭</option>
-                    <option value="CIRCLE">Circle ●</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Current Status</label>
+              {editingTable && (
+                <div>
+                  <label className="text-xs font-bold text-foreground">Current Status</label>
                   <select
                     value={tableStatusInput}
                     onChange={(e) => setTableStatusInput(e.target.value as any)}
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-xs font-medium focus:outline-none"
+                    className="w-full mt-1.5 h-11 px-3 rounded-xl border border-border bg-background text-xs font-bold text-foreground focus:outline-none"
                   >
-                    <option value="AVAILABLE">Available</option>
-                    <option value="OCCUPIED">Occupied</option>
-                    <option value="RESERVED">Reserved</option>
-                    <option value="CLEANING">Cleaning</option>
-                    <option value="BLOCKED">Blocked</option>
+                    <option value="AVAILABLE">🟢 Available / Free</option>
+                    <option value="OCCUPIED">🔴 Dining / Occupied</option>
+                    <option value="RESERVED">🔵 Reserved</option>
+                    <option value="CLEANING">🟡 Needs Cleaning</option>
+                    <option value="BLOCKED">⚪ Blocked / Out of Service</option>
                   </select>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center justify-between pt-2 border-t border-border/60">
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(`Are you sure you want to deactivate table ${editingTable.name}?`)) {
-                      deleteTableMutation.mutate(editingTable.id);
-                    }
-                  }}
-                  className="gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Deactivate
-                </Button>
-
-                <div className="flex gap-2">
+              <div className="flex justify-between items-center gap-2 pt-3 border-t border-border">
+                {editingTable && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteTableMutation.mutate(editingTable.id)}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/15 text-xs font-bold"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                  </Button>
+                )}
+                <div className="flex gap-2 ml-auto">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setEditingTable(null)}
+                    onClick={() => {
+                      setEditingTable(null);
+                      setIsCreateModalOpen(false);
+                    }}
                   >
                     Cancel
                   </Button>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={updateTableMutation.isPending}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5" /> Save Changes
+                  <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
+                    Save Table
                   </Button>
                 </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* CREATE NEW TABLE MODAL */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-primary" />
-                  Add New Table
-                </h3>
-                <p className="text-xs text-muted-foreground">Assign table name and guest capacity</p>
-              </div>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCreate} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Table Name</label>
-                <Input
-                  value={tableNameInput}
-                  onChange={(e) => setTableNameInput(e.target.value)}
-                  placeholder="e.g. T-11"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-foreground">Seating Capacity (Pax)</label>
-                  <span className="font-mono text-sm font-extrabold text-primary">{tableCapacityInput} Guests</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={tableCapacityInput}
-                    onChange={(e) => setTableCapacityInput(parseInt(e.target.value, 10) || 1)}
-                    className="font-mono font-bold"
-                  />
-                  <div className="flex gap-1">
-                    {[2, 4, 6, 8].map((cap) => (
-                      <button
-                        key={cap}
-                        type="button"
-                        onClick={() => setTableCapacityInput(cap)}
-                        className={cn(
-                          'px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors',
-                          tableCapacityInput === cap
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-muted/60 text-muted-foreground hover:bg-accent'
-                        )}
-                      >
-                        {cap}p
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Shape</label>
-                <select
-                  value={tableShapeInput}
-                  onChange={(e) => setTableShapeInput(e.target.value as any)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-xs font-medium focus:outline-none"
-                >
-                  <option value="SQUARE">Square ■</option>
-                  <option value="RECTANGLE">Rectangle ▭</option>
-                  <option value="CIRCLE">Circle ●</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-border/60">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={createTableMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5" /> Create Table
-                </Button>
               </div>
             </form>
           </div>

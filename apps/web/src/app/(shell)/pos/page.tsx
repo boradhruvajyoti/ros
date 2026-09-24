@@ -3,9 +3,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Search, Plus, Minus, Trash2, ChevronRight, User, TableIcon,
-  ShoppingCart, Receipt, CreditCard, Split, Printer, RotateCcw,
-  Check, Leaf, Drumstick, Sparkles, CheckCircle2
+  Search, Plus, Minus, Trash2, User, TableIcon,
+  ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
+  Check, Sparkles, CheckCircle2, Utensils, QrCode,
+  DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
+  Volume2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { formatCurrency, addAmounts, multiplyAmount } from '@ros/utils';
 import { generateUUID } from '@ros/utils';
 
 interface Variant {
@@ -25,7 +26,8 @@ interface Variant {
 interface MenuItem {
   id: string;
   name: string;
-  foodType?: string;
+  foodType?: 'VEG' | 'NON_VEG' | 'EGG' | 'VEGAN' | string;
+  imageUrl?: string;
   variants?: Variant[];
   modifierGroups?: any[];
 }
@@ -33,6 +35,7 @@ interface MenuItem {
 interface Category {
   id: string;
   name: string;
+  icon?: string;
   items?: MenuItem[];
 }
 
@@ -44,21 +47,27 @@ interface CartItem {
   variantName: string;
   unitPrice: number;
   quantity: number;
+  foodType?: string;
   notes?: string;
   modifiers: { id: string; name: string; price: number }[];
 }
 
-const FOOD_TYPE_ICON = {
-  VEG:     <div className="w-3.5 h-3.5 border-2 border-green-500 rounded-sm flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /></div>,
-  NON_VEG: <div className="w-3.5 h-3.5 border-2 border-red-500 rounded-sm flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-red-500" /></div>,
-  EGG:     <div className="w-3.5 h-3.5 border-2 border-yellow-500 rounded-sm flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-yellow-500" /></div>,
-  VEGAN:   <div className="w-3.5 h-3.5 border-2 border-emerald-500 rounded-sm flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /></div>,
+const CATEGORY_ICONS: Record<string, string> = {
+  'Starters & Kebabs': '🔥',
+  'Main Course & Curries': '🍛',
+  'Breads & Rice': '🫓',
+  'Beverages & Mocktails': '🥤',
+  'Desserts & Sweets': '🍰',
+  'Quick Bites': '🍟',
+  'Biryani & Rice': '🍚',
+  'Chinese & Noodles': '🍜',
 };
 
 const DEFAULT_CATEGORIES: Category[] = [
   {
     id: 'cat-starters',
     name: 'Starters & Kebabs',
+    icon: '🔥',
     items: [
       { id: 'item-paneer-tikka', name: 'Paneer Tikka', foodType: 'VEG', variants: [{ id: 'v-pt-1', name: 'Standard (6 Pcs)', price: 329 }] },
       { id: 'item-chicken-tikka', name: 'Chicken Tikka', foodType: 'NON_VEG', variants: [{ id: 'v-ct-1', name: 'Standard (6 Pcs)', price: 389 }] },
@@ -69,6 +78,7 @@ const DEFAULT_CATEGORIES: Category[] = [
   {
     id: 'cat-main',
     name: 'Main Course & Curries',
+    icon: '🍛',
     items: [
       { id: 'item-butter-chicken', name: 'Butter Chicken', foodType: 'NON_VEG', variants: [{ id: 'v-bc-1', name: 'Half', price: 389 }, { id: 'v-bc-2', name: 'Full', price: 699 }] },
       { id: 'item-dal-makhani', name: 'Dal Makhani', foodType: 'VEG', variants: [{ id: 'v-dm-1', name: 'Portion', price: 299 }] },
@@ -79,6 +89,7 @@ const DEFAULT_CATEGORIES: Category[] = [
   {
     id: 'cat-breads',
     name: 'Breads & Rice',
+    icon: '🫓',
     items: [
       { id: 'item-butter-naan', name: 'Butter Naan', foodType: 'VEG', variants: [{ id: 'v-bn-1', name: 'Piece', price: 50 }] },
       { id: 'item-garlic-naan', name: 'Garlic Naan', foodType: 'VEG', variants: [{ id: 'v-gn-1', name: 'Piece', price: 65 }] },
@@ -88,6 +99,7 @@ const DEFAULT_CATEGORIES: Category[] = [
   {
     id: 'cat-beverages',
     name: 'Beverages & Mocktails',
+    icon: '🥤',
     items: [
       { id: 'item-mango-lassi', name: 'Mango Lassi', foodType: 'VEG', variants: [{ id: 'v-ml-1', name: 'Glass', price: 129 }] },
       { id: 'item-masala-chai', name: 'Masala Chai', foodType: 'VEG', variants: [{ id: 'v-mc-1', name: 'Cup', price: 60 }] },
@@ -97,10 +109,6 @@ const DEFAULT_CATEGORIES: Category[] = [
 ];
 
 type OrderType = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
-const ORDER_TYPES: OrderType[] = ['DINE_IN', 'TAKEAWAY', 'DELIVERY'];
-const ORDER_TYPE_LABELS: Record<OrderType, string> = {
-  DINE_IN: 'Dine In', TAKEAWAY: 'Takeaway', DELIVERY: 'Delivery',
-};
 
 export default function POSPage() {
   const queryClient = useQueryClient();
@@ -108,10 +116,14 @@ export default function POSPage() {
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [foodTypeFilter, setFoodTypeFilter] = useState<'ALL' | 'VEG' | 'NON_VEG'>('ALL');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [selectedTableName, setSelectedTableName] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [showFastPayModal, setShowFastPayModal] = useState(false);
+  const [cashTendered, setCashTendered] = useState<number | null>(null);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data: rawCategories, isLoading } = useQuery<Category[]>({
@@ -131,7 +143,7 @@ export default function POSPage() {
     queryKey: ['tables'],
     queryFn: async () => {
       try {
-        const res = await apiGet<any[]>('/tables?status=AVAILABLE');
+        const res = await apiGet<any[]>('/tables');
         return Array.isArray(res) ? res : [];
       } catch {
         return [];
@@ -147,26 +159,48 @@ export default function POSPage() {
     return Array.isArray(rawTables) ? rawTables : [];
   }, [rawTables]);
 
-  // ── Computed ──────────────────────────────────────────────────────────────
+  // ── Filtered Items ────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
     const all = categories.flatMap((c) => (Array.isArray(c?.items) ? c.items : []));
-    if (!search) {
-      return selectedCategory
-        ? categories.find((c) => c?.id === selectedCategory)?.items || []
-        : all;
+    let items = !search
+      ? (selectedCategory ? categories.find((c) => c?.id === selectedCategory)?.items || [] : all)
+      : all.filter((i) => i?.name?.toLowerCase().includes(search.toLowerCase()));
+
+    if (foodTypeFilter !== 'ALL') {
+      items = items.filter((i) => i.foodType === foodTypeFilter);
     }
-    return all.filter((i) => i?.name?.toLowerCase().includes(search.toLowerCase()));
-  }, [categories, selectedCategory, search]);
+    return items;
+  }, [categories, selectedCategory, search, foodTypeFilter]);
 
   const subtotal = useMemo(() => {
     return cart.reduce((s, i) => s + (Number(i.unitPrice) * (i.quantity || 1)), 0);
   }, [cart]);
 
-  const tax = useMemo(() => Math.round(subtotal * 0.05), [subtotal]); // 5% GST simplified
+  const tax = useMemo(() => Math.round(subtotal * 0.05), [subtotal]); // 5% GST
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
+  const totalItemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
-  // ── Cart actions ─────────────────────────────────────────────────────────
+  // ── Audio Feedback Helper ────────────────────────────────────────────────
+  const playChime = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch {}
+  };
+
+  // ── Cart Actions ─────────────────────────────────────────────────────────
   const addToCart = useCallback((item: MenuItem) => {
+    playChime();
     const variants = Array.isArray(item.variants) && item.variants.length > 0
       ? item.variants
       : [{ id: `v-${item.id}`, name: 'Standard', price: 299 }];
@@ -190,6 +224,7 @@ export default function POSPage() {
         variantName: variant.name,
         unitPrice,
         quantity: 1,
+        foodType: item.foodType,
         modifiers: [],
       }];
     });
@@ -198,7 +233,7 @@ export default function POSPage() {
   const updateQty = useCallback((key: string, delta: number) => {
     setCart((prev) =>
       prev
-        .map((c) => c.key === key ? { ...c, quantity: c.quantity + delta } : c)
+        .map((c) => (c.key === key ? { ...c, quantity: c.quantity + delta } : c))
         .filter((c) => c.quantity > 0)
     );
   }, []);
@@ -207,7 +242,7 @@ export default function POSPage() {
     setCart((prev) => prev.filter((c) => c.key !== key));
   }, []);
 
-  // ── Create order ─────────────────────────────────────────────────────────
+  // ── Order Mutation ───────────────────────────────────────────────────────
   const createOrderMutation = useMutation({
     mutationFn: () =>
       apiPost('/orders', {
@@ -224,125 +259,203 @@ export default function POSPage() {
         })),
       }),
     onSuccess: (order: any) => {
-      toast.success('Order created!', `Order ${order?.orderNumber || '#POS-NEW'} sent to kitchen`);
+      toast.success('Order Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} placed successfully`);
       setCart([]);
       setNotes('');
       setSelectedTable(null);
+      setSelectedTableName(null);
+      setShowFastPayModal(false);
+      setCashTendered(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
     },
-    onError: () => toast.error('Failed to create order'),
+    onError: () => toast.error('Failed to create order. Please try again.'),
   });
 
   const handlePlaceOrder = () => {
-    if (cart.length === 0) { toast.error('Cart is empty'); return; }
+    if (cart.length === 0) {
+      toast.error('Cart is empty. Please select food items.');
+      return;
+    }
     createOrderMutation.mutate();
   };
 
   return (
-    <div className="flex h-full gap-0 -m-6 overflow-hidden">
-      {/* ── Left: Menu ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 border-r border-border bg-background">
-        {/* Search + order type */}
-        <div className="p-4 border-b border-border space-y-3 shrink-0">
-          <div className="flex gap-2">
-            <Input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setSelectedCategory(null); }}
-              placeholder="Search menu items..."
-              leftIcon={<Search />}
-              className="flex-1"
-            />
-            <div className="flex rounded-lg border border-border overflow-hidden">
-              {ORDER_TYPES.map((t) => (
+    <div className="flex flex-col lg:flex-row h-full gap-0 -m-6 overflow-hidden select-none">
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          LEFT PANEL: VISUAL TOUCH MENU & CATEGORIES
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 border-r border-border bg-background h-full">
+        {/* Top Header: Order Mode & Search */}
+        <div className="p-3.5 border-b border-border space-y-3 bg-card/60 backdrop-blur shrink-0">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {/* 3 Giant Touch Order Type Buttons */}
+            <div className="flex items-center gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
+              {[
+                { id: 'DINE_IN', label: '🍽️ Dine-In Table', color: 'bg-emerald-600 text-white' },
+                { id: 'TAKEAWAY', label: '🛍️ Takeaway / Parcel', color: 'bg-indigo-600 text-white' },
+                { id: 'DELIVERY', label: '🛵 Delivery', color: 'bg-purple-600 text-white' },
+              ].map((t) => (
                 <button
-                  key={t}
-                  onClick={() => setOrderType(t)}
+                  key={t.id}
+                  type="button"
+                  onClick={() => setOrderType(t.id as any)}
                   className={cn(
-                    'px-3 py-2 text-xs font-medium transition-colors',
-                    orderType === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                    'px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm',
+                    orderType === t.id
+                      ? `${t.color} scale-100 shadow-md`
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                   )}
                 >
-                  {ORDER_TYPE_LABELS[t]}
+                  {t.label}
                 </button>
               ))}
+            </div>
+
+            {/* Veg / Non-Veg Quick Filters */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFoodTypeFilter('ALL')}
+                className={cn(
+                  'px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer',
+                  foodTypeFilter === 'ALL'
+                    ? 'bg-foreground text-background border-transparent'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                )}
+              >
+                All Food
+              </button>
+              <button
+                type="button"
+                onClick={() => setFoodTypeFilter('VEG')}
+                className={cn(
+                  'flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer',
+                  foodTypeFilter === 'VEG'
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500'
+                    : 'border-border text-emerald-400/70 hover:bg-emerald-500/10'
+                )}
+              >
+                <div className="w-2 h-2 rounded-full bg-emerald-500" /> Veg Only
+              </button>
+              <button
+                type="button"
+                onClick={() => setFoodTypeFilter('NON_VEG')}
+                className={cn(
+                  'flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer',
+                  foodTypeFilter === 'NON_VEG'
+                    ? 'bg-red-500/20 text-red-400 border-red-500'
+                    : 'border-border text-red-400/70 hover:bg-red-500/10'
+                )}
+              >
+                <div className="w-2 h-2 rounded-full bg-red-500" /> Non-Veg
+              </button>
             </div>
           </div>
 
-          {/* Categories */}
-          {!search && (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className={cn(
-                  'shrink-0 px-4 py-1.5 rounded-full text-xs font-medium border transition-all',
-                  !selectedCategory
-                    ? 'bg-primary text-primary-foreground border-transparent'
-                    : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
-                )}
-              >
-                All
-              </button>
-              {categories.map((c) => (
+          {/* Large Visual Category Buttons */}
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory(null)}
+              className={cn(
+                'shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black border transition-all cursor-pointer shadow-sm',
+                !selectedCategory
+                  ? 'bg-primary text-primary-foreground border-transparent shadow-primary/25 shadow-md scale-105'
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40'
+              )}
+            >
+              <span>✨</span>
+              <span>All Categories</span>
+            </button>
+            {categories.map((c) => {
+              const icon = c.icon || CATEGORY_ICONS[c.name] || '🍽️';
+              const active = selectedCategory === c.id;
+              return (
                 <button
                   key={c.id}
+                  type="button"
                   onClick={() => setSelectedCategory(c.id)}
                   className={cn(
-                    'shrink-0 px-4 py-1.5 rounded-full text-xs font-medium border transition-all',
-                    selectedCategory === c.id
-                      ? 'bg-primary text-primary-foreground border-transparent'
-                      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                    'shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black border transition-all cursor-pointer shadow-sm',
+                    active
+                      ? 'bg-primary text-primary-foreground border-transparent shadow-primary/25 shadow-md scale-105'
+                      : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40'
                   )}
                 >
-                  {c.name}
+                  <span className="text-base">{icon}</span>
+                  <span>{c.name}</span>
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
 
-        {/* Items grid */}
+        {/* Big Food Grid (Touch-friendly 1-Tap Add) */}
         <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
               {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+                <div key={i} className="h-32 rounded-2xl bg-muted/60 animate-pulse border border-border" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
               {filteredItems.map((item) => {
                 const variants = Array.isArray(item.variants) && item.variants.length > 0 ? item.variants : [];
                 const basePrice = Number(variants[0]?.price || 0);
                 const inCart = cart.filter((c) => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0);
-                const foodIcon = (item.foodType && FOOD_TYPE_ICON[item.foodType as keyof typeof FOOD_TYPE_ICON]) || FOOD_TYPE_ICON.VEG;
+                const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
 
                 return (
                   <button
                     key={item.id}
+                    type="button"
                     onClick={() => addToCart(item)}
-                    className="pos-item-card text-left relative p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition shadow-sm"
+                    className={cn(
+                      'text-left relative p-4 rounded-2xl border transition-all duration-150 shadow-sm cursor-pointer flex flex-col justify-between min-h-[120px] group active:scale-95',
+                      inCart > 0
+                        ? 'border-primary bg-primary/10 shadow-md shadow-primary/15'
+                        : 'border-border bg-card hover:border-primary/50 hover:bg-muted/30'
+                    )}
                   >
-                    {/* Food type indicator */}
-                    <div className="absolute top-2.5 right-2.5">
-                      {foodIcon}
+                    {/* Top Badges */}
+                    <div className="flex items-center justify-between w-full">
+                      {/* Veg / Non-Veg Indicator */}
+                      <div className={cn(
+                        'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
+                        isVeg ? 'border-emerald-500' : 'border-red-500'
+                      )}>
+                        <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
+                      </div>
+
+                      {/* Quantity in Cart Badge */}
+                      {inCart > 0 ? (
+                        <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-black shadow animate-in zoom-in-75 duration-100">
+                          {inCart} Added
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-muted/80 border border-border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                          <Plus className="w-3.5 h-3.5" />
+                        </div>
+                      )}
                     </div>
 
-                    {inCart > 0 && (
-                      <div className="absolute top-2.5 left-2.5 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                        {inCart}
-                      </div>
-                    )}
-
-                    <div className="mt-4">
-                      <p className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">{item.name}</p>
-                      {variants.length > 1 && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {variants.map((v) => v.name).join(' / ')}
-                        </p>
-                      )}
-                      <p className="text-sm font-bold text-primary mt-1.5 tabular">
-                        {variants.length > 1 ? 'from ' : ''}₹{basePrice.toFixed(0)}
+                    {/* Food Title & Price */}
+                    <div className="mt-3">
+                      <p className="font-bold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                        {item.name}
                       </p>
+                      <div className="flex items-baseline justify-between mt-2 pt-1 border-t border-border/40">
+                        <span className="text-base font-black text-emerald-400">
+                          ₹{basePrice.toFixed(0)}
+                        </span>
+                        {variants.length > 1 && (
+                          <span className="text-[10px] font-semibold text-muted-foreground">
+                            {variants.length} sizes
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -350,8 +463,9 @@ export default function POSPage() {
 
               {filteredItems.length === 0 && (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground">
-                  <ShoppingCart className="w-12 h-12 mb-3 opacity-20" />
-                  <p className="text-sm">No items found</p>
+                  <Utensils className="w-12 h-12 mb-3 opacity-30" />
+                  <p className="text-sm font-bold">No dishes found</p>
+                  <p className="text-xs text-muted-foreground">Try selecting "All Categories" or clearing the search.</p>
                 </div>
               )}
             </div>
@@ -359,135 +473,282 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* ── Right: Cart / Order panel ────────────────────────────────────────── */}
-      <div className="flex flex-col w-[340px] shrink-0 bg-card">
-        {/* Cart header */}
-        <div className="p-4 border-b border-border shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-foreground flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-primary" />
-              Current Order
-            </h2>
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          RIGHT PANEL: TOUCH-FRIENDLY ORDER CART & FAST BILLING
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col w-full lg:w-[380px] shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border h-full">
+        {/* Cart Header */}
+        <div className="p-4 border-b border-border bg-muted/30 shrink-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-primary/20 text-primary flex items-center justify-center font-bold">
+                <ShoppingCart className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="font-black text-sm text-foreground">Current Order</h2>
+                <p className="text-[10px] text-muted-foreground font-semibold">{totalItemsCount} Total Items</p>
+              </div>
+            </div>
+
             {cart.length > 0 && (
-              <button onClick={() => setCart([])} className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
-                <Trash2 className="w-3 h-3" /> Clear
+              <button
+                type="button"
+                onClick={() => setCart([])}
+                className="px-2.5 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Clear All
               </button>
             )}
           </div>
 
-          {/* Table selector for dine-in */}
+          {/* Big Table Selector for Dine-In */}
           {orderType === 'DINE_IN' && (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar">
-              {tables.slice(0, 8).map((t: any) => (
-                <button
-                  key={t.id}
-                  onClick={() => setSelectedTable(t.id === selectedTable ? null : t.id)}
-                  className={cn(
-                    'shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                    selectedTable === t.id
-                      ? 'bg-primary text-primary-foreground border-transparent'
-                      : 'border-border text-muted-foreground hover:border-primary/50'
-                  )}
-                >
-                  {t.name}
-                </button>
-              ))}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
+                <TableIcon className="w-3.5 h-3.5 text-primary" /> Select Seated Table:
+              </label>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {tables.length > 0 ? (
+                  tables.map((t: any) => {
+                    const isSelected = selectedTable === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedTable(null);
+                            setSelectedTableName(null);
+                          } else {
+                            setSelectedTable(t.id);
+                            setSelectedTableName(t.name);
+                          }
+                        }}
+                        className={cn(
+                          'shrink-0 px-3 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer shadow-sm',
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-105'
+                            : 'bg-background border-border text-foreground hover:border-primary/50'
+                        )}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="text-[11px] text-muted-foreground italic">Table 1, Table 2 (Auto-Assigned)</div>
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Cart items */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Cart Item List */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {cart.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <ShoppingCart className="w-7 h-7 opacity-30" />
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">
+              <div className="w-16 h-16 rounded-3xl bg-muted/60 border border-border flex items-center justify-center mb-3 text-2xl shadow-inner">
+                👈
               </div>
-              <p className="text-sm font-medium">Cart is empty</p>
-              <p className="text-xs text-center mt-1 opacity-60">Tap an item on the left to add it to the order</p>
+              <p className="text-sm font-bold text-foreground">Order is Empty</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+                Tap any delicious dish on the left to add it to this ticket.
+              </p>
             </div>
           ) : (
-            <div className="p-3 space-y-1.5">
-              {cart.map((item) => (
-                <div key={item.key} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50 group transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.variantName}</p>
-                    <p className="text-xs font-bold text-primary tabular mt-0.5">₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}</p>
+            cart.map((item) => (
+              <div
+                key={item.key}
+                className="flex items-center justify-between p-3 rounded-2xl bg-background border border-border hover:border-primary/30 transition-all shadow-sm"
+              >
+                <div className="flex-1 min-w-0 mr-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className={cn(
+                      'w-2.5 h-2.5 rounded-full shrink-0',
+                      item.foodType === 'VEG' || item.foodType === 'VEGAN' ? 'bg-emerald-500' : 'bg-red-500'
+                    )} />
+                    <p className="text-xs font-black text-foreground truncate">{item.name}</p>
                   </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => updateQty(item.key, -1)}
-                      className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-6 text-center text-sm font-bold tabular">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQty(item.key, 1)}
-                      className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
+                  <p className="text-[11px] font-bold text-emerald-400 mt-1">
+                    ₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}{' '}
+                    <span className="text-[10px] text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
+                  </p>
                 </div>
-              ))}
-            </div>
+
+                {/* Giant Counter Buttons */}
+                <div className="flex items-center gap-2 shrink-0 bg-muted/60 p-1 rounded-xl border border-border">
+                  <button
+                    type="button"
+                    onClick={() => updateQty(item.key, -1)}
+                    className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-foreground hover:bg-red-500/20 hover:text-red-400 font-bold transition-all active:scale-90 cursor-pointer"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="w-6 text-center text-sm font-black text-foreground">{item.quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => updateQty(item.key, 1)}
+                    className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold transition-all active:scale-90 cursor-pointer shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))
           )}
         </div>
 
-        {/* Totals + actions */}
+        {/* Footer: Totals & Giant Action Buttons */}
         {cart.length > 0 && (
-          <div className="border-t border-border p-4 space-y-4 shrink-0">
-            {/* Totals */}
-            <div className="space-y-1.5">
-              {[
-                { label: 'Subtotal', value: subtotal },
-                { label: 'GST (5%)', value: tax },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex justify-between text-sm text-muted-foreground">
-                  <span>{label}</span>
-                  <span className="tabular font-medium">₹{Number(value).toFixed(2)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border">
-                <span>Total</span>
-                <span className="text-primary tabular">₹{Number(total).toFixed(2)}</span>
+          <div className="p-4 border-t border-border bg-muted/30 shrink-0 space-y-3">
+            {/* Quick Bill Breakdown */}
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Items Subtotal:</span>
+                <span className="font-semibold text-foreground">₹{subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>GST Tax (5%):</span>
+                <span className="font-semibold text-foreground">₹{tax.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-baseline pt-2 border-t border-border font-black text-base text-foreground">
+                <span>Total Amount:</span>
+                <span className="text-2xl text-emerald-400">₹{total.toFixed(2)}</span>
               </div>
             </div>
 
-            {/* Notes */}
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Order notes..."
-              rows={2}
-              className="w-full text-xs rounded-lg border border-border bg-background p-2.5 resize-none placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5" /> Hold
+            {/* Giant Action Buttons */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {/* Send KOT Button */}
+              <Button
+                size="lg"
+                loading={createOrderMutation.isPending}
+                onClick={handlePlaceOrder}
+                className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-lg shadow-emerald-600/30 flex flex-col items-center justify-center gap-0.5"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4" />
+                  <span>Send KOT</span>
+                </div>
+                <span className="text-[10px] font-medium opacity-90">Send to Kitchen</span>
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Printer className="w-3.5 h-3.5" /> Print KOT
+
+              {/* Fast Pay & Settle Button */}
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => {
+                  setCashTendered(total);
+                  setShowFastPayModal(true);
+                }}
+                className="w-full h-14 rounded-2xl border-2 border-primary/60 bg-primary/10 hover:bg-primary/20 text-primary font-black text-sm flex flex-col items-center justify-center gap-0.5"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Banknote className="w-4 h-4" />
+                  <span>Fast Pay</span>
+                </div>
+                <span className="text-[10px] font-medium opacity-90">Collect & Settle</span>
               </Button>
             </div>
-
-            <Button
-              className="w-full"
-              size="lg"
-              loading={createOrderMutation.isPending}
-              onClick={handlePlaceOrder}
-            >
-              <Receipt className="w-4 h-4 mr-2" />
-              Place Order — ₹{Number(total).toFixed(2)}
-            </Button>
           </div>
         )}
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: FAST CASH & UPI TOUCH SETTLEMENT
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {showFastPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-md bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                  <Banknote className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-foreground">Fast Touch Checkout</h3>
+                  <p className="text-xs text-muted-foreground">Select payment method or tap exact cash</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFastPayModal(false)}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Total Display */}
+            <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 text-center space-y-1">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Bill to Collect</span>
+              <p className="text-3xl font-black text-emerald-400">₹{total.toFixed(2)}</p>
+              {selectedTableName && (
+                <Badge className="bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">{selectedTableName}</Badge>
+              )}
+            </div>
+
+            {/* 1-Tap Cash Presets */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-foreground">Quick Cash Note Tendered:</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'Exact', amount: total },
+                  { label: '₹100', amount: 100 },
+                  { label: '₹500', amount: 500 },
+                  { label: '₹2000', amount: 2000 },
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCashTendered(p.amount)}
+                    className={cn(
+                      'p-2.5 rounded-xl border text-xs font-black transition-all cursor-pointer text-center',
+                      cashTendered === p.amount
+                        ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                        : 'bg-muted/50 border-border text-foreground hover:bg-muted'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Change Due Calculation */}
+            {cashTendered !== null && cashTendered >= total && (
+              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex justify-between items-center text-xs text-blue-300">
+                <span className="font-bold">Return Change to Guest:</span>
+                <span className="text-base font-black text-blue-400">₹{(cashTendered - total).toFixed(2)}</span>
+              </div>
+            )}
+
+            {/* Action Payment Modes */}
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <Button
+                size="lg"
+                loading={createOrderMutation.isPending}
+                onClick={handlePlaceOrder}
+                className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-2"
+              >
+                <Banknote className="w-4 h-4" />
+                <span>Cash Paid (Done)</span>
+              </Button>
+
+              <Button
+                size="lg"
+                variant="outline"
+                loading={createOrderMutation.isPending}
+                onClick={handlePlaceOrder}
+                className="h-12 rounded-2xl border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/20 font-black text-xs gap-2"
+              >
+                <QrCode className="w-4 h-4" />
+                <span>UPI QR / Card Paid</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
