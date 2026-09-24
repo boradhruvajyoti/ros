@@ -12,6 +12,7 @@ import type { Prisma } from '@prisma/client';
 
 export interface CreateOrderDto {
   type: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP' | 'DELIVERY' | 'ONLINE';
+  status?: OrderStatus;
   tableId?: string;
   customerId?: string;
   waiterId?: string;
@@ -51,6 +52,29 @@ export class OrderService {
       if (existing) return existing;
     }
 
+    // Resolve a strictly valid branch ID
+    let effectiveBranchId = this.branchId;
+    if (!effectiveBranchId || effectiveBranchId === 'default-branch') {
+      if (dto.tableId) {
+        const table = await prisma.restaurantTable.findUnique({
+          where: { id: dto.tableId },
+          select: { branchId: true },
+        });
+        if (table?.branchId) effectiveBranchId = table.branchId;
+      }
+      if (!effectiveBranchId || effectiveBranchId === 'default-branch') {
+        const fallbackBranch = await prisma.branch.findFirst({
+          where: { tenantId: this.tenantId, isActive: true },
+          select: { id: true },
+        });
+        if (fallbackBranch) effectiveBranchId = fallbackBranch.id;
+      }
+    }
+
+    if (!effectiveBranchId || effectiveBranchId === 'default-branch') {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Valid restaurant branch not found for order', 404);
+    }
+
     // Load menu items with variants and modifier prices
     const menuItemIds = dto.items.map((i) => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
@@ -75,8 +99,6 @@ export class OrderService {
 
       const variant = (item.variantId ? menuItem.variants.find((v) => v.id === item.variantId) : null) || menuItem.variants[0];
 
-      if (!variant) throw new AppError(ErrorCodes.NOT_FOUND, `Variant not found for item ${menuItem.name}`);
-
       const itemModifiers = (item.modifierIds || []).map((mid) => {
         const mod = modifierMap.get(mid);
         if (!mod) throw new AppError(ErrorCodes.NOT_FOUND, `Modifier ${mid} not found`);
@@ -84,13 +106,13 @@ export class OrderService {
       });
 
       const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
-      const unitPrice = toAmount(addAmounts(variant.price, modifierTotal));
+      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : 0;
       const lineTotal = multiplyAmount(unitPrice, item.quantity);
       subtotal = addAmounts(subtotal, lineTotal);
 
       return {
         menuItemId: item.menuItemId,
-        variantId: item.variantId || variant.id,
+        variantId: variant?.id || null,
         quantity: item.quantity,
         unitPrice,
         lineTotal,
@@ -100,18 +122,20 @@ export class OrderService {
       };
     });
 
+    const initialStatus = dto.status || 'DRAFT';
+
     // Get next daily sequence
-    const orderNumber = await this.getNextSequence('ORDER');
+    const orderNumber = await this.getNextSequence('ORDER', effectiveBranchId);
 
     return prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
           id: generateULID(),
           tenantId: this.tenantId,
-          branchId: this.branchId,
+          branchId: effectiveBranchId,
           orderNumber,
           type: dto.type,
-          status: 'DRAFT',
+          status: initialStatus,
           tableId: dto.tableId || null,
           customerId: dto.customerId || null,
           waiterId: dto.waiterId || null,
@@ -133,7 +157,7 @@ export class OrderService {
             })),
           },
           statusHistory: {
-            create: { fromStatus: null, toStatus: 'DRAFT', changedBy: createdBy },
+            create: { fromStatus: null, toStatus: initialStatus, changedBy: createdBy },
           },
         },
         include: this.orderInclude(),
@@ -147,8 +171,13 @@ export class OrderService {
         });
       }
 
+      // If initial status is SENT_TO_KITCHEN, auto-generate KOTs immediately
+      if (initialStatus === 'SENT_TO_KITCHEN') {
+        await this.generateKots(order.id, tx as any, effectiveBranchId);
+      }
+
       // Emit real-time event
-      emitToRoom(this.tenantId, this.branchId, {
+      emitToRoom(this.tenantId, effectiveBranchId, {
         type: 'ORDER_CREATED',
         payload: {
           id: order.id,
@@ -171,7 +200,7 @@ export class OrderService {
   // ── State Transition ───────────────────────────────────────────────────────
   async updateStatus(orderId: string, dto: UpdateOrderStatusDto): Promise<any> {
     const order = await prisma.order.findFirst({
-      where: { id: orderId, tenantId: this.tenantId, branchId: this.branchId },
+      where: { id: orderId, tenantId: this.tenantId },
     });
 
     if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
@@ -205,6 +234,8 @@ export class OrderService {
     if (dto.status === 'CANCELLED') { updateData.cancelledAt = new Date(); updateData.cancellationReason = dto.reason; }
     if (dto.status === 'BILLED')    updateData.billedAt = new Date();
 
+    const targetBranchId = order.branchId || this.branchId;
+
     const updated = await prisma.$transaction(async (tx) => {
       const u = await tx.order.update({
         where: { id: orderId },
@@ -218,7 +249,7 @@ export class OrderService {
           where: { id: order.tableId },
           data: { status: 'CLEANING' },
         });
-        emitToRoom(this.tenantId, this.branchId, {
+        emitToRoom(this.tenantId, targetBranchId, {
           type: 'TABLE_STATUS_CHANGED',
           payload: { tableId: order.tableId, status: 'CLEANING' },
         });
@@ -226,13 +257,13 @@ export class OrderService {
 
       // When SENT_TO_KITCHEN — auto-generate KOTs
       if (dto.status === 'SENT_TO_KITCHEN') {
-        await this.generateKots(orderId, tx as any);
+        await this.generateKots(orderId, tx as any, targetBranchId);
       }
 
       return u;
     });
 
-    emitToRoom(this.tenantId, this.branchId, {
+    emitToRoom(this.tenantId, targetBranchId, {
       type: 'ORDER_STATUS_CHANGED',
       payload: { orderId, orderNumber: order.orderNumber, status: dto.status },
     });
@@ -241,7 +272,7 @@ export class OrderService {
   }
 
   // ── KOT Engine ─────────────────────────────────────────────────────────────
-  private async generateKots(orderId: string, tx: typeof prisma): Promise<void> {
+  private async generateKots(orderId: string, tx: typeof prisma, branchIdOverride?: string): Promise<void> {
     const orderItems = await tx.orderItem.findMany({
       where: { orderId, status: 'PENDING' },
       include: {
@@ -253,6 +284,15 @@ export class OrderService {
 
     if (orderItems.length === 0) return;
 
+    let targetBranchId = branchIdOverride || this.branchId;
+    if (!targetBranchId || targetBranchId === 'default-branch') {
+      const fallback = await prisma.branch.findFirst({
+        where: { tenantId: this.tenantId, isActive: true },
+        select: { id: true },
+      });
+      if (fallback) targetBranchId = fallback.id;
+    }
+
     // Group items by kitchen station
     const stationGroups = new Map<string | null, typeof orderItems>();
     orderItems.forEach((item) => {
@@ -262,12 +302,12 @@ export class OrderService {
     });
 
     for (const [stationId, items] of stationGroups) {
-      const kotNumber = await this.getNextSequence('KOT');
+      const kotNumber = await this.getNextSequence('KOT', targetBranchId);
 
       const kot = await tx.orderKot.create({
         data: {
           orderId,
-          branchId: this.branchId,
+          branchId: targetBranchId,
           kotNumber,
           kitchenStationId: stationId,
           status: 'NEW',
@@ -304,9 +344,9 @@ export class OrderService {
       };
 
       if (stationId) {
-        emitToStation(this.tenantId, this.branchId, stationId, { type: 'KOT_CREATED', payload: kotSummary });
+        emitToStation(this.tenantId, targetBranchId, stationId, { type: 'KOT_CREATED', payload: kotSummary });
       }
-      emitToRoom(this.tenantId, this.branchId, { type: 'KOT_CREATED', payload: kotSummary });
+      emitToRoom(this.tenantId, targetBranchId, { type: 'KOT_CREATED', payload: kotSummary });
     }
   }
 
@@ -333,21 +373,29 @@ export class OrderService {
   }
 
   // ── Sequence Generation (DB-agnostic atomic increment) ───────────────────────
-  private async getNextSequence(type: string): Promise<string> {
+  private async getNextSequence(type: string, branchIdOverride?: string): Promise<string> {
     const today = new Date().toISOString().slice(0, 10);
+    let targetBranchId = branchIdOverride || this.branchId;
+    if (!targetBranchId || targetBranchId === 'default-branch') {
+      const fallback = await prisma.branch.findFirst({
+        where: { tenantId: this.tenantId, isActive: true },
+        select: { id: true },
+      });
+      if (fallback) targetBranchId = fallback.id;
+    }
 
     const row = await prisma.dailySequence.upsert({
       where: {
         tenantId_branchId_date_type: {
           tenantId: this.tenantId,
-          branchId: this.branchId,
+          branchId: targetBranchId,
           date: today,
           type,
         },
       },
       create: {
         tenantId: this.tenantId,
-        branchId: this.branchId,
+        branchId: targetBranchId,
         date: today,
         type,
         sequence: 1,

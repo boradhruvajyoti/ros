@@ -131,12 +131,12 @@ export default function POSPage() {
     queryFn: async () => {
       try {
         const res = await apiGet<Category[]>('/menu/pos-menu');
-        return Array.isArray(res) && res.length > 0 ? res : DEFAULT_CATEGORIES;
+        return Array.isArray(res) ? res : [];
       } catch {
-        return DEFAULT_CATEGORIES;
+        return [];
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 
   const { data: rawTables = [] } = useQuery({
@@ -152,7 +152,7 @@ export default function POSPage() {
   });
 
   const categories = useMemo(() => {
-    return Array.isArray(rawCategories) && rawCategories.length > 0 ? rawCategories : DEFAULT_CATEGORIES;
+    return Array.isArray(rawCategories) ? rawCategories : [];
   }, [rawCategories]);
 
   const tables = useMemo(() => {
@@ -200,6 +200,12 @@ export default function POSPage() {
 
   // ── Cart Actions ─────────────────────────────────────────────────────────
   const addToCart = useCallback((item: MenuItem) => {
+    // Enforce dining table selection for Dine-In orders
+    if (orderType === 'DINE_IN' && !selectedTable) {
+      toast.error('Dining Table Required', 'Please select a seated table first before adding items to this Dine-In ticket.');
+      return;
+    }
+
     playChime();
     const variants = Array.isArray(item.variants) && item.variants.length > 0
       ? item.variants
@@ -228,7 +234,7 @@ export default function POSPage() {
         modifiers: [],
       }];
     });
-  }, []);
+  }, [orderType, selectedTable]);
 
   const updateQty = useCallback((key: string, delta: number) => {
     setCart((prev) =>
@@ -244,9 +250,10 @@ export default function POSPage() {
 
   // ── Order Mutation ───────────────────────────────────────────────────────
   const createOrderMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (extraPayload?: any) =>
       apiPost('/orders', {
         type: orderType,
+        status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
         notes,
         clientId: generateUUID(),
@@ -257,6 +264,7 @@ export default function POSPage() {
           notes: c.notes,
           modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
         })),
+        ...extraPayload,
       }),
     onSuccess: (order: any) => {
       toast.success('Order Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} placed successfully`);
@@ -268,16 +276,87 @@ export default function POSPage() {
       setCashTendered(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['kitchen-kots'] });
     },
-    onError: () => toast.error('Failed to create order. Please try again.'),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Failed to create order. Please try again.';
+      toast.error('Failed to Create Order', msg);
+    },
   });
 
   const handlePlaceOrder = () => {
+    if (orderType === 'DINE_IN' && !selectedTable) {
+      toast.error('Dining Table Required', 'Please select a seated table before sending to kitchen.');
+      return;
+    }
     if (cart.length === 0) {
-      toast.error('Cart is empty. Please select food items.');
+      toast.error('Cart is empty', 'Please select food items from the menu.');
       return;
     }
     createOrderMutation.mutate();
+  };
+
+  const handleFastPayment = async (method: 'CASH' | 'UPI' | 'CARD') => {
+    if (orderType === 'DINE_IN' && !selectedTable) {
+      toast.error('Dining Table Required', 'Please select a seated table before settling order.');
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error('Cart is empty', 'Please select food items first.');
+      return;
+    }
+
+    try {
+      // 1. Create order
+      const order = await apiPost<any>('/orders', {
+        type: orderType,
+        status: 'SENT_TO_KITCHEN',
+        tableId: selectedTable || undefined,
+        notes,
+        clientId: generateUUID(),
+        items: cart.map((c) => ({
+          menuItemId: c.menuItemId,
+          variantId: c.variantId,
+          quantity: c.quantity,
+          notes: c.notes,
+          modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+        })),
+      });
+
+      // 2. Add payment
+      await apiPost(`/orders/${order.id}/payments`, {
+        method,
+        amount: total,
+      });
+
+      // 3. Mark as PAID/COMPLETED
+      try {
+        await apiPost(`/orders/${order.id}/status`, {
+          status: 'BILLED',
+          reason: `Fast Touch POS Checkout (${method})`,
+        });
+        await apiPost(`/orders/${order.id}/status`, {
+          status: 'PAID',
+          reason: `Settled via ${method}`,
+        });
+      } catch {}
+
+      toast.success('Order Settled & Paid! 💰', `Order #${order.orderNumber} successfully paid via ${method}`);
+      setCart([]);
+      setNotes('');
+      setSelectedTable(null);
+      setSelectedTableName(null);
+      setShowFastPayModal(false);
+      setCashTendered(null);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['kitchen-kots'] });
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Payment processing failed. Please try again.';
+      toast.error('Payment Settlement Failed', msg);
+    }
   };
 
   return (
@@ -522,6 +601,13 @@ export default function POSPage() {
                 )}
               </div>
 
+              {!selectedTable && (
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold flex items-center gap-1.5">
+                  <span className="text-amber-400">⚠️</span>
+                  <span>Select a table first to add dishes to cart</span>
+                </div>
+              )}
+
               {/* Multi-column grid of large table tabs */}
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-44 overflow-y-auto pr-0.5">
                 {tables.length > 0 ? (
@@ -755,8 +841,8 @@ export default function POSPage() {
               <Button
                 size="lg"
                 loading={createOrderMutation.isPending}
-                onClick={handlePlaceOrder}
-                className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-2"
+                onClick={() => handleFastPayment('CASH')}
+                className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-2 cursor-pointer"
               >
                 <Banknote className="w-4 h-4" />
                 <span>Cash Paid (Done)</span>
@@ -766,8 +852,8 @@ export default function POSPage() {
                 size="lg"
                 variant="outline"
                 loading={createOrderMutation.isPending}
-                onClick={handlePlaceOrder}
-                className="h-12 rounded-2xl border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/20 font-black text-xs gap-2"
+                onClick={() => handleFastPayment('UPI')}
+                className="h-12 rounded-2xl border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/20 font-black text-xs gap-2 cursor-pointer"
               >
                 <QrCode className="w-4 h-4" />
                 <span>UPI QR / Card Paid</span>

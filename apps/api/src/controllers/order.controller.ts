@@ -14,6 +14,7 @@ import { generateInvoicePdf } from '../services/invoice.service';
 const createOrderSchema = z.object({
   type: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).optional(),
   orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).optional(),
+  status: z.enum(['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN']).optional(),
   tableId: z.string().optional(),
   customerId: z.string().optional(),
   waiterId: z.string().optional(),
@@ -77,10 +78,14 @@ export class OrderController {
 
   static async listActive(req: Request, res: Response): Promise<void> {
     const svc = getOrderService(req);
+    const branchFilter = req.user!.bid && req.user!.bid !== 'default-branch'
+      ? { branchId: req.user!.bid }
+      : {};
+
     const orders = await prisma.order.findMany({
       where: {
         tenantId: req.user!.tid,
-        branchId: req.user!.bid!,
+        ...branchFilter,
         status: {
           in: ['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN', 'PREPARING', 'READY', 'SERVED', 'BILLED', 'PARTIALLY_PAID'],
         },
@@ -108,6 +113,7 @@ export class OrderController {
     const orderPayload = {
       ...dto,
       type: (dto.type || dto.orderType || 'DINE_IN') as any,
+      status: dto.status,
     };
     const svc = getOrderService(req);
     const order = await svc.createOrder(orderPayload, req.user!.sub);

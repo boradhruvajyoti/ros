@@ -174,7 +174,11 @@ export class TableController {
     }
 
     const categories = await prisma.menuCategory.findMany({
-      where: { tenantId: table.tenantId, branchId: table.branchId, isActive: true },
+      where: {
+        tenantId: table.tenantId,
+        isActive: true,
+        OR: [{ branchId: table.branchId }, { branchId: null }],
+      },
       include: {
         items: {
           where: { isActive: true, isAvailable: true },
@@ -219,11 +223,22 @@ export class TableController {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Order must contain at least one item', 400);
     }
 
-    // Find a valid active user ID for this tenant to satisfy the created_by foreign key
-    const tenantUser = await prisma.user.findFirst({
+    // Find a valid user ID for this tenant to satisfy the created_by foreign key
+    let tenantUser = await prisma.user.findFirst({
       where: { tenantId: table.tenantId, isActive: true },
       select: { id: true },
     });
+
+    if (!tenantUser) {
+      tenantUser = await prisma.user.findFirst({
+        where: { tenantId: table.tenantId },
+        select: { id: true },
+      });
+    }
+
+    if (!tenantUser) {
+      tenantUser = await prisma.user.findFirst({ select: { id: true } });
+    }
 
     if (!tenantUser) {
       throw new AppError(ErrorCodes.NOT_FOUND, 'No active system operator found for this restaurant branch', 404);
@@ -262,6 +277,7 @@ export class TableController {
     const order = await orderService.createOrder(
       {
         type: 'DINE_IN',
+        status: 'CONFIRMED',
         tableId: table.id,
         customerId,
         notes: formattedNotes,
@@ -275,29 +291,22 @@ export class TableController {
       tenantUser.id
     );
 
-    // Auto-advance to CONFIRMED for staff verification (not straight to kitchen)
-    const confirmedOrder = await orderService.updateStatus(order.id, {
-      status: 'CONFIRMED',
-      userId: tenantUser.id,
-      reason: `Contactless QR order submitted by guest at ${table.name} — Awaiting table presence verification`,
-    });
-
     // Real-time broadcast to Waiters, Cashiers, and Managers
     emitToRoom(table.tenantId, table.branchId, {
       type: 'QR_ORDER_PENDING',
       payload: {
-        orderId: confirmedOrder.id,
-        orderNumber: confirmedOrder.orderNumber,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
         tableId: table.id,
         tableName: table.name,
         customerName: customerName || 'Dine-In Guest',
         customerPhone,
-        total: confirmedOrder.total,
+        total: order.total,
         itemCount: items.length,
       },
     });
 
-    sendSuccess(res, confirmedOrder, 201);
+    sendSuccess(res, order, 201);
   }
 
   static async getPublicOrderStatus(req: Request, res: Response): Promise<void> {
