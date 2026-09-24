@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   QrCode, UtensilsCrossed, Plus, Minus, ShoppingBag,
@@ -45,6 +45,21 @@ export default function QrOrderPage() {
     queryFn: () => apiGet<Table[]>('/tables'),
   });
 
+  const { data: tenant } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: () => apiGet<any>('/tenants/current'),
+  });
+
+  const taxRate = useMemo(() => {
+    try {
+      const raw = tenant?.settings;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+      return parsed?.taxRate !== undefined ? Number(parsed.taxRate) : 0;
+    } catch {
+      return 0;
+    }
+  }, [tenant]);
+
   const placeOrderMutation = useMutation({
     mutationFn: async (payload: any) => apiPost('/orders', payload),
     onSuccess: (res: any) => {
@@ -87,7 +102,7 @@ export default function QrOrderPage() {
   }).filter(c => c.item);
 
   const subtotal = cartItems.reduce((acc, c) => acc + c.price * c.qty, 0);
-  const tax = subtotal * 0.05; // 5% GST
+  const tax = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
   const grandTotal = subtotal + tax;
 
   const handlePlaceOrder = () => {
@@ -303,10 +318,12 @@ export default function QrOrderPage() {
                     <span>Subtotal</span>
                     <span className="font-mono">{formatCurrency(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Estimated Tax (5%)</span>
-                    <span className="font-mono">{formatCurrency(tax)}</span>
-                  </div>
+                  {tax > 0 && taxRate > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>GST Tax ({taxRate}%)</span>
+                      <span className="font-mono">{formatCurrency(tax)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-base font-black text-foreground pt-2 border-t border-border/50">
                     <span>Total Bill</span>
                     <span className="text-primary font-mono">{formatCurrency(grandTotal)}</span>

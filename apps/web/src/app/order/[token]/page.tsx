@@ -593,9 +593,16 @@ export default function PublicTableOrderPage() {
               <ShoppingBag className="w-4 h-4 text-primary" />
               {cartList.reduce((acc, c) => acc + c.qty, 0)} Items Selected
             </span>
-            <span className="font-black text-base font-mono text-primary">
-              {formatCurrency(total)}
-            </span>
+            <div className="text-right">
+              {taxRate > 0 && gst > 0 && (
+                <div className="text-[10px] text-muted-foreground font-mono">
+                  Subtotal: {formatCurrency(subtotal)} + GST ({taxRate}%): {formatCurrency(gst)}
+                </div>
+              )}
+              <span className="font-black text-base font-mono text-primary">
+                {formatCurrency(total)}
+              </span>
+            </div>
           </div>
 
           <input
