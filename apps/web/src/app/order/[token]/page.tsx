@@ -14,7 +14,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v
 
 export default function PublicTableOrderPage() {
   const params = useParams();
-  const token = params.token as string;
+  const token = (params?.token as string) || '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,23 +24,57 @@ export default function PublicTableOrderPage() {
   const [guestNotes, setGuestNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<any | null>(null);
+  const [viewTab, setViewTab] = useState<'MENU' | 'LIVE_STATUS'>('MENU');
 
+  // Initial table data load
   useEffect(() => {
     if (!token) return;
+    let isMounted = true;
+
     fetch(`${API_BASE}/tables/public/qr/${token}`)
       .then((res) => {
-        if (!res.ok) throw new Error('Table QR token not found');
+        if (!res.ok) throw new Error('Table QR token not found or expired');
         return res.json();
       })
       .then((data) => {
+        if (!isMounted) return;
         setTableData(data.data);
         setLoading(false);
       })
       .catch((err) => {
+        if (!isMounted) return;
         setError(err.message || 'Could not load table menu');
         setLoading(false);
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
+
+  // Live polling for table active orders & status updates
+  useEffect(() => {
+    if (!token) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/tables/public/qr/${token}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.data) {
+          setTableData(json.data);
+          if (orderPlaced?.id) {
+            const updated = (json.data.activeOrders || []).find((o: any) => o.id === orderPlaced.id);
+            if (updated) setOrderPlaced(updated);
+          }
+        }
+      } catch {
+        // silent catch for background polling
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [token, orderPlaced?.id]);
 
   const addToCart = (item: any) => {
     const variant = item.variants?.[0];
@@ -109,26 +143,6 @@ export default function PublicTableOrderPage() {
     }
   };
 
-  // Poll order status when an order is placed
-  useEffect(() => {
-    if (!orderPlaced?.id || !token) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/tables/public/qr/${token}/orders/${orderPlaced.id}`);
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.data) {
-          setOrderPlaced(json.data);
-        }
-      } catch (err) {
-        // silent catch for polling
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [orderPlaced?.id, token]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
@@ -150,55 +164,8 @@ export default function PublicTableOrderPage() {
     );
   }
 
-  const [viewTab, setViewTab] = useState<'MENU' | 'LIVE_STATUS'>('MENU');
-
-  const { table, restaurant, categories = [], activeOrders = [] } = tableData || {};
+  const { table = {}, restaurant = {}, categories = [], activeOrders = [] } = tableData || {};
   const currentActiveOrder = orderPlaced || (activeOrders.length > 0 ? activeOrders[0] : null);
-
-  // Poll order status when an order is placed or table has active orders
-  useEffect(() => {
-    if (!token) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/tables/public/qr/${token}`);
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.data) {
-          setTableData(json.data);
-          if (orderPlaced?.id) {
-            const updated = (json.data.activeOrders || []).find((o: any) => o.id === orderPlaced.id);
-            if (updated) setOrderPlaced(updated);
-          }
-        }
-      } catch (err) {
-        // silent catch for polling
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [token, orderPlaced?.id]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-bold text-muted-foreground">Loading Table Menu &amp; Status...</p>
-      </div>
-    );
-  }
-
-  if (error || !tableData) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <AlertCircle className="w-16 h-16 text-rose-500" />
-        <h2 className="text-xl font-bold">QR Code Expired or Invalid</h2>
-        <p className="text-sm text-muted-foreground max-w-xs">
-          Please ask your dining captain for assistance or scan the table standee again.
-        </p>
-      </div>
-    );
-  }
 
   const allItems = categories.flatMap((c: any) => c.items || []);
   const filteredItems = selectedCategory === 'ALL'
@@ -211,11 +178,11 @@ export default function PublicTableOrderPage() {
     <div className="min-h-screen bg-background text-foreground pb-36 max-w-lg mx-auto shadow-2xl border-x border-border">
       {/* Top Restaurant & Table Banner */}
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border p-4 shadow-sm space-y-3">
-        {restaurant.logoUrl && (
+        {restaurant?.logoUrl && (
           <div className="flex justify-center pb-0.5">
             <img
               src={restaurant.logoUrl}
-              alt={restaurant.name}
+              alt={restaurant.name || 'Restaurant Logo'}
               className="max-h-12 max-w-[140px] object-contain mx-auto"
             />
           </div>
@@ -223,14 +190,14 @@ export default function PublicTableOrderPage() {
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-black text-foreground">{restaurant.name}</h1>
+            <h1 className="text-lg font-black text-foreground">{restaurant?.name || 'Dining Restaurant'}</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-primary" /> {restaurant.branchName || 'Main Dining Hall'}
+              <MapPin className="w-3 h-3 text-primary" /> {restaurant?.branchName || 'Main Dining Hall'}
             </p>
           </div>
           <div className="px-3 py-1.5 rounded-2xl bg-primary text-primary-foreground font-black text-xs shadow flex items-center gap-1.5">
             <span>🍽️</span>
-            <span>{table.name}</span>
+            <span>{table?.name || 'Table'}</span>
           </div>
         </div>
 
@@ -353,7 +320,7 @@ export default function PublicTableOrderPage() {
                           {isReceived && 'Your order is safely received and ready to be accepted by the kitchen staff.'}
                           {isCooking && 'Chefs are currently preparing your fresh hot dishes at the kitchen stations.'}
                           {isReady && 'Your dishes are plated and our waitstaff is bringing them directly to your table.'}
-                          {isServed && `Enjoy your meal at ${table.name}! You can order more items whenever you wish.`}
+                          {isServed && `Enjoy your meal at ${table?.name || 'your table'}! You can order more items whenever you wish.`}
                           {isBilled && 'Your dining bill has been prepared. Please settle with the staff.'}
                         </div>
                       </>
@@ -364,11 +331,11 @@ export default function PublicTableOrderPage() {
 
               {/* Itemized Order Breakdown with Rate & Qty */}
               <div className="p-4 rounded-3xl bg-card border border-border space-y-3">
-                {restaurant.logoUrl && (
+                {restaurant?.logoUrl && (
                   <div className="flex justify-center pb-1 border-b border-border/50">
                     <img
                       src={restaurant.logoUrl}
-                      alt={restaurant.name}
+                      alt={restaurant.name || 'Restaurant Logo'}
                       className="max-h-12 max-w-[140px] object-contain mx-auto"
                     />
                   </div>
@@ -379,7 +346,7 @@ export default function PublicTableOrderPage() {
                     Ordered Dishes ({currentActiveOrder.items?.length || 0})
                   </span>
                   <span className="text-[11px] font-semibold text-muted-foreground">
-                    {table.name}
+                    {table?.name}
                   </span>
                 </div>
 
