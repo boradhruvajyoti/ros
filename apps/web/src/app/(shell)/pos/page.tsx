@@ -15,7 +15,19 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { generateUUID } from '@ros/utils';
+
+function getClientId(): string {
+  if (typeof window !== 'undefined' && window.crypto && typeof window.crypto.randomUUID === 'function') {
+    try {
+      return window.crypto.randomUUID();
+    } catch {}
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 interface Variant {
   id: string;
@@ -274,7 +286,7 @@ export default function POSPage() {
         status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
         notes: notes || undefined,
-        clientId: generateUUID(),
+        clientId: getClientId(),
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
           variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
@@ -334,7 +346,7 @@ export default function POSPage() {
         status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
         notes: notes || undefined,
-        clientId: generateUUID(),
+        clientId: getClientId(),
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
           variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
