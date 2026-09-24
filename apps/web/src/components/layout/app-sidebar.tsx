@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingCart, UtensilsCrossed, Grid3X3,
   CalendarDays, ChefHat, BookOpen, Package, Truck,
@@ -82,8 +82,11 @@ const platformSuperAdminNavItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { hasAnyPermission, user } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+
+  const currentTab = searchParams ? searchParams.get('tab') : null;
 
   // Check if current user is the Platform Super-Administrator
   const isPlatformSuperAdmin =
@@ -156,7 +159,16 @@ export function AppSidebar() {
           const allowed = isPlatformSuperAdmin || !item.permission || hasAnyPermission(item.permission as any);
           if (!allowed) return null;
 
-          const active = pathname === item.href || (item.href !== '/dashboard' && item.href !== '/super-admin' && pathname.startsWith(item.href!));
+          let active = false;
+          if (item.href?.includes('?tab=')) {
+            const itemTab = item.href.split('?tab=')[1];
+            active = pathname === '/super-admin' && currentTab === itemTab;
+          } else if (item.href === '/super-admin') {
+            active = pathname === '/super-admin' && (!currentTab || currentTab === 'overview');
+          } else {
+            active = pathname === item.href || (item.href !== '/dashboard' && item.href !== '/super-admin' && pathname.startsWith(item.href!));
+          }
+
 
           return (
             <Link

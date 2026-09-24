@@ -7,6 +7,158 @@ import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcryptjs';
 
+export interface SaasPlanItem {
+  id: string;
+  name: string;
+  code: string;
+  price: number;
+  currency: string;
+  interval: 'month' | 'year';
+  description: string;
+  features: string[];
+  maxBranches: number;
+  maxUsers: number;
+  maxOrdersPerMonth: number;
+  badge?: string;
+  isPopular?: boolean;
+  isActive: boolean;
+}
+
+export interface PlatformConfigData {
+  platformName: string;
+  tagline: string;
+  supportEmail: string;
+  supportPhone: string;
+  defaultCurrency: string;
+  maintenanceMode: boolean;
+  announcementBanner: string;
+  allowSelfRegistration: boolean;
+  maxFreeTrialDays: number;
+  edgeApiGatewayUrl: string;
+  systemVersion: string;
+  environment: string;
+  dbEngine: string;
+  cacheDriver: string;
+}
+
+const DEFAULT_PLANS: SaasPlanItem[] = [
+  {
+    id: 'plan-starter',
+    name: 'Starter Tier',
+    code: 'starter',
+    price: 2999,
+    currency: 'INR',
+    interval: 'month',
+    description: 'Designed for standalone boutique cafes & quick-service outlets',
+    features: [
+      '1 Operating Branch Location',
+      'Point of Sale (POS) & KOT Engine',
+      'Table Management & Billing',
+      'Up to 5 Staff User Accounts',
+      'Basic Reports & Analytics',
+    ],
+    maxBranches: 1,
+    maxUsers: 5,
+    maxOrdersPerMonth: 2000,
+    badge: 'STARTER TIER',
+    isPopular: false,
+    isActive: true,
+  },
+  {
+    id: 'plan-professional',
+    name: 'Professional Tier',
+    code: 'professional',
+    price: 7999,
+    currency: 'INR',
+    interval: 'month',
+    description: 'Comprehensive suite for multi-station dine-in restaurants',
+    features: [
+      'Up to 5 Multi-Outlet Branches',
+      'Multi-Station KDS & Kitchen Routing',
+      'Inventory, GRN & Recipe Yields',
+      'QR Contactless Guest Ordering',
+      'AI Menu OCR Card Parser',
+      'Staff Payroll & Shift Attendance',
+    ],
+    maxBranches: 5,
+    maxUsers: 30,
+    maxOrdersPerMonth: 15000,
+    badge: 'MOST POPULAR',
+    isPopular: true,
+    isActive: true,
+  },
+  {
+    id: 'plan-enterprise',
+    name: 'Enterprise Cloud',
+    code: 'enterprise',
+    price: 14999,
+    currency: 'INR',
+    interval: 'month',
+    description: 'Full enterprise power for restaurant chains & franchise HQ',
+    features: [
+      'Unlimited Outlets & Franchises',
+      'Autonomous Delivery Robotics',
+      'VIP Face Biometrics & Sommelier Cellar',
+      'Dedicated SLA & Priority Cloud Scaling',
+      'Custom Domain White-Labeling',
+      'Unlimited Staff & Multi-Tenant RBAC',
+    ],
+    maxBranches: 999,
+    maxUsers: 9999,
+    maxOrdersPerMonth: 999999,
+    badge: 'ENTERPRISE CLOUD',
+    isPopular: false,
+    isActive: true,
+  },
+];
+
+const DEFAULT_PLATFORM_CONFIG: PlatformConfigData = {
+  platformName: 'Restaurant OS (ROS)',
+  tagline: 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale',
+  supportEmail: 'support@rosplatform.io',
+  supportPhone: '+91 98765 43210',
+  defaultCurrency: 'INR',
+  maintenanceMode: false,
+  announcementBanner: 'Platform Operational — All Cloud Microservices & Edge POS Nodes Synchronized.',
+  allowSelfRegistration: true,
+  maxFreeTrialDays: 14,
+  edgeApiGatewayUrl: 'https://api.roscloud.net/v1',
+  systemVersion: 'v2.6.4-prod',
+  environment: 'production',
+  dbEngine: 'SQLite 3 / Prisma Engine 5.22',
+  cacheDriver: 'In-Memory High-Speed Cache (Redis Compatible)',
+};
+
+async function getPlatformSettingsHelper(): Promise<{
+  settings: Record<string, any>;
+  plans: SaasPlanItem[];
+  config: PlatformConfigData;
+}> {
+  const platform = await prisma.tenant.findUnique({
+    where: { id: 'tenant-platform' },
+  });
+
+  let parsed: Record<string, any> = {};
+  try {
+    if (platform?.settings) {
+      parsed = JSON.parse(platform.settings);
+    }
+  } catch {
+    parsed = {};
+  }
+
+  const plans: SaasPlanItem[] = Array.isArray(parsed.saasPlans) && parsed.saasPlans.length > 0
+    ? parsed.saasPlans
+    : DEFAULT_PLANS;
+
+  const config: PlatformConfigData = {
+    ...DEFAULT_PLATFORM_CONFIG,
+    ...(parsed.platformConfig || {}),
+  };
+
+  return { settings: parsed, plans, config };
+}
+
 export class SuperAdminController {
   static async getOverview(req: Request, res: Response): Promise<void> {
     const tenants = await prisma.tenant.findMany({
@@ -19,23 +171,36 @@ export class SuperAdminController {
       orderBy: { createdAt: 'desc' },
     });
 
+    const { plans, config } = await getPlatformSettingsHelper();
+
+    // Calculate MRR accurately based on active plan pricing
+    const planPriceMap = new Map<string, number>(plans.map((p) => [p.code.toLowerCase(), p.price]));
+    const totalMrr = tenants.reduce((acc, t) => {
+      if (t.status === 'SUSPENDED') return acc;
+      const price = planPriceMap.get(t.plan?.toLowerCase()) ?? 4999;
+      return acc + price;
+    }, 0);
+
     const metrics = {
       totalTenants: tenants.length,
       activeTenants: tenants.filter((t) => t.status === 'ACTIVE').length,
-      monthlyRecurringRevenue: tenants.length * 4999, // INR
+      monthlyRecurringRevenue: totalMrr,
       totalOrdersProcessed: tenants.reduce((s, t) => s + t._count.orders, 0),
       systemUptime: '99.98%',
-      databaseLatencyMs: 4.2,
+      databaseLatencyMs: 3.8,
+      platformConfig: config,
       tenants: tenants.map((t) => ({
         id: t.id,
         name: t.name,
         slug: t.slug,
         plan: t.plan,
         status: t.status,
+        logoUrl: t.logoUrl,
         branchesCount: t.branches.length,
         usersCount: t._count.users,
         ordersCount: t._count.orders,
         createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
       })),
     };
 
@@ -182,6 +347,38 @@ export class SuperAdminController {
     );
   }
 
+  static async updateTenant(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const { name, slug, plan, status, logoUrl, settings } = req.body;
+
+    const tenant = await prisma.tenant.findUnique({ where: { id } });
+    if (!tenant) throw new AppError('NOT_FOUND', 'Tenant not found', 404);
+
+    if (slug) {
+      const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      const existing = await prisma.tenant.findFirst({
+        where: { slug: cleanSlug, NOT: { id } },
+      });
+      if (existing) {
+        throw new AppError('DUPLICATE_ENTRY', `Tenant slug '${cleanSlug}' is already taken`, 409);
+      }
+    }
+
+    const updated = await prisma.tenant.update({
+      where: { id },
+      data: {
+        ...(name ? { name } : {}),
+        ...(slug ? { slug: slug.toLowerCase().replace(/[^a-z0-9-]/g, '-') } : {}),
+        ...(plan ? { plan } : {}),
+        ...(status ? { status } : {}),
+        ...(logoUrl !== undefined ? { logoUrl } : {}),
+        ...(settings ? { settings: typeof settings === 'string' ? settings : JSON.stringify(settings) } : {}),
+      },
+    });
+
+    sendSuccess(res, updated);
+  }
+
   static async updateTenantStatus(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const { status, plan } = req.body;
@@ -195,6 +392,232 @@ export class SuperAdminController {
     });
 
     sendSuccess(res, updated);
+  }
+
+  static async deleteTenant(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+
+    if (id === 'tenant-platform') {
+      throw new AppError('BAD_REQUEST', 'Cannot delete platform root tenant', 400);
+    }
+
+    const tenant = await prisma.tenant.findUnique({ where: { id } });
+    if (!tenant) throw new AppError('NOT_FOUND', 'Tenant not found', 404);
+    if (tenant.slug === 'platform') {
+      throw new AppError('BAD_REQUEST', 'Cannot delete platform root tenant', 400);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Remove user relations & tokens
+      await tx.userBranchRole.deleteMany({ where: { user: { tenantId: id } } });
+      await tx.refreshToken.deleteMany({ where: { user: { tenantId: id } } });
+      await tx.auditLog.deleteMany({ where: { tenantId: id } });
+
+      // 2. Remove role permissions and roles
+      await tx.rolePermission.deleteMany({ where: { role: { tenantId: id } } });
+      await tx.role.deleteMany({ where: { tenantId: id } });
+
+      // 3. Remove orders, items, and payments
+      await tx.orderItemModifier.deleteMany({ where: { orderItem: { order: { tenantId: id } } } });
+      await tx.orderItem.deleteMany({ where: { order: { tenantId: id } } });
+      await tx.payment.deleteMany({ where: { tenantId: id } });
+      await tx.order.deleteMany({ where: { tenantId: id } });
+
+      // 4. Remove menu items, modifiers, categories
+      await tx.menuItemModifierGroup.deleteMany({ where: { menuItem: { tenantId: id } } });
+      await tx.modifier.deleteMany({ where: { group: { tenantId: id } } });
+      await tx.modifierGroup.deleteMany({ where: { tenantId: id } });
+      await tx.menuItem.deleteMany({ where: { tenantId: id } });
+      await tx.menuCategory.deleteMany({ where: { tenantId: id } });
+
+      // 5. Remove operations resources
+      await tx.cashRegister.deleteMany({ where: { branch: { tenantId: id } } });
+      await tx.kitchenStation.deleteMany({ where: { tenantId: id } });
+      await tx.restaurantTable.deleteMany({ where: { tenantId: id } });
+      await tx.floor.deleteMany({ where: { tenantId: id } });
+      await tx.taxConfiguration.deleteMany({ where: { tenantId: id } });
+      await tx.notificationTemplate.deleteMany({ where: { tenantId: id } });
+
+      // 6. Remove users & branches
+      await tx.user.deleteMany({ where: { tenantId: id } });
+      await tx.branch.deleteMany({ where: { tenantId: id } });
+
+      // 7. Delete tenant
+      await tx.tenant.delete({ where: { id } });
+    });
+
+    sendSuccess(res, {
+      id,
+      message: `Tenant '${tenant.name}' and all associated restaurant data have been permanently deleted.`,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SAAS PRICING PLANS CRUD
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  static async getPlans(req: Request, res: Response): Promise<void> {
+    const { plans } = await getPlatformSettingsHelper();
+    sendSuccess(res, plans);
+  }
+
+  static async createPlan(req: Request, res: Response): Promise<void> {
+    const { name, code, price, currency, interval, description, features, maxBranches, maxUsers, maxOrdersPerMonth, badge, isPopular } = req.body;
+
+    if (!name || !price) {
+      throw new AppError('VALIDATION_ERROR', 'Plan name and price are required', 400);
+    }
+
+    const { settings, plans } = await getPlatformSettingsHelper();
+    const newCode = (code || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).toLowerCase();
+
+    if (plans.some((p) => p.code === newCode)) {
+      throw new AppError('DUPLICATE_ENTRY', `Plan code '${newCode}' already exists`, 409);
+    }
+
+    const newPlan: SaasPlanItem = {
+      id: `plan-${Date.now()}`,
+      name,
+      code: newCode,
+      price: Number(price),
+      currency: currency || 'INR',
+      interval: interval || 'month',
+      description: description || '',
+      features: Array.isArray(features) ? features : (typeof features === 'string' ? features.split('\n').filter(Boolean) : []),
+      maxBranches: Number(maxBranches) || 1,
+      maxUsers: Number(maxUsers) || 5,
+      maxOrdersPerMonth: Number(maxOrdersPerMonth) || 1000,
+      badge: badge || undefined,
+      isPopular: Boolean(isPopular),
+      isActive: true,
+    };
+
+    const updatedPlans = [...plans, newPlan];
+    settings.saasPlans = updatedPlans;
+
+    await prisma.tenant.upsert({
+      where: { id: 'tenant-platform' },
+      update: { settings: JSON.stringify(settings) },
+      create: {
+        id: 'tenant-platform',
+        name: 'Platform SaaS Cloud',
+        slug: 'platform',
+        plan: 'enterprise',
+        status: 'ACTIVE',
+        settings: JSON.stringify(settings),
+      },
+    });
+
+    sendSuccess(res, newPlan, 201);
+  }
+
+  static async updatePlan(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const { name, price, currency, interval, description, features, maxBranches, maxUsers, maxOrdersPerMonth, badge, isPopular, isActive } = req.body;
+
+    const { settings, plans } = await getPlatformSettingsHelper();
+    const planIndex = plans.findIndex((p) => p.id === id || p.code === id);
+
+    if (planIndex === -1) {
+      throw new AppError('NOT_FOUND', 'Pricing plan not found', 404);
+    }
+
+    const existing = plans[planIndex];
+    const updatedPlan: SaasPlanItem = {
+      ...existing,
+      ...(name ? { name } : {}),
+      ...(price !== undefined ? { price: Number(price) } : {}),
+      ...(currency ? { currency } : {}),
+      ...(interval ? { interval } : {}),
+      ...(description !== undefined ? { description } : {}),
+      ...(features !== undefined ? { features: Array.isArray(features) ? features : (typeof features === 'string' ? features.split('\n').filter(Boolean) : existing.features) } : {}),
+      ...(maxBranches !== undefined ? { maxBranches: Number(maxBranches) } : {}),
+      ...(maxUsers !== undefined ? { maxUsers: Number(maxUsers) } : {}),
+      ...(maxOrdersPerMonth !== undefined ? { maxOrdersPerMonth: Number(maxOrdersPerMonth) } : {}),
+      ...(badge !== undefined ? { badge } : {}),
+      ...(isPopular !== undefined ? { isPopular: Boolean(isPopular) } : {}),
+      ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
+    };
+
+    plans[planIndex] = updatedPlan;
+    settings.saasPlans = plans;
+
+    await prisma.tenant.upsert({
+      where: { id: 'tenant-platform' },
+      update: { settings: JSON.stringify(settings) },
+      create: {
+        id: 'tenant-platform',
+        name: 'Platform SaaS Cloud',
+        slug: 'platform',
+        plan: 'enterprise',
+        status: 'ACTIVE',
+        settings: JSON.stringify(settings),
+      },
+    });
+
+    sendSuccess(res, updatedPlan);
+  }
+
+  static async deletePlan(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const { settings, plans } = await getPlatformSettingsHelper();
+
+    const planToDelete = plans.find((p) => p.id === id || p.code === id);
+    if (!planToDelete) throw new AppError('NOT_FOUND', 'Pricing plan not found', 404);
+
+    const updatedPlans = plans.filter((p) => p.id !== id && p.code !== id);
+    settings.saasPlans = updatedPlans;
+
+    await prisma.tenant.upsert({
+      where: { id: 'tenant-platform' },
+      update: { settings: JSON.stringify(settings) },
+      create: {
+        id: 'tenant-platform',
+        name: 'Platform SaaS Cloud',
+        slug: 'platform',
+        plan: 'enterprise',
+        status: 'ACTIVE',
+        settings: JSON.stringify(settings),
+      },
+    });
+
+    sendSuccess(res, { message: `Plan '${planToDelete.name}' deleted successfully.` });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PLATFORM CONFIGURATION & INFRASTRUCTURE DETAILS
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  static async getPlatformDetails(req: Request, res: Response): Promise<void> {
+    const { config } = await getPlatformSettingsHelper();
+    sendSuccess(res, config);
+  }
+
+  static async updatePlatformDetails(req: Request, res: Response): Promise<void> {
+    const { settings, config } = await getPlatformSettingsHelper();
+    const updates = req.body;
+
+    const newConfig: PlatformConfigData = {
+      ...config,
+      ...updates,
+    };
+
+    settings.platformConfig = newConfig;
+
+    await prisma.tenant.upsert({
+      where: { id: 'tenant-platform' },
+      update: { settings: JSON.stringify(settings) },
+      create: {
+        id: 'tenant-platform',
+        name: 'Platform SaaS Cloud',
+        slug: 'platform',
+        plan: 'enterprise',
+        status: 'ACTIVE',
+        settings: JSON.stringify(settings),
+      },
+    });
+
+    sendSuccess(res, newConfig);
   }
 
   static async getCurrentTenant(req: Request, res: Response): Promise<void> {
@@ -231,4 +654,5 @@ export class SuperAdminController {
     sendSuccess(res, updated);
   }
 }
+
 
