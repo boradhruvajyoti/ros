@@ -3,14 +3,14 @@ const { parse } = require('url');
 const next = require('next');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = '0.0.0.0';
 const port = parseInt(process.env.PORT, 10) || 3000;
 
-const app = next({ dev, hostname, port, dir: __dirname });
+// Initialize Next.js without fixed hostname to allow PM2 cluster port sharing
+const app = next({ dev, dir: __dirname });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
-  createServer(async (req, res) => {
+  const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
       await handle(req, res, parsedUrl);
@@ -19,12 +19,9 @@ app.prepare().then(() => {
       res.statusCode = 500;
       res.end('Internal Server Error');
     }
-  })
-    .once('error', (err) => {
-      console.error('Server error:', err);
-      process.exit(1);
-    })
-    .listen(port, () => {
-      console.log(`> Next.js ready on port ${port} (PID: ${process.pid})`);
-    });
+  });
+
+  server.listen(port, () => {
+    console.log(`> Next.js cluster instance ready on port ${port} (PID: ${process.pid})`);
+  });
 });

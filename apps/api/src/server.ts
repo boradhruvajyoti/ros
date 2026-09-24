@@ -96,7 +96,7 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 // ── Start server ───────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.API_PORT || '4000', 10);
+const PORT = parseInt(process.env.PORT || process.env.API_PORT || '4000', 10);
 
 httpServer.listen(PORT, () => {
   logger.info(`🚀 ROS API running on http://localhost:${PORT}`);
