@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3, Calendar, Download, TrendingUp, DollarSign,
   PieChart, ArrowUpRight, ArrowDownRight, Layers, UtensilsCrossed,
-  Clock, ShieldCheck
+  Clock, ShieldCheck, RefreshCw, ShoppingBag, Receipt, AlertCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,193 +13,210 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@ros/utils';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { apiGet } from '@/lib/api';
+
+interface SummaryData {
+  totalRevenue: number;
+  totalOrders: number;
+  totalExpenses: number;
+  grossProfit: number;
+  netProfit: number;
+  activeTables: number;
+}
+
+interface SalesData {
+  totalSales: number;
+  totalOrders: number;
+  breakdown: {
+    dineIn: number;
+    takeaway: number;
+    delivery: number;
+  };
+  recentOrders: Array<any>;
+}
+
+interface TaxData {
+  taxableSales: number;
+  totalTax: number;
+  cgst: number;
+  sgst: number;
+  totalGrossSales: number;
+  filingPeriod: string;
+}
 
 export default function ReportsPage() {
-  const [period, setPeriod] = useState<'today' | '7days' | 'month'>('month');
+  const [period, setPeriod] = useState<'today' | '7days' | 'month'>('today');
   const { toast } = useToast();
 
+  const { data: summary, isLoading: isLoadingSummary, refetch: refetchSummary } = useQuery<SummaryData>({
+    queryKey: ['reports', 'summary'],
+    queryFn: () => apiGet<SummaryData>('/reports/summary'),
+  });
+
+  const { data: sales, isLoading: isLoadingSales, refetch: refetchSales } = useQuery<SalesData>({
+    queryKey: ['reports', 'sales'],
+    queryFn: () => apiGet<SalesData>('/reports/sales'),
+  });
+
+  const { data: taxReport, isLoading: isLoadingTax, refetch: refetchTax } = useQuery<TaxData>({
+    queryKey: ['reports', 'tax'],
+    queryFn: () => apiGet<TaxData>('/reports/tax'),
+  });
+
   const handleExport = () => {
+    const csvContent = `data:text/csv;charset=utf-8,Metric,Value\nTotal Revenue,${summary?.totalRevenue || 0}\nTotal Orders,${summary?.totalOrders || 0}\nTotal Expenses,${summary?.totalExpenses || 0}\nGross Profit,${summary?.grossProfit || 0}\nNet Profit,${summary?.netProfit || 0}\nTotal Tax Collected,${taxReport?.totalTax || 0}`;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `financial-report-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     toast.success('P&L and Tax Report exported as CSV');
   };
 
+  const handleRefresh = () => {
+    refetchSummary();
+    refetchSales();
+    refetchTax();
+    toast.success('Reports data refreshed');
+  };
+
+  const totalRev = summary?.totalRevenue || 0;
+  const totalExp = summary?.totalExpenses || 0;
+  const grossProfit = summary?.grossProfit || (totalRev * 0.7);
+  const netProfit = summary?.netProfit || (grossProfit - totalExp);
+  const totalOrders = summary?.totalOrders || sales?.totalOrders || 0;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card/60 p-5 rounded-3xl border border-border backdrop-blur-sm">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-primary" />
             Financial Intelligence &amp; Analytics
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Profit &amp; Loss statements, Food Cost percentage, item popularity matrix, and hourly peak analysis
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Real-time live Profit &amp; Loss statements, tax summaries, and dining channel breakdown
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Period selector */}
-          <div className="flex items-center bg-card border border-border rounded-xl p-1">
-            {[
-              { id: 'today', label: 'Today' },
-              { id: '7days', label: 'Last 7 Days' },
-              { id: 'month', label: 'This Month (Sep)' },
-            ].map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPeriod(p.id as any)}
-                className={cn(
-                  'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
-                  period === p.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <Button onClick={handleExport} variant="outline" className="gap-2">
-            <Download className="w-4 h-4" /> Export P&amp;L
+          <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold">
+            <RefreshCw className="w-4 h-4" /> Refresh
+          </Button>
+          <Button onClick={handleExport} variant="outline" size="sm" className="gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold">
+            <Download className="w-4 h-4" /> Export CSV
           </Button>
         </div>
       </div>
 
       {/* Executive P&L Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-5 bg-card/60 backdrop-blur-sm border-primary/30">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Gross Sales Revenue</span>
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Gross Sales Revenue</span>
+            <TrendingUp className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-2xl font-bold text-foreground mt-2">{formatCurrency(482500)}</p>
-          <div className="flex items-center gap-1 text-xs text-emerald-500 font-medium mt-0.5">
-            <ArrowUpRight className="w-3.5 h-3.5" /> +18.4% vs last month
+          <p className="text-3xl font-black text-foreground font-mono mt-3">{formatCurrency(totalRev)}</p>
+          <div className="text-[11px] text-muted-foreground mt-1">
+            {totalOrders} settled transactions
           </div>
         </Card>
 
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border">
+        <Card className="p-5 bg-card/60 backdrop-blur-sm border-border">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Cost of Goods (COGS)</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Logged Expenses</span>
             <PieChart className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-bold text-foreground mt-2">{formatCurrency(144750)}</p>
-          <p className="text-[11px] text-emerald-500 font-medium mt-0.5">30.0% of sales (Target: &lt;32%)</p>
+          <p className="text-3xl font-black text-amber-500 font-mono mt-3">{formatCurrency(totalExp)}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Operating &amp; petty cash vouchers</p>
         </Card>
 
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border">
+        <Card className="p-5 bg-card/60 backdrop-blur-sm border-border">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Gross Profit</span>
-            <DollarSign className="w-4 h-4 text-primary" />
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Estimated Gross Profit</span>
+            <DollarSign className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="text-2xl font-bold text-foreground mt-2">{formatCurrency(337750)}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">70.0% Gross Margin</p>
+          <p className="text-3xl font-black text-emerald-500 font-mono mt-3">{formatCurrency(grossProfit)}</p>
+          <p className="text-[11px] text-emerald-500 font-medium mt-1">~70.0% Standard Gross Margin</p>
         </Card>
 
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border">
+        <Card className="p-5 bg-card/60 backdrop-blur-sm border-border">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Net Operating Profit</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Net Operating Profit</span>
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="text-2xl font-bold text-emerald-500 mt-2">{formatCurrency(189400)}</p>
-          <p className="text-[11px] text-emerald-500 font-medium mt-0.5">39.2% Net Margin</p>
+          <p className="text-3xl font-black text-foreground font-mono mt-3">{formatCurrency(netProfit)}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">After deducting recorded expenses</p>
         </Card>
       </div>
 
-      {/* Grid: Category Breakdown & Peak Hours */}
+      {/* Grid: Order Breakdown & Tax Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Category Contribution */}
-        <Card className="border-border/70 bg-card/60 backdrop-blur-sm p-6 space-y-4">
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Sales by Category</span>
-            <span className="text-xs font-normal text-muted-foreground">Top revenue drivers</span>
+        {/* Dining Channel Breakdown */}
+        <Card className="border-border bg-card/60 backdrop-blur-sm p-6 space-y-4 rounded-3xl">
+          <CardTitle className="text-base font-bold flex items-center justify-between">
+            <span>Orders by Dining Channel</span>
+            <span className="text-xs font-normal text-muted-foreground">{totalOrders} total orders</span>
           </CardTitle>
-          <div className="space-y-3">
-            {[
-              { category: 'Main Course', revenue: 218000, percentage: 45, color: 'bg-primary' },
-              { category: 'Starters & Tandoor', revenue: 145000, percentage: 30, color: 'bg-amber-500' },
-              { category: 'Beverages & Bar', revenue: 68000, percentage: 14, color: 'bg-blue-500' },
-              { category: 'Breads & Accompaniments', revenue: 32000, percentage: 7, color: 'bg-emerald-500' },
-              { category: 'Desserts', revenue: 19500, percentage: 4, color: 'bg-purple-500' },
-            ].map((cat) => (
-              <div key={cat.category} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-foreground">{cat.category}</span>
-                  <span className="font-bold text-foreground">{formatCurrency(cat.revenue)} ({cat.percentage}%)</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                  <div className={cn('h-full rounded-full', cat.color)} style={{ width: `${cat.percentage}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
+
+          {totalOrders === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              <ShoppingBag className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              <p className="text-xs">No orders recorded yet. Fresh onboarding tenant status.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 pt-2">
+              {[
+                { channel: 'Dine-In Orders', count: sales?.breakdown?.dineIn || 0, color: 'bg-primary' },
+                { channel: 'Takeaway / Parcel', count: sales?.breakdown?.takeaway || 0, color: 'bg-amber-500' },
+                { channel: 'Delivery / Online', count: sales?.breakdown?.delivery || 0, color: 'bg-emerald-500' },
+              ].map((item) => {
+                const pct = totalOrders > 0 ? Math.round((item.count / totalOrders) * 100) : 0;
+                return (
+                  <div key={item.channel} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-foreground">{item.channel}</span>
+                      <span className="font-mono text-muted-foreground">{item.count} orders ({pct}%)</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                      <div className={cn('h-full rounded-full transition-all', item.color)} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
 
-        {/* Hourly Peak Dining Heatmap */}
-        <Card className="border-border/70 bg-card/60 backdrop-blur-sm p-6 space-y-4">
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Hourly Revenue Heatmap</span>
-            <span className="text-xs font-normal text-muted-foreground">Peak rush: 8:00 PM - 10:00 PM</span>
+        {/* GST & Tax Liability */}
+        <Card className="border-border bg-card/60 backdrop-blur-sm p-6 space-y-4 rounded-3xl">
+          <CardTitle className="text-base font-bold flex items-center justify-between">
+            <span>GST &amp; Tax Compliance Breakdown</span>
+            <Badge variant="outline" className="text-[10px]">Active</Badge>
           </CardTitle>
-          <div className="grid grid-cols-6 gap-2">
-            {[
-              { time: '12 PM', orders: 18, intensity: 'bg-primary/20' },
-              { time: '1 PM', orders: 42, intensity: 'bg-primary/60' },
-              { time: '2 PM', orders: 38, intensity: 'bg-primary/50' },
-              { time: '3 PM', orders: 12, intensity: 'bg-primary/10' },
-              { time: '4 PM', orders: 8, intensity: 'bg-primary/10' },
-              { time: '5 PM', orders: 15, intensity: 'bg-primary/20' },
-              { time: '6 PM', orders: 24, intensity: 'bg-primary/30' },
-              { time: '7 PM', orders: 48, intensity: 'bg-primary/60' },
-              { time: '8 PM', orders: 85, intensity: 'bg-primary' },
-              { time: '9 PM', orders: 92, intensity: 'bg-primary' },
-              { time: '10 PM', orders: 64, intensity: 'bg-primary/75' },
-              { time: '11 PM', orders: 22, intensity: 'bg-primary/30' },
-            ].map((slot) => (
-              <div key={slot.time} className="p-2.5 rounded-xl border border-border bg-accent/30 text-center space-y-1">
-                <p className="text-[10px] text-muted-foreground font-semibold">{slot.time}</p>
-                <div className={cn('w-full h-8 rounded-lg flex items-center justify-center font-bold text-xs text-primary-foreground', slot.intensity)}>
-                  {slot.orders}
-                </div>
-                <p className="text-[9px] text-muted-foreground">orders</p>
-              </div>
-            ))}
+
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border">
+              <span className="text-xs font-medium text-muted-foreground">Taxable Sales (Pre-Tax)</span>
+              <span className="font-bold font-mono text-foreground">{formatCurrency(taxReport?.taxableSales || 0)}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border">
+              <span className="text-xs font-medium text-muted-foreground">CGST (Central GST)</span>
+              <span className="font-bold font-mono text-foreground">{formatCurrency(taxReport?.cgst || 0)}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border">
+              <span className="text-xs font-medium text-muted-foreground">SGST (State GST)</span>
+              <span className="font-bold font-mono text-foreground">{formatCurrency(taxReport?.sgst || 0)}</span>
+            </div>
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-primary/10 border border-primary/30">
+              <span className="text-xs font-bold text-primary">Total Tax Collected</span>
+              <span className="font-bold font-mono text-primary text-base">{formatCurrency(taxReport?.totalTax || 0)}</span>
+            </div>
           </div>
         </Card>
       </div>
-
-      {/* Top 5 High Margin Dishes */}
-      <Card className="border-border/70 bg-card/60 backdrop-blur-sm p-6 space-y-4">
-        <CardTitle className="text-base">Top Performing &amp; High Margin Menu Items</CardTitle>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Dish Name</th>
-                <th className="px-4 py-3 font-semibold">Units Sold</th>
-                <th className="px-4 py-3 font-semibold">Selling Price</th>
-                <th className="px-4 py-3 font-semibold">Food Cost</th>
-                <th className="px-4 py-3 font-semibold">Margin (%)</th>
-                <th className="px-4 py-3 font-semibold text-right">Total Profit</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50 text-xs">
-              {[
-                { name: 'Butter Chicken (Full)', qty: 384, price: 460, cost: 160, margin: '65.2%', profit: 115200 },
-                { name: 'Paneer Tikka (Full)', qty: 412, price: 320, cost: 100, margin: '68.8%', profit: 90640 },
-                { name: 'Dal Makhani', qty: 490, price: 260, cost: 50, margin: '80.8%', profit: 102900 },
-                { name: 'Butter Garlic Naan', qty: 940, price: 75, cost: 15, margin: '80.0%', profit: 56400 },
-                { name: 'Mango Lassi', qty: 280, price: 120, cost: 35, margin: '70.8%', profit: 23800 },
-              ].map((item, idx) => (
-                <tr key={idx} className="hover:bg-accent/30">
-                  <td className="px-4 py-3 font-bold text-foreground">{item.name}</td>
-                  <td className="px-4 py-3 font-semibold text-foreground">{item.qty} pcs</td>
-                  <td className="px-4 py-3">{formatCurrency(item.price)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatCurrency(item.cost)}</td>
-                  <td className="px-4 py-3 font-bold text-emerald-500">{item.margin}</td>
-                  <td className="px-4 py-3 font-bold text-foreground text-right">{formatCurrency(item.profit)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   );
 }
