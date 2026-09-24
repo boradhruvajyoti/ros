@@ -273,13 +273,14 @@ export default function POSPage() {
         type: orderType,
         status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
-        notes,
+        notes: notes || undefined,
         clientId: generateUUID(),
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
-          variantId: c.variantId,
+          variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
           quantity: c.quantity,
-          notes: c.notes,
+          unitPrice: c.unitPrice,
+          notes: c.notes || undefined,
           modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
         })),
         ...extraPayload,
@@ -296,6 +297,7 @@ export default function POSPage() {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['active-orders'] });
       queryClient.invalidateQueries({ queryKey: ['kitchen-kots'] });
+      queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.error?.message || err?.message || 'Failed to create order. Please try again.';
@@ -331,13 +333,14 @@ export default function POSPage() {
         type: orderType,
         status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
-        notes,
+        notes: notes || undefined,
         clientId: generateUUID(),
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
-          variantId: c.variantId,
+          variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
           quantity: c.quantity,
-          notes: c.notes,
+          unitPrice: c.unitPrice,
+          notes: c.notes || undefined,
           modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
         })),
       });

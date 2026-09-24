@@ -25,6 +25,7 @@ export interface CreateOrderItemDto {
   menuItemId: string;
   variantId?: string;
   quantity: number;
+  unitPrice?: number;
   notes?: string;
   modifierIds?: string[];
 }
@@ -64,21 +65,28 @@ export class OrderService {
       }
       if (!effectiveBranchId || effectiveBranchId === 'default-branch') {
         const fallbackBranch = await prisma.branch.findFirst({
-          where: { tenantId: this.tenantId, isActive: true },
+          where: { tenantId: this.tenantId },
           select: { id: true },
         });
-        if (fallbackBranch) effectiveBranchId = fallbackBranch.id;
+        if (fallbackBranch) {
+          effectiveBranchId = fallbackBranch.id;
+        } else {
+          const newBranch = await prisma.branch.create({
+            data: {
+              tenantId: this.tenantId,
+              name: 'Main Branch',
+              isActive: true,
+            },
+          });
+          effectiveBranchId = newBranch.id;
+        }
       }
-    }
-
-    if (!effectiveBranchId || effectiveBranchId === 'default-branch') {
-      throw new AppError(ErrorCodes.NOT_FOUND, 'Valid restaurant branch not found for order', 404);
     }
 
     // Load menu items with variants and modifier prices
     const menuItemIds = dto.items.map((i) => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds }, tenantId: this.tenantId, isActive: true },
+      where: { id: { in: menuItemIds }, tenantId: this.tenantId },
       include: { variants: true },
     });
 
@@ -87,7 +95,7 @@ export class OrderService {
     // Load modifiers
     const allModifierIds = dto.items.flatMap((i) => i.modifierIds || []);
     const modifiers = allModifierIds.length > 0
-      ? await prisma.modifier.findMany({ where: { id: { in: allModifierIds }, isActive: true } })
+      ? await prisma.modifier.findMany({ where: { id: { in: allModifierIds } } })
       : [];
     const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
 
@@ -97,7 +105,13 @@ export class OrderService {
       const menuItem = menuItemMap.get(item.menuItemId);
       if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
 
-      const variant = (item.variantId ? menuItem.variants.find((v) => v.id === item.variantId) : null) || menuItem.variants[0];
+      let variant = null;
+      if (item.variantId && !item.variantId.startsWith('v-')) {
+        variant = menuItem.variants.find((v) => v.id === item.variantId) || null;
+      }
+      if (!variant && menuItem.variants.length > 0) {
+        variant = menuItem.variants[0];
+      }
 
       const itemModifiers = (item.modifierIds || []).map((mid) => {
         const mod = modifierMap.get(mid);
@@ -106,7 +120,8 @@ export class OrderService {
       });
 
       const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
-      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : 0;
+      const fallbackPrice = Number(item.unitPrice !== undefined && item.unitPrice !== null ? item.unitPrice : (menuItem as any).basePrice || (menuItem as any).price || 0);
+      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : toAmount(fallbackPrice + modifierTotal);
       const lineTotal = multiplyAmount(unitPrice, item.quantity);
       subtotal = addAmounts(subtotal, lineTotal);
 
@@ -217,7 +232,7 @@ export class OrderService {
   async updateOrderItems(
     orderId: string,
     dto: {
-      items: Array<{ menuItemId: string; variantId?: string; quantity: number; notes?: string; modifierIds?: string[] }>;
+      items: Array<{ menuItemId: string; variantId?: string; quantity: number; unitPrice?: number; notes?: string; modifierIds?: string[] }>;
       sendToKitchen?: boolean;
       notes?: string;
     },
@@ -240,7 +255,7 @@ export class OrderService {
 
     const menuItemIds = dto.items.map((i) => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds }, tenantId: this.tenantId, isActive: true },
+      where: { id: { in: menuItemIds }, tenantId: this.tenantId },
       include: { variants: true },
     });
 
@@ -257,7 +272,13 @@ export class OrderService {
       const menuItem = itemMap.get(item.menuItemId);
       if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
 
-      const variant = (item.variantId ? menuItem.variants.find((v) => v.id === item.variantId) : null) || menuItem.variants[0];
+      let variant = null;
+      if (item.variantId && !item.variantId.startsWith('v-')) {
+        variant = menuItem.variants.find((v) => v.id === item.variantId) || null;
+      }
+      if (!variant && menuItem.variants.length > 0) {
+        variant = menuItem.variants[0];
+      }
 
       const itemModifiers = (item.modifierIds || []).map((mid) => {
         const mod = modifierMap.get(mid);
@@ -266,7 +287,8 @@ export class OrderService {
       });
 
       const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
-      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : 0;
+      const fallbackPrice = Number(item.unitPrice !== undefined && item.unitPrice !== null ? item.unitPrice : (menuItem as any).basePrice || (menuItem as any).price || 0);
+      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : toAmount(fallbackPrice + modifierTotal);
       const lineTotal = multiplyAmount(unitPrice, item.quantity);
       subtotal = addAmounts(subtotal, lineTotal);
 
@@ -540,10 +562,21 @@ export class OrderService {
     let targetBranchId = branchIdOverride || this.branchId;
     if (!targetBranchId || targetBranchId === 'default-branch') {
       const fallback = await prisma.branch.findFirst({
-        where: { tenantId: this.tenantId, isActive: true },
+        where: { tenantId: this.tenantId },
         select: { id: true },
       });
-      if (fallback) targetBranchId = fallback.id;
+      if (fallback) {
+        targetBranchId = fallback.id;
+      } else {
+        const newBranch = await prisma.branch.create({
+          data: {
+            tenantId: this.tenantId,
+            name: 'Main Branch',
+            isActive: true,
+          },
+        });
+        targetBranchId = newBranch.id;
+      }
     }
 
     const row = await prisma.dailySequence.upsert({
