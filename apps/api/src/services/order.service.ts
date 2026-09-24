@@ -127,6 +127,21 @@ export class OrderService {
     // Get next daily sequence
     const orderNumber = await this.getNextSequence('ORDER', effectiveBranchId);
 
+    // Dynamic tax rate from tenant settings
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: this.tenantId },
+      select: { settings: true },
+    });
+    let taxRate = 0;
+    if (tenant?.settings) {
+      try {
+        const parsed = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : tenant.settings;
+        if (parsed?.taxRate !== undefined) taxRate = Number(parsed.taxRate) || 0;
+      } catch {}
+    }
+    const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
+    const total = toAmount(addAmounts(subtotal, taxAmount));
+
     return prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
@@ -142,7 +157,8 @@ export class OrderService {
           notes: dto.notes,
           clientId: dto.clientId || null,
           subtotal,
-          total: subtotal,
+          taxAmount,
+          total,
           createdBy,
           items: {
             create: orderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
@@ -362,8 +378,19 @@ export class OrderService {
     const discounts = await prisma.appliedDiscount.findMany({ where: { orderId } });
     const discountAmount = discounts.reduce((s, d) => addAmounts(s, d.amount), 0);
 
-    // TODO: Load tax configs and calculate taxes dynamically
-    const taxAmount = 0; // Phase 2
+    // Load tax configs and calculate taxes dynamically
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: this.tenantId },
+      select: { settings: true },
+    });
+    let taxRate = 0;
+    if (tenant?.settings) {
+      try {
+        const parsed = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : tenant.settings;
+        if (parsed?.taxRate !== undefined) taxRate = Number(parsed.taxRate) || 0;
+      } catch {}
+    }
+    const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
     const total = toAmount(addAmounts(subtotal, taxAmount) - discountAmount);
 
     await prisma.order.update({

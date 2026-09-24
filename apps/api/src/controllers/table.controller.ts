@@ -223,6 +223,7 @@ export class TableController {
         name: table.tenant.name,
         slug: table.tenant.slug,
         logoUrl: table.tenant.logoUrl,
+        settings: table.tenant.settings,
         branchName: table.branch.name,
         address: table.branch.address,
         phone: table.branch.phone,

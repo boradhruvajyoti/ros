@@ -66,7 +66,18 @@ export default function PublicTableOrderPage() {
 
   const cartList = Object.values(cart);
   const subtotal = cartList.reduce((acc, c) => acc + (c.variant?.price || 0) * c.qty, 0);
-  const gst = subtotal * 0.05;
+
+  const taxRate = (() => {
+    try {
+      const rawSettings = tableData?.restaurant?.settings;
+      const parsed = typeof rawSettings === 'string' ? JSON.parse(rawSettings) : (rawSettings || {});
+      return parsed?.taxRate !== undefined ? Number(parsed.taxRate) : 0;
+    } catch {
+      return 0;
+    }
+  })();
+
+  const gst = taxRate > 0 ? (subtotal * (taxRate / 100)) : 0;
   const total = subtotal + gst;
 
   const handlePlaceOrder = async () => {
@@ -414,6 +425,12 @@ export default function PublicTableOrderPage() {
                     <span>Subtotal:</span>
                     <span className="font-mono">{formatCurrency(currentActiveOrder.subtotal || currentActiveOrder.total)}</span>
                   </div>
+                  {Number(currentActiveOrder.taxAmount || 0) > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Taxes &amp; GST:</span>
+                      <span className="font-mono">{formatCurrency(Number(currentActiveOrder.taxAmount || 0))}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-baseline pt-2 border-t border-border text-sm font-black text-foreground">
                     <span>Total Amount:</span>
                     <span className="text-base font-mono text-emerald-400">

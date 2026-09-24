@@ -151,6 +151,11 @@ export default function POSPage() {
     },
   });
 
+  const { data: tenant } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: () => apiGet<any>('/tenants/current'),
+  });
+
   const categories = useMemo(() => {
     return Array.isArray(rawCategories) ? rawCategories : [];
   }, [rawCategories]);
@@ -158,6 +163,15 @@ export default function POSPage() {
   const tables = useMemo(() => {
     return Array.isArray(rawTables) ? rawTables : [];
   }, [rawTables]);
+
+  const taxRate = useMemo(() => {
+    try {
+      const parsed = typeof tenant?.settings === 'string' ? JSON.parse(tenant.settings) : (tenant?.settings || {});
+      return parsed?.taxRate !== undefined ? Number(parsed.taxRate) : 0;
+    } catch {
+      return 0;
+    }
+  }, [tenant]);
 
   // ── Filtered Items ────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
@@ -176,7 +190,11 @@ export default function POSPage() {
     return cart.reduce((s, i) => s + (Number(i.unitPrice) * (i.quantity || 1)), 0);
   }, [cart]);
 
-  const tax = useMemo(() => Math.round(subtotal * 0.05), [subtotal]); // 5% GST
+  const tax = useMemo(() => {
+    if (taxRate <= 0) return 0;
+    return Math.round((subtotal * (taxRate / 100)) * 100) / 100;
+  }, [subtotal, taxRate]);
+
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   const totalItemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
@@ -720,10 +738,12 @@ export default function POSPage() {
                 <span>Items Subtotal:</span>
                 <span className="font-semibold text-foreground">₹{subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>GST Tax (5%):</span>
-                <span className="font-semibold text-foreground">₹{tax.toFixed(2)}</span>
-              </div>
+              {tax > 0 && taxRate > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>GST Tax ({taxRate}%):</span>
+                  <span className="font-semibold text-foreground">₹{tax.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-baseline pt-2 border-t border-border font-black text-base text-foreground">
                 <span>Total Amount:</span>
                 <span className="text-2xl text-emerald-400">₹{total.toFixed(2)}</span>

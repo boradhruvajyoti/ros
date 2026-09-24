@@ -235,7 +235,7 @@ export default function OrdersPage() {
               <span>₹${Number(order.subtotal || order.total).toFixed(2)}</span>
             </div>
 
-            ${order.taxAmount ? `
+            ${Number(order.taxAmount || 0) > 0 ? `
               <div class="row-flex">
                 <span>Taxes &amp; GST:</span>
                 <span>₹${Number(order.taxAmount).toFixed(2)}</span>
@@ -790,16 +790,16 @@ export default function OrdersPage() {
                 <span>Subtotal</span>
                 <span className="font-mono">{formatCurrency(selectedOrder.subtotal || selectedOrder.total)}</span>
               </div>
-              {!!selectedOrder.taxAmount && (
+              {Number(selectedOrder.taxAmount || 0) > 0 && (
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Taxes & GST</span>
-                  <span className="font-mono">{formatCurrency(selectedOrder.taxAmount)}</span>
+                  <span className="font-mono">{formatCurrency(Number(selectedOrder.taxAmount || 0))}</span>
                 </div>
               )}
-              {!!selectedOrder.discountAmount && (
+              {Number(selectedOrder.discountAmount || 0) > 0 && (
                 <div className="flex justify-between text-xs text-emerald-500 font-medium">
                   <span>Discount</span>
-                  <span className="font-mono">-{formatCurrency(selectedOrder.discountAmount)}</span>
+                  <span className="font-mono">-{formatCurrency(Number(selectedOrder.discountAmount || 0))}</span>
                 </div>
               )}
               <div className="flex justify-between text-base font-black text-foreground pt-2 border-t border-border">
