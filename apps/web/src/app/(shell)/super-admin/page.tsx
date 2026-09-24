@@ -170,15 +170,15 @@ export default function SuperAdminPage() {
   const [platformForm, setPlatformForm] = useState<PlatformConfig>({
     platformName: 'Restaurant OS (ROS)',
     tagline: 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale',
-    supportEmail: 'support@rosplatform.io',
-    supportPhone: '+91 98765 43210',
+    supportEmail: '',
+    supportPhone: '',
     defaultCurrency: 'INR',
     maintenanceMode: false,
-    announcementBanner: 'Platform Operational — All Cloud Microservices & Edge POS Nodes Synchronized.',
+    announcementBanner: '',
     allowSelfRegistration: true,
     maxFreeTrialDays: 14,
-    edgeApiGatewayUrl: 'https://api.roscloud.net/v1',
-    systemVersion: 'v2.6.4-prod',
+    edgeApiGatewayUrl: '/api/v1',
+    systemVersion: 'v2.6.4',
     environment: 'production',
     dbEngine: 'SQLite 3 / Prisma Engine 5.22',
     cacheDriver: 'In-Memory High-Speed Cache (Redis Compatible)',
@@ -193,12 +193,12 @@ export default function SuperAdminPage() {
         return res;
       } catch {
         return {
-          totalTenants: 1,
-          activeTenants: 1,
-          monthlyRecurringRevenue: 7999,
-          totalOrdersProcessed: 120,
-          systemUptime: '99.99%',
-          databaseLatencyMs: 3.8,
+          totalTenants: 0,
+          activeTenants: 0,
+          monthlyRecurringRevenue: 0,
+          totalOrdersProcessed: 0,
+          systemUptime: 'Unavailable',
+          databaseLatencyMs: 0,
           tenants: [],
         };
       }
@@ -365,9 +365,9 @@ export default function SuperAdminPage() {
     provisionMutation.mutate({
       name,
       slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      plan,
-      adminEmail: adminEmail || `admin@${slug || 'restaurant'}.com`,
-      adminName: adminName || `${name} Owner`,
+      plan: plan || plansData[0]?.code || 'professional',
+      adminEmail: adminEmail.trim() || undefined,
+      adminName: adminName.trim() || undefined,
     });
   };
 
@@ -472,7 +472,7 @@ export default function SuperAdminPage() {
 
   const totalTenantsCount = overview?.totalTenants ?? tenants.length;
   const activeTenantsCount = overview?.activeTenants ?? tenants.filter((t) => t.status === 'ACTIVE').length;
-  const mrrAmount = overview?.monthlyRecurringRevenue ?? tenants.length * 4999;
+  const mrrAmount = overview?.monthlyRecurringRevenue ?? 0;
   const currentConfig = platformDetails || overview?.platformConfig || platformForm;
 
   return (
@@ -967,155 +967,103 @@ export default function SuperAdminPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(plansData.length > 0 ? plansData : [
-              {
-                id: 'plan-starter',
-                name: 'Starter Tier',
-                code: 'starter',
-                price: 2999,
-                currency: 'INR',
-                interval: 'month' as const,
-                description: 'Designed for standalone boutique cafes & quick-service outlets',
-                features: [
-                  '1 Operating Branch Location',
-                  'Point of Sale (POS) & KOT Engine',
-                  'Table Management & Billing',
-                  'Up to 5 Staff User Accounts',
-                ],
-                maxBranches: 1,
-                maxUsers: 5,
-                maxOrdersPerMonth: 2000,
-                badge: 'STARTER TIER',
-                isPopular: false,
-                isActive: true,
-              },
-              {
-                id: 'plan-professional',
-                name: 'Professional Tier',
-                code: 'professional',
-                price: 7999,
-                currency: 'INR',
-                interval: 'month' as const,
-                description: 'Comprehensive suite for multi-station dine-in restaurants',
-                features: [
-                  'Up to 5 Multi-Outlet Branches',
-                  'Multi-Station KDS & Kitchen Routing',
-                  'Inventory, GRN & Recipe Yields',
-                  'QR Contactless Guest Ordering',
-                  'AI Menu OCR Card Parser',
-                ],
-                maxBranches: 5,
-                maxUsers: 30,
-                maxOrdersPerMonth: 15000,
-                badge: 'MOST POPULAR',
-                isPopular: true,
-                isActive: true,
-              },
-              {
-                id: 'plan-enterprise',
-                name: 'Enterprise Cloud',
-                code: 'enterprise',
-                price: 14999,
-                currency: 'INR',
-                interval: 'month' as const,
-                description: 'Full enterprise power for restaurant chains & franchise HQ',
-                features: [
-                  'Unlimited Outlets & Franchises',
-                  'Autonomous Delivery Robotics',
-                  'VIP Face Biometrics & Sommelier Cellar',
-                  'Dedicated SLA & Priority Cloud Scaling',
-                ],
-                maxBranches: 999,
-                maxUsers: 9999,
-                maxOrdersPerMonth: 999999,
-                badge: 'ENTERPRISE CLOUD',
-                isPopular: false,
-                isActive: true,
-              },
-            ]).map((p) => {
-              const subscriberCount = tenants.filter((t) => t.plan.toLowerCase() === p.code.toLowerCase()).length;
-              return (
-                <Card
-                  key={p.id}
-                  className={cn(
-                    'border backdrop-blur relative flex flex-col justify-between transition-all hover:border-primary/50',
-                    p.isPopular ? 'border-primary/50 bg-primary/5 shadow-xl shadow-primary/10' : 'border-border bg-card/60'
-                  )}
-                >
-                  {p.isPopular && (
-                    <div className="absolute top-3 right-3">
-                      <Badge className="bg-primary text-primary-foreground font-bold text-[10px]">MOST POPULAR</Badge>
+          {plansData.length === 0 ? (
+            <div className="py-16 text-center border-2 border-dashed border-border rounded-3xl bg-card/30 space-y-3">
+              <CreditCard className="w-12 h-12 mx-auto text-muted-foreground/40" />
+              <h3 className="text-base font-bold text-foreground">No SaaS Subscription Plans Found</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Create subscription pricing tiers (e.g. Starter, Growth, Enterprise) with branch and staff quotas.
+              </p>
+              <Button onClick={openCreatePlanModal} size="sm" className="font-bold text-xs gap-1.5">
+                <Plus className="w-4 h-4" /> Create First Plan
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {plansData.map((p) => {
+                const subscriberCount = tenants.filter((t) => t.plan.toLowerCase() === p.code.toLowerCase()).length;
+                return (
+                  <Card
+                    key={p.id}
+                    className={cn(
+                      'border backdrop-blur relative flex flex-col justify-between transition-all hover:border-primary/50',
+                      p.isPopular ? 'border-primary/50 bg-primary/5 shadow-xl shadow-primary/10' : 'border-border bg-card/60'
+                    )}
+                  >
+                    {p.isPopular && (
+                      <div className="absolute top-3 right-3">
+                        <Badge className="bg-primary text-primary-foreground font-bold text-[10px]">MOST POPULAR</Badge>
+                      </div>
+                    )}
+
+                    <div>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="w-fit mb-2 bg-muted text-foreground border-border text-[10px] font-bold">
+                            {p.badge || p.name.toUpperCase()}
+                          </Badge>
+                          <span className="text-[11px] font-semibold text-muted-foreground">
+                            {subscriberCount} Subscriber{subscriberCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <CardTitle className="text-2xl font-black text-foreground">
+                          ₹{p.price.toLocaleString('en-IN')}{' '}
+                          <span className="text-xs text-muted-foreground font-normal">/ {p.interval || 'month'}</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs">{p.description}</CardDescription>
+                      </CardHeader>
+
+                      <CardContent className="space-y-3 text-xs text-muted-foreground">
+                        <div className="p-2.5 rounded-xl bg-muted/40 border border-border space-y-1 font-medium text-[11px]">
+                          <div className="flex justify-between text-foreground">
+                            <span>Max Branch Locations:</span>
+                            <span className="font-bold">{p.maxBranches >= 999 ? 'Unlimited' : p.maxBranches}</span>
+                          </div>
+                          <div className="flex justify-between text-foreground">
+                            <span>Max Staff User Accounts:</span>
+                            <span className="font-bold">{p.maxUsers >= 999 ? 'Unlimited' : p.maxUsers}</span>
+                          </div>
+                          <div className="flex justify-between text-foreground">
+                            <span>Monthly Order Quota:</span>
+                            <span className="font-bold">{p.maxOrdersPerMonth >= 99999 ? 'Unlimited' : p.maxOrdersPerMonth.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-2">
+                          {p.features?.map((feat, i) => (
+                            <p key={i} className="flex items-center gap-2 text-foreground">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>{feat}</span>
+                            </p>
+                          ))}
+                        </div>
+                      </CardContent>
                     </div>
-                  )}
 
-                  <div>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="w-fit mb-2 bg-muted text-foreground border-border text-[10px] font-bold">
-                          {p.badge || p.name.toUpperCase()}
-                        </Badge>
-                        <span className="text-[11px] font-semibold text-muted-foreground">
-                          {subscriberCount} Subscriber{subscriberCount === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                      <CardTitle className="text-2xl font-black text-foreground">
-                        ₹{p.price.toLocaleString('en-IN')}{' '}
-                        <span className="text-xs text-muted-foreground font-normal">/ {p.interval || 'month'}</span>
-                      </CardTitle>
-                      <CardDescription className="text-xs">{p.description}</CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="space-y-3 text-xs text-muted-foreground">
-                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border space-y-1 font-medium text-[11px]">
-                        <div className="flex justify-between text-foreground">
-                          <span>Max Branch Locations:</span>
-                          <span className="font-bold">{p.maxBranches >= 999 ? 'Unlimited' : p.maxBranches}</span>
-                        </div>
-                        <div className="flex justify-between text-foreground">
-                          <span>Max Staff User Accounts:</span>
-                          <span className="font-bold">{p.maxUsers >= 999 ? 'Unlimited' : p.maxUsers}</span>
-                        </div>
-                        <div className="flex justify-between text-foreground">
-                          <span>Monthly Order Quota:</span>
-                          <span className="font-bold">{p.maxOrdersPerMonth >= 99999 ? 'Unlimited' : p.maxOrdersPerMonth.toLocaleString()}</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2">
-                        {p.features?.map((feat, i) => (
-                          <p key={i} className="flex items-center gap-2 text-foreground">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>{feat}</span>
-                          </p>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </div>
-
-                  <div className="p-5 pt-0 border-t border-border mt-4 flex items-center justify-between gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditPlanModal(p as any)}
-                      className="flex-1 text-xs gap-1.5 border-border hover:bg-muted font-bold"
-                    >
-                      <Edit className="w-3.5 h-3.5" /> Modify Plan
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeletingPlan(p as any)}
-                      className="text-red-400 hover:text-red-300 hover:bg-red-500/15 h-8 px-2"
-                      title="Delete Plan"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+                    <div className="p-5 pt-0 border-t border-border mt-4 flex items-center justify-between gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditPlanModal(p)}
+                        className="flex-1 text-xs gap-1.5 border-border hover:bg-muted font-bold"
+                      >
+                        <Edit className="w-3.5 h-3.5" /> Modify Plan
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeletingPlan(p)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/15 h-8 px-2"
+                        title="Delete Plan"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1153,11 +1101,11 @@ export default function SuperAdminPage() {
                 </div>
                 <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Support Helpdesk Email</span>
-                  <span className="font-mono font-bold text-indigo-400">{currentConfig.supportEmail}</span>
+                  <span className="font-mono font-bold text-indigo-400">{currentConfig.supportEmail || 'Not configured'}</span>
                 </div>
                 <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Support Contact Hotline</span>
-                  <span className="font-mono font-bold text-foreground">{currentConfig.supportPhone}</span>
+                  <span className="font-mono font-bold text-foreground">{currentConfig.supportPhone || 'Not configured'}</span>
                 </div>
                 <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Default Currency</span>
@@ -1230,16 +1178,16 @@ export default function SuperAdminPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-xs font-mono">
               <div className="p-2.5 rounded-lg bg-black/40 text-emerald-400 text-[11px] border border-border/50">
-                [SYSTEM] Multi-tenant isolation active across {tenants.length} provisioned organization databases.
+                [SYSTEM] Multi-tenant isolation active across {tenants.length} provisioned organization {tenants.length === 1 ? 'database' : 'databases'}.
               </div>
               <div className="p-2.5 rounded-lg bg-black/40 text-indigo-300 text-[11px] border border-border/50">
-                [AUTH] Superadmin session authenticated: {user?.email}
+                [AUTH] Superadmin session authenticated: {user?.email || 'admin@ros.local'}
               </div>
               <div className="p-2.5 rounded-lg bg-black/40 text-zinc-400 text-[11px] border border-border/50">
-                [STORAGE] Zero-retention temporary file purging verified for OCR scans.
+                [DATABASE] Query execution latency verified at {overview?.databaseLatencyMs ?? 1} ms.
               </div>
               <div className="p-2.5 rounded-lg bg-black/40 text-purple-400 text-[11px] border border-border/50">
-                [SaaS] Subscription recurring billing sync verified. Active MRR: ₹{mrrAmount.toLocaleString('en-IN')}.
+                [SaaS] Active recurring subscription commitment: ₹{mrrAmount.toLocaleString('en-IN')}/mo.
               </div>
             </CardContent>
           </Card>

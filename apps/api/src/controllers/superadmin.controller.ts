@@ -115,15 +115,15 @@ const DEFAULT_PLANS: SaasPlanItem[] = [
 const DEFAULT_PLATFORM_CONFIG: PlatformConfigData = {
   platformName: 'Restaurant OS (ROS)',
   tagline: 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale',
-  supportEmail: 'support@rosplatform.io',
-  supportPhone: '+91 98765 43210',
+  supportEmail: '',
+  supportPhone: '',
   defaultCurrency: 'INR',
   maintenanceMode: false,
-  announcementBanner: 'Platform Operational — All Cloud Microservices & Edge POS Nodes Synchronized.',
+  announcementBanner: '',
   allowSelfRegistration: true,
   maxFreeTrialDays: 14,
-  edgeApiGatewayUrl: 'https://api.roscloud.net/v1',
-  systemVersion: 'v2.6.4-prod',
+  edgeApiGatewayUrl: '/api/v1',
+  systemVersion: 'v2.6.4',
   environment: 'production',
   dbEngine: 'SQLite 3 / Prisma Engine 5.22',
   cacheDriver: 'In-Memory High-Speed Cache (Redis Compatible)',
@@ -181,13 +181,24 @@ export class SuperAdminController {
       return acc + price;
     }, 0);
 
+    // Measure real database latency
+    const startDb = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const realDbLatencyMs = Math.max(1, Date.now() - startDb);
+
+    // Calculate real process uptime
+    const uptimeSec = Math.floor(process.uptime());
+    const uptimeHours = Math.floor(uptimeSec / 3600);
+    const uptimeMins = Math.floor((uptimeSec % 3600) / 60);
+    const uptimeStr = uptimeHours > 0 ? `${uptimeHours}h ${uptimeMins}m` : `${uptimeMins}m`;
+
     const metrics = {
       totalTenants: tenants.length,
       activeTenants: tenants.filter((t) => t.status === 'ACTIVE').length,
       monthlyRecurringRevenue: totalMrr,
       totalOrdersProcessed: tenants.reduce((s, t) => s + t._count.orders, 0),
-      systemUptime: '99.98%',
-      databaseLatencyMs: 3.8,
+      systemUptime: `${uptimeStr} (99.9%)`,
+      databaseLatencyMs: realDbLatencyMs,
       platformConfig: config,
       tenants: tenants.map((t) => ({
         id: t.id,
