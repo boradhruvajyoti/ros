@@ -17,6 +17,7 @@ const tableSchema = z.object({
   name: z.string().min(1).max(50),
   capacity: z.number().int().positive().max(99).default(4),
   shape: z.enum(['RECTANGLE', 'CIRCLE', 'SQUARE']).default('RECTANGLE'),
+  status: z.enum(['AVAILABLE', 'RESERVED', 'OCCUPIED', 'CLEANING', 'BLOCKED']).optional(),
   posX: z.number().default(0),
   posY: z.number().default(0),
   width: z.number().default(120),
@@ -123,6 +124,14 @@ export class TableController {
   static async update(req: Request, res: Response): Promise<void> {
     const dto = tableSchema.partial().parse(req.body);
     const table = await prisma.restaurantTable.update({ where: { id: req.params.id }, data: dto });
+
+    if (dto.status) {
+      emitToRoom(req.user!.tid, req.user!.bid, {
+        type: 'TABLE_STATUS_CHANGED',
+        payload: { tableId: req.params.id, status: dto.status },
+      });
+    }
+
     sendSuccess(res, table);
   }
 

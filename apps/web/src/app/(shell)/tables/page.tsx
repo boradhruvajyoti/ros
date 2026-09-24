@@ -329,6 +329,8 @@ export default function TablesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['floors'] });
+      queryClient.invalidateQueries({ queryKey: ['table-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
       toast.success('Table Updated', 'Seating status saved.');
       setEditingTable(null);
     },
