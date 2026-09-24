@@ -5,7 +5,7 @@ module.exports = {
       cwd: './apps/api',
       script: 'dist/server.js',
       exec_mode: 'cluster',
-      instances: process.env.API_INSTANCES || 'max', // Scales across all CPU cores automatically
+      instances: process.env.API_INSTANCES || 'max',
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
@@ -19,10 +19,9 @@ module.exports = {
     {
       name: 'ros-web',
       cwd: './apps/web',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      script: 'server.js',
       exec_mode: 'cluster',
-      instances: process.env.WEB_INSTANCES || 'max', // Scales across all CPU cores automatically
+      instances: process.env.WEB_INSTANCES || 'max',
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
