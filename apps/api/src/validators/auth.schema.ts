@@ -35,6 +35,7 @@ export const onboardRestaurantSchema = z.object({
   name: z.string().min(2, 'Restaurant name must be at least 2 characters'),
   slug: z.string().optional(),
   cuisineType: z.string().optional(),
+  logoUrl: z.string().optional().nullable(),
   plan: z.enum(['starter', 'professional', 'enterprise']).default('professional'),
   currency: z.string().default('INR'),
   timezone: z.string().default('Asia/Kolkata'),

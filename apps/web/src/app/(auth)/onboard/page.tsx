@@ -107,11 +107,28 @@ export default function OnboardingPage() {
   // Step 1: Brand & Identity
   const [restaurantName, setRestaurantName] = useState('');
   const [slug, setSlug] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string>('');
   const [cuisineType, setCuisineType] = useState('italian');
   const [tagline, setTagline] = useState('Fine dining & authentic culinary heritage');
   const [currency, setCurrency] = useState('INR');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [plan, setPlan] = useState<'starter' | 'professional' | 'enterprise'>('professional');
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File Too Large', 'Please upload a logo image under 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setLogoUrl(base64);
+      toast.success('Logo Uploaded', 'Restaurant logo preview is ready.');
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Step 2: Branch Location & Taxes
   const [branchName, setBranchName] = useState('');
@@ -509,6 +526,7 @@ DESSERTS & DRINKS
       name: restaurantName.trim(),
       slug: slug.trim() || undefined,
       cuisineType,
+      logoUrl: logoUrl.trim() || undefined,
       plan,
       tagline: tagline.trim() || undefined,
       currency: currency || 'INR',
@@ -746,6 +764,77 @@ DESSERTS & DRINKS
                     onChange={(e) => setTagline(e.target.value)}
                     className="h-11 bg-background text-sm"
                   />
+                </div>
+
+                {/* Restaurant Brand Logo Upload */}
+                <div className="col-span-full p-4 rounded-xl border border-border bg-background/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <UploadCloud className="w-4 h-4 text-primary" />
+                        Restaurant Brand Logo
+                      </label>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Upload your high-res restaurant logo (PNG, JPG, SVG, WebP up to 5MB) or enter an image URL
+                      </p>
+                    </div>
+                    {logoUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogoUrl('')}
+                        className="text-xs h-7 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" /> Remove Logo
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    {/* Logo Preview */}
+                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-border bg-card flex items-center justify-center overflow-hidden shrink-0 relative group">
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt="Restaurant Logo"
+                          className="w-full h-full object-contain p-1"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center text-muted-foreground">
+                          <ChefHat className="w-7 h-7" />
+                          <span className="text-[9px] font-semibold mt-1">NO LOGO</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Upload Controls */}
+                    <div className="flex-1 w-full space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="flex-1 cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                          />
+                          <div className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-accent text-xs font-semibold text-foreground flex items-center justify-center gap-2 transition-colors">
+                            <UploadCloud className="w-4 h-4 text-primary" />
+                            <span>Browse & Upload Logo File</span>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        <Input
+                          placeholder="Or paste direct image URL (https://...)"
+                          value={logoUrl}
+                          onChange={(e) => setLogoUrl(e.target.value)}
+                          className="h-9 text-xs bg-card"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

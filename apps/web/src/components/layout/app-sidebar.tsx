@@ -141,8 +141,30 @@ export function AppSidebar() {
     enabled: isPlatformSuperAdmin,
   });
 
+  const { data: currentTenant } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/tenants/current');
+        return res;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 1000 * 60 * 5,
+    enabled: !isPlatformSuperAdmin && !!user?.tenantId,
+  });
+
   const platformName = platformDetails?.platformName || 'ROS Platform';
   const platformTagline = platformDetails?.tagline || 'SaaS Control Plane';
+
+  const tenantLogo = currentTenant?.logoUrl;
+  const tenantDisplayName = currentTenant?.name || user?.name || 'Restaurant OS';
+  let tenantTagline = 'Culinary OS';
+  try {
+    const parsed = typeof currentTenant?.settings === 'string' ? JSON.parse(currentTenant.settings) : (currentTenant?.settings || {});
+    if (parsed?.tagline) tenantTagline = parsed.tagline;
+  } catch {}
 
   let navItems = restaurantNavItems;
   if (isPlatformSuperAdmin) {
@@ -154,7 +176,6 @@ export function AppSidebar() {
   } else if (isCashierOnly) {
     navItems = cashierNavItems;
   }
-
 
   return (
     <aside
@@ -170,13 +191,17 @@ export function AppSidebar() {
         isPlatformSuperAdmin && 'bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-transparent'
       )}>
         <div className={cn(
-          'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md',
+          'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md overflow-hidden',
           isPlatformSuperAdmin
             ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-indigo-500/25'
+            : tenantLogo
+            ? 'bg-card border border-border/80 p-0.5'
             : 'bg-primary'
         )}>
           {isPlatformSuperAdmin ? (
             <Globe className="w-5 h-5 text-white" />
+          ) : tenantLogo ? (
+            <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-contain rounded-lg" />
           ) : (
             <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
           )}
@@ -184,8 +209,8 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="overflow-hidden">
             <div className="flex items-center gap-1.5">
-              <p className="text-sidebar-foreground font-black text-sm tracking-tight truncate" title={isPlatformSuperAdmin ? platformName : 'ROS'}>
-                {isPlatformSuperAdmin ? platformName : 'ROS'}
+              <p className="text-sidebar-foreground font-black text-sm tracking-tight truncate" title={isPlatformSuperAdmin ? platformName : tenantDisplayName}>
+                {isPlatformSuperAdmin ? platformName : tenantDisplayName}
               </p>
               {isPlatformSuperAdmin && (
                 <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
@@ -193,8 +218,8 @@ export function AppSidebar() {
                 </span>
               )}
             </div>
-            <p className="text-sidebar-foreground/50 text-[10px] truncate font-medium" title={isPlatformSuperAdmin ? platformTagline : user?.name}>
-              {isPlatformSuperAdmin ? platformTagline : user?.name}
+            <p className="text-sidebar-foreground/50 text-[10px] truncate font-medium" title={isPlatformSuperAdmin ? platformTagline : tenantTagline}>
+              {isPlatformSuperAdmin ? platformTagline : tenantTagline}
             </p>
           </div>
         )}

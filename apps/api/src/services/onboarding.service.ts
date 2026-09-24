@@ -359,6 +359,7 @@ export class OnboardingService {
         data: {
           name: dto.name,
           slug: cleanSlug,
+          logoUrl: dto.logoUrl || null,
           plan: dto.plan || 'professional',
           status: 'ACTIVE',
           settings: JSON.stringify({
