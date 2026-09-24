@@ -44,66 +44,19 @@ interface EWayBillRecord {
   status: 'ACTIVE_IN_TRANSIT' | 'DELIVERED_CLOSED';
 }
 
-const INITIAL_INVOICES: EInvoiceRecord[] = [
-  {
-    id: 'EINV-01',
-    invoiceNumber: 'INV-2026-B2B-049',
-    irnHash: '8e4f129c78b4a03e54f9d21c081e74a89bc213ef5421a7cd9812e45bf0912ab4',
-    ackNumber: '112233445566778',
-    buyerName: 'Tata Consultancy Services Ltd (Corporate Event)',
-    buyerGstin: '27AAACT2727Q1ZW',
-    taxableValueINR: 180000,
-    cgstINR: 4500,
-    sgstINR: 4500,
-    totalInvoiceValueINR: 189000,
-    qrPayload: 'GSTIN:27AABCT3514Q1Z8|INV:INV-2026-B2B-049|AMT:189000|IRN:8e4f...',
-    status: 'IRN_GENERATED',
-    generatedAt: '2026-09-22 18:30:14'
-  },
-  {
-    id: 'EINV-02',
-    invoiceNumber: 'INV-2026-B2B-050',
-    irnHash: 'fa21e8790cb4a03e54f9d21c081e74a89bc213ef5421a7cd9812e45bf0912cb8',
-    ackNumber: '998877665544332',
-    buyerName: 'Reliance Brands Hospitality Gala',
-    buyerGstin: '27AABCR9911D1ZX',
-    taxableValueINR: 240000,
-    cgstINR: 6000,
-    sgstINR: 6000,
-    totalInvoiceValueINR: 252000,
-    qrPayload: 'GSTIN:27AABCT3514Q1Z8|INV:INV-2026-B2B-050|AMT:252000|IRN:fa21...',
-    status: 'IRN_GENERATED',
-    generatedAt: '2026-09-23 11:15:00'
-  }
-];
-
-const INITIAL_EWAY: EWayBillRecord[] = [
-  {
-    id: 'EWAY-01',
-    ewayBillNumber: '241088921455',
-    transferSlipId: 'TRF-COMM-004',
-    fromLocation: 'Central Commissary Warehouse (Bhiwandi)',
-    toLocation: 'Spice Garden Flagship (Bandra)',
-    vehicleNumber: 'MH-04-AZ-8812',
-    cargoValueINR: 320000,
-    validUntil: '2026-09-24 23:59:00',
-    status: 'ACTIVE_IN_TRANSIT'
-  }
-];
-
 export default function TaxEwayPage() {
-  const [invoices, setInvoices] = useState<EInvoiceRecord[]>(INITIAL_INVOICES);
-  const [eways, setEways] = useState<EWayBillRecord[]>(INITIAL_EWAY);
+  const [invoices, setInvoices] = useState<EInvoiceRecord[]>([]);
+  const [eways, setEways] = useState<EWayBillRecord[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [newBuyer, setNewBuyer] = useState({
     buyerName: '',
     buyerGstin: '',
-    taxableAmount: 75000
+    taxableAmount: 50000
   });
 
   const handleCreateEInvoice = (e: React.FormEvent) => {
     e.preventDefault();
-    const taxable = Number(newBuyer.taxableAmount);
+    const taxable = Number(newBuyer.taxableAmount) || 0;
     const gst = taxable * 0.05;
 
     const created: EInvoiceRecord = {
@@ -123,6 +76,7 @@ export default function TaxEwayPage() {
     };
 
     setInvoices(prev => [created, ...prev]);
+    setNewBuyer({ buyerName: '', buyerGstin: '', taxableAmount: 50000 });
     setShowModal(false);
   };
 
@@ -190,9 +144,11 @@ export default function TaxEwayPage() {
             <Truck className="w-5 h-5 text-amber-400" />
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-amber-300">1 Active Transit</div>
+            <div className="text-2xl font-bold text-amber-300">
+              {eways.filter(e => e.status === 'ACTIVE_IN_TRANSIT').length} Active Transit
+            </div>
             <div className="text-xs text-slate-400 mt-1">
-              Vehicle MH-04-AZ-8812 in Route
+              {eways.length} Total Registered Bills
             </div>
           </div>
         </div>
@@ -203,7 +159,7 @@ export default function TaxEwayPage() {
             <QrCode className="w-5 h-5 text-purple-400" />
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-purple-300">100% Verified</div>
+            <div className="text-2xl font-bold text-purple-300">100% Ready</div>
             <div className="text-xs text-purple-400/90 mt-1">
               B2B GST Input Tax Credit Pass
             </div>
@@ -220,52 +176,58 @@ export default function TaxEwayPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/40 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                <th className="py-3.5 px-6">Invoice # & Buyer</th>
-                <th className="py-3.5 px-6">IRN Hash (64-char)</th>
-                <th className="py-3.5 px-6 text-right">Taxable Value</th>
-                <th className="py-3.5 px-6 text-right">GST (5%)</th>
-                <th className="py-3.5 px-6 text-right">Total (INR)</th>
-                <th className="py-3.5 px-6 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-sm">
-              {invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-4 px-6">
-                    <div className="font-semibold text-white">{inv.invoiceNumber}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{inv.buyerName}</div>
-                    <div className="text-[10px] text-indigo-400 font-mono">GSTIN: {inv.buyerGstin}</div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="font-mono text-xs text-slate-300 truncate max-w-[220px]" title={inv.irnHash}>
-                      {inv.irnHash}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">Ack: {inv.ackNumber}</div>
-                  </td>
-                  <td className="py-4 px-6 text-right font-medium text-slate-200">
-                    ₹{inv.taxableValueINR.toLocaleString('en-IN')}
-                  </td>
-                  <td className="py-4 px-6 text-right text-xs text-slate-400">
-                    <div>CGST: ₹{inv.cgstINR.toLocaleString('en-IN')}</div>
-                    <div>SGST: ₹{inv.sgstINR.toLocaleString('en-IN')}</div>
-                  </td>
-                  <td className="py-4 px-6 text-right font-bold text-emerald-400">
-                    ₹{inv.totalInvoiceValueINR.toLocaleString('en-IN')}
-                  </td>
-                  <td className="py-4 px-6 text-center">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> IRN Active
-                    </span>
-                  </td>
+        {invoices.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-sm">
+            No B2B E-Invoices registered yet. Click &quot;Generate B2B E-Invoice IRN&quot; to create a tax invoice.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-950/40 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="py-3.5 px-6">Invoice # & Buyer</th>
+                  <th className="py-3.5 px-6">IRN Hash (64-char)</th>
+                  <th className="py-3.5 px-6 text-right">Taxable Value</th>
+                  <th className="py-3.5 px-6 text-right">GST (5%)</th>
+                  <th className="py-3.5 px-6 text-right">Total (INR)</th>
+                  <th className="py-3.5 px-6 text-center">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-sm">
+                {invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="py-4 px-6">
+                      <div className="font-semibold text-white">{inv.invoiceNumber}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{inv.buyerName}</div>
+                      <div className="text-[10px] text-indigo-400 font-mono">GSTIN: {inv.buyerGstin}</div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="font-mono text-xs text-slate-300 truncate max-w-[220px]" title={inv.irnHash}>
+                        {inv.irnHash}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">Ack: {inv.ackNumber}</div>
+                    </td>
+                    <td className="py-4 px-6 text-right font-medium text-slate-200">
+                      ₹{inv.taxableValueINR.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-4 px-6 text-right text-xs text-slate-400">
+                      <div>CGST: ₹{inv.cgstINR.toLocaleString('en-IN')}</div>
+                      <div>SGST: ₹{inv.sgstINR.toLocaleString('en-IN')}</div>
+                    </td>
+                    <td className="py-4 px-6 text-right font-bold text-emerald-400">
+                      ₹{inv.totalInvoiceValueINR.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> IRN Active
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* E-Way Bills Section */}
@@ -277,35 +239,41 @@ export default function TaxEwayPage() {
           <p className="text-xs text-slate-400 mt-0.5">Mandatory E-Way bill clearance for high-value raw material bulk transfers</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {eways.map((eway) => (
-            <div key={eway.id} className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-amber-400">E-Way Bill: {eway.ewayBillNumber}</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">
-                  {eway.status.replace(/_/g, ' ')}
-                </span>
-              </div>
+        {eways.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-sm rounded-xl border border-dashed border-slate-800">
+            No inter-branch transit E-Way bills generated yet. Bulk transfers over ₹50,000 will be registered here.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {eways.map((eway) => (
+              <div key={eway.id} className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-amber-400">E-Way Bill: {eway.ewayBillNumber}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">
+                    {eway.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
 
-              <div className="text-xs text-slate-300 space-y-1">
-                <div>From: <strong className="text-white">{eway.fromLocation}</strong></div>
-                <div>To: <strong className="text-white">{eway.toLocation}</strong></div>
-                <div>Vehicle: <strong className="text-indigo-300 font-mono">{eway.vehicleNumber}</strong></div>
-                <div>Cargo Valuation: <strong className="text-emerald-400">₹{eway.cargoValueINR.toLocaleString('en-IN')}</strong></div>
-              </div>
+                <div className="text-xs text-slate-300 space-y-1">
+                  <div>From: <strong className="text-white">{eway.fromLocation}</strong></div>
+                  <div>To: <strong className="text-white">{eway.toLocation}</strong></div>
+                  <div>Vehicle: <strong className="text-indigo-300 font-mono">{eway.vehicleNumber}</strong></div>
+                  <div>Cargo Valuation: <strong className="text-emerald-400">₹{eway.cargoValueINR.toLocaleString('en-IN')}</strong></div>
+                </div>
 
-              <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-                <span>Valid Until: {eway.validUntil}</span>
-                <button
-                  onClick={() => alert(`Printing Govt QR E-Way Slip for ${eway.ewayBillNumber}...`)}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition"
-                >
-                  Download E-Way Slip
-                </button>
+                <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                  <span>Valid Until: {eway.validUntil}</span>
+                  <button
+                    onClick={() => alert(`Printing Govt QR E-Way Slip for ${eway.ewayBillNumber}...`)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition"
+                  >
+                    Download E-Way Slip
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Modal */}
