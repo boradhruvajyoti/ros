@@ -116,11 +116,10 @@ export function AppSidebar() {
 
   const currentTab = searchParams ? searchParams.get('tab') : null;
 
-  // Check if current user is the Platform Super-Administrator
+  // Check if current user is the Platform Super-Administrator (strictly superadmin@ros.com or tenant-platform)
   const isPlatformSuperAdmin =
-    user?.roles?.includes('SUPER_ADMIN') ||
-    user?.tenantId === 'tenant-platform' ||
-    user?.permissions?.includes('tenants:manage');
+    user?.email?.toLowerCase() === 'superadmin@ros.com' ||
+    user?.tenantId === 'tenant-platform';
 
   const isOwnerOrAdmin = user?.roles?.some((r) => ['OWNER', 'ADMINISTRATOR', 'GENERAL_MANAGER', 'BRANCH_MANAGER'].includes(r));
   const isWaiterOnly = !isOwnerOrAdmin && user?.roles?.includes('WAITER');

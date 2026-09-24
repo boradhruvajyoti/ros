@@ -87,10 +87,20 @@ export class AuthService {
       ubr.role.permissions.forEach((rp) => permissionSet.add(rp.permission.code));
     });
 
-    // If user is superadmin or has OWNER/ADMIN role, ensure all active permissions
+    // Check if user is the true platform super administrator
+    const isPlatformSuperAdmin =
+      user.email?.toLowerCase() === 'superadmin@ros.com' || user.tenantId === 'tenant-platform';
+
+    // If user is superadmin or has OWNER/ADMIN role, ensure active restaurant permissions
     if (roles.includes('SUPER_ADMIN') || roles.includes('OWNER') || roles.includes('ADMINISTRATOR')) {
       const allPerms = await prisma.permission.findMany();
-      allPerms.forEach((p) => permissionSet.add(p.code));
+      allPerms.forEach((p) => {
+        // Strip platform-level tenant management from restaurant owners/admins
+        if (p.code === 'tenants:manage' && !isPlatformSuperAdmin) {
+          return;
+        }
+        permissionSet.add(p.code);
+      });
     }
 
     const permissions = Array.from(permissionSet) as Permission[];
@@ -100,6 +110,7 @@ export class AuthService {
     const accessToken = jwt.sign(
       {
         sub: user.id,
+        email: user.email,
         tid: user.tenantId,
         bid: activeBranchId,
         roles,
@@ -340,6 +351,7 @@ export class AuthService {
     const accessToken = jwt.sign(
       {
         sub: user.id,
+        email: user.email,
         tid: branch.tenantId,
         bid: branch.id,
         roles,
@@ -365,7 +377,7 @@ export class AuthService {
     };
   }
 
-  /** Switch active tenant context (for Super Admin / Multi-Tenant Owner) */
+  /** Switch active tenant context (for Platform Super Admin / Multi-Tenant Owner) */
   static async switchTenant(userId: string, targetTenantId: string, requestedBranchId?: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId, isActive: true },
@@ -380,10 +392,11 @@ export class AuthService {
       throw new AppError(ErrorCodes.NOT_FOUND, 'User not found', 404);
     }
 
-    const isSuperAdmin = user.branchRoles.some((ubr) => ubr.role.name === 'SUPER_ADMIN');
+    const isPlatformSuperAdmin =
+      user.email?.toLowerCase() === 'superadmin@ros.com' || user.tenantId === 'tenant-platform';
 
-    if (!isSuperAdmin && user.tenantId !== targetTenantId) {
-      throw new AppError(ErrorCodes.FORBIDDEN, 'Unauthorized cross-tenant switch', 403);
+    if (!isPlatformSuperAdmin && user.tenantId !== targetTenantId) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'Unauthorized cross-tenant switch: only platform owner can switch workspaces', 403);
     }
 
     const tenant = await prisma.tenant.findUnique({
@@ -403,14 +416,17 @@ export class AuthService {
       throw new AppError(ErrorCodes.NOT_FOUND, 'No active branch available in target tenant', 404);
     }
 
-    const roles = isSuperAdmin ? ['SUPER_ADMIN'] : ['OWNER'];
+    const roles = isPlatformSuperAdmin ? ['SUPER_ADMIN'] : ['OWNER'];
     const allPerms = await prisma.permission.findMany();
-    const permissions = allPerms.map((p) => p.code) as Permission[];
+    const permissions = allPerms
+      .filter((p) => isPlatformSuperAdmin || p.code !== 'tenants:manage')
+      .map((p) => p.code) as Permission[];
 
     const jti = generateUUID();
     const accessToken = jwt.sign(
       {
         sub: user.id,
+        email: user.email,
         tid: tenant.id,
         bid: branch.id,
         roles,
@@ -421,7 +437,7 @@ export class AuthService {
       { expiresIn: ACCESS_EXPIRY as any }
     );
 
-    if (isSuperAdmin && user.tenantId !== targetTenantId) {
+    if (isPlatformSuperAdmin && user.tenantId !== targetTenantId) {
       try {
         await prisma.auditLog.create({
           data: {

@@ -84,6 +84,16 @@ export default function SuperAdminPage() {
   const queryClient = useQueryClient();
   const setAuth = useAuthStore((s) => s.setAuth);
   const user = useAuthStore((s) => s.user);
+  const isPlatformSuperAdmin =
+    user?.email?.toLowerCase() === 'superadmin@ros.com' ||
+    user?.tenantId === 'tenant-platform';
+
+  useEffect(() => {
+    if (user && !isPlatformSuperAdmin) {
+      toast.error('Access Denied', 'Only the platform super administrator (superadmin@ros.com) can access this control plane.');
+      router.replace('/dashboard');
+    }
+  }, [user, isPlatformSuperAdmin, router]);
 
   // Sync tab with URL search parameter
   const tabFromUrl = searchParams.get('tab') as 'overview' | 'tenants' | 'plans' | 'system' | null;
@@ -96,6 +106,10 @@ export default function SuperAdminPage() {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
+
+  if (!user || !isPlatformSuperAdmin) {
+    return null;
+  }
 
   const handleTabChange = (newTab: 'overview' | 'tenants' | 'plans' | 'system') => {
     setActiveTab(newTab);

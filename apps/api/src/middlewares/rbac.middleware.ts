@@ -8,6 +8,37 @@ import { ErrorCodes } from '@ros/shared-types';
 import { AppError } from './error.middleware';
 
 /**
+ * Helper to check if request is authenticated as the true Platform Owner (superadmin@ros.com)
+ */
+export function isPlatformSuperAdminUser(user?: { email?: string; tid: string; roles: string[] }): boolean {
+  if (!user) return false;
+  return user.email?.toLowerCase() === 'superadmin@ros.com' || user.tid === 'tenant-platform';
+}
+
+/**
+ * Require platform-level super administrator authority (strictly superadmin@ros.com or tenant-platform)
+ */
+export function requirePlatformSuperAdmin() {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      return next(new AppError(ErrorCodes.UNAUTHORIZED, 'Not authenticated', 401));
+    }
+
+    if (isPlatformSuperAdminUser(req.user)) {
+      return next();
+    }
+
+    return next(
+      new AppError(
+        ErrorCodes.FORBIDDEN,
+        'Access denied: Only the platform super administrator (superadmin@ros.com) can access this resource.',
+        403
+      )
+    );
+  };
+}
+
+/**
  * Require one or more permissions (ANY — user must have at least one).
  * Use requireAllPermissions() to require ALL.
  */
@@ -17,11 +48,15 @@ export function requirePermission(...permissions: Permission[]) {
       return next(new AppError(ErrorCodes.UNAUTHORIZED, 'Not authenticated', 401));
     }
 
+    // Platform Super Admin bypasses all checks
+    if (isPlatformSuperAdminUser(req.user)) {
+      return next();
+    }
+
     const userPerms = new Set(req.user.permissions);
     const hasPermission = permissions.some((p) => userPerms.has(p));
 
-    // Super admins bypass all permission checks
-    if (req.user.roles.includes('SUPER_ADMIN') || hasPermission) {
+    if (hasPermission) {
       return next();
     }
 
@@ -42,7 +77,7 @@ export function requireAllPermissions(...permissions: Permission[]) {
       return next(new AppError(ErrorCodes.UNAUTHORIZED, 'Not authenticated', 401));
     }
 
-    if (req.user.roles.includes('SUPER_ADMIN')) return next();
+    if (isPlatformSuperAdminUser(req.user)) return next();
 
     const userPerms = new Set(req.user.permissions);
     const missing = permissions.filter((p) => !userPerms.has(p));

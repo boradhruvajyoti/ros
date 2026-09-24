@@ -295,7 +295,6 @@ export class SuperAdminController {
       const getPermIds = (codes: string[]) => codes.map((c) => permMap.get(c)).filter(Boolean) as string[];
 
       const rolesToSeed = [
-        { name: 'SUPER_ADMIN', perms: allPermIds },
         { name: 'OWNER', perms: allPerms.filter((p) => p.code !== 'tenants:manage').map((p) => p.id) },
         { name: 'ADMINISTRATOR', perms: allPerms.filter((p) => p.code !== 'tenants:manage').map((p) => p.id) },
         { name: 'GENERAL_MANAGER', perms: allPerms.filter((p) => !['tenants:manage', 'users:delete', 'roles:create', 'roles:edit'].includes(p.code)).map((p) => p.id) },
@@ -308,7 +307,6 @@ export class SuperAdminController {
         { name: 'INVENTORY_MANAGER', perms: getPermIds(['inventory:view', 'inventory:adjust', 'inventory:count', 'inventory:transfer', 'procurement:view', 'procurement:receive', 'menu:view']) },
         { name: 'PROCUREMENT_MANAGER', perms: getPermIds(['procurement:view', 'procurement:create', 'procurement:approve', 'procurement:receive', 'inventory:view', 'expenses:view']) },
         { name: 'DELIVERY_STAFF', perms: getPermIds(['orders:view', 'orders:edit', 'customers:view']) },
-        { name: 'PLATFORM_SUPPORT', perms: getPermIds(['branches:view', 'orders:view', 'reports:view', 'settings:view']) },
       ];
 
       const createdRoles: Record<string, any> = {};

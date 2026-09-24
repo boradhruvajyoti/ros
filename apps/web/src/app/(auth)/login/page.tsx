@@ -71,9 +71,8 @@ export default function LoginPage() {
       toast.success('Welcome back!', result.user.name);
 
       const isPlatformSuperAdmin =
-        result.user?.roles?.includes('SUPER_ADMIN') ||
-        result.user?.tenantId === 'tenant-platform' ||
-        result.user?.permissions?.includes('tenants:manage');
+        result.user?.email?.toLowerCase() === 'superadmin@ros.com' ||
+        result.user?.tenantId === 'tenant-platform';
 
       if (isPlatformSuperAdmin) {
         router.push('/super-admin');

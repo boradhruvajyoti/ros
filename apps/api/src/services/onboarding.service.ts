@@ -397,9 +397,8 @@ export class OnboardingService {
         },
       });
 
-      // 3. Seed Standard RBAC Roles
+      // 3. Seed Standard RBAC Roles for this restaurant tenant (OWNER is top tenant role)
       const rolesToSeed = [
-        { name: 'SUPER_ADMIN', perms: allPermIds },
         { name: 'OWNER', perms: allPerms.filter((p) => p.code !== 'tenants:manage').map((p) => p.id) },
         { name: 'ADMINISTRATOR', perms: allPerms.filter((p) => p.code !== 'tenants:manage').map((p) => p.id) },
         { name: 'GENERAL_MANAGER', perms: allPerms.filter((p) => !['tenants:manage', 'users:delete', 'roles:create', 'roles:edit'].includes(p.code)).map((p) => p.id) },
