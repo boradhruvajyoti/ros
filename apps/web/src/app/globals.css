@@ -1,0 +1,172 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   ROS Design System — CSS Variables
+   Premium dark-by-default with amber/gold primary accent
+   ============================================================================= */
+
+@layer base {
+  :root {
+    /* ── Light theme ─────────────────────────────────────────────────────── */
+    --background:         0 0% 98%;
+    --foreground:         222 47% 11%;
+    --card:               0 0% 100%;
+    --card-foreground:    222 47% 11%;
+    --popover:            0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary:            38 92% 50%;    /* amber-500 */
+    --primary-foreground: 0 0% 5%;
+    --secondary:          215 28% 17%;
+    --secondary-foreground: 0 0% 98%;
+    --muted:              210 40% 96%;
+    --muted-foreground:   215 20% 45%;
+    --accent:             38 92% 96%;
+    --accent-foreground:  38 80% 25%;
+    --destructive:        0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border:             214 32% 91%;
+    --input:              214 32% 91%;
+    --ring:               38 92% 50%;
+    --radius:             0.625rem;
+
+    /* Sidebar */
+    --sidebar-background:          222 47% 11%;
+    --sidebar-foreground:          210 40% 90%;
+    --sidebar-primary:             38 92% 50%;
+    --sidebar-primary-foreground:  0 0% 5%;
+    --sidebar-accent:              217 33% 17%;
+    --sidebar-accent-foreground:   210 40% 98%;
+    --sidebar-border:              217 33% 20%;
+    --sidebar-ring:                38 92% 50%;
+
+    /* Status colors */
+    --status-available:   142 76% 36%;
+    --status-occupied:    0 84% 60%;
+    --status-reserved:    38 92% 50%;
+    --status-cleaning:    199 89% 48%;
+    --status-blocked:     215 20% 55%;
+
+    /* KDS urgency */
+    --kds-normal:         142 76% 36%;
+    --kds-warning:        38 92% 50%;
+    --kds-urgent:         0 84% 60%;
+  }
+
+  .dark {
+    /* ── Dark theme ──────────────────────────────────────────────────────── */
+    --background:         222 47% 7%;
+    --foreground:         210 40% 96%;
+    --card:               222 47% 10%;
+    --card-foreground:    210 40% 96%;
+    --popover:            222 47% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary:            38 92% 50%;
+    --primary-foreground: 0 0% 5%;
+    --secondary:          217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted:              217 33% 17%;
+    --muted-foreground:   215 20% 65%;
+    --accent:             217 33% 17%;
+    --accent-foreground:  210 40% 98%;
+    --destructive:        0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border:             217 33% 18%;
+    --input:              217 33% 18%;
+    --ring:               38 92% 50%;
+
+    --sidebar-background:          222 47% 5%;
+    --sidebar-foreground:          210 40% 80%;
+    --sidebar-primary:             38 92% 50%;
+    --sidebar-primary-foreground:  0 0% 5%;
+    --sidebar-accent:              217 33% 12%;
+    --sidebar-accent-foreground:   210 40% 98%;
+    --sidebar-border:              217 33% 12%;
+    --sidebar-ring:                38 92% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-foreground;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+@layer components {
+  /* ── POS Grid ─────────────────────────────────────────────────────────── */
+  .pos-item-card {
+    @apply relative flex flex-col items-start justify-end p-3 rounded-xl border border-border
+           bg-card text-card-foreground cursor-pointer select-none
+           transition-all duration-150 hover:border-primary/60 hover:shadow-md
+           hover:-translate-y-0.5 active:scale-95;
+  }
+
+  .pos-item-card.out-of-stock {
+    @apply opacity-40 cursor-not-allowed;
+  }
+
+  /* ── Table status badges ─────────────────────────────────────────────── */
+  .table-available { @apply bg-green-500/15 text-green-600 border-green-500/30; }
+  .table-occupied  { @apply bg-red-500/15 text-red-500 border-red-500/30; }
+  .table-reserved  { @apply bg-amber-500/15 text-amber-500 border-amber-500/30; }
+  .table-cleaning  { @apply bg-sky-500/15 text-sky-500 border-sky-500/30; }
+  .table-blocked   { @apply bg-zinc-500/15 text-zinc-500 border-zinc-500/30; }
+
+  /* ── KDS card urgency ────────────────────────────────────────────────── */
+  .kds-card-new     { @apply border-l-4 border-l-green-500; }
+  .kds-card-warning { @apply border-l-4 border-l-amber-500; }
+  .kds-card-urgent  { @apply border-l-4 border-l-red-500; }
+
+  /* ── Glassmorphism panels ─────────────────────────────────────────────── */
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl border border-border/50;
+  }
+
+  /* ── Stat card ───────────────────────────────────────────────────────── */
+  .stat-card {
+    @apply rounded-2xl border border-border bg-card p-5
+           transition-all duration-200 hover:shadow-lg hover:border-primary/30;
+  }
+
+  /* ── Food type indicator ─────────────────────────────────────────────── */
+  .food-veg     { @apply bg-green-500; }
+  .food-non-veg { @apply bg-red-500; }
+  .food-egg     { @apply bg-yellow-500; }
+  .food-vegan   { @apply bg-emerald-500; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Numeric tabular for currency */
+  .tabular { font-variant-numeric: tabular-nums; }
+}

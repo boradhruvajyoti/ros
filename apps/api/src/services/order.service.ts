@@ -1,0 +1,433 @@
+// =============================================================================
+// Order Service — state machine, KOT engine, calculations
+// =============================================================================
+
+import { prisma } from '../lib/prisma';
+import { AppError } from '../middlewares/error.middleware';
+import { ErrorCodes, ORDER_STATE_TRANSITIONS, type OrderStatus } from '@ros/shared-types';
+import { emitToRoom, emitToStation } from '../socket';
+import { addAmounts, multiplyAmount, percentageOf, toAmount } from '@ros/utils';
+import { generateULID, generateOrderNumber, generateKotNumber } from '@ros/utils';
+import type { Prisma } from '@prisma/client';
+
+export interface CreateOrderDto {
+  type: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP' | 'DELIVERY' | 'ONLINE';
+  tableId?: string;
+  customerId?: string;
+  waiterId?: string;
+  notes?: string;
+  clientId?: string; // idempotency key
+  items: CreateOrderItemDto[];
+}
+
+export interface CreateOrderItemDto {
+  menuItemId: string;
+  variantId?: string;
+  quantity: number;
+  notes?: string;
+  modifierIds?: string[];
+}
+
+export interface UpdateOrderStatusDto {
+  status: OrderStatus;
+  reason?: string;
+  userId: string;
+}
+
+export class OrderService {
+  private tenantId: string;
+  private branchId: string;
+
+  constructor(tenantId: string, branchId: string) {
+    this.tenantId = tenantId;
+    this.branchId = branchId;
+  }
+
+  // ── Create Order ───────────────────────────────────────────────────────────
+  async createOrder(dto: CreateOrderDto, createdBy: string): Promise<any> {
+    // Idempotency check
+    if (dto.clientId) {
+      const existing = await prisma.order.findUnique({ where: { clientId: dto.clientId } });
+      if (existing) return existing;
+    }
+
+    // Load menu items with variants and modifier prices
+    const menuItemIds = dto.items.map((i) => i.menuItemId);
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds }, tenantId: this.tenantId, isActive: true },
+      include: { variants: true },
+    });
+
+    const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
+
+    // Load modifiers
+    const allModifierIds = dto.items.flatMap((i) => i.modifierIds || []);
+    const modifiers = allModifierIds.length > 0
+      ? await prisma.modifier.findMany({ where: { id: { in: allModifierIds }, isActive: true } })
+      : [];
+    const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
+
+    // Build order items with price snapshots
+    let subtotal = 0;
+    const orderItemsData = dto.items.map((item) => {
+      const menuItem = menuItemMap.get(item.menuItemId);
+      if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
+
+      const variant = (item.variantId ? menuItem.variants.find((v) => v.id === item.variantId) : null) || menuItem.variants[0];
+
+      if (!variant) throw new AppError(ErrorCodes.NOT_FOUND, `Variant not found for item ${menuItem.name}`);
+
+      const itemModifiers = (item.modifierIds || []).map((mid) => {
+        const mod = modifierMap.get(mid);
+        if (!mod) throw new AppError(ErrorCodes.NOT_FOUND, `Modifier ${mid} not found`);
+        return { modifierId: mod.id, name: mod.name, price: toAmount(mod.price) };
+      });
+
+      const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
+      const unitPrice = toAmount(addAmounts(variant.price, modifierTotal));
+      const lineTotal = multiplyAmount(unitPrice, item.quantity);
+      subtotal = addAmounts(subtotal, lineTotal);
+
+      return {
+        menuItemId: item.menuItemId,
+        variantId: item.variantId || variant.id,
+        quantity: item.quantity,
+        unitPrice,
+        lineTotal,
+        notes: item.notes,
+        modifiers: itemModifiers,
+        kitchenStationId: menuItem.kitchenStationId,
+      };
+    });
+
+    // Get next daily sequence
+    const orderNumber = await this.getNextSequence('ORDER');
+
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.create({
+        data: {
+          id: generateULID(),
+          tenantId: this.tenantId,
+          branchId: this.branchId,
+          orderNumber,
+          type: dto.type,
+          status: 'DRAFT',
+          tableId: dto.tableId || null,
+          customerId: dto.customerId || null,
+          waiterId: dto.waiterId || null,
+          notes: dto.notes,
+          clientId: dto.clientId || null,
+          subtotal,
+          total: subtotal,
+          createdBy,
+          items: {
+            create: orderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
+              ...itemData,
+              modifiers: {
+                create: modifiers.map((m) => ({
+                  modifierId: m.modifierId,
+                  name: m.name,
+                  price: m.price,
+                })),
+              },
+            })),
+          },
+          statusHistory: {
+            create: { fromStatus: null, toStatus: 'DRAFT', changedBy: createdBy },
+          },
+        },
+        include: this.orderInclude(),
+      });
+
+      // Update table status if dine-in
+      if (dto.tableId && dto.type === 'DINE_IN') {
+        await tx.restaurantTable.update({
+          where: { id: dto.tableId },
+          data: { status: 'OCCUPIED' },
+        });
+      }
+
+      // Emit real-time event
+      emitToRoom(this.tenantId, this.branchId, {
+        type: 'ORDER_CREATED',
+        payload: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          type: order.type as any,
+          status: order.status as any,
+          tableId: order.tableId || undefined,
+          tableName: (order as any).table?.name,
+          customerName: (order as any).customer?.name,
+          itemCount: order.items.length,
+          total: toAmount(order.total),
+          createdAt: order.createdAt.toISOString(),
+        },
+      });
+
+      return order;
+    });
+  }
+
+  // ── State Transition ───────────────────────────────────────────────────────
+  async updateStatus(orderId: string, dto: UpdateOrderStatusDto): Promise<any> {
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tenantId: this.tenantId, branchId: this.branchId },
+    });
+
+    if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
+
+    const currentStatus = order.status as OrderStatus;
+    const allowedNext = ORDER_STATE_TRANSITIONS[currentStatus];
+
+    if (!allowedNext.includes(dto.status)) {
+      throw new AppError(
+        ErrorCodes.INVALID_STATE_TRANSITION,
+        `Cannot transition from ${currentStatus} to ${dto.status}`,
+        422
+      );
+    }
+
+    const updateData: Prisma.OrderUpdateInput = {
+      status: dto.status,
+      updatedBy: dto.userId,
+      statusHistory: {
+        create: {
+          fromStatus: currentStatus,
+          toStatus: dto.status,
+          changedBy: dto.userId,
+          reason: dto.reason,
+        },
+      },
+    };
+
+    // Attach timestamps for key states
+    if (dto.status === 'COMPLETED') updateData.completedAt = new Date();
+    if (dto.status === 'CANCELLED') { updateData.cancelledAt = new Date(); updateData.cancellationReason = dto.reason; }
+    if (dto.status === 'BILLED')    updateData.billedAt = new Date();
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.order.update({
+        where: { id: orderId },
+        data: updateData,
+        include: this.orderInclude(),
+      });
+
+      // Release table when order is completed/voided/cancelled
+      if (['COMPLETED', 'VOIDED', 'CANCELLED'].includes(dto.status) && order.tableId) {
+        await tx.restaurantTable.update({
+          where: { id: order.tableId },
+          data: { status: 'CLEANING' },
+        });
+        emitToRoom(this.tenantId, this.branchId, {
+          type: 'TABLE_STATUS_CHANGED',
+          payload: { tableId: order.tableId, status: 'CLEANING' },
+        });
+      }
+
+      // When SENT_TO_KITCHEN — auto-generate KOTs
+      if (dto.status === 'SENT_TO_KITCHEN') {
+        await this.generateKots(orderId, tx as any);
+      }
+
+      return u;
+    });
+
+    emitToRoom(this.tenantId, this.branchId, {
+      type: 'ORDER_STATUS_CHANGED',
+      payload: { orderId, orderNumber: order.orderNumber, status: dto.status },
+    });
+
+    return updated;
+  }
+
+  // ── KOT Engine ─────────────────────────────────────────────────────────────
+  private async generateKots(orderId: string, tx: typeof prisma): Promise<void> {
+    const orderItems = await tx.orderItem.findMany({
+      where: { orderId, status: 'PENDING' },
+      include: {
+        menuItem: { select: { kitchenStationId: true, name: true } },
+        variant: { select: { name: true } },
+        modifiers: true,
+      },
+    });
+
+    if (orderItems.length === 0) return;
+
+    // Group items by kitchen station
+    const stationGroups = new Map<string | null, typeof orderItems>();
+    orderItems.forEach((item) => {
+      const stationId = item.menuItem.kitchenStationId || null;
+      if (!stationGroups.has(stationId)) stationGroups.set(stationId, []);
+      stationGroups.get(stationId)!.push(item);
+    });
+
+    for (const [stationId, items] of stationGroups) {
+      const kotNumber = await this.getNextSequence('KOT');
+
+      const kot = await tx.orderKot.create({
+        data: {
+          orderId,
+          branchId: this.branchId,
+          kotNumber,
+          kitchenStationId: stationId,
+          status: 'NEW',
+          items: {
+            create: items.map((i) => ({
+              orderItemId: i.id,
+              status: 'NEW',
+            })),
+          },
+        },
+        include: { items: { include: { orderItem: { include: { menuItem: true, variant: true, modifiers: true } } } } },
+      });
+
+      // Update order item statuses
+      await tx.orderItem.updateMany({
+        where: { id: { in: items.map((i) => i.id) } },
+        data: { status: 'SENT' },
+      });
+
+      // Emit KOT created event to station room
+      const kotSummary = {
+        id: kot.id,
+        kotNumber: kot.kotNumber,
+        orderId,
+        orderNumber: '', // will be populated by room context
+        orderType: 'DINE_IN',
+        stationId: stationId || 'default',
+        stationName: stationId || 'Kitchen',
+        status: 'NEW' as any,
+        priority: 0,
+        itemCount: items.length,
+        createdAt: kot.createdAt.toISOString(),
+        ageMinutes: 0,
+      };
+
+      if (stationId) {
+        emitToStation(this.tenantId, this.branchId, stationId, { type: 'KOT_CREATED', payload: kotSummary });
+      }
+      emitToRoom(this.tenantId, this.branchId, { type: 'KOT_CREATED', payload: kotSummary });
+    }
+  }
+
+  // ── Order Totals ───────────────────────────────────────────────────────────
+  async recalculateTotals(orderId: string): Promise<void> {
+    const items = await prisma.orderItem.findMany({
+      where: { orderId, status: { notIn: ['VOIDED', 'CANCELLED'] } },
+    });
+
+    const subtotal = items.reduce((s, i) => addAmounts(s, i.lineTotal), 0);
+
+    // Load applied discounts
+    const discounts = await prisma.appliedDiscount.findMany({ where: { orderId } });
+    const discountAmount = discounts.reduce((s, d) => addAmounts(s, d.amount), 0);
+
+    // TODO: Load tax configs and calculate taxes dynamically
+    const taxAmount = 0; // Phase 2
+    const total = toAmount(addAmounts(subtotal, taxAmount) - discountAmount);
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { subtotal, discountAmount, taxAmount, total },
+    });
+  }
+
+  // ── Sequence Generation (DB-agnostic atomic increment) ───────────────────────
+  private async getNextSequence(type: string): Promise<string> {
+    const today = new Date().toISOString().slice(0, 10);
+
+    const row = await prisma.dailySequence.upsert({
+      where: {
+        tenantId_branchId_date_type: {
+          tenantId: this.tenantId,
+          branchId: this.branchId,
+          date: today,
+          type,
+        },
+      },
+      create: {
+        tenantId: this.tenantId,
+        branchId: this.branchId,
+        date: today,
+        type,
+        sequence: 1,
+      },
+      update: {
+        sequence: { increment: 1 },
+      },
+    });
+
+    const seq = row?.sequence || 1;
+
+    if (type === 'ORDER') return generateOrderNumber(new Date(), seq);
+    if (type === 'KOT')   return generateKotNumber(seq);
+    return `${type}-${String(seq).padStart(4, '0')}`;
+  }
+
+  private orderInclude() {
+    return {
+      table: { select: { id: true, name: true } },
+      customer: { select: { id: true, name: true, phone: true } },
+      items: {
+        include: {
+          menuItem: { select: { id: true, name: true, foodType: true } },
+          variant: { select: { id: true, name: true } },
+          modifiers: true,
+        },
+      },
+      kots: { include: { items: true, kitchenStation: { select: { id: true, name: true } } } },
+      payments: true,
+      appliedDiscounts: true,
+      statusHistory: { orderBy: { createdAt: 'asc' as const } },
+    };
+  }
+
+  // ── Getters ────────────────────────────────────────────────────────────────
+  async getOrder(orderId: string): Promise<any> {
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tenantId: this.tenantId },
+      include: this.orderInclude(),
+    });
+    if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return order;
+  }
+
+  async listOrders(filters: {
+    status?: string;
+    type?: string;
+    tableId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    page?: number;
+    limit?: number;
+  }) {
+    const { page = 1, limit = 50, ...rest } = filters;
+    const where: Prisma.OrderWhereInput = {
+      tenantId: this.tenantId,
+      branchId: this.branchId,
+      ...(rest.status ? { status: rest.status } : {}),
+      ...(rest.type ? { type: rest.type } : {}),
+      ...(rest.tableId ? { tableId: rest.tableId } : {}),
+      ...(rest.dateFrom || rest.dateTo
+        ? { createdAt: { gte: rest.dateFrom, lte: rest.dateTo } }
+        : {}),
+    };
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          table: { select: { id: true, name: true } },
+          customer: { select: { id: true, name: true } },
+          _count: { select: { items: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+}
