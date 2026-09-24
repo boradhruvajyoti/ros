@@ -37,16 +37,6 @@ import drivethruRoutes from './v1/drivethru.routes';
 import iotRoutes from './v1/iot.routes';
 import franchiseRoutes from './v1/franchise.routes';
 import expediterRoutes from './v1/expediter.routes';
-import voiceRoutes from './v1/voice.routes';
-import pricingRoutes from './v1/pricing.routes';
-import cateringRoutes from './v1/catering.routes';
-import darkkitchenRoutes from './v1/darkkitchen.routes';
-import sustainabilityRoutes from './v1/sustainability.routes';
-import roboticsRoutes from './v1/robotics.routes';
-import cellarRoutes from './v1/cellar.routes';
-import vipbiometricsRoutes from './v1/vipbiometrics.routes';
-import laborschedulingRoutes from './v1/laborscheduling.routes';
-import taxewayRoutes from './v1/taxeway.routes';
 
 export const router = Router();
 
@@ -90,20 +80,5 @@ router.use('/drive-thru', drivethruRoutes);
 router.use('/iot', iotRoutes);
 router.use('/franchise', franchiseRoutes);
 router.use('/expediter', expediterRoutes);
-router.use('/voice', voiceRoutes);
-router.use('/pricing', pricingRoutes);
-router.use('/catering', cateringRoutes);
-router.use('/darkkitchen', darkkitchenRoutes);
-router.use('/dark-kitchen', darkkitchenRoutes);
-router.use('/sustainability', sustainabilityRoutes);
-router.use('/robotics', roboticsRoutes);
-router.use('/cellar', cellarRoutes);
-router.use('/biometrics-vip', vipbiometricsRoutes);
-router.use('/vip-biometrics', vipbiometricsRoutes);
-router.use('/vipbiometrics', vipbiometricsRoutes);
-router.use('/labor-scheduling', laborschedulingRoutes);
-router.use('/laborscheduling', laborschedulingRoutes);
-router.use('/tax-eway', taxewayRoutes);
-router.use('/taxeway', taxewayRoutes);
 
 export default router;

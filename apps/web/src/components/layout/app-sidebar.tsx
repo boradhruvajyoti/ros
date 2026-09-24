@@ -9,8 +9,7 @@ import {
   ChevronLeft, Wallet, ClipboardList, ArrowLeftRight,
   Radio, Tag, Sparkles, Star, QrCode, Globe, Printer,
   ShieldAlert, Gift, Flame, Smartphone, Car, Eye,
-  Activity, Building2, PhoneCall, TrendingUp, Wine, Bike, Leaf,
-  Bot, Camera, FileCheck2, Calendar, Server, ShieldCheck,
+  Activity, Building2, Server, ShieldCheck,
   CreditCard, Database, Terminal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -51,18 +50,6 @@ const restaurantNavItems = [
   { href: '/ai-expediter',  label: 'AI Expediter',   icon: Eye,              permission: 'kitchen:view' },
   { href: '/iot-sensors',   label: 'IoT HACCP Probes', icon: Activity,       permission: 'settings:view' },
   { href: '/franchise',     label: 'Franchise HQ',   icon: Building2,        permission: null },
-  { type: 'divider', label: 'AI & ENTERPRISE EXPANSION' },
-  { href: '/voice-agent',   label: 'AI Phone Voice', icon: PhoneCall,        permission: null },
-  { href: '/dynamic-pricing', label: 'Dynamic Surge & BCG', icon: TrendingUp, permission: 'reports:view' },
-  { href: '/catering',      label: 'Banquets & BEO', icon: Wine,             permission: 'orders:view' },
-  { href: '/dark-kitchen',  label: 'Dark Kitchen Hub', icon: Bike,           permission: 'orders:view' },
-  { href: '/sustainability', label: 'ESG Sustainability', icon: Leaf,        permission: 'settings:view' },
-  { type: 'divider', label: 'ROBOTICS & LUXURY AUTOMATION' },
-  { href: '/robotics',      label: 'Autonomous Robots', icon: Bot,           permission: 'kitchen:view' },
-  { href: '/cellar',        label: 'Sommelier Wine Cellar', icon: Wine,      permission: 'inventory:view' },
-  { href: '/biometrics-vip', label: 'VIP Biometrics Host', icon: Camera,     permission: 'customers:view' },
-  { href: '/labor-scheduling', label: 'AI Labor Scheduler', icon: Calendar,  permission: 'staff:view' },
-  { href: '/tax-eway',      label: 'GST E-Way & E-Invoice', icon: FileCheck2, permission: 'expenses:view' },
   { type: 'divider', label: 'ADMINISTRATION' },
   { href: '/settings',      label: 'Settings',       icon: Settings,         permission: 'settings:view' },
   { href: '/hardware',      label: 'Hardware & Printers', icon: Printer,     permission: 'settings:view' },
