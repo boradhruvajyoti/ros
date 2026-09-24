@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Grid3X3, List, Plus, Users, Clock, CircleCheck, CircleDot,
   Wrench, Ban, Edit3, Trash2, X, Check, QrCode, ShoppingCart,
-  Utensils, DollarSign, CheckCircle2, AlertCircle, Sparkles, ArrowRight
+  Utensils, DollarSign, CheckCircle2, AlertCircle, Sparkles, ArrowRight,
+  Printer, Download, Eye, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import QRCode from 'qrcode';
 
 export interface Table {
   id: string;
@@ -21,6 +23,7 @@ export interface Table {
   capacity: number;
   shape?: 'RECTANGLE' | 'CIRCLE' | 'SQUARE';
   status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING' | 'BLOCKED';
+  qrCodeToken?: string;
   floorId?: string;
   floor?: { id: string; name: string };
   orders?: any[];
@@ -92,6 +95,10 @@ export default function TablesPage() {
   const [tableStatusInput, setTableStatusInput] = useState<Table['status']>('AVAILABLE');
   const [tableFloorIdInput, setTableFloorIdInput] = useState<string>('');
 
+  // QR Modal State
+  const [qrModalTable, setQrModalTable] = useState<Table | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+
   const { data: floors = [] } = useQuery({
     queryKey: ['floors'],
     queryFn: () => apiGet<any[]>('/tables/floors'),
@@ -102,6 +109,21 @@ export default function TablesPage() {
     queryFn: () => apiGet(`/tables${statusFilter ? `?status=${statusFilter}` : ''}`),
     refetchInterval: 15000,
   });
+
+  // Generate QR image when QR modal opens
+  useEffect(() => {
+    if (qrModalTable) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const qrUrl = `${origin}/order/${qrModalTable.qrCodeToken || qrModalTable.id}`;
+      QRCode.toDataURL(qrUrl, {
+        width: 300,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      })
+        .then((url) => setQrCodeDataUrl(url))
+        .catch((err) => console.error('QR generation error', err));
+    }
+  }, [qrModalTable]);
 
   // Mutations
   const updateTableMutation = useMutation({
@@ -150,14 +172,9 @@ export default function TablesPage() {
   });
 
   const handleTableClick = (table: Table) => {
-    if (table.status === 'AVAILABLE') {
-      // Direct jump to POS with table pre-selected
-      router.push(`/pos?table=${table.id}`);
-    } else if (table.status === 'OCCUPIED') {
-      // View active orders / add items
+    if (table.status === 'AVAILABLE' || table.status === 'OCCUPIED') {
       router.push(`/pos?table=${table.id}`);
     } else {
-      // Toggle status easily
       handleOpenEdit(table);
     }
   };
@@ -213,12 +230,121 @@ export default function TablesPage() {
     });
   };
 
+  const handlePrintStandee = (table: Table, qrDataUrl: string) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const orderUrl = `${origin}/order/${table.qrCodeToken || table.id}`;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>QR Standee - ${table.name}</title>
+          <style>
+            body {
+              font-family: sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              margin: 0;
+              background: #fff;
+            }
+            .standee {
+              border: 3px solid #000;
+              border-radius: 24px;
+              padding: 36px 28px;
+              text-align: center;
+              max-width: 320px;
+              width: 100%;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            }
+            .title { font-size: 26px; font-weight: 900; margin: 0 0 4px; }
+            .subtitle { font-size: 13px; color: #555; margin: 0 0 20px; }
+            .qr-box { padding: 12px; background: #fff; display: inline-block; }
+            .qr-box img { width: 220px; height: 220px; }
+            .instruction { font-size: 14px; font-weight: bold; margin-top: 18px; color: #111; }
+            .tagline { font-size: 11px; color: #777; margin-top: 6px; }
+            @media print {
+              body { background: none; }
+              .standee { border: 2px solid #000; box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="standee">
+            <h1 class="title">${table.name}</h1>
+            <p class="subtitle">Scan to View Digital Menu & Order</p>
+            <div class="qr-box">
+              <img src="${qrDataUrl}" alt="Table QR" />
+            </div>
+            <p class="instruction">📱 Point Camera at QR Code</p>
+            <p class="tagline">Contactless Table Ordering</p>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
+  };
+
+  const handlePrintAllStandees = async () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const cardsHtml = await Promise.all(
+      tables.map(async (t) => {
+        const url = `${origin}/order/${t.qrCodeToken || t.id}`;
+        const qrUrl = await QRCode.toDataURL(url, { width: 200, margin: 2 });
+        return `
+          <div class="standee">
+            <h2>${t.name}</h2>
+            <p class="sub">Scan for Menu &amp; Ordering</p>
+            <img src="${qrUrl}" />
+            <p class="foot">Point Camera at QR Code</p>
+          </div>
+        `;
+      })
+    );
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>All Table QR Standees Sheet</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; margin: 0; }
+            .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+            .standee { border: 2px solid #000; border-radius: 16px; padding: 24px; text-align: center; page-break-inside: avoid; }
+            h2 { margin: 0 0 4px; font-size: 22px; font-weight: 900; }
+            .sub { font-size: 12px; color: #555; margin: 0 0 12px; }
+            img { width: 180px; height: 180px; }
+            .foot { font-size: 13px; font-weight: bold; margin: 12px 0 0; }
+            @media print { .grid { grid-template-columns: repeat(2, 1fr); } }
+          </style>
+        </head>
+        <body>
+          <div class="grid">${cardsHtml.join('')}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 400);
+  };
+
   const statusCounts = Object.entries(STATUS_META).reduce((acc, [key]) => {
     acc[key] = tables.filter((t) => t.status === key).length;
     return acc;
   }, {} as Record<string, number>);
 
-  const totalSeats = tables.reduce((acc, t) => acc + (t.capacity || 0), 0);
   const availableCount = statusCounts.AVAILABLE || 0;
   const occupiedCount = statusCounts.OCCUPIED || 0;
 
@@ -232,27 +358,29 @@ export default function TablesPage() {
               🍽️
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight text-foreground">Dining Floor & Table Seating</h1>
+              <h1 className="text-xl font-black tracking-tight text-foreground">Dining Floor &amp; Table Seating</h1>
               <p className="text-xs text-muted-foreground font-medium">
-                Tap any <span className="text-emerald-400 font-bold">Green Table</span> to take orders instantly.
+                Tap any <span className="text-emerald-400 font-bold">Green Table</span> to take orders, or view Table QR Codes.
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 font-bold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{availableCount} Free Tables</span>
-          </div>
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-xs text-red-400 font-bold">
-            <span className="w-2 h-2 rounded-full bg-red-500" />
-            <span>{occupiedCount} Occupied</span>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrintAllStandees}
+            disabled={tables.length === 0}
+            className="gap-1.5 font-bold text-xs rounded-xl h-9"
+          >
+            <Printer className="w-3.5 h-3.5" /> Print All QR Standees
+          </Button>
+
           <Button
             size="sm"
             onClick={handleOpenCreate}
-            className="gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl shadow-md"
+            className="gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl h-9 shadow-md"
           >
             <Plus className="w-4 h-4" /> Add Table
           </Button>
@@ -297,7 +425,7 @@ export default function TablesPage() {
         })}
       </div>
 
-      {/* Giant High-Contrast Table Cards Grid */}
+      {/* Table Cards Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {tables.map((table) => {
           const meta = STATUS_META[table.status] || STATUS_META.AVAILABLE;
@@ -309,7 +437,7 @@ export default function TablesPage() {
               key={table.id}
               onClick={() => handleTableClick(table)}
               className={cn(
-                'relative flex flex-col justify-between p-4 rounded-3xl border-2 transition-all duration-150 cursor-pointer shadow-sm select-none min-h-[170px] group active:scale-95',
+                'relative flex flex-col justify-between p-4 rounded-3xl border-2 transition-all duration-150 cursor-pointer shadow-sm select-none min-h-[185px] group active:scale-95',
                 meta.border,
                 meta.bg,
                 isFree && 'hover:shadow-emerald-500/20 hover:shadow-lg',
@@ -328,7 +456,20 @@ export default function TablesPage() {
                   </div>
                 </div>
 
-                <div className={cn('w-3.5 h-3.5 rounded-full shrink-0 shadow', meta.color, isDining && 'animate-pulse')} />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQrModalTable(table);
+                    }}
+                    title="View Table QR Code"
+                    className="p-1.5 rounded-lg bg-background/80 hover:bg-background border border-border text-foreground hover:text-primary transition-colors"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                  </button>
+                  <div className={cn('w-3 h-3 rounded-full shrink-0 shadow', meta.color, isDining && 'animate-pulse')} />
+                </div>
               </div>
 
               {/* Middle: Visual Table Avatar / State */}
@@ -338,7 +479,7 @@ export default function TablesPage() {
                 </span>
               </div>
 
-              {/* Bottom: 1-Tap Action Shortcut Button */}
+              {/* Bottom: Action Shortcut */}
               <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-1.5">
                 {isFree ? (
                   <button
@@ -386,6 +527,71 @@ export default function TablesPage() {
           </div>
         )}
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: TABLE QR CODE STANDEE PREVIEW & PRINT
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {qrModalTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-5 text-center">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-black text-foreground">
+                  {qrModalTable.name} QR Code
+                </h3>
+              </div>
+              <button
+                onClick={() => setQrModalTable(null)}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Rendered Standee Preview Card */}
+            <div className="p-5 rounded-2xl bg-white text-black border-2 border-zinc-900 shadow-lg space-y-3">
+              <h2 className="text-2xl font-black">{qrModalTable.name}</h2>
+              <p className="text-xs text-zinc-600 font-medium">Scan with Phone Camera to View Menu &amp; Order</p>
+
+              <div className="p-2 bg-white inline-block rounded-xl shadow-inner">
+                {qrCodeDataUrl ? (
+                  <img src={qrCodeDataUrl} alt="Table QR" className="w-48 h-48 mx-auto" />
+                ) : (
+                  <div className="w-48 h-48 flex items-center justify-center text-xs text-zinc-400">
+                    Generating QR...
+                  </div>
+                )}
+              </div>
+
+              <div className="text-[11px] font-bold text-zinc-800">
+                Contactless Dining Order
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const url = `/order/${qrModalTable.qrCodeToken || qrModalTable.id}`;
+                  window.open(url, '_blank');
+                }}
+                className="flex-1 gap-1 text-xs font-bold"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Test Menu
+              </Button>
+
+              <Button
+                onClick={() => handlePrintStandee(qrModalTable, qrCodeDataUrl)}
+                className="flex-1 gap-1.5 text-xs font-bold bg-primary text-primary-foreground"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Standee
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           MODAL: EDIT / CREATE TABLE

@@ -1,5 +1,5 @@
 // =============================================================================
-// Table routes
+// Table routes — Dining Room, Floor Map & Public Table QR
 // =============================================================================
 
 import { Router } from 'express';
@@ -9,6 +9,12 @@ import { requirePermission } from '../../middlewares/rbac.middleware';
 import { asyncHandler } from '../../middlewares/error.middleware';
 
 const router = Router();
+
+// ── Public Guest QR Routes (Unauthenticated) ──────────────────────────────────
+router.get('/public/qr/:token', asyncHandler(TableController.getPublicTableDetails));
+router.post('/public/qr/:token/order', asyncHandler(TableController.submitPublicTableOrder));
+
+// ── Authenticated Staff Routes ────────────────────────────────────────────────
 router.use(auth());
 
 router.get('/floors',                requirePermission('tables:view'),   asyncHandler(TableController.listFloors));

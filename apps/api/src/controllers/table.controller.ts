@@ -1,12 +1,14 @@
 // =============================================================================
-// Table Controller
+// Table Controller — Dining Table Management & Public QR Ordering
 // =============================================================================
 
 import { Request, Response } from 'express';
-import { sendSuccess } from '../middlewares/error.middleware';
+import { sendSuccess, AppError } from '../middlewares/error.middleware';
+import { ErrorCodes } from '@ros/shared-types';
 import { prisma } from '../lib/prisma';
 import { emitToRoom } from '../socket';
 import { generateShortCode } from '@ros/utils';
+import { OrderService } from '../services/order.service';
 import { z } from 'zod';
 
 const tableSchema = z.object({
@@ -72,13 +74,32 @@ export class TableController {
       },
       orderBy: [{ floorId: 'asc' }, { name: 'asc' }],
     });
+
+    // Auto-populate missing QR code tokens for backward compatibility
+    for (const t of tables) {
+      if (!t.qrCodeToken) {
+        const token = `qr-t${t.id.slice(0, 4)}-${generateShortCode(6).toLowerCase()}`;
+        await prisma.restaurantTable.update({
+          where: { id: t.id },
+          data: { qrCodeToken: token },
+        });
+        t.qrCodeToken = token;
+      }
+    }
+
     sendSuccess(res, tables);
   }
 
   static async create(req: Request, res: Response): Promise<void> {
     const dto = tableSchema.parse(req.body);
+    const qrCodeToken = `qr-${generateShortCode(8).toLowerCase()}`;
     const table = await prisma.restaurantTable.create({
-      data: { ...dto, tenantId: req.user!.tid, branchId: req.user!.bid },
+      data: {
+        ...dto,
+        tenantId: req.user!.tid,
+        branchId: req.user!.bid,
+        qrCodeToken,
+      },
     });
     sendSuccess(res, table, 201);
   }
@@ -129,11 +150,107 @@ export class TableController {
   }
 
   static async generateQr(req: Request, res: Response): Promise<void> {
-    const token = generateShortCode(12);
-    await prisma.restaurantTable.update({
+    const token = `qr-${generateShortCode(10).toLowerCase()}`;
+    const table = await prisma.restaurantTable.update({
       where: { id: req.params.id },
       data: { qrCodeToken: token },
     });
-    sendSuccess(res, { token, qrUrl: `${process.env.API_URL}/order/${token}` });
+    sendSuccess(res, { token, qrCodeToken: token, tableId: table.id, tableName: table.name });
+  }
+
+  // ── Public Guest QR Endpoints (No Auth Required) ─────────────────────────
+  static async getPublicTableDetails(req: Request, res: Response): Promise<void> {
+    const { token } = req.params;
+    const table = await prisma.restaurantTable.findFirst({
+      where: { qrCodeToken: token, isActive: true },
+      include: {
+        tenant: { select: { id: true, name: true, slug: true, settings: true } },
+        branch: { select: { id: true, name: true, phone: true, address: true } },
+      },
+    });
+
+    if (!table) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Table QR Code not found or expired', 404);
+    }
+
+    const categories = await prisma.menuCategory.findMany({
+      where: { tenantId: table.tenantId, branchId: table.branchId, isActive: true },
+      include: {
+        items: {
+          where: { isActive: true, isAvailable: true },
+          include: { variants: true },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    sendSuccess(res, {
+      table: {
+        id: table.id,
+        name: table.name,
+        capacity: table.capacity,
+        status: table.status,
+      },
+      restaurant: {
+        name: table.tenant.name,
+        slug: table.tenant.slug,
+        branchName: table.branch.name,
+        address: table.branch.address,
+        phone: table.branch.phone,
+      },
+      categories,
+    });
+  }
+
+  static async submitPublicTableOrder(req: Request, res: Response): Promise<void> {
+    const { token } = req.params;
+    const { customerName, customerPhone, items, notes } = req.body;
+
+    const table = await prisma.restaurantTable.findFirst({
+      where: { qrCodeToken: token, isActive: true },
+    });
+
+    if (!table) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Invalid table QR token', 404);
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Order must contain at least one item', 400);
+    }
+
+    // Order Service manages pricing, items, stock validation, KOT generation & realtime socket alerts
+    const orderService = new OrderService(table.tenantId, table.branchId);
+
+    const formattedNotes = [
+      `Guest QR Order (${table.name})`,
+      customerName ? `Guest: ${customerName}` : null,
+      customerPhone ? `Ph: ${customerPhone}` : null,
+      notes ? `Note: ${notes}` : null,
+    ].filter(Boolean).join(' | ');
+
+    const order = await orderService.createOrder(
+      {
+        type: 'DINE_IN',
+        tableId: table.id,
+        notes: formattedNotes,
+        items: items.map((it: any) => ({
+          menuItemId: it.menuItemId,
+          variantId: it.variantId,
+          quantity: it.quantity || 1,
+          notes: it.notes,
+        })),
+      },
+      'GUEST_QR'
+    );
+
+    // Auto-advance to SENT_TO_KITCHEN for instant kitchen preparation & KOT routing
+    const kitchenOrder = await orderService.updateStatus(order.id, {
+      status: 'SENT_TO_KITCHEN',
+      userId: 'GUEST_QR',
+      reason: `Contactless QR order submitted by guest at ${table.name}`,
+    });
+
+    sendSuccess(res, kitchenOrder, 201);
   }
 }
