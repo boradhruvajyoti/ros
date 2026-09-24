@@ -219,6 +219,36 @@ export class TableController {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Order must contain at least one item', 400);
     }
 
+    // Find a valid active user ID for this tenant to satisfy the created_by foreign key
+    const tenantUser = await prisma.user.findFirst({
+      where: { tenantId: table.tenantId, isActive: true },
+      select: { id: true },
+    });
+
+    if (!tenantUser) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'No active system operator found for this restaurant branch', 404);
+    }
+
+    // Auto-register or link Guest in CRM if phone provided
+    let customerId: string | undefined;
+    if (customerPhone && customerPhone.trim()) {
+      const cleanPhone = customerPhone.trim();
+      const customer = await prisma.customer.upsert({
+        where: { tenantId_phone: { tenantId: table.tenantId, phone: cleanPhone } },
+        update: {
+          name: customerName?.trim() || undefined,
+          visitCount: { increment: 1 },
+        },
+        create: {
+          tenantId: table.tenantId,
+          name: customerName?.trim() || 'QR Guest',
+          phone: cleanPhone,
+          visitCount: 1,
+        },
+      });
+      customerId = customer.id;
+    }
+
     // Order Service manages pricing, items, stock validation, KOT generation & realtime socket alerts
     const orderService = new OrderService(table.tenantId, table.branchId);
 
@@ -233,6 +263,7 @@ export class TableController {
       {
         type: 'DINE_IN',
         tableId: table.id,
+        customerId,
         notes: formattedNotes,
         items: items.map((it: any) => ({
           menuItemId: it.menuItemId,
@@ -241,13 +272,13 @@ export class TableController {
           notes: it.notes,
         })),
       },
-      'GUEST_QR'
+      tenantUser.id
     );
 
     // Auto-advance to SENT_TO_KITCHEN for instant kitchen preparation & KOT routing
     const kitchenOrder = await orderService.updateStatus(order.id, {
       status: 'SENT_TO_KITCHEN',
-      userId: 'GUEST_QR',
+      userId: tenantUser.id,
       reason: `Contactless QR order submitted by guest at ${table.name}`,
     });
 
