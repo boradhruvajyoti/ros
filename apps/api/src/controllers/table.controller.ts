@@ -275,13 +275,58 @@ export class TableController {
       tenantUser.id
     );
 
-    // Auto-advance to SENT_TO_KITCHEN for instant kitchen preparation & KOT routing
-    const kitchenOrder = await orderService.updateStatus(order.id, {
-      status: 'SENT_TO_KITCHEN',
+    // Auto-advance to CONFIRMED for staff verification (not straight to kitchen)
+    const confirmedOrder = await orderService.updateStatus(order.id, {
+      status: 'CONFIRMED',
       userId: tenantUser.id,
-      reason: `Contactless QR order submitted by guest at ${table.name}`,
+      reason: `Contactless QR order submitted by guest at ${table.name} — Awaiting table presence verification`,
     });
 
-    sendSuccess(res, kitchenOrder, 201);
+    // Real-time broadcast to Waiters, Cashiers, and Managers
+    emitToRoom(table.tenantId, table.branchId, {
+      type: 'QR_ORDER_PENDING',
+      payload: {
+        orderId: confirmedOrder.id,
+        orderNumber: confirmedOrder.orderNumber,
+        tableId: table.id,
+        tableName: table.name,
+        customerName: customerName || 'Dine-In Guest',
+        customerPhone,
+        total: confirmedOrder.total,
+        itemCount: items.length,
+      },
+    });
+
+    sendSuccess(res, confirmedOrder, 201);
+  }
+
+  static async getPublicOrderStatus(req: Request, res: Response): Promise<void> {
+    const { token, orderId } = req.params;
+    const table = await prisma.restaurantTable.findFirst({
+      where: { qrCodeToken: token, isActive: true },
+    });
+
+    if (!table) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Invalid table QR token', 404);
+    }
+
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tableId: table.id },
+      include: {
+        items: {
+          include: {
+            menuItem: { select: { name: true, foodType: true } },
+            variant: { select: { name: true } },
+          },
+        },
+        table: { select: { name: true } },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    }
+
+    sendSuccess(res, order);
   }
 }

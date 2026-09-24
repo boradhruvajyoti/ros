@@ -6,7 +6,7 @@ import {
   Search, RefreshCw, Eye, Receipt, CheckCircle,
   Clock, XCircle, Download, LayoutGrid, List,
   Printer, ArrowRight, UtensilsCrossed, AlertCircle,
-  Volume2, CreditCard, Banknote, QrCode, User, Check
+  Volume2, CreditCard, Banknote, QrCode, User, Check, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ import { format } from 'date-fns';
 
 const STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: string; border: string; text: string; nextStatus?: string; nextAction?: string }> = {
   DRAFT:           { label: 'Draft',        emoji: '📝', bg: 'bg-muted/40',       border: 'border-border',          text: 'text-muted-foreground', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Send Kitchen' },
-  CONFIRMED:       { label: 'Confirmed',    emoji: '👍', bg: 'bg-blue-500/10',    border: 'border-blue-500/30',     text: 'text-blue-500',         nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Send Kitchen' },
+  CONFIRMED:       { label: 'Pending Verification', emoji: '⚠️', bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Verify & Send' },
   SENT_TO_KITCHEN: { label: 'In Kitchen',   emoji: '🍳', bg: 'bg-amber-500/10',   border: 'border-amber-500/30',    text: 'text-amber-500',        nextStatus: 'READY',           nextAction: 'Mark Ready' },
   PREPARING:       { label: 'Cooking',      emoji: '🔥', bg: 'bg-orange-500/10',  border: 'border-orange-500/30',   text: 'text-orange-500',       nextStatus: 'READY',           nextAction: 'Mark Ready' },
   READY:           { label: 'Ready to Pick',emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-500',      nextStatus: 'SERVED',          nextAction: 'Mark Served' },
@@ -67,6 +67,7 @@ export default function OrdersPage() {
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [verifyingOrder, setVerifyingOrder] = useState<Order | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['orders', statusFilter, typeFilter],
@@ -95,6 +96,14 @@ export default function OrdersPage() {
     },
     onError: () => toast.error('Update Failed', 'Could not update order status'),
   });
+
+  const handleAdvanceStatus = (order: Order, targetStatus: string) => {
+    if (targetStatus === 'SENT_TO_KITCHEN' && ['DRAFT', 'CONFIRMED'].includes(order.status)) {
+      setVerifyingOrder(order);
+      return;
+    }
+    updateStatus.mutate({ orderId: order.id, status: targetStatus });
+  };
 
   const speakOrder = (order: Order) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -152,6 +161,7 @@ export default function OrdersPage() {
   };
 
   // Status counts
+  const countPendingVerification = (data?.orders || []).filter(o => o.status === 'CONFIRMED').length;
   const countInKitchen = (data?.orders || []).filter(o => ['SENT_TO_KITCHEN', 'PREPARING'].includes(o.status)).length;
   const countReady = (data?.orders || []).filter(o => o.status === 'READY').length;
   const countBilled = (data?.orders || []).filter(o => ['SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(o.status)).length;
@@ -194,6 +204,32 @@ export default function OrdersPage() {
           </Button>
         </div>
       </div>
+
+      {/* QR Order Physical Presence Verification Alert Banner */}
+      {countPendingVerification > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/10 animate-pulse">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-black text-sm text-foreground flex items-center gap-2">
+                ⚠️ {countPendingVerification} QR Code {countPendingVerification === 1 ? 'Order' : 'Orders'} Awaiting Guest Table Verification
+              </h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Staff must look at the physical table to confirm guests are seated before sending food tickets (KOT) to the kitchen.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setStatusFilter(statusFilter === 'CONFIRMED' ? null : 'CONFIRMED')}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 rounded-xl shadow-sm"
+          >
+            {statusFilter === 'CONFIRMED' ? 'Show All Orders' : `View ${countPendingVerification} Pending`}
+          </Button>
+        </div>
+      )}
 
       {/* Quick Visual Status Cards Filter */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -396,13 +432,14 @@ export default function OrdersPage() {
                   {cfg.nextStatus && (
                     <Button
                       size="sm"
-                      onClick={() => updateStatus.mutate({ orderId: order.id, status: cfg.nextStatus! })}
+                      onClick={() => handleAdvanceStatus(order, cfg.nextStatus!)}
                       disabled={updateStatus.isPending}
                       className={cn(
                         'flex-1 text-xs font-bold h-9 gap-1 text-white shadow-sm',
                         cfg.nextStatus === 'PAID' ? 'bg-emerald-600 hover:bg-emerald-700' :
                         cfg.nextStatus === 'BILLED' ? 'bg-purple-600 hover:bg-purple-700' :
-                        cfg.nextStatus === 'READY' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-primary'
+                        cfg.nextStatus === 'READY' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                        order.status === 'CONFIRMED' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary'
                       )}
                     >
                       {cfg.nextAction || 'Next'}
@@ -458,8 +495,11 @@ export default function OrdersPage() {
                     {cfg.nextStatus && (
                       <Button
                         size="sm"
-                        onClick={() => updateStatus.mutate({ orderId: order.id, status: cfg.nextStatus! })}
-                        className="h-8 text-xs font-bold bg-primary text-primary-foreground"
+                        onClick={() => handleAdvanceStatus(order, cfg.nextStatus!)}
+                        className={cn(
+                          'h-8 text-xs font-bold text-white',
+                          order.status === 'CONFIRMED' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary'
+                        )}
                       >
                         {cfg.nextAction}
                       </Button>
@@ -596,7 +636,7 @@ export default function OrdersPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => updateStatus.mutate({ orderId: selectedOrder.id, status: 'SENT_TO_KITCHEN' })}
+                  onClick={() => handleAdvanceStatus(selectedOrder, 'SENT_TO_KITCHEN')}
                   className="text-xs font-bold border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
                 >
                   🍳 Kitchen
@@ -634,6 +674,74 @@ export default function OrdersPage() {
             >
               Close
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* PHYSICAL PRESENCE VERIFICATION MODAL FOR QR ORDERS */}
+      {verifyingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border-2 border-amber-500/50 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto text-2xl shadow-inner">
+                ⚠️
+              </div>
+              <h3 className="text-lg font-black text-foreground">Verify Guest Physical Presence</h3>
+              <p className="text-xs text-muted-foreground">
+                Order <span className="font-mono font-bold text-foreground">#{verifyingOrder.orderNumber}</span> for <strong className="text-foreground">{verifyingOrder.table ? `Table ${verifyingOrder.table.name}` : 'Dine-In Table'}</strong>
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 text-amber-900 dark:text-amber-200">
+              <p className="font-bold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                Please look at the table before confirming!
+              </p>
+              <p className="text-[11px] leading-relaxed opacity-90">
+                To prevent fake orders from saved photos or remote scans, verify that guests are physically seated at <strong>{verifyingOrder.table?.name || 'this table'}</strong> before dispatching tickets to the kitchen.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-xs border rounded-2xl p-3 bg-muted/20">
+              <div className="flex justify-between font-bold text-muted-foreground uppercase text-[10px]">
+                <span>Items ({verifyingOrder._count?.items || verifyingOrder.items?.length || 0})</span>
+                <span>{formatCurrency(verifyingOrder.total)}</span>
+              </div>
+              {verifyingOrder.items && verifyingOrder.items.length > 0 && (
+                <div className="space-y-1 max-h-28 overflow-y-auto">
+                  {verifyingOrder.items.map((it, idx) => (
+                    <div key={idx} className="flex justify-between text-[11px]">
+                      <span>{it.quantity}x {it.menuItem?.name || it.name || 'Dish'}</span>
+                      <span className="font-mono text-muted-foreground">{formatCurrency(it.totalPrice || it.quantity * it.unitPrice)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  updateStatus.mutate({ orderId: verifyingOrder.id, status: 'CANCELLED' });
+                  setVerifyingOrder(null);
+                }}
+                disabled={updateStatus.isPending}
+                className="h-11 rounded-xl text-rose-500 border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 font-bold text-xs"
+              >
+                ❌ Table Empty (Reject)
+              </Button>
+              <Button
+                onClick={() => {
+                  updateStatus.mutate({ orderId: verifyingOrder.id, status: 'SENT_TO_KITCHEN' });
+                  setVerifyingOrder(null);
+                }}
+                disabled={updateStatus.isPending}
+                className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md"
+              >
+                ✅ Guest Seated (Send)
+              </Button>
+            </div>
           </div>
         </div>
       )}

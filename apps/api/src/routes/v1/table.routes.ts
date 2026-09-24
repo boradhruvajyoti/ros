@@ -13,6 +13,7 @@ const router = Router();
 // ── Public Guest QR Routes (Unauthenticated) ──────────────────────────────────
 router.get('/public/qr/:token', asyncHandler(TableController.getPublicTableDetails));
 router.post('/public/qr/:token/order', asyncHandler(TableController.submitPublicTableOrder));
+router.get('/public/qr/:token/orders/:orderId', asyncHandler(TableController.getPublicOrderStatus));
 
 // ── Authenticated Staff Routes ────────────────────────────────────────────────
 router.use(auth());

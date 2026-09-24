@@ -97,6 +97,26 @@ export default function PublicTableOrderPage() {
     }
   };
 
+  // Poll order status when an order is placed
+  useEffect(() => {
+    if (!orderPlaced?.id || !token) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/tables/public/qr/${token}/orders/${orderPlaced.id}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.data) {
+          setOrderPlaced(json.data);
+        }
+      } catch (err) {
+        // silent catch for polling
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [orderPlaced?.id, token]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
@@ -124,6 +144,12 @@ export default function PublicTableOrderPage() {
     ? allItems
     : (categories.find((c: any) => c.id === selectedCategory)?.items || []);
 
+  const isPendingVerification = orderPlaced?.status === 'CONFIRMED' || orderPlaced?.status === 'DRAFT';
+  const isCooking = ['SENT_TO_KITCHEN', 'PREPARING'].includes(orderPlaced?.status);
+  const isReady = orderPlaced?.status === 'READY';
+  const isServed = ['SERVED', 'BILLED', 'PAID', 'COMPLETED'].includes(orderPlaced?.status);
+  const isCancelled = ['CANCELLED', 'VOIDED'].includes(orderPlaced?.status);
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-32 max-w-lg mx-auto shadow-2xl border-x border-border">
       {/* Top Restaurant & Table Banner */}
@@ -141,26 +167,88 @@ export default function PublicTableOrderPage() {
         </div>
       </header>
 
-      {/* Order Placed Success View */}
+      {/* Order Placed Success View with Dynamic Verification States */}
       {orderPlaced ? (
         <div className="p-6 space-y-6 animate-fade-in text-center">
-          <div className="w-20 h-20 bg-emerald-500/15 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-3xl">
-            🎉
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-foreground">Order Sent to Kitchen!</h2>
-            <p className="text-sm font-bold text-primary mt-1">Order #{orderPlaced.orderNumber}</p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Your ticket has been received by our chefs for <strong>{table.name}</strong>. Estimated prep time: ~15 mins.
-            </p>
-          </div>
+          {isCancelled ? (
+            <>
+              <div className="w-20 h-20 bg-rose-500/15 text-rose-500 rounded-full flex items-center justify-center mx-auto text-3xl">
+                ❌
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-foreground">Order Cancelled</h2>
+                <p className="text-sm font-bold text-rose-500 mt-1">Order #{orderPlaced.orderNumber}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  This order was not confirmed. If you are seated at <strong>{table.name}</strong>, please notify your dining captain.
+                </p>
+              </div>
+            </>
+          ) : isPendingVerification ? (
+            <>
+              <div className="w-20 h-20 bg-amber-500/15 text-amber-500 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
+                ⏳
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-black text-foreground">Verifying Table Presence...</h2>
+                <p className="text-sm font-bold text-amber-500">Order #{orderPlaced.orderNumber}</p>
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-300 text-left space-y-1">
+                  <p className="font-bold flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 shrink-0 text-amber-500" />
+                    Staff check in progress
+                  </p>
+                  <p className="text-[11px] opacity-90">
+                    Our waitstaff is confirming your seating at <strong>{table.name}</strong> before sending your tickets to the kitchen.
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : isCooking ? (
+            <>
+              <div className="w-20 h-20 bg-emerald-500/15 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-3xl animate-pulse">
+                🍳
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-foreground">Order Accepted & Cooking!</h2>
+                <p className="text-sm font-bold text-emerald-500 mt-1">Order #{orderPlaced.orderNumber}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Verified by staff! Your ticket has been sent to our chefs for <strong>{table.name}</strong>.
+                </p>
+              </div>
+            </>
+          ) : isReady ? (
+            <>
+              <div className="w-20 h-20 bg-emerald-500/20 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
+                🛎️
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-foreground">Your Food is Ready!</h2>
+                <p className="text-sm font-bold text-emerald-600 mt-1">Order #{orderPlaced.orderNumber}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Your dishes are being served to <strong>{table.name}</strong>. Enjoy your meal!
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 bg-teal-500/15 text-teal-500 rounded-full flex items-center justify-center mx-auto text-3xl">
+                🍽️
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-foreground">Dishes Served</h2>
+                <p className="text-sm font-bold text-teal-600 mt-1">Order #{orderPlaced.orderNumber}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Enjoy your meal at <strong>{table.name}</strong>!
+                </p>
+              </div>
+            </>
+          )}
 
           <div className="p-4 rounded-3xl bg-card border border-border text-left space-y-2 text-xs">
             <p className="font-bold text-muted-foreground uppercase text-[10px]">Ordered Items</p>
             {orderPlaced.items?.map((it: any, i: number) => (
               <div key={i} className="flex justify-between font-medium">
-                <span>{it.quantity}x {it.menuItem?.name || 'Dish'}</span>
-                <span className="font-mono">{formatCurrency(it.totalPrice)}</span>
+                <span>{it.quantity}x {it.menuItem?.name || it.name || 'Dish'}</span>
+                <span className="font-mono">{formatCurrency(it.totalPrice || it.quantity * it.unitPrice)}</span>
               </div>
             ))}
             <div className="border-t border-border pt-2 flex justify-between font-black text-sm">
