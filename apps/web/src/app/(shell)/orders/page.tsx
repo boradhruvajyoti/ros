@@ -114,41 +114,146 @@ export default function OrdersPage() {
     }
   };
 
-  const handlePrint = (order: Order) => {
+  const handlePrint = (order: Order, isKot = false) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     printWindow.document.write(`
       <html>
         <head>
-          <title>Receipt - Order ${order.orderNumber}</title>
+          <title>${isKot ? 'KOT' : 'POS Bill'} - #${order.orderNumber}</title>
           <style>
-            body { font-family: monospace; padding: 20px; max-width: 320px; margin: 0 auto; }
-            h2 { text-align: center; margin: 0 0 4px; }
-            p { margin: 2px 0; font-size: 12px; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
-            .total { font-weight: bold; font-size: 15px; }
+            @page { margin: 4mm; }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              padding: 10px;
+              max-width: 320px;
+              margin: 0 auto;
+              font-size: 12px;
+              color: #000;
+              line-height: 1.3;
+            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .title { font-size: 16px; font-weight: 900; margin: 0 0 4px; }
+            .subtitle { font-size: 12px; margin: 2px 0; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .double-divider { border-top: 2px solid #000; margin: 8px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+            th { text-align: left; border-bottom: 1px dashed #000; padding: 4px 2px; font-size: 11px; text-transform: uppercase; }
+            td { padding: 4px 2px; vertical-align: top; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .item-name { font-weight: bold; }
+            .item-sub { font-size: 10px; color: #333; }
+            .row-flex { display: flex; justify-content: space-between; margin: 3px 0; }
+            .grand-total { font-size: 14px; font-weight: 900; }
+            .kot-box { border: 2px solid #000; padding: 4px; text-align: center; font-size: 14px; font-weight: 900; margin-bottom: 6px; }
           </style>
         </head>
         <body>
-          <h2>RESTAURANT RECEIPT</h2>
-          <p style="text-align: center;">Order: #${order.orderNumber}</p>
-          <p style="text-align: center;">${order.table ? `Table: ${order.table.name}` : `Type: ${order.type}`}</p>
-          <p style="text-align: center;">${format(new Date(order.createdAt), 'dd MMM yyyy, h:mm a')}</p>
-          <div class="divider"></div>
-          ${(order.items || []).map(i => `
-            <div class="item">
-              <span>${i.quantity}x ${i.menuItem?.name || i.name || 'Item'}</span>
-              <span>₹${i.totalPrice || (i.quantity * i.unitPrice)}</span>
+          ${isKot ? `
+            <div class="kot-box">*** KITCHEN ORDER TICKET (KOT) ***</div>
+            <p class="center bold title">${order.table ? `TABLE: ${order.table.name}` : order.type}</p>
+            <p class="center">Order #${order.orderNumber} · ${format(new Date(order.createdAt), 'dd MMM yyyy, h:mm a')}</p>
+            <div class="divider"></div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 15%;">QTY</th>
+                  <th style="width: 85%;">ITEM DESCRIPTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(order.items || []).map(i => `
+                  <tr>
+                    <td class="bold font-mono" style="font-size: 13px;">${i.quantity}x</td>
+                    <td>
+                      <div class="item-name">${i.menuItem?.name || i.name || 'Dish'}</div>
+                      ${i.variant?.name ? `<div class="item-sub">Variant: ${i.variant.name}</div>` : ''}
+                      ${i.notes ? `<div class="item-sub bold" style="color: #000;">* Instructions: ${i.notes}</div>` : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="divider"></div>
+            <p class="center bold" style="font-size: 11px;">--- END OF KOT ---</p>
+          ` : `
+            <div class="center">
+              <div class="title">RESTAURANT RECEIPT</div>
+              <div class="subtitle">Tax Invoice / Dining Bill</div>
+              <div class="subtitle">Order #${order.orderNumber}</div>
+              <div class="subtitle">${order.table ? `Table: ${order.table.name}` : `Type: ${order.type}`}</div>
+              <div class="subtitle">${format(new Date(order.createdAt), 'dd MMM yyyy, h:mm a')}</div>
+              ${order.customer?.name ? `<div class="subtitle">Guest: ${order.customer.name}</div>` : ''}
             </div>
-          `).join('')}
-          <div class="divider"></div>
-          <div class="item total">
-            <span>TOTAL AMOUNT:</span>
-            <span>₹${order.total}</span>
-          </div>
-          <div class="divider"></div>
-          <p style="text-align: center; font-size: 11px;">Thank you for dining with us!</p>
+
+            <div class="divider"></div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 45%;">Item</th>
+                  <th class="text-center" style="width: 15%;">Qty</th>
+                  <th class="text-right" style="width: 20%;">Rate</th>
+                  <th class="text-right" style="width: 20%;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(order.items || []).map(i => {
+                  const rate = Number(i.unitPrice || 0);
+                  const qty = Number(i.quantity || 1);
+                  const lineTotal = Number(i.totalPrice || (rate * qty));
+                  return `
+                    <tr>
+                      <td>
+                        <div class="item-name">${i.menuItem?.name || i.name || 'Dish'}</div>
+                        ${i.variant?.name ? `<div class="item-sub">(${i.variant.name})</div>` : ''}
+                      </td>
+                      <td class="text-center bold">${qty}</td>
+                      <td class="text-right">₹${rate.toFixed(2)}</td>
+                      <td class="text-right bold">₹${lineTotal.toFixed(2)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+
+            <div class="divider"></div>
+
+            <div class="row-flex">
+              <span>Subtotal:</span>
+              <span>₹${Number(order.subtotal || order.total).toFixed(2)}</span>
+            </div>
+
+            ${order.taxAmount ? `
+              <div class="row-flex">
+                <span>Taxes &amp; GST:</span>
+                <span>₹${Number(order.taxAmount).toFixed(2)}</span>
+              </div>
+            ` : ''}
+
+            ${order.discountAmount ? `
+              <div class="row-flex">
+                <span>Discount:</span>
+                <span>-₹${Number(order.discountAmount).toFixed(2)}</span>
+              </div>
+            ` : ''}
+
+            <div class="double-divider"></div>
+
+            <div class="row-flex grand-total">
+              <span>TOTAL PAYABLE:</span>
+              <span>₹${Number(order.total).toFixed(2)}</span>
+            </div>
+
+            <div class="double-divider"></div>
+
+            <p class="center" style="font-size: 11px; margin-top: 10px;">
+              Thank you for dining with us!<br/>
+              Please visit again.
+            </p>
+          `}
         </body>
       </html>
     `);
@@ -390,43 +495,63 @@ export default function OrdersPage() {
                     </span>
                   </div>
 
-                  {/* Summary row */}
-                  <div className="mt-3.5 pt-3 border-t border-border/50 flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium flex items-center gap-1">
-                      <UtensilsCrossed className="w-3.5 h-3.5" />
-                      {order._count?.items || order.items?.length || 1} items
-                    </span>
-                    <span className="text-base font-black text-foreground font-mono">
-                      {formatCurrency(order.total)}
-                    </span>
+                  {/* Itemized summary with Qty and Rate */}
+                  <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
+                    {order.items && order.items.length > 0 ? (
+                      <div className="space-y-1 max-h-24 overflow-y-auto pr-1 no-scrollbar">
+                        {order.items.map((it, idx) => (
+                          <div key={it.id || idx} className="flex items-center justify-between text-[11px]">
+                            <span className="truncate pr-2 font-medium text-foreground">
+                              <strong className="text-primary font-bold">{it.quantity}x</strong> {it.menuItem?.name || it.name || 'Item'}
+                              {it.variant?.name && <span className="text-muted-foreground text-[10px] ml-1">({it.variant.name})</span>}
+                            </span>
+                            <span className="font-mono text-muted-foreground shrink-0 text-[10px]">
+                              @{formatCurrency(it.unitPrice)} <span className="text-foreground font-bold">({formatCurrency(it.totalPrice || it.quantity * it.unitPrice)})</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <UtensilsCrossed className="w-3.5 h-3.5" />
+                        {order._count?.items || 1} items
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1 border-t border-border/30 text-xs font-bold">
+                      <span className="text-muted-foreground">Total:</span>
+                      <span className="text-base font-black text-foreground font-mono">
+                        {formatCurrency(order.total)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Big Action Buttons */}
-                <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-2">
+                <div className="mt-3 pt-2 border-t border-border/60 flex items-center gap-1.5 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setSelectedOrder(order)}
-                    className="flex-1 text-xs font-bold h-9 gap-1.5"
+                    className="flex-1 text-xs font-bold h-9 gap-1"
                   >
                     <Eye className="w-3.5 h-3.5" /> View
                   </Button>
 
                   <button
-                    onClick={() => speakOrder(order)}
-                    title="Speak Order Aloud"
-                    className="h-9 w-9 rounded-xl border border-border bg-muted/40 hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+                    onClick={() => handlePrint(order, true)}
+                    title="Print KOT Slip"
+                    className="h-9 px-2 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 flex items-center justify-center font-black text-[10px] gap-1 shrink-0 transition-colors"
                   >
-                    <Volume2 className="w-4 h-4" />
+                    🍳 KOT
                   </button>
 
                   <button
-                    onClick={() => handlePrint(order)}
-                    title="Print Receipt / Slip"
-                    className="h-9 w-9 rounded-xl border border-border bg-muted/40 hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+                    onClick={() => handlePrint(order, false)}
+                    title="Print POS Bill"
+                    className="h-9 px-2 rounded-xl border border-border bg-muted/40 hover:bg-muted flex items-center justify-center text-foreground font-black text-[10px] gap-1 shrink-0 transition-colors"
                   >
-                    <Printer className="w-4 h-4" />
+                    <Printer className="w-3.5 h-3.5" /> Bill
                   </button>
 
                   {cfg.nextStatus && (
@@ -454,9 +579,9 @@ export default function OrdersPage() {
       ) : (
         /* TABLE VIEW */
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr] gap-4 px-5 py-3 border-b border-border bg-muted/30 text-xs font-bold text-muted-foreground uppercase">
+          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1.5fr] gap-4 px-5 py-3 border-b border-border bg-muted/30 text-xs font-bold text-muted-foreground uppercase">
             <div>Order & Table</div>
-            <div>Time</div>
+            <div>Ordered Items (Qty @ Rate)</div>
             <div>Status</div>
             <div>Total</div>
             <div className="text-right">Actions</div>
@@ -466,16 +591,26 @@ export default function OrdersPage() {
             {orders.map((order) => {
               const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.DRAFT;
               return (
-                <div key={order.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr] items-center gap-4 px-5 py-3.5 hover:bg-muted/20 transition-colors">
+                <div key={order.id} className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1.5fr] items-center gap-4 px-5 py-3.5 hover:bg-muted/20 transition-colors">
                   <div>
                     <p className="font-bold text-foreground font-mono">#{order.orderNumber}</p>
                     <p className="text-xs text-muted-foreground">
                       {order.table ? `Table ${order.table.name}` : order.type}
                       {order.customer?.name ? ` · ${order.customer.name}` : ''}
+                      {' · '}{format(new Date(order.createdAt), 'h:mm a')}
                     </p>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {format(new Date(order.createdAt), 'h:mm a')}
+                  <div className="text-xs space-y-0.5 max-h-16 overflow-y-auto">
+                    {order.items && order.items.length > 0 ? (
+                      order.items.map((it, idx) => (
+                        <div key={idx} className="text-[11px] text-muted-foreground truncate">
+                          <strong className="text-foreground">{it.quantity}x</strong> {it.menuItem?.name || it.name || 'Dish'}
+                          {it.variant?.name ? ` (${it.variant.name})` : ''} @ {formatCurrency(it.unitPrice)}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">{order._count?.items || 1} items</span>
+                    )}
                   </div>
                   <div>
                     <span className={cn('px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1', cfg.bg, cfg.border, cfg.text)}>
@@ -489,8 +624,8 @@ export default function OrdersPage() {
                     <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)} className="h-8 text-xs font-bold">
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handlePrint(order)} className="h-8 w-8 p-0">
-                      <Printer className="w-3.5 h-3.5" />
+                    <Button variant="outline" size="sm" onClick={() => handlePrint(order, false)} className="h-8 px-2 text-[11px] font-bold">
+                      <Printer className="w-3.5 h-3.5 mr-1" /> Bill
                     </Button>
                     {cfg.nextStatus && (
                       <Button
@@ -561,42 +696,66 @@ export default function OrdersPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePrint(selectedOrder)}
+                      onClick={() => handlePrint(selectedOrder, true)}
+                      className="h-8 text-xs gap-1 border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                    >
+                      🍳 KOT
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePrint(selectedOrder, false)}
                       className="h-8 text-xs gap-1"
                     >
-                      <Printer className="w-3.5 h-3.5" /> Print
+                      <Printer className="w-3.5 h-3.5" /> Bill
                     </Button>
                   </div>
                 </div>
               );
             })()}
 
-            {/* Items Listing */}
+            {/* Items Listing with item name, quantity, rate, line total */}
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Order Items</p>
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+                <span>Dish Description</span>
+                <span>Qty × Rate = Total</span>
+              </div>
               <div className="rounded-2xl border border-border divide-y divide-border bg-muted/20 overflow-hidden">
                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                  selectedOrder.items.map((it, idx) => (
-                    <div key={it.id || idx} className="p-3 flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary font-black text-xs flex items-center justify-center">
-                          {it.quantity}x
-                        </span>
-                        <div>
-                          <p className="font-bold text-foreground">{it.menuItem?.name || it.name || 'Dish'}</p>
-                          {it.variant?.name && (
-                            <p className="text-[11px] text-muted-foreground font-medium">{it.variant.name}</p>
-                          )}
-                          {it.notes && (
-                            <p className="text-[10px] text-amber-500 italic">Note: {it.notes}</p>
-                          )}
+                  selectedOrder.items.map((it, idx) => {
+                    const unitPrice = Number(it.unitPrice || 0);
+                    const qty = Number(it.quantity || 1);
+                    const lineTotal = Number(it.totalPrice || (qty * unitPrice));
+                    const foodType = it.menuItem?.foodType || 'VEG';
+
+                    return (
+                      <div key={it.id || idx} className="p-3 flex items-start justify-between text-sm gap-2">
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-xs mt-0.5 shrink-0">
+                            {foodType === 'VEG' ? '🟢' : '🔴'}
+                          </span>
+                          <div>
+                            <p className="font-bold text-foreground">{it.menuItem?.name || it.name || 'Dish'}</p>
+                            {it.variant?.name && (
+                              <p className="text-[11px] text-muted-foreground font-medium">Variant: {it.variant.name}</p>
+                            )}
+                            {it.notes && (
+                              <p className="text-[10px] text-amber-500 italic">Note: {it.notes}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="font-bold font-mono text-foreground">
+                            {formatCurrency(lineTotal)}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground font-mono">
+                            {qty} × {formatCurrency(unitPrice)}
+                          </div>
                         </div>
                       </div>
-                      <span className="font-bold font-mono text-foreground">
-                        {formatCurrency(it.totalPrice || (it.quantity * it.unitPrice))}
-                      </span>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="p-4 text-center text-xs text-muted-foreground">
                     {selectedOrder._count?.items || 1} items in order
@@ -704,19 +863,28 @@ export default function OrdersPage() {
 
             <div className="space-y-2 text-xs border rounded-2xl p-3 bg-muted/20">
               <div className="flex justify-between font-bold text-muted-foreground uppercase text-[10px]">
-                <span>Items ({verifyingOrder._count?.items || verifyingOrder.items?.length || 0})</span>
-                <span>{formatCurrency(verifyingOrder.total)}</span>
+                <span>Dish Description</span>
+                <span>Qty × Rate = Line Total</span>
               </div>
               {verifyingOrder.items && verifyingOrder.items.length > 0 && (
-                <div className="space-y-1 max-h-28 overflow-y-auto">
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
                   {verifyingOrder.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between text-[11px]">
-                      <span>{it.quantity}x {it.menuItem?.name || it.name || 'Dish'}</span>
-                      <span className="font-mono text-muted-foreground">{formatCurrency(it.totalPrice || it.quantity * it.unitPrice)}</span>
+                    <div key={idx} className="flex justify-between items-start text-[11px]">
+                      <div>
+                        <span className="font-bold">{it.quantity}x</span> {it.menuItem?.name || it.name || 'Dish'}
+                        {it.variant?.name && <span className="text-muted-foreground text-[10px]"> ({it.variant.name})</span>}
+                      </div>
+                      <span className="font-mono text-muted-foreground shrink-0">
+                        {it.quantity} × {formatCurrency(it.unitPrice)} = <strong className="text-foreground">{formatCurrency(it.totalPrice || it.quantity * it.unitPrice)}</strong>
+                      </span>
                     </div>
                   ))}
                 </div>
               )}
+              <div className="flex justify-between items-center pt-2 border-t font-bold text-xs">
+                <span>Order Total:</span>
+                <span className="font-mono text-primary text-sm">{formatCurrency(verifyingOrder.total)}</span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-2">

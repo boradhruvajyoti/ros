@@ -16,6 +16,8 @@ import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
+import { formatCurrency } from '@ros/utils';
+import { format } from 'date-fns';
 
 export interface Table {
   id: string;
@@ -99,6 +101,10 @@ export default function TablesPage() {
   const [qrModalTable, setQrModalTable] = useState<Table | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
+  // POS Bill Modal State for Occupied Tables
+  const [billModalOrder, setBillModalOrder] = useState<any | null>(null);
+  const [billModalTable, setBillModalTable] = useState<Table | null>(null);
+
   const { data: floors = [] } = useQuery({
     queryKey: ['floors'],
     queryFn: () => apiGet<any[]>('/tables/floors'),
@@ -108,6 +114,186 @@ export default function TablesPage() {
     queryKey: ['tables', statusFilter],
     queryFn: () => apiGet(`/tables${statusFilter ? `?status=${statusFilter}` : ''}`),
     refetchInterval: 15000,
+  });
+
+  // Fetch active running orders to link with occupied tables
+  const { data: activeOrders = [] } = useQuery<any[]>({
+    queryKey: ['active-orders'],
+    queryFn: () => apiGet('/orders/active'),
+    refetchInterval: 10000,
+  });
+
+  const activeOrderByTableId = (activeOrders || []).reduce((acc: Record<string, any>, ord: any) => {
+    if (ord.tableId) acc[ord.tableId] = ord;
+    return acc;
+  }, {});
+
+  const handlePrintPOSBill = (order: any, isKot = false) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${isKot ? 'KOT' : 'POS Bill'} - #${order.orderNumber}</title>
+          <style>
+            @page { margin: 4mm; }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              padding: 10px;
+              max-width: 320px;
+              margin: 0 auto;
+              font-size: 12px;
+              color: #000;
+              line-height: 1.3;
+            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .title { font-size: 16px; font-weight: 900; margin: 0 0 4px; }
+            .subtitle { font-size: 12px; margin: 2px 0; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .double-divider { border-top: 2px solid #000; margin: 8px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+            th { text-align: left; border-bottom: 1px dashed #000; padding: 4px 2px; font-size: 11px; text-transform: uppercase; }
+            td { padding: 4px 2px; vertical-align: top; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .item-name { font-weight: bold; }
+            .item-sub { font-size: 10px; color: #333; }
+            .row-flex { display: flex; justify-content: space-between; margin: 3px 0; }
+            .grand-total { font-size: 14px; font-weight: 900; }
+            .kot-box { border: 2px solid #000; padding: 4px; text-align: center; font-size: 14px; font-weight: 900; margin-bottom: 6px; }
+          </style>
+        </head>
+        <body>
+          ${isKot ? `
+            <div class="kot-box">*** KITCHEN ORDER TICKET (KOT) ***</div>
+            <p class="center bold title">${order.table ? `TABLE: ${order.table.name}` : billModalTable ? `TABLE: ${billModalTable.name}` : order.type}</p>
+            <p class="center">Order #${order.orderNumber} · ${format(new Date(order.createdAt || Date.now()), 'dd MMM yyyy, h:mm a')}</p>
+            <div class="divider"></div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 15%;">QTY</th>
+                  <th style="width: 85%;">ITEM DESCRIPTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(order.items || []).map((i: any) => `
+                  <tr>
+                    <td class="bold font-mono" style="font-size: 13px;">${i.quantity}x</td>
+                    <td>
+                      <div class="item-name">${i.menuItem?.name || i.name || 'Dish'}</div>
+                      ${i.variant?.name ? `<div class="item-sub">Variant: ${i.variant.name}</div>` : ''}
+                      ${i.notes ? `<div class="item-sub bold" style="color: #000;">* Instructions: ${i.notes}</div>` : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="divider"></div>
+            <p class="center bold" style="font-size: 11px;">--- END OF KOT ---</p>
+          ` : `
+            <div class="center">
+              <div class="title">RESTAURANT RECEIPT</div>
+              <div class="subtitle">Tax Invoice / Dining Bill</div>
+              <div class="subtitle">Order #${order.orderNumber}</div>
+              <div class="subtitle">${order.table ? `Table: ${order.table.name}` : billModalTable ? `Table: ${billModalTable.name}` : `Type: ${order.type}`}</div>
+              <div class="subtitle">${format(new Date(order.createdAt || Date.now()), 'dd MMM yyyy, h:mm a')}</div>
+              ${order.customer?.name ? `<div class="subtitle">Guest: ${order.customer.name}</div>` : ''}
+            </div>
+
+            <div class="divider"></div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 45%;">Item</th>
+                  <th class="text-center" style="width: 15%;">Qty</th>
+                  <th class="text-right" style="width: 20%;">Rate</th>
+                  <th class="text-right" style="width: 20%;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(order.items || []).map((i: any) => {
+                  const rate = Number(i.unitPrice || 0);
+                  const qty = Number(i.quantity || 1);
+                  const lineTotal = Number(i.totalPrice || (rate * qty));
+                  return `
+                    <tr>
+                      <td>
+                        <div class="item-name">${i.menuItem?.name || i.name || 'Dish'}</div>
+                        ${i.variant?.name ? `<div class="item-sub">(${i.variant.name})</div>` : ''}
+                      </td>
+                      <td class="text-center bold">${qty}</td>
+                      <td class="text-right">₹${rate.toFixed(2)}</td>
+                      <td class="text-right bold">₹${lineTotal.toFixed(2)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+
+            <div class="divider"></div>
+
+            <div class="row-flex">
+              <span>Subtotal:</span>
+              <span>₹${Number(order.subtotal || order.total).toFixed(2)}</span>
+            </div>
+
+            ${order.taxAmount ? `
+              <div class="row-flex">
+                <span>Taxes &amp; GST:</span>
+                <span>₹${Number(order.taxAmount).toFixed(2)}</span>
+              </div>
+            ` : ''}
+
+            ${order.discountAmount ? `
+              <div class="row-flex">
+                <span>Discount:</span>
+                <span>-₹${Number(order.discountAmount).toFixed(2)}</span>
+              </div>
+            ` : ''}
+
+            <div class="double-divider"></div>
+
+            <div class="row-flex grand-total">
+              <span>TOTAL PAYABLE:</span>
+              <span>₹${Number(order.total).toFixed(2)}</span>
+            </div>
+
+            <div class="double-divider"></div>
+
+            <p class="center" style="font-size: 11px; margin-top: 10px;">
+              Thank you for dining with us!<br/>
+              Please visit again.
+            </p>
+          `}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: ({ orderId, status }: { orderId: string; status: string }) =>
+      apiPatch(`/orders/${orderId}/status`, { status }),
+    onSuccess: (_, vars) => {
+      toast.success('Status Updated', `Order changed to ${vars.status}`);
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      if (vars.status === 'PAID' || vars.status === 'COMPLETED') {
+        setBillModalOrder(null);
+        setBillModalTable(null);
+      } else if (billModalOrder) {
+        setBillModalOrder((prev: any) => prev ? { ...prev, status: vars.status } : null);
+      }
+    },
+    onError: () => toast.error('Update Failed', 'Could not update order status'),
   });
 
   // Generate QR image when QR modal opens
@@ -172,7 +358,15 @@ export default function TablesPage() {
   });
 
   const handleTableClick = (table: Table) => {
-    if (table.status === 'AVAILABLE' || table.status === 'OCCUPIED') {
+    if (table.status === 'OCCUPIED') {
+      const activeOrder = activeOrderByTableId[table.id];
+      if (activeOrder) {
+        setBillModalOrder(activeOrder);
+        setBillModalTable(table);
+        return;
+      }
+      router.push(`/pos?table=${table.id}`);
+    } else if (table.status === 'AVAILABLE') {
       router.push(`/pos?table=${table.id}`);
     } else {
       handleOpenEdit(table);
@@ -498,7 +692,13 @@ export default function TablesPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/pos?table=${table.id}`);
+                      const activeOrder = activeOrderByTableId[table.id];
+                      if (activeOrder) {
+                        setBillModalOrder(activeOrder);
+                        setBillModalTable(table);
+                      } else {
+                        router.push(`/pos?table=${table.id}`);
+                      }
                     }}
                     className="w-full py-1.5 px-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[11px] flex items-center justify-center gap-1 shadow-sm"
                   >
@@ -698,6 +898,199 @@ export default function TablesPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: LIVE POS BILL & TABLE RECEIPT
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {billModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="w-full max-w-lg bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-border pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-black text-foreground font-mono">
+                    #{billModalOrder.orderNumber}
+                  </span>
+                  <Badge className="text-xs font-bold bg-primary text-primary-foreground">
+                    {billModalTable?.name || billModalOrder.table?.name || 'Dining Table'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ordered at {format(new Date(billModalOrder.createdAt || Date.now()), 'dd MMM yyyy, h:mm a')}
+                  {billModalOrder.customer?.name && ` · ${billModalOrder.customer.name}`}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBillModalOrder(null);
+                  setBillModalTable(null);
+                }}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Status & Quick Print Actions */}
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-xs">
+                <span className="text-base">
+                  {billModalOrder.status === 'READY' ? '🛎️' :
+                   billModalOrder.status === 'PREPARING' || billModalOrder.status === 'SENT_TO_KITCHEN' ? '🍳' :
+                   billModalOrder.status === 'SERVED' ? '🍽️' :
+                   billModalOrder.status === 'BILLED' ? '🧾' : '📝'}
+                </span>
+                <span className="text-foreground">Status: <strong className="text-primary uppercase">{billModalOrder.status.replace(/_/g, ' ')}</strong></span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrintPOSBill(billModalOrder, true)}
+                  className="h-8 text-xs font-bold gap-1 border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                >
+                  🍳 KOT
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrintPOSBill(billModalOrder, false)}
+                  className="h-8 text-xs font-bold gap-1 bg-background text-foreground"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Print Bill
+                </Button>
+              </div>
+            </div>
+
+            {/* Itemized Bill Table */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+                <span>Dish Description</span>
+                <span>Qty × Rate = Amount</span>
+              </div>
+              <div className="rounded-2xl border border-border divide-y divide-border bg-muted/20 overflow-hidden">
+                {billModalOrder.items && billModalOrder.items.length > 0 ? (
+                  billModalOrder.items.map((it: any, idx: number) => {
+                    const unitPrice = Number(it.unitPrice || it.variant?.price || 0);
+                    const qty = Number(it.quantity || 1);
+                    const lineTotal = Number(it.totalPrice || (qty * unitPrice));
+                    const foodType = it.menuItem?.foodType || 'VEG';
+
+                    return (
+                      <div key={it.id || idx} className="p-3 flex items-start justify-between text-sm gap-2">
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-xs mt-0.5 shrink-0">
+                            {foodType === 'VEG' ? '🟢' : '🔴'}
+                          </span>
+                          <div>
+                            <p className="font-bold text-foreground">{it.menuItem?.name || it.name || 'Dish'}</p>
+                            {it.variant?.name && (
+                              <p className="text-[11px] text-muted-foreground font-medium">Variant: {it.variant.name}</p>
+                            )}
+                            {it.notes && (
+                              <p className="text-[10px] text-amber-500 italic">Note: {it.notes}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="font-bold font-mono text-foreground">
+                            {formatCurrency(lineTotal)}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground font-mono">
+                            {qty} × {formatCurrency(unitPrice)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    Items data not loaded
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="rounded-2xl bg-card border border-border p-4 space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Subtotal:</span>
+                <span className="font-mono">{formatCurrency(billModalOrder.subtotal || billModalOrder.total)}</span>
+              </div>
+              {!!billModalOrder.taxAmount && (
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Taxes &amp; GST:</span>
+                  <span className="font-mono">{formatCurrency(billModalOrder.taxAmount)}</span>
+                </div>
+              )}
+              {!!billModalOrder.discountAmount && (
+                <div className="flex justify-between text-xs text-emerald-500 font-medium">
+                  <span>Discount:</span>
+                  <span className="font-mono">-{formatCurrency(billModalOrder.discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-black text-foreground pt-2 border-t border-border">
+                <span>Total Bill Amount:</span>
+                <span className="font-mono text-primary text-lg">{formatCurrency(billModalOrder.total)}</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const tableId = billModalTable?.id || billModalOrder.tableId;
+                    router.push(`/pos?table=${tableId}`);
+                  }}
+                  className="font-bold text-xs h-10 gap-1.5"
+                >
+                  <ShoppingCart className="w-4 h-4" /> Add More in POS
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    updateOrderStatusMutation.mutate({ orderId: billModalOrder.id, status: 'BILLED' });
+                  }}
+                  disabled={updateOrderStatusMutation.isPending || billModalOrder.status === 'BILLED'}
+                  className="font-bold text-xs h-10 gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  🧾 Mark as Billed
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => {
+                    updateOrderStatusMutation.mutate({ orderId: billModalOrder.id, status: 'PAID' });
+                  }}
+                  disabled={updateOrderStatusMutation.isPending}
+                  className="w-full font-black text-xs h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Settle &amp; Mark Paid
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBillModalOrder(null);
+                    setBillModalTable(null);
+                  }}
+                  className="w-full font-bold text-xs h-11"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

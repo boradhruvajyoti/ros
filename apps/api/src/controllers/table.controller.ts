@@ -189,6 +189,29 @@ export class TableController {
       orderBy: { sortOrder: 'asc' },
     });
 
+    const activeOrders = await prisma.order.findMany({
+      where: {
+        tenantId: table.tenantId,
+        branchId: table.branchId,
+        tableId: table.id,
+        status: { in: ['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN', 'PREPARING', 'READY', 'SERVED', 'BILLED'] },
+      },
+      include: {
+        items: {
+          include: {
+            menuItem: { select: { name: true, foodType: true, imageUrl: true } },
+            variant: { select: { name: true, price: true } },
+          },
+        },
+        kots: {
+          include: {
+            kitchenStation: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
     sendSuccess(res, {
       table: {
         id: table.id,
@@ -204,6 +227,7 @@ export class TableController {
         phone: table.branch.phone,
       },
       categories,
+      activeOrders,
     });
   }
 
@@ -324,8 +348,13 @@ export class TableController {
       include: {
         items: {
           include: {
-            menuItem: { select: { name: true, foodType: true } },
-            variant: { select: { name: true } },
+            menuItem: { select: { name: true, foodType: true, imageUrl: true } },
+            variant: { select: { name: true, price: true } },
+          },
+        },
+        kots: {
+          include: {
+            kitchenStation: { select: { name: true } },
           },
         },
         table: { select: { name: true } },

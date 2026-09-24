@@ -467,6 +467,12 @@ export class OrderService {
         include: {
           table: { select: { id: true, name: true } },
           customer: { select: { id: true, name: true } },
+          items: {
+            include: {
+              menuItem: { select: { id: true, name: true, foodType: true } },
+              variant: { select: { id: true, name: true, price: true } },
+            },
+          },
           _count: { select: { items: true } },
         },
         orderBy: { createdAt: 'desc' },
