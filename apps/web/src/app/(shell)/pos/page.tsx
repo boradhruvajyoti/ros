@@ -1,19 +1,17 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Search, Plus, Minus, Trash2, User, TableIcon,
-  ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
-  Check, Sparkles, CheckCircle2, Utensils, QrCode,
-  DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
-  Volume2
+  Search, Plus, Minus, Trash2, TableIcon,
+  ShoppingCart, Receipt, Banknote, Utensils, QrCode, Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet, apiPost, apiPut } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 function getClientId(): string {
@@ -62,6 +60,8 @@ interface CartItem {
   foodType?: string;
   notes?: string;
   modifiers: { id: string; name: string; price: number }[];
+  isLocked?: boolean;
+  minQuantity?: number;
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -75,55 +75,12 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Chinese & Noodles': '🍜',
 };
 
-const DEFAULT_CATEGORIES: Category[] = [
-  {
-    id: 'cat-starters',
-    name: 'Starters & Kebabs',
-    icon: '🔥',
-    items: [
-      { id: 'item-paneer-tikka', name: 'Paneer Tikka', foodType: 'VEG', variants: [{ id: 'v-pt-1', name: 'Standard (6 Pcs)', price: 329 }] },
-      { id: 'item-chicken-tikka', name: 'Chicken Tikka', foodType: 'NON_VEG', variants: [{ id: 'v-ct-1', name: 'Standard (6 Pcs)', price: 389 }] },
-      { id: 'item-tandoori-chicken', name: 'Tandoori Chicken', foodType: 'NON_VEG', variants: [{ id: 'v-tc-1', name: 'Half', price: 349 }, { id: 'v-tc-2', name: 'Full', price: 629 }] },
-      { id: 'item-truffle-galouti', name: 'Truffle Galouti Kebab', foodType: 'NON_VEG', variants: [{ id: 'v-tg-1', name: 'Portion (4 Pcs)', price: 520 }] },
-    ]
-  },
-  {
-    id: 'cat-main',
-    name: 'Main Course & Curries',
-    icon: '🍛',
-    items: [
-      { id: 'item-butter-chicken', name: 'Butter Chicken', foodType: 'NON_VEG', variants: [{ id: 'v-bc-1', name: 'Half', price: 389 }, { id: 'v-bc-2', name: 'Full', price: 699 }] },
-      { id: 'item-dal-makhani', name: 'Dal Makhani', foodType: 'VEG', variants: [{ id: 'v-dm-1', name: 'Portion', price: 299 }] },
-      { id: 'item-palak-paneer', name: 'Palak Paneer', foodType: 'VEG', variants: [{ id: 'v-pp-1', name: 'Half', price: 279 }, { id: 'v-pp-2', name: 'Full', price: 499 }] },
-      { id: 'item-chicken-biryani', name: 'Hyderabadi Dum Biryani', foodType: 'NON_VEG', variants: [{ id: 'v-cb-1', name: 'Single', price: 349 }, { id: 'v-cb-2', name: 'Double', price: 649 }] }
-    ]
-  },
-  {
-    id: 'cat-breads',
-    name: 'Breads & Rice',
-    icon: '🫓',
-    items: [
-      { id: 'item-butter-naan', name: 'Butter Naan', foodType: 'VEG', variants: [{ id: 'v-bn-1', name: 'Piece', price: 50 }] },
-      { id: 'item-garlic-naan', name: 'Garlic Naan', foodType: 'VEG', variants: [{ id: 'v-gn-1', name: 'Piece', price: 65 }] },
-      { id: 'item-jeera-rice', name: 'Jeera Rice', foodType: 'VEG', variants: [{ id: 'v-jr-1', name: 'Plate', price: 149 }] }
-    ]
-  },
-  {
-    id: 'cat-beverages',
-    name: 'Beverages & Mocktails',
-    icon: '🥤',
-    items: [
-      { id: 'item-mango-lassi', name: 'Mango Lassi', foodType: 'VEG', variants: [{ id: 'v-ml-1', name: 'Glass', price: 129 }] },
-      { id: 'item-masala-chai', name: 'Masala Chai', foodType: 'VEG', variants: [{ id: 'v-mc-1', name: 'Cup', price: 60 }] },
-      { id: 'item-fresh-lime-soda', name: 'Fresh Lime Soda', foodType: 'VEG', variants: [{ id: 'v-fl-1', name: 'Glass', price: 89 }] }
-    ]
-  }
-];
-
 type OrderType = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
 
 export default function POSPage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const tableParam = searchParams.get('table');
 
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -133,6 +90,7 @@ export default function POSPage() {
   const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string | null>(null);
+  const [runningOrder, setRunningOrder] = useState<any | null>(null);
   const [notes, setNotes] = useState('');
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
@@ -161,6 +119,20 @@ export default function POSPage() {
         return [];
       }
     },
+    refetchInterval: 10000,
+  });
+
+  const { data: activeOrders = [] } = useQuery<any[]>({
+    queryKey: ['active-orders'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any[]>('/orders/active');
+        return Array.isArray(res) ? res : [];
+      } catch {
+        return [];
+      }
+    },
+    refetchInterval: 8000,
   });
 
   const { data: tenant } = useQuery({
@@ -176,6 +148,16 @@ export default function POSPage() {
     return Array.isArray(rawTables) ? rawTables : [];
   }, [rawTables]);
 
+  const activeOrdersByTable = useMemo(() => {
+    const map = new Map<string, any>();
+    activeOrders.forEach((o) => {
+      if (o.tableId && !['COMPLETED', 'VOIDED', 'CANCELLED'].includes(o.status)) {
+        map.set(o.tableId, o);
+      }
+    });
+    return map;
+  }, [activeOrders]);
+
   const taxRate = useMemo(() => {
     try {
       const parsed = typeof tenant?.settings === 'string' ? JSON.parse(tenant.settings) : (tenant?.settings || {});
@@ -184,6 +166,80 @@ export default function POSPage() {
       return 0;
     }
   }, [tenant]);
+
+  // ── Table Selection & Running Order Loader ────────────────────────────────
+  const handleSelectTable = useCallback((tableId: string | null, tableName: string | null) => {
+    if (!tableId) {
+      setSelectedTable(null);
+      setSelectedTableName(null);
+      setRunningOrder(null);
+      setCart([]);
+      return;
+    }
+
+    setSelectedTable(tableId);
+    setSelectedTableName(tableName);
+
+    // Check if table has a running active order
+    const existingOrder = activeOrdersByTable.get(tableId);
+    if (existingOrder) {
+      setRunningOrder(existingOrder);
+      // Populate cart with existing items from running order
+      const existingCartItems: CartItem[] = (existingOrder.items || []).map((item: any) => {
+        const vId = item.variantId || `v-${item.menuItemId}`;
+        const isDispatched = !['DRAFT', 'CONFIRMED'].includes(existingOrder.status) && (item.status !== 'PENDING' || (item.kotItems && item.kotItems.length > 0));
+        return {
+          key: `${item.menuItemId}-${vId}`,
+          menuItemId: item.menuItemId,
+          variantId: vId,
+          name: item.menuItem?.name || item.name || 'Dish',
+          variantName: item.variant?.name || 'Standard',
+          unitPrice: Number(item.unitPrice) || 0,
+          quantity: item.quantity,
+          foodType: item.menuItem?.foodType,
+          notes: item.notes || undefined,
+          modifiers: (item.modifiers || []).map((m: any) => ({
+            id: m.modifierId || m.id,
+            name: m.name,
+            price: Number(m.price) || 0,
+          })),
+          isLocked: isDispatched,
+          minQuantity: isDispatched ? item.quantity : 0,
+        };
+      });
+
+      // Group duplicates in existing order
+      const mergedMap = new Map<string, CartItem>();
+      existingCartItems.forEach((ci) => {
+        if (mergedMap.has(ci.key)) {
+          const prev = mergedMap.get(ci.key)!;
+          prev.quantity += ci.quantity;
+          prev.minQuantity = (prev.minQuantity || 0) + (ci.minQuantity || 0);
+          if (ci.isLocked) prev.isLocked = true;
+        } else {
+          mergedMap.set(ci.key, { ...ci });
+        }
+      });
+
+      setCart(Array.from(mergedMap.values()));
+      setNotes(existingOrder.notes || '');
+      toast.info(`Running Order #${existingOrder.orderNumber} Loaded`, `Modifying table ${tableName}. You can add new dishes or increase portions.`);
+    } else {
+      setRunningOrder(null);
+      setCart([]);
+      setNotes('');
+    }
+  }, [activeOrdersByTable]);
+
+  // Handle auto-selection when URL parameter ?table=xxx is present
+  useEffect(() => {
+    if (tableParam && tables.length > 0 && selectedTable !== tableParam) {
+      const targetTable = tables.find((t: any) => t.id === tableParam);
+      if (targetTable) {
+        handleSelectTable(targetTable.id, targetTable.name);
+      }
+    }
+  }, [tableParam, tables, selectedTable, handleSelectTable]);
 
   // ── Filtered Items ────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
@@ -210,6 +266,11 @@ export default function POSPage() {
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   const totalItemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
+  const hasNewOrIncreasedItems = useMemo(() => {
+    if (!runningOrder) return cart.length > 0;
+    return cart.some((c) => !c.isLocked || c.quantity > (c.minQuantity || 0));
+  }, [cart, runningOrder]);
+
   // ── Audio Feedback Helper ────────────────────────────────────────────────
   const playChime = () => {
     try {
@@ -219,8 +280,8 @@ export default function POSPage() {
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
       osc.start();
@@ -230,7 +291,6 @@ export default function POSPage() {
 
   // ── Cart Actions ─────────────────────────────────────────────────────────
   const addToCart = useCallback((item: MenuItem) => {
-    // Enforce dining table selection for Dine-In orders
     if (orderType === 'DINE_IN' && !selectedTable) {
       toast.error('Dining Table Required', 'Please select a seated table first before adding items to this Dine-In ticket.');
       return;
@@ -262,47 +322,97 @@ export default function POSPage() {
         quantity: 1,
         foodType: item.foodType,
         modifiers: [],
+        isLocked: false,
+        minQuantity: 0,
       }];
     });
   }, [orderType, selectedTable]);
 
   const updateQty = useCallback((key: string, delta: number) => {
-    setCart((prev) =>
-      prev
+    setCart((prev) => {
+      const target = prev.find((c) => c.key === key);
+      if (!target) return prev;
+
+      if (delta < 0 && target.isLocked && target.quantity <= (target.minQuantity || 1)) {
+        toast.warning('Dispatched Item Locked', 'Dishes already accepted in the kitchen cannot be reduced below the original quantity.');
+        return prev;
+      }
+
+      return prev
         .map((c) => (c.key === key ? { ...c, quantity: c.quantity + delta } : c))
-        .filter((c) => c.quantity > 0)
-    );
+        .filter((c) => c.quantity > 0);
+    });
   }, []);
 
   const removeItem = useCallback((key: string) => {
-    setCart((prev) => prev.filter((c) => c.key !== key));
+    setCart((prev) => {
+      const target = prev.find((c) => c.key === key);
+      if (target?.isLocked) {
+        toast.warning('Dispatched Item Locked', 'Dishes already sent to the kitchen cannot be removed from the running order.');
+        return prev;
+      }
+      return prev.filter((c) => c.key !== key);
+    });
   }, []);
 
-  // ── Order Mutation ───────────────────────────────────────────────────────
-  const createOrderMutation = useMutation({
-    mutationFn: (extraPayload?: any) =>
-      apiPost('/orders', {
-        type: orderType,
-        status: 'SENT_TO_KITCHEN',
-        tableId: selectedTable || undefined,
-        notes: notes || undefined,
-        clientId: getClientId(),
-        items: cart.map((c) => ({
-          menuItemId: c.menuItemId,
-          variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
-          quantity: c.quantity,
-          unitPrice: c.unitPrice,
-          notes: c.notes || undefined,
-          modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
-        })),
-        ...extraPayload,
-      }),
+  const handleClearCart = useCallback(() => {
+    if (runningOrder) {
+      setCart((prev) =>
+        prev
+          .filter((c) => c.isLocked)
+          .map((c) => ({ ...c, quantity: c.minQuantity || c.quantity }))
+      );
+      toast.info('Cart Reset', 'Reset cart back to original kitchen-dispatched items.');
+    } else {
+      setCart([]);
+    }
+  }, [runningOrder]);
+
+  // ── Order Mutation (Create or Supplemental KOT) ──────────────────────────
+  const sendKotMutation = useMutation({
+    mutationFn: async () => {
+      if (runningOrder) {
+        return apiPut(`/orders/${runningOrder.id}/items`, {
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            notes: c.notes || undefined,
+            modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+          })),
+          sendToKitchen: true,
+          notes: notes || undefined,
+        });
+      } else {
+        return apiPost('/orders', {
+          type: orderType,
+          status: 'SENT_TO_KITCHEN',
+          tableId: selectedTable || undefined,
+          notes: notes || undefined,
+          clientId: getClientId(),
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            notes: c.notes || undefined,
+            modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+          })),
+        });
+      }
+    },
     onSuccess: (order: any) => {
-      toast.success('Order Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} placed successfully`);
+      if (runningOrder) {
+        toast.success('Supplemental KOT Sent! 🍳', `New dishes dispatched to kitchen for Table ${selectedTableName}`);
+      } else {
+        toast.success('Order Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} placed successfully`);
+      }
       setCart([]);
       setNotes('');
       setSelectedTable(null);
       setSelectedTableName(null);
+      setRunningOrder(null);
       setShowFastPayModal(false);
       setCashTendered(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -312,8 +422,8 @@ export default function POSPage() {
       queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message || err?.message || 'Failed to create order. Please try again.';
-      toast.error('Failed to Create Order', msg);
+      const msg = err?.response?.data?.error?.message || err?.message || 'Failed to dispatch to kitchen. Please try again.';
+      toast.error('Kitchen Dispatch Failed', msg);
     },
   });
 
@@ -326,7 +436,11 @@ export default function POSPage() {
       toast.error('Cart is empty', 'Please select food items from the menu.');
       return;
     }
-    createOrderMutation.mutate();
+    if (runningOrder && !hasNewOrIncreasedItems) {
+      toast.info('No New Items', 'All dishes on this table are already dispatched to the kitchen.');
+      return;
+    }
+    sendKotMutation.mutate();
   };
 
   const handleFastPayment = async (method: 'CASH' | 'UPI' | 'CARD') => {
@@ -340,46 +454,68 @@ export default function POSPage() {
     }
 
     try {
-      // 1. Create order
-      const order = await apiPost<any>('/orders', {
-        type: orderType,
-        status: 'SENT_TO_KITCHEN',
-        tableId: selectedTable || undefined,
-        notes: notes || undefined,
-        clientId: getClientId(),
-        items: cart.map((c) => ({
-          menuItemId: c.menuItemId,
-          variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
-          quantity: c.quantity,
-          unitPrice: c.unitPrice,
-          notes: c.notes || undefined,
-          modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
-        })),
-      });
+      let orderId = runningOrder?.id;
+      let orderNumber = runningOrder?.orderNumber;
 
-      // 2. Add payment
-      await apiPost(`/orders/${order.id}/payments`, {
+      if (runningOrder) {
+        if (hasNewOrIncreasedItems) {
+          await apiPut(`/orders/${runningOrder.id}/items`, {
+            items: cart.map((c) => ({
+              menuItemId: c.menuItemId,
+              variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+              quantity: c.quantity,
+              unitPrice: c.unitPrice,
+              notes: c.notes || undefined,
+              modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+            })),
+            sendToKitchen: false,
+            notes: notes || undefined,
+          });
+        }
+      } else {
+        const order = await apiPost<any>('/orders', {
+          type: orderType,
+          status: 'SENT_TO_KITCHEN',
+          tableId: selectedTable || undefined,
+          notes: notes || undefined,
+          clientId: getClientId(),
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            notes: c.notes || undefined,
+            modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+          })),
+        });
+        orderId = order.id;
+        orderNumber = order.orderNumber;
+      }
+
+      // Add payment
+      await apiPost(`/orders/${orderId}/payments`, {
         method,
         amount: total,
       });
 
-      // 3. Mark as PAID/COMPLETED
+      // Mark as BILLED & PAID
       try {
-        await apiPost(`/orders/${order.id}/status`, {
+        await apiPost(`/orders/${orderId}/status`, {
           status: 'BILLED',
           reason: `Fast Touch POS Checkout (${method})`,
         });
-        await apiPost(`/orders/${order.id}/status`, {
+        await apiPost(`/orders/${orderId}/status`, {
           status: 'PAID',
           reason: `Settled via ${method}`,
         });
       } catch {}
 
-      toast.success('Order Settled & Paid! 💰', `Order #${order.orderNumber} successfully paid via ${method}`);
+      toast.success('Order Settled & Paid! 💰', `Order #${orderNumber || ''} successfully paid via ${method}`);
       setCart([]);
       setNotes('');
       setSelectedTable(null);
       setSelectedTableName(null);
+      setRunningOrder(null);
       setShowFastPayModal(false);
       setCashTendered(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -491,8 +627,8 @@ export default function POSPage() {
                   className={cn(
                     'shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black border transition-all cursor-pointer shadow-sm',
                     active
-                      ? 'bg-primary text-primary-foreground border-transparent shadow-primary/25 shadow-md scale-105'
-                      : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40'
+                  ? 'bg-primary text-primary-foreground border-transparent shadow-primary/25 shadow-md scale-105'
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40'
                   )}
                 >
                   <span className="text-base">{icon}</span>
@@ -533,7 +669,6 @@ export default function POSPage() {
                   >
                     {/* Top Badges */}
                     <div className="flex items-center justify-between w-full">
-                      {/* Veg / Non-Veg Indicator */}
                       <div className={cn(
                         'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
                         isVeg ? 'border-emerald-500' : 'border-red-500'
@@ -541,7 +676,6 @@ export default function POSPage() {
                         <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
                       </div>
 
-                      {/* Quantity in Cart Badge */}
                       {inCart > 0 ? (
                         <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-black shadow animate-in zoom-in-75 duration-100">
                           {inCart} Added
@@ -588,7 +722,7 @@ export default function POSPage() {
       {/* ─────────────────────────────────────────────────────────────────────────────
           RIGHT PANEL: TOUCH-FRIENDLY ORDER CART & FAST BILLING
       ───────────────────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col w-full lg:w-[380px] shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border h-full">
+      <div className="flex flex-col w-full lg:w-[400px] shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border h-full">
         {/* Cart Header */}
         <div className="p-4 border-b border-border bg-muted/30 shrink-0 space-y-3">
           <div className="flex items-center justify-between">
@@ -597,21 +731,46 @@ export default function POSPage() {
                 <ShoppingCart className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="font-black text-sm text-foreground">Current Order</h2>
-                <p className="text-[10px] text-muted-foreground font-semibold">{totalItemsCount} Total Items</p>
+                <h2 className="font-black text-sm text-foreground">
+                  {runningOrder ? `Table ${selectedTableName || ''}` : 'Current Order'}
+                </h2>
+                <p className="text-[10px] text-muted-foreground font-semibold">
+                  {runningOrder ? `Running #${runningOrder.orderNumber} · ` : ''}{totalItemsCount} Total Items
+                </p>
               </div>
             </div>
 
             {cart.length > 0 && (
               <button
                 type="button"
-                onClick={() => setCart([])}
+                onClick={handleClearCart}
                 className="px-2.5 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-1 cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Clear All
+                <Trash2 className="w-3.5 h-3.5" /> {runningOrder ? 'Reset' : 'Clear All'}
               </button>
             )}
           </div>
+
+          {/* Running Order Status Banner */}
+          {runningOrder && (
+            <div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-ping" />
+                  <span className="text-xs font-black text-rose-400">
+                    Modifying Table {selectedTableName} (Order #{runningOrder.orderNumber})
+                  </span>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-black border-rose-500/40 text-rose-300">
+                  {runningOrder.status}
+                </Badge>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
+                <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                <span>Dispatched dishes are locked. Tap menu to add new food or portion +</span>
+              </p>
+            </div>
+          )}
 
           {/* Big Table Selector for Dine-In — Large Multi-Column Grid Tabs */}
           {orderType === 'DINE_IN' && (
@@ -623,10 +782,7 @@ export default function POSPage() {
                 {selectedTable && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedTable(null);
-                      setSelectedTableName(null);
-                    }}
+                    onClick={() => handleSelectTable(null, null)}
                     className="text-[10px] font-bold text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                   >
                     ✕ Clear Table
@@ -637,45 +793,73 @@ export default function POSPage() {
               {!selectedTable && (
                 <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold flex items-center gap-1.5">
                   <span className="text-amber-400">⚠️</span>
-                  <span>Select a table first to add dishes to cart</span>
+                  <span>Select a table first to take order or add items</span>
                 </div>
               )}
 
               {/* Multi-column grid of large table tabs */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-44 overflow-y-auto pr-0.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-0.5">
                 {tables.length > 0 ? (
                   tables.map((t: any) => {
                     const isSelected = selectedTable === t.id;
-                    const isOccupied = t.status === 'OCCUPIED';
+                    const activeOrderForTable = activeOrdersByTable.get(t.id);
+                    const isDining = !!activeOrderForTable;
+
                     return (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => {
                           if (isSelected) {
-                            setSelectedTable(null);
-                            setSelectedTableName(null);
+                            handleSelectTable(null, null);
                           } else {
-                            setSelectedTable(t.id);
-                            setSelectedTableName(t.name);
+                            handleSelectTable(t.id, t.name);
                           }
                         }}
                         className={cn(
-                          'p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm text-center relative overflow-hidden',
+                          'p-2.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer flex flex-col items-start justify-between gap-1 shadow-sm relative overflow-hidden text-left min-h-[72px]',
                           isSelected
-                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/40'
-                            : isOccupied
-                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                            ? 'bg-primary text-primary-foreground border-primary ring-2 ring-primary/40 shadow-lg scale-[1.02]'
+                            : isDining
+                            ? 'bg-rose-950/20 border-rose-500/40 text-foreground hover:bg-rose-950/30 hover:border-rose-500/60'
                             : 'bg-background border-border text-foreground hover:border-primary/50 hover:bg-muted/40'
                         )}
                       >
-                        <span className="font-black text-xs leading-tight truncate w-full">{t.name}</span>
-                        <span className={cn(
-                          'text-[10px] font-medium opacity-80',
-                          isSelected ? 'text-emerald-100' : 'text-muted-foreground'
-                        )}>
-                          {t.capacity ? `👥 ${t.capacity}` : (isOccupied ? 'Occupied' : 'Vacant')}
-                        </span>
+                        <div className="flex items-center justify-between w-full">
+                          <span className={cn('font-black text-xs leading-tight truncate', isSelected ? 'text-primary-foreground' : 'text-foreground')}>
+                            {t.name}
+                          </span>
+                          {isDining ? (
+                            <Badge className={cn(
+                              'text-[9px] px-1.5 py-0 h-4 font-black flex items-center gap-1 shrink-0',
+                              isSelected ? 'bg-white/20 text-white' : 'bg-rose-500 text-white'
+                            )}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                              Dining
+                            </Badge>
+                          ) : (
+                            <span className={cn('text-[10px] font-medium', isSelected ? 'text-primary-foreground/80' : 'text-emerald-400')}>
+                              Vacant
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between w-full mt-1 pt-1 border-t border-border/40 text-[10px]">
+                          {isDining ? (
+                            <>
+                              <span className={cn('font-mono font-bold truncate max-w-[70px]', isSelected ? 'text-primary-foreground/90' : 'text-rose-300')}>
+                                #{activeOrderForTable.orderNumber}
+                              </span>
+                              <span className={cn('font-black', isSelected ? 'text-primary-foreground' : 'text-emerald-400')}>
+                                ₹{Number(activeOrderForTable.total || 0).toFixed(0)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className={cn('text-[10px]', isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+                              {t.capacity ? `👥 ${t.capacity} seats` : 'Ready to seat'}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })
@@ -698,14 +882,17 @@ export default function POSPage() {
               </div>
               <p className="text-sm font-bold text-foreground">Order is Empty</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-                Tap any delicious dish on the left to add it to this ticket.
+                Tap any dish on the left to add it to this ticket.
               </p>
             </div>
           ) : (
             cart.map((item) => (
               <div
                 key={item.key}
-                className="flex items-center justify-between p-3 rounded-2xl bg-background border border-border hover:border-primary/30 transition-all shadow-sm"
+                className={cn(
+                  'flex items-center justify-between p-3 rounded-2xl bg-background border transition-all shadow-sm',
+                  item.isLocked ? 'border-amber-500/30 bg-amber-500/[0.02]' : 'border-border hover:border-primary/30'
+                )}
               >
                 <div className="flex-1 min-w-0 mr-2">
                   <div className="flex items-center gap-1.5">
@@ -714,19 +901,37 @@ export default function POSPage() {
                       item.foodType === 'VEG' || item.foodType === 'VEGAN' ? 'bg-emerald-500' : 'bg-red-500'
                     )} />
                     <p className="text-xs font-black text-foreground truncate">{item.name}</p>
+                    {item.isLocked && (
+                      <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[9px] px-1.5 py-0 h-4 font-bold flex items-center gap-0.5 shrink-0">
+                        <Lock className="w-2.5 h-2.5" /> Dispatched
+                      </Badge>
+                    )}
                   </div>
-                  <p className="text-[11px] font-bold text-emerald-400 mt-1">
-                    ₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}{' '}
-                    <span className="text-[10px] text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-[11px] font-bold text-emerald-400">
+                      ₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}{' '}
+                      <span className="text-[10px] text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
+                    </p>
+                    {item.isLocked && item.quantity > (item.minQuantity || 0) && (
+                      <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                        +{item.quantity - (item.minQuantity || 0)} Extra
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Giant Counter Buttons */}
                 <div className="flex items-center gap-2 shrink-0 bg-muted/60 p-1 rounded-xl border border-border">
                   <button
                     type="button"
+                    disabled={item.isLocked && item.quantity <= (item.minQuantity || 1)}
                     onClick={() => updateQty(item.key, -1)}
-                    className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-foreground hover:bg-red-500/20 hover:text-red-400 font-bold transition-all active:scale-90 cursor-pointer"
+                    className={cn(
+                      'w-8 h-8 rounded-lg bg-background border flex items-center justify-center font-bold transition-all active:scale-90',
+                      item.isLocked && item.quantity <= (item.minQuantity || 1)
+                        ? 'opacity-30 cursor-not-allowed border-border text-muted-foreground'
+                        : 'border-border text-foreground hover:bg-red-500/20 hover:text-red-400 cursor-pointer'
+                    )}
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -770,15 +975,35 @@ export default function POSPage() {
               {/* Send KOT Button */}
               <Button
                 size="lg"
-                loading={createOrderMutation.isPending}
+                loading={sendKotMutation.isPending}
                 onClick={handlePlaceOrder}
-                className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-lg shadow-emerald-600/30 flex flex-col items-center justify-center gap-0.5"
+                disabled={runningOrder && !hasNewOrIncreasedItems}
+                className={cn(
+                  'w-full h-14 rounded-2xl font-black text-sm shadow-lg flex flex-col items-center justify-center gap-0.5 transition-all',
+                  runningOrder
+                    ? hasNewOrIncreasedItems
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/30'
+                      : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+                )}
               >
                 <div className="flex items-center gap-1.5">
                   <Receipt className="w-4 h-4" />
-                  <span>Send KOT</span>
+                  <span>
+                    {runningOrder
+                      ? hasNewOrIncreasedItems
+                        ? 'Send Supplemental KOT'
+                        : 'Dishes in Kitchen'
+                      : 'Send KOT'}
+                  </span>
                 </div>
-                <span className="text-[10px] font-medium opacity-90">Send to Kitchen</span>
+                <span className="text-[10px] font-medium opacity-90">
+                  {runningOrder
+                    ? hasNewOrIncreasedItems
+                      ? 'Dispatch New Items to Kitchen'
+                      : 'No new dishes added'
+                    : 'Send to Kitchen'}
+                </span>
               </Button>
 
               {/* Fast Pay & Settle Button */}
@@ -875,7 +1100,7 @@ export default function POSPage() {
             <div className="grid grid-cols-2 gap-2.5 pt-2">
               <Button
                 size="lg"
-                loading={createOrderMutation.isPending}
+                loading={sendKotMutation.isPending}
                 onClick={() => handleFastPayment('CASH')}
                 className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-2 cursor-pointer"
               >
@@ -886,7 +1111,7 @@ export default function POSPage() {
               <Button
                 size="lg"
                 variant="outline"
-                loading={createOrderMutation.isPending}
+                loading={sendKotMutation.isPending}
                 onClick={() => handleFastPayment('UPI')}
                 className="h-12 rounded-2xl border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/20 font-black text-xs gap-2 cursor-pointer"
               >
