@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'ros-api',
       cwd: './apps/api',
-      script: 'dist/server.js',
+      script: 'server.js',
       exec_mode: 'cluster',
       instances: process.env.API_INSTANCES || 'max',
       autorestart: true,
