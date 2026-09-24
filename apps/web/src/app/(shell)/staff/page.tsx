@@ -93,7 +93,8 @@ export default function StaffPage() {
   });
 
   const activeCount = employees.filter((e) => e.attendance?.[0]?.status === 'PRESENT').length;
-  const totalPayroll = employees.reduce((s, e) => s + (e.salary || 0), 0);
+  const totalPayroll = employees.reduce((s, e) => s + (parseFloat(String(e.salary ?? 0)) || 0), 0);
+  const salariedCount = employees.filter((e) => (parseFloat(String(e.salary ?? 0)) || 0) > 0).length;
 
   const handleCreateEmployee = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +108,7 @@ export default function StaffPage() {
       designation: newDesignation.trim(),
       phone: newPhone.trim() || undefined,
       email: newEmail.trim() || undefined,
-      salary: newSalary ? Number(newSalary) : 0,
+      salary: parseFloat(newSalary) || 0,
     });
   };
 
@@ -147,9 +148,11 @@ export default function StaffPage() {
         </Card>
 
         <Card className="p-4 bg-card/60 backdrop-blur-sm border-border">
-          <span className="text-xs font-semibold text-muted-foreground">Monthly Payroll Est.</span>
+          <span className="text-xs font-semibold text-muted-foreground">Monthly Salary Commitment</span>
           <p className="text-2xl font-bold text-foreground mt-2">{formatCurrency(totalPayroll)}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Total salary commitment</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {salariedCount} salaried staff on payroll
+          </p>
         </Card>
 
         <Card className="p-4 bg-card/60 backdrop-blur-sm border-border">

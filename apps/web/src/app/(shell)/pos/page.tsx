@@ -501,16 +501,33 @@ export default function POSPage() {
             )}
           </div>
 
-          {/* Big Table Selector for Dine-In */}
+          {/* Big Table Selector for Dine-In — Large Multi-Column Grid Tabs */}
           {orderType === 'DINE_IN' && (
             <div className="space-y-1.5 pt-1">
-              <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
-                <TableIcon className="w-3.5 h-3.5 text-primary" /> Select Seated Table:
-              </label>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                  <TableIcon className="w-3.5 h-3.5 text-primary" /> Select Seated Table:
+                </label>
+                {selectedTable && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTable(null);
+                      setSelectedTableName(null);
+                    }}
+                    className="text-[10px] font-bold text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                  >
+                    ✕ Clear Table
+                  </button>
+                )}
+              </div>
+
+              {/* Multi-column grid of large table tabs */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-44 overflow-y-auto pr-0.5">
                 {tables.length > 0 ? (
                   tables.map((t: any) => {
                     const isSelected = selectedTable === t.id;
+                    const isOccupied = t.status === 'OCCUPIED';
                     return (
                       <button
                         key={t.id}
@@ -525,18 +542,28 @@ export default function POSPage() {
                           }
                         }}
                         className={cn(
-                          'shrink-0 px-3 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer shadow-sm',
+                          'p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm text-center relative overflow-hidden',
                           isSelected
-                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-105'
-                            : 'bg-background border-border text-foreground hover:border-primary/50'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/40'
+                            : isOccupied
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                            : 'bg-background border-border text-foreground hover:border-primary/50 hover:bg-muted/40'
                         )}
                       >
-                        {t.name}
+                        <span className="font-black text-xs leading-tight truncate w-full">{t.name}</span>
+                        <span className={cn(
+                          'text-[10px] font-medium opacity-80',
+                          isSelected ? 'text-emerald-100' : 'text-muted-foreground'
+                        )}>
+                          {t.capacity ? `👥 ${t.capacity}` : (isOccupied ? 'Occupied' : 'Vacant')}
+                        </span>
                       </button>
                     );
                   })
                 ) : (
-                  <div className="text-[11px] text-muted-foreground italic">Table 1, Table 2 (Auto-Assigned)</div>
+                  <div className="col-span-full p-3 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground">
+                    No tables configured. You can set up tables in Tables section.
+                  </div>
                 )}
               </div>
             </div>
