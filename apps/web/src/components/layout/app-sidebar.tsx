@@ -22,8 +22,7 @@ import { apiGet } from '@/lib/api';
 const restaurantNavItems = [
   { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard,  permission: null },
   { href: '/pos',           label: 'POS',            icon: ShoppingCart,     permission: 'orders:create' },
-  { href: '/orders',        label: 'Orders',         icon: ClipboardList,    permission: 'orders:view' },
-  { href: '/tables',        label: 'Tables',         icon: Grid3X3,          permission: 'tables:view' },
+  { href: '/tables',        label: 'Tables & Orders', icon: Grid3X3,         permission: 'tables:view' },
   { href: '/reservations',  label: 'Reservations',   icon: CalendarDays,     permission: 'reservations:view' },
   { href: '/kitchen',       label: 'Kitchen Display', icon: ChefHat,          permission: 'kitchen:view' },
   { href: '/qr-order',      label: 'QR Ordering',   icon: QrCode,           permission: null },
@@ -59,9 +58,8 @@ const restaurantNavItems = [
 // Dedicated Navigation for Waiters
 const waiterNavItems = [
   { type: 'divider', label: 'WAITER SERVICE' },
-  { href: '/tables',   label: '🍽️ Dining Tables', icon: Grid3X3, permission: null },
+  { href: '/tables',   label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
   { href: '/pos',      label: '🛒 Take Order (POS)', icon: ShoppingCart, permission: null },
-  { href: '/orders',   label: '📋 Active Orders', icon: ClipboardList, permission: null },
   { href: '/kitchen',  label: '🛎️ Kitchen Queue', icon: ChefHat, permission: null },
 ];
 
@@ -70,15 +68,14 @@ const kitchenNavItems = [
   { type: 'divider', label: 'KITCHEN OPS' },
   { href: '/kitchen',   label: '👨‍🍳 Kitchen Display (KDS)', icon: ChefHat, permission: null },
   { href: '/inventory', label: '📦 Stock & Ingredients', icon: Package, permission: null },
-  { href: '/orders',    label: '📋 Orders Feed', icon: ClipboardList, permission: null },
+  { href: '/tables',    label: '📋 Tables & Orders', icon: Grid3X3, permission: null },
 ];
 
 // Dedicated Navigation for Cashiers
 const cashierNavItems = [
   { type: 'divider', label: 'FAST BILLING & CASH' },
   { href: '/pos',      label: '💳 Fast Billing (POS)', icon: ShoppingCart, permission: null },
-  { href: '/tables',   label: '🍽️ Dining Tables', icon: Grid3X3, permission: null },
-  { href: '/orders',   label: '📋 Orders & Bills', icon: ClipboardList, permission: null },
+  { href: '/tables',   label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
   { href: '/expenses', label: '💰 Cash & Expenses', icon: Wallet, permission: null },
 ];
 
