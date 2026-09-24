@@ -16,6 +16,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiGet } from '@/lib/api';
 
 // Navigation for Restaurant Tenants
 const restaurantNavItems = [
@@ -94,6 +96,23 @@ export function AppSidebar() {
     user?.tenantId === 'tenant-platform' ||
     user?.permissions?.includes('tenants:manage');
 
+  const { data: platformDetails } = useQuery({
+    queryKey: ['superadmin-platform-details'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/tenants/platform-details');
+        return res;
+      } catch {
+        return { platformName: 'Restaurant OS (ROS)', tagline: 'SaaS Control Plane' };
+      }
+    },
+    staleTime: 1000 * 60 * 2,
+    enabled: isPlatformSuperAdmin,
+  });
+
+  const platformName = platformDetails?.platformName || 'ROS Platform';
+  const platformTagline = platformDetails?.tagline || 'SaaS Control Plane';
+
   const navItems = isPlatformSuperAdmin ? platformSuperAdminNavItems : restaurantNavItems;
 
   return (
@@ -124,8 +143,8 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="overflow-hidden">
             <div className="flex items-center gap-1.5">
-              <p className="text-sidebar-foreground font-black text-sm tracking-tight truncate">
-                {isPlatformSuperAdmin ? 'ROS Platform' : 'ROS'}
+              <p className="text-sidebar-foreground font-black text-sm tracking-tight truncate" title={isPlatformSuperAdmin ? platformName : 'ROS'}>
+                {isPlatformSuperAdmin ? platformName : 'ROS'}
               </p>
               {isPlatformSuperAdmin && (
                 <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
@@ -133,8 +152,8 @@ export function AppSidebar() {
                 </span>
               )}
             </div>
-            <p className="text-sidebar-foreground/50 text-[10px] truncate font-medium">
-              {isPlatformSuperAdmin ? 'SaaS Control Plane' : user?.name}
+            <p className="text-sidebar-foreground/50 text-[10px] truncate font-medium" title={isPlatformSuperAdmin ? platformTagline : user?.name}>
+              {isPlatformSuperAdmin ? platformTagline : user?.name}
             </p>
           </div>
         )}
