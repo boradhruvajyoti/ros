@@ -238,8 +238,23 @@ export default function POSPage() {
         t === 'KOT_CREATED' ||
         t === 'PAYMENT_COMPLETED'
       ) {
+        if (t === 'KOT_CREATED') {
+          const payload = (event as any).payload || {};
+          if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
+            setCart([]);
+            setNotes('');
+            lastSyncedSignatureRef.current = '';
+          }
+        }
         if (t === 'ORDER_STATUS_CHANGED') {
           const payload = (event as any).payload || {};
+          if (['SENT_TO_KITCHEN', 'PREPARING', 'COOKING', 'READY', 'SERVED'].includes(payload.status)) {
+            if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
+              setCart([]);
+              setNotes('');
+              lastSyncedSignatureRef.current = '';
+            }
+          }
           if (['CANCELLED', 'VOIDED', 'PAID', 'COMPLETED'].includes(payload.status)) {
             if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
               setCart([]);
@@ -257,7 +272,7 @@ export default function POSPage() {
         }
         if (t === 'PAYMENT_COMPLETED') {
           const payload = (event as any).payload || {};
-          if (payload.orderId === orderParam) {
+          if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
             setCart([]);
             setNotes('');
             lastSyncedSignatureRef.current = '';
@@ -368,9 +383,12 @@ export default function POSPage() {
         // Order is draft/confirmed but has no pending items — keep cart as is
       }
     } else if (!isDraftPhase) {
-      // Order is in kitchen / served — do not overwrite the blank cart for next round
-      // Update signature to avoid re-triggering on re-renders
-      lastSyncedSignatureRef.current = serverSignature;
+      // Order is in kitchen / served — immediately ensure cart is empty and clean for next round
+      if (lastSyncedSignatureRef.current !== serverSignature) {
+        lastSyncedSignatureRef.current = serverSignature;
+        setCart([]);
+        setNotes('');
+      }
     }
 
     if (isInitialLoadRef.current) {
@@ -983,14 +1001,21 @@ export default function POSPage() {
                             setSelectedTable(t.id);
                             setSelectedTableName(t.name);
                             const activeOrder = (activeOrders || []).find((o: any) => o.tableId === t.id);
-                            if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
-                              const itemsSig = activeOrder.items
-                                .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
-                                .sort()
-                                .join('|');
-                              lastSyncedSignatureRef.current = `${activeOrder.id}_${activeOrder.status}_${activeOrder.notes || ''}_${itemsSig}`;
-                              setCart(convertOrderItemsToCart(activeOrder.items));
-                              if (activeOrder.notes) setNotes(activeOrder.notes);
+                            if (activeOrder && ['DRAFT', 'CONFIRMED'].includes(activeOrder.status) && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
+                              const pendingItems = activeOrder.items.filter((it: any) => (it.status || 'PENDING') === 'PENDING');
+                              if (pendingItems.length > 0) {
+                                const itemsSig = pendingItems
+                                  .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
+                                  .sort()
+                                  .join('|');
+                                lastSyncedSignatureRef.current = `${activeOrder.id}_${activeOrder.status}_${activeOrder.notes || ''}_${itemsSig}`;
+                                setCart(convertOrderItemsToCart(pendingItems));
+                                if (activeOrder.notes) setNotes(activeOrder.notes);
+                              } else {
+                                lastSyncedSignatureRef.current = '';
+                                setCart([]);
+                                setNotes('');
+                              }
                             } else {
                               lastSyncedSignatureRef.current = '';
                               setCart([]);
