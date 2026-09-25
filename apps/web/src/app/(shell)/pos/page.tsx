@@ -130,7 +130,7 @@ export default function POSPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const tableParam = searchParams.get('table');
-  const orderParam = searchParams.get('orderId');
+  const orderParam = searchParams.get('order') || searchParams.get('orderId');
 
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -143,6 +143,34 @@ export default function POSPage() {
   const [notes, setNotes] = useState('');
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
+  const loadedOrderIdRef = useRef<string | null>(null);
+
+  // Helper to map backend order items into POS CartItem interface
+  const mapOrderItemsToCart = useCallback((order: any): CartItem[] => {
+    if (!order || !Array.isArray(order.items)) return [];
+    return order.items
+      .filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status))
+      .map((it: any) => {
+        const vId = it.variantId || it.variant?.id || `v-${it.menuItemId || it.id}`;
+        const vName = it.variant?.name || it.variantName || 'Standard';
+        const mId = it.menuItemId || it.menuItem?.id || it.id;
+        const name = it.menuItem?.name || it.name || 'Dish';
+        const unitPrice = Number(it.unitPrice !== undefined && it.unitPrice !== null ? it.unitPrice : (it.variant?.price || it.price || 0));
+        const key = `${mId}-${vId}`;
+        return {
+          key,
+          menuItemId: mId,
+          variantId: vId,
+          name,
+          variantName: vName,
+          unitPrice,
+          quantity: it.quantity || 1,
+          foodType: it.menuItem?.foodType || it.foodType || 'VEG',
+          notes: it.notes || '',
+          modifiers: Array.isArray(it.modifiers) ? it.modifiers : [],
+        };
+      });
+  }, []);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data: rawCategories, isLoading } = useQuery<Category[]>({
@@ -265,7 +293,30 @@ export default function POSPage() {
       setSelectedTableName(targetTable.name);
       setOrderType('DINE_IN');
     }
-  }, [tableParam, orderParam, tables]);
+  }, [tableParam, orderParam, tables, activeOrders]);
+
+  // Auto-populate Cart with Pending QR / Draft items for the selected table
+  useEffect(() => {
+    if (!selectedTable && !orderParam) return;
+
+    const activeOrder = orderParam
+      ? (activeOrders || []).find((o: any) => o.id === orderParam)
+      : (activeOrders || []).find((o: any) => o.tableId === selectedTable);
+
+    if (activeOrder && ['CONFIRMED', 'DRAFT'].includes(activeOrder.status)) {
+      if (loadedOrderIdRef.current !== activeOrder.id) {
+        const mapped = mapOrderItemsToCart(activeOrder);
+        if (mapped.length > 0) {
+          setCart(mapped);
+          if (activeOrder.notes) {
+            setNotes(activeOrder.notes);
+          }
+          loadedOrderIdRef.current = activeOrder.id;
+          toast.info('QR Order Loaded', `Loaded ${mapped.length} items from Guest QR Order #${activeOrder.orderNumber} for review.`);
+        }
+      }
+    }
+  }, [selectedTable, orderParam, activeOrders, mapOrderItemsToCart]);
 
 
 
@@ -786,6 +837,9 @@ export default function POSPage() {
                   tables.map((t: any) => {
                     const isSelected = selectedTable === t.id;
                     const isOccupied = t.status === 'OCCUPIED';
+                    const tableOrder = (activeOrders || []).find((o: any) => o.tableId === t.id);
+                    const isPendingQr = tableOrder && ['CONFIRMED', 'DRAFT'].includes(tableOrder.status);
+
                     return (
                       <button
                         key={t.id}
@@ -796,18 +850,31 @@ export default function POSPage() {
                             setSelectedTableName(null);
                             setCart([]);
                             setNotes('');
+                            loadedOrderIdRef.current = null;
                           } else {
                             setSelectedTable(t.id);
                             setSelectedTableName(t.name);
-                            // Always initialize cart as clean/empty for the selected table
-                            setCart([]);
-                            setNotes('');
+                            if (tableOrder && ['CONFIRMED', 'DRAFT'].includes(tableOrder.status)) {
+                              const mapped = mapOrderItemsToCart(tableOrder);
+                              setCart(mapped);
+                              setNotes(tableOrder.notes || '');
+                              loadedOrderIdRef.current = tableOrder.id;
+                              if (mapped.length > 0) {
+                                toast.info('QR Order Loaded', `Loaded ${mapped.length} items from QR Order #${tableOrder.orderNumber}`);
+                              }
+                            } else {
+                              setCart([]);
+                              setNotes('');
+                              loadedOrderIdRef.current = null;
+                            }
                           }
                         }}
                         className={cn(
                           'p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm text-center relative overflow-hidden',
                           isSelected
                             ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/40'
+                            : isPendingQr
+                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30 animate-pulse'
                             : isOccupied
                             ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
                             : 'bg-background border-border text-foreground hover:border-primary/50 hover:bg-muted/40'
@@ -816,9 +883,9 @@ export default function POSPage() {
                         <span className="font-black text-xs leading-tight truncate w-full">{t.name}</span>
                         <span className={cn(
                           'text-[10px] font-medium opacity-80',
-                          isSelected ? 'text-emerald-100' : 'text-muted-foreground'
+                          isSelected ? 'text-emerald-100' : isPendingQr ? 'text-amber-300 font-bold' : 'text-muted-foreground'
                         )}>
-                          {t.capacity ? `👥 ${t.capacity}` : (isOccupied ? 'Occupied' : 'Vacant')}
+                          {isPendingQr ? '🛎️ QR Order' : t.capacity ? `👥 ${t.capacity}` : (isOccupied ? 'Occupied' : 'Vacant')}
                         </span>
                       </button>
                     );
@@ -832,6 +899,32 @@ export default function POSPage() {
             </div>
           )}
         </div>
+
+        {/* Pending QR Order Notice Banner */}
+        {selectedTable && (() => {
+          const activeOrder = (activeOrders || []).find((o: any) => o.id === orderParam || o.tableId === selectedTable);
+          if (activeOrder && ['CONFIRMED', 'DRAFT'].includes(activeOrder.status)) {
+            return (
+              <div className="mx-3 mt-3 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg shrink-0">🛎️</span>
+                  <div className="min-w-0">
+                    <p className="font-black text-amber-300 text-xs truncate">
+                      Guest QR Order #{activeOrder.orderNumber}
+                    </p>
+                    <p className="text-[10px] text-amber-200/80 line-clamp-1">
+                      {activeOrder.notes || 'Review items, edit if necessary, then click Accept & Send KOT.'}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="bg-amber-500/25 text-amber-300 border-amber-500/40 text-[10px] font-black shrink-0">
+                  Pending KOT
+                </Badge>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* Cart Item List */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -922,9 +1015,16 @@ export default function POSPage() {
               >
                 <div className="flex items-center gap-1.5">
                   <Receipt className="w-4 h-4" />
-                  <span>Send KOT</span>
+                  <span>
+                    {(() => {
+                      const activeOrder = (activeOrders || []).find((o: any) => o.id === orderParam || o.tableId === selectedTable);
+                      return activeOrder && ['CONFIRMED', 'DRAFT'].includes(activeOrder.status)
+                        ? 'Accept & Send KOT'
+                        : 'Send KOT';
+                    })()}
+                  </span>
                 </div>
-                <span className="text-[10px] font-medium opacity-90">Send to Kitchen</span>
+                <span className="text-[10px] font-medium opacity-90">Dispatch to Kitchen</span>
               </Button>
 
               {/* Fast Pay & Settle Button */}

@@ -119,7 +119,7 @@ const TABLE_STATUS_META = {
 
 const ORDER_STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: string; border: string; text: string; nextStatus?: string; nextAction?: string }> = {
   DRAFT:           { label: 'Draft',        emoji: '📝', bg: 'bg-muted/40',       border: 'border-border',          text: 'text-muted-foreground', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Send Kitchen' },
-  CONFIRMED:       { label: 'Pending Verification', emoji: '⚠️', bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Verify & Send' },
+  CONFIRMED:       { label: 'Pending QR Order', emoji: '🛎️', bg: 'bg-amber-500/20', border: 'border-amber-500/50', text: 'text-amber-400 font-black', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Accept & Send' },
   SENT_TO_KITCHEN: { label: 'In Kitchen',   emoji: '🍳', bg: 'bg-amber-500/10',   border: 'border-amber-500/30',    text: 'text-amber-500' },
   PREPARING:       { label: 'Cooking',      emoji: '🔥', bg: 'bg-orange-500/10',  border: 'border-orange-500/30',   text: 'text-orange-500' },
   READY:           { label: 'Ready to Pick',emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-500' },
@@ -1036,85 +1036,100 @@ export default function TablesPage() {
                       ))}
                     </div>
 
-                    {/* Table-Attached Direct Action Buttons */}
-                    <div className="pt-2 border-t border-border/60 grid grid-cols-4 gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      {/* 1. KOT Button */}
-                      <button
-                        type="button"
-                        disabled={isCancelled}
-                        onClick={() => handlePrintOrder(activeOrder, true)}
-                        className={cn(
-                          'h-8 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
-                          isCancelled && 'opacity-30 cursor-not-allowed'
-                        )}
-                        title="Print Kitchen Order Ticket (KOT)"
-                      >
-                        <span>🍳</span>
-                        <span className="hidden sm:inline">KOT</span>
-                      </button>
+                    {/* Table-Attached Direct Action Buttons: Large Accept Button for Pending QR/Draft vs 4 Operational Actions */}
+                    {['CONFIRMED', 'DRAFT'].includes(activeOrder.status) ? (
+                      <div className="pt-2 border-t border-border/60" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/pos?table=${table.id}&order=${activeOrder.id}&accept=true`)}
+                          className="w-full h-11 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40 animate-pulse"
+                          title="Open POS to review, edit dishes, and send KOT to Kitchen"
+                        >
+                          <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-200" />
+                          <span>Accept Order (Edit &amp; Send KOT)</span>
+                          <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-border/60 grid grid-cols-4 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. KOT Button */}
+                        <button
+                          type="button"
+                          disabled={isCancelled}
+                          onClick={() => handlePrintOrder(activeOrder, true)}
+                          className={cn(
+                            'h-8 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            isCancelled && 'opacity-30 cursor-not-allowed'
+                          )}
+                          title="Print Kitchen Order Ticket (KOT)"
+                        >
+                          <span>🍳</span>
+                          <span className="hidden sm:inline">KOT</span>
+                        </button>
 
-                      {/* 2. Print Bill Button */}
-                      <button
-                        type="button"
-                        disabled={isCancelled}
-                        onClick={() => {
-                          if (isServed) {
-                            handlePrintOrder(activeOrder, false);
-                          } else {
-                            setBillPreviewOrder(activeOrder);
-                          }
-                        }}
-                        className={cn(
-                          'h-8 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
-                          !isServed && 'text-amber-400 border-amber-500/30',
-                          isCancelled && 'opacity-30 cursor-not-allowed'
-                        )}
-                        title={isServed ? 'Print Bill / Tax Invoice' : 'Preview Bill (Food in Kitchen)'}
-                      >
-                        <Printer className="w-3 h-3" />
-                        <span className="hidden sm:inline">{isServed ? 'Bill' : 'Preview'}</span>
-                      </button>
+                        {/* 2. Print Bill Button */}
+                        <button
+                          type="button"
+                          disabled={isCancelled}
+                          onClick={() => {
+                            if (isServed) {
+                              handlePrintOrder(activeOrder, false);
+                            } else {
+                              setBillPreviewOrder(activeOrder);
+                            }
+                          }}
+                          className={cn(
+                            'h-8 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            !isServed && 'text-amber-400 border-amber-500/30',
+                            isCancelled && 'opacity-30 cursor-not-allowed'
+                          )}
+                          title={isServed ? 'Print Bill / Tax Invoice' : 'Preview Bill (Food in Kitchen)'}
+                        >
+                          <Printer className="w-3 h-3" />
+                          <span className="hidden sm:inline">{isServed ? 'Bill' : 'Preview'}</span>
+                        </button>
 
-                      {/* 3. Mark Paid Button */}
-                      <button
-                        type="button"
-                        disabled={!payCheck.canPay}
-                        onClick={() => {
-                          if (payCheck.canPay) {
-                            handleMarkAsPaidAndBill(activeOrder);
-                          }
-                        }}
-                        className={cn(
-                          'h-8 rounded-xl font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs',
-                          payCheck.canPay
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                            : 'bg-muted/70 text-muted-foreground opacity-50 cursor-not-allowed'
-                        )}
-                        title={payCheck.reason || 'Mark as Paid & Done'}
-                      >
-                        <span>✅</span>
-                        <span className="hidden sm:inline">Paid</span>
-                      </button>
+                        {/* 3. Mark Paid Button */}
+                        <button
+                          type="button"
+                          disabled={!payCheck.canPay}
+                          onClick={() => {
+                            if (payCheck.canPay) {
+                              handleMarkAsPaidAndBill(activeOrder);
+                            }
+                          }}
+                          className={cn(
+                            'h-8 rounded-xl font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs',
+                            payCheck.canPay
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              : 'bg-muted/70 text-muted-foreground opacity-50 cursor-not-allowed'
+                          )}
+                          title={payCheck.reason || 'Mark as Paid & Done'}
+                        >
+                          <span>✅</span>
+                          <span className="hidden sm:inline">Paid</span>
+                        </button>
 
-                      {/* 4. Cancel Button */}
-                      <button
-                        type="button"
-                        disabled={!cancelCheck.canCancel}
-                        onClick={() => {
-                          if (cancelCheck.canCancel && confirm(`Cancel Order #${activeOrder.orderNumber}?`)) {
-                            updateStatus.mutate({ orderId: activeOrder.id, status: 'CANCELLED' });
-                          }
-                        }}
-                        className={cn(
-                          'h-8 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
-                          !cancelCheck.canCancel && 'opacity-30 cursor-not-allowed hover:bg-transparent'
-                        )}
-                        title={cancelCheck.canCancel ? 'Cancel Order' : cancelCheck.reason || 'Cannot cancel'}
-                      >
-                        <span>❌</span>
-                        <span className="hidden sm:inline">Cancel</span>
-                      </button>
-                    </div>
+                        {/* 4. Cancel Button */}
+                        <button
+                          type="button"
+                          disabled={!cancelCheck.canCancel}
+                          onClick={() => {
+                            if (cancelCheck.canCancel && confirm(`Cancel Order #${activeOrder.orderNumber}?`)) {
+                              updateStatus.mutate({ orderId: activeOrder.id, status: 'CANCELLED' });
+                            }
+                          }}
+                          className={cn(
+                            'h-8 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            !cancelCheck.canCancel && 'opacity-30 cursor-not-allowed hover:bg-transparent'
+                          )}
+                          title={cancelCheck.canCancel ? 'Cancel Order' : cancelCheck.reason || 'Cannot cancel'}
+                        >
+                          <span>❌</span>
+                          <span className="hidden sm:inline">Cancel</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="py-6 px-3 rounded-2xl bg-card/60 border border-dashed border-border flex flex-col items-center justify-center text-center space-y-1.5">
