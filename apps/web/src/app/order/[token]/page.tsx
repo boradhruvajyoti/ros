@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag,
   ChefHat, MapPin, AlertCircle, ArrowRight,
-  ShieldCheck, Lock, Eye, X, Download
+  ShieldCheck, Lock, Eye, X, Download, Ban
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -206,7 +206,12 @@ function TableOrderContent() {
         if (json.data) {
           setTableData(json.data);
           if (json.data.activeOrders && json.data.activeOrders.length > 0) {
-            setOrderPlaced(json.data.activeOrders[0]);
+            const firstActive = json.data.activeOrders[0];
+            setOrderPlaced(firstActive);
+            if (['CANCELLED', 'VOIDED'].includes(firstActive.status)) {
+              setCart({});
+              setGuestNotes('');
+            }
           } else {
             setOrderPlaced(null);
           }
@@ -314,6 +319,10 @@ function TableOrderContent() {
 
   const handleDownloadBill = (order: any) => {
     if (!order) return;
+    if (['CANCELLED', 'VOIDED'].includes(order.status)) {
+      alert('Bill download is not available for cancelled orders.');
+      return;
+    }
     if (!['PAID', 'COMPLETED'].includes(order.status)) {
       alert('Bill download is only available after payment has been marked as PAID.');
       return;
@@ -571,7 +580,7 @@ function TableOrderContent() {
       }
 
       if (config) {
-        if (['PAID', 'COMPLETED'].includes(currentStatus)) {
+        if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentStatus)) {
           setCart({});
           setGuestNotes('');
         }
@@ -1148,7 +1157,32 @@ function TableOrderContent() {
 
               {/* Download Bill / Receipt Action (Enabled only once marked PAID) */}
               <div className="space-y-2 pt-1">
-                {['PAID', 'COMPLETED'].includes(currentActiveOrder.status) ? (
+                {['CANCELLED', 'VOIDED'].includes(currentActiveOrder.status) ? (
+                  <div className="space-y-2">
+                    <Button
+                      disabled
+                      className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-rose-500/10 text-rose-500 border border-rose-500/30 cursor-not-allowed opacity-70"
+                      title="Bill download is not available for cancelled orders."
+                    >
+                      <Ban className="w-4 h-4" />
+                      <span>Order Cancelled — Bill Not Available</span>
+                    </Button>
+
+                    {canOrder && (
+                      <Button
+                        onClick={() => {
+                          setCart({});
+                          setGuestNotes('');
+                          setViewTab('MENU');
+                        }}
+                        className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Place a New Order</span>
+                      </Button>
+                    )}
+                  </div>
+                ) : ['PAID', 'COMPLETED'].includes(currentActiveOrder.status) ? (
                   <div className="space-y-2">
                     <Button
                       onClick={() => handleDownloadBill(currentActiveOrder)}

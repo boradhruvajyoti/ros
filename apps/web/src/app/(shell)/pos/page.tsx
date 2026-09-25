@@ -238,13 +238,24 @@ export default function POSPage() {
         t === 'KOT_CREATED' ||
         t === 'PAYMENT_COMPLETED'
       ) {
+        if (t === 'ORDER_STATUS_CHANGED') {
+          const payload = (event as any).payload || {};
+          if (payload.status === 'CANCELLED' || payload.status === 'VOIDED') {
+            if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
+              setCart([]);
+              setNotes('');
+              lastSyncedSignatureRef.current = '';
+              toast.error('Order Cancelled', `Order #${payload.orderNumber || ''} was cancelled. Cart cleared.`);
+            }
+          }
+        }
         queryClient.invalidateQueries({ queryKey: ['active-orders'] });
         queryClient.invalidateQueries({ queryKey: ['tables'] });
         queryClient.invalidateQueries({ queryKey: ['orders'] });
       }
     });
     return () => unsub();
-  }, [queryClient]);
+  }, [queryClient, orderParam, selectedTable]);
 
   const categories = useMemo(() => {
     return Array.isArray(rawCategories) ? rawCategories : [];
@@ -285,7 +296,12 @@ export default function POSPage() {
       (o: any) => (selectedTable && o.tableId === selectedTable) || (orderParam && o.id === orderParam)
     );
 
-    if (!currentOrder) {
+    if (!currentOrder || ['CANCELLED', 'VOIDED'].includes(currentOrder.status)) {
+      if (currentOrder && ['CANCELLED', 'VOIDED'].includes(currentOrder.status)) {
+        setCart([]);
+        setNotes('');
+        lastSyncedSignatureRef.current = `${currentOrder.id}_${currentOrder.status}`;
+      }
       return;
     }
 
