@@ -23,6 +23,7 @@ const restaurantNavItems = [
   { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard,  permission: null },
   { href: '/pos',           label: 'POS',            icon: ShoppingCart,     permission: 'orders:create' },
   { href: '/tables',        label: 'Tables & Orders', icon: Grid3X3,         permission: 'tables:view' },
+  { href: '/order-history', label: 'Order History',  icon: ClipboardList,    permission: 'orders:view' },
   { href: '/reservations',  label: 'Reservations',   icon: CalendarDays,     permission: 'reservations:view' },
   { href: '/kitchen',       label: 'Kitchen Display', icon: ChefHat,          permission: 'kitchen:view' },
   { href: '/qr-order',      label: 'QR Ordering',   icon: QrCode,           permission: null },
@@ -58,9 +59,10 @@ const restaurantNavItems = [
 // Dedicated Navigation for Waiters
 const waiterNavItems = [
   { type: 'divider', label: 'WAITER SERVICE' },
-  { href: '/tables',   label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
-  { href: '/pos',      label: '🛒 Take Order (POS)', icon: ShoppingCart, permission: null },
-  { href: '/kitchen',  label: '🛎️ Kitchen Queue', icon: ChefHat, permission: null },
+  { href: '/tables',        label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
+  { href: '/pos',           label: '🛒 Take Order (POS)', icon: ShoppingCart, permission: null },
+  { href: '/order-history', label: '📜 Order History', icon: ClipboardList, permission: null },
+  { href: '/kitchen',       label: '🛎️ Kitchen Queue', icon: ChefHat, permission: null },
 ];
 
 // Dedicated Navigation for Kitchen Cooks
@@ -74,9 +76,10 @@ const kitchenNavItems = [
 // Dedicated Navigation for Cashiers
 const cashierNavItems = [
   { type: 'divider', label: 'FAST BILLING & CASH' },
-  { href: '/pos',      label: '💳 Fast Billing (POS)', icon: ShoppingCart, permission: null },
-  { href: '/tables',   label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
-  { href: '/expenses', label: '💰 Cash & Expenses', icon: Wallet, permission: null },
+  { href: '/pos',           label: '💳 Fast Billing (POS)', icon: ShoppingCart, permission: null },
+  { href: '/tables',        label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
+  { href: '/order-history', label: '📜 Order History', icon: ClipboardList, permission: null },
+  { href: '/expenses',      label: '💰 Cash & Expenses', icon: Wallet, permission: null },
 ];
 
 // Dedicated Navigation for Platform Super-Admin

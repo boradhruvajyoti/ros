@@ -1112,9 +1112,12 @@ export class OrderService {
     limit?: number;
   }) {
     const { page = 1, limit = 50, ...rest } = filters;
+    const branchFilter = this.branchId && this.branchId !== 'default-branch'
+      ? { branchId: this.branchId }
+      : {};
     const where: Prisma.OrderWhereInput = {
       tenantId: this.tenantId,
-      branchId: this.branchId,
+      ...branchFilter,
       ...(rest.status ? { status: rest.status } : {}),
       ...(rest.type ? { type: rest.type } : {}),
       ...(rest.tableId ? { tableId: rest.tableId } : {}),
@@ -1128,19 +1131,33 @@ export class OrderService {
         where,
         include: {
           table: { select: { id: true, name: true } },
-          customer: { select: { id: true, name: true } },
+          customer: { select: { id: true, name: true, phone: true } },
           items: {
+            where: { status: { notIn: ['VOIDED', 'CANCELLED'] } },
             include: {
-              menuItem: { select: { id: true, name: true, foodType: true } },
+              menuItem: { select: { id: true, name: true, foodType: true, imageUrl: true } },
               variant: { select: { id: true, name: true, price: true } },
+              modifiers: true,
             },
           },
           kots: {
             include: {
-              items: true,
+              items: {
+                include: {
+                  orderItem: {
+                    include: {
+                      menuItem: { select: { id: true, name: true, foodType: true } },
+                      variant: { select: { id: true, name: true, price: true } },
+                    },
+                  },
+                },
+              },
               kitchenStation: { select: { id: true, name: true } },
             },
+            orderBy: { createdAt: 'asc' },
           },
+          payments: true,
+          appliedDiscounts: true,
           _count: { select: { items: true } },
         },
         orderBy: { createdAt: 'desc' },
