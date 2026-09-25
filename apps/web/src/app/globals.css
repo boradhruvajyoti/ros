@@ -96,7 +96,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "cv11", "ss01", "tnum";
+    font-variant-numeric: tabular-nums;
   }
 
   ::selection {

@@ -857,11 +857,11 @@ export default function POSPage() {
                       'w-2.5 h-2.5 rounded-full shrink-0',
                       item.foodType === 'VEG' || item.foodType === 'VEGAN' ? 'bg-emerald-500' : 'bg-red-500'
                     )} />
-                    <p className="text-xs font-black text-foreground truncate">{item.name}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
                   </div>
-                  <p className="text-[11px] font-bold text-emerald-400 mt-1">
+                  <p className="text-sm font-bold font-mono tabular-nums text-emerald-400 mt-0.5">
                     ₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}{' '}
-                    <span className="text-[10px] text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
+                    <span className="text-xs text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
                   </p>
                 </div>
 
@@ -874,7 +874,7 @@ export default function POSPage() {
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="w-6 text-center text-sm font-black text-foreground">{item.quantity}</span>
+                  <span className="w-6 text-center text-sm font-bold font-mono tabular-nums text-foreground">{item.quantity}</span>
                   <button
                     type="button"
                     onClick={() => updateQty(item.key, 1)}
@@ -892,20 +892,22 @@ export default function POSPage() {
         {cart.length > 0 && (
           <div className="p-4 border-t border-border bg-muted/30 shrink-0 space-y-3">
             {/* Quick Bill Breakdown */}
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1.5 text-xs font-normal">
               <div className="flex justify-between text-muted-foreground">
                 <span>Items Subtotal:</span>
-                <span className="font-semibold text-foreground">₹{subtotal.toFixed(2)}</span>
+                <span className="font-semibold font-mono tabular-nums text-foreground">₹{subtotal.toFixed(2)}</span>
               </div>
               {tax > 0 && taxRate > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>GST Tax ({taxRate}%):</span>
-                  <span className="font-semibold text-foreground">₹{tax.toFixed(2)}</span>
+                  <span className="font-semibold font-mono tabular-nums text-foreground">₹{tax.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between items-baseline pt-2 border-t border-border font-black text-base text-foreground">
-                <span>Total Amount:</span>
-                <span className="text-2xl text-emerald-400">₹{total.toFixed(2)}</span>
+              <div className="flex justify-between items-baseline pt-2 border-t border-border">
+                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Payable:</span>
+                <span className="text-3xl font-bold font-mono tracking-tight text-emerald-400 tabular-nums">
+                  ₹{total.toFixed(2)}
+                </span>
               </div>
             </div>
 

@@ -375,12 +375,12 @@ export default function OrderHistoryPage() {
       {/* ── Top Header & Title ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-3xl bg-gradient-to-r from-card via-card/80 to-muted/40 border border-border shadow-sm">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-primary/15 text-primary flex items-center justify-center font-bold text-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center font-bold text-2xl shrink-0">
               📜
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight text-foreground">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 Restaurant Order History
               </h1>
               <p className="text-xs text-muted-foreground font-medium">
@@ -404,44 +404,44 @@ export default function OrderHistoryPage() {
         </div>
       </div>
 
-      {/* ── Metrics Summary Strip ─────────────────────────────────────────────── */}
+      {/* ── Metrics Summary Strip (30-36px Bold KPI Values) ────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <div className="p-4 rounded-3xl bg-card border border-border space-y-1 shadow-xs">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
             Total Orders
           </span>
-          <p className="text-2xl font-black font-mono text-foreground">{metrics.totalOrders}</p>
-          <span className="text-[10px] text-muted-foreground">In selected timeframe</span>
+          <p className="text-3xl font-bold font-mono tracking-tight text-foreground">{metrics.totalOrders}</p>
+          <span className="text-xs text-muted-foreground font-medium">In selected timeframe</span>
         </div>
 
         <div className="p-4 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 space-y-1 shadow-xs">
-          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider block">
+          <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block">
             Gross Paid Revenue
           </span>
-          <p className="text-2xl font-black font-mono text-emerald-400">
+          <p className="text-3xl font-bold font-mono tracking-tight text-emerald-400">
             {formatCurrency(metrics.grossRevenue)}
           </p>
-          <span className="text-[10px] text-emerald-300 font-medium">
+          <span className="text-xs text-emerald-300 font-medium">
             {metrics.paidCount} Settled Orders
           </span>
         </div>
 
         <div className="p-4 rounded-3xl bg-blue-500/10 border border-blue-500/30 space-y-1 shadow-xs">
-          <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider block">
+          <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block">
             Avg Order Value (AOV)
           </span>
-          <p className="text-2xl font-black font-mono text-blue-400">
+          <p className="text-3xl font-bold font-mono tracking-tight text-blue-400">
             {formatCurrency(metrics.aov)}
           </p>
-          <span className="text-[10px] text-blue-300 font-medium">Per settled order</span>
+          <span className="text-xs text-blue-300 font-medium">Per settled order</span>
         </div>
 
         <div className="p-4 rounded-3xl bg-rose-500/10 border border-rose-500/30 space-y-1 shadow-xs">
-          <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider block">
+          <span className="text-xs font-semibold text-rose-400 uppercase tracking-wider block">
             Cancelled / Voided
           </span>
-          <p className="text-2xl font-black font-mono text-rose-400">{metrics.cancelledCount}</p>
-          <span className="text-[10px] text-rose-300 font-medium">Cancelled tickets</span>
+          <p className="text-3xl font-bold font-mono tracking-tight text-rose-400">{metrics.cancelledCount}</p>
+          <span className="text-xs text-rose-300 font-medium">Cancelled tickets</span>
         </div>
       </div>
 

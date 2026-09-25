@@ -96,31 +96,33 @@ function KotCard({
     >
       {/* Ticket Header */}
       <div className={cn(
-        'p-3.5 border-b border-border flex items-center justify-between',
-        kot.status === 'NEW' ? 'bg-blue-500/10' :
-        kot.status === 'ACCEPTED' ? 'bg-amber-500/10' :
-        kot.status === 'PREPARING' ? 'bg-orange-500/10' :
-        'bg-emerald-500/10'
+        'p-4 border-b border-border flex items-center justify-between',
+        kot.status === 'NEW' ? 'bg-blue-500/15' :
+        kot.status === 'ACCEPTED' ? 'bg-amber-500/15' :
+        kot.status === 'PREPARING' ? 'bg-orange-500/15' :
+        'bg-emerald-500/15'
       )}>
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-black text-foreground">#{kot.kotNumber}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-foreground">
+            #{kot.kotNumber}
+          </span>
           <Badge className={cn(
-            'font-black text-[11px] rounded-lg',
+            'font-bold text-sm px-3 py-1 rounded-xl uppercase tracking-wide',
             kot.order.type === 'DINE_IN' ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'
           )}>
             {kot.order.table ? `Table ${kot.order.table.name}` : kot.order.type}
           </Badge>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <div className={cn(
-            'flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black tabular',
-            isOverdue ? 'bg-red-500 text-white animate-pulse' :
-            isWarning ? 'bg-amber-500/20 text-amber-400' :
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm sm:text-base font-semibold tabular-nums font-mono',
+            isOverdue ? 'bg-red-600 text-white animate-pulse' :
+            isWarning ? 'bg-amber-500/25 text-amber-300 font-bold' :
             'bg-muted text-foreground'
           )}>
-            <Clock className="w-3.5 h-3.5" />
-            <span>{kot.ageMinutes}m ago</span>
+            <Clock className="w-4 h-4" />
+            <span>{kot.ageMinutes}m</span>
           </div>
 
           {canCancel && (
@@ -128,41 +130,45 @@ function KotCard({
               type="button"
               onClick={() => onRequestCancelKot(kot.id, kot.kotNumber)}
               title="Cancel Entire KOT Ticket"
-              className="p-1 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+              className="p-2 rounded-xl text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-5 h-5" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Dishes List (Giant Large Font for Line Cooks) */}
-      <div className="p-4 flex-1 space-y-3">
+      {/* Dishes List (High-Contrast 20-24px Font for Line Cooks from 4-8 feet) */}
+      <div className="p-4 sm:p-5 flex-1 space-y-4">
         {kot.items.map((item) => {
           const isItemCancelled = item.status === 'CANCELLED';
+          const qty = item.orderItem?.quantity || 1;
+          const isMultiQty = qty > 1;
 
           return (
             <div
               key={item.id}
               className={cn(
-                'flex items-start gap-3 pb-2 border-b border-border/40 last:border-0 last:pb-0',
-                isItemCancelled && 'opacity-40 line-through'
+                'flex items-start gap-4 pb-3 border-b border-border/50 last:border-0 last:pb-0',
+                isItemCancelled && 'opacity-35 line-through'
               )}
             >
-              {/* Quantity Number Box */}
+              {/* Quantity Number Box (22px-26px ExtraBold, Amber if > 1) */}
               <div className={cn(
-                'w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black shrink-0 shadow-sm',
+                'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-extrabold font-mono shrink-0 shadow-sm',
                 isItemCancelled
                   ? 'bg-muted text-muted-foreground'
+                  : isMultiQty
+                  ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-400/50'
                   : 'bg-primary text-primary-foreground'
               )}>
-                {item.orderItem?.quantity || 1}
+                {qty}
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-1">
+                <div className="flex items-start justify-between gap-2">
                   <p className={cn(
-                    'font-black text-base leading-snug',
+                    'font-bold text-xl leading-snug tracking-tight',
                     isItemCancelled ? 'text-muted-foreground line-through' : 'text-foreground'
                   )}>
                     {item.orderItem?.menuItem?.name || 'Dish'}
@@ -179,34 +185,36 @@ function KotCard({
                           item.orderItem?.menuItem?.name || 'Dish'
                         )
                       }
-                      className="p-1 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0"
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0"
                       title="Cancel this item from KOT"
                     >
-                      <XCircle className="w-4 h-4" />
+                      <XCircle className="w-5 h-5" />
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs font-bold text-muted-foreground">
-                    {item.orderItem?.variant?.name}
-                  </span>
+                <div className="flex items-center gap-2 mt-1">
+                  {item.orderItem?.variant?.name && (
+                    <span className="text-sm font-semibold text-muted-foreground bg-muted/70 px-2 py-0.5 rounded-md">
+                      {item.orderItem?.variant?.name}
+                    </span>
+                  )}
                   {item.orderItem?.modifiers?.length > 0 && (
-                    <span className="text-xs font-semibold text-indigo-400">
+                    <span className="text-sm font-medium text-indigo-400">
                       + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
                     </span>
                   )}
                 </div>
 
                 {isItemCancelled && (
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400">
+                  <span className="inline-block mt-1.5 px-2.5 py-0.5 rounded-md text-xs font-extrabold bg-rose-500/20 text-rose-400">
                     CANCELLED
                   </span>
                 )}
 
                 {item.orderItem?.notes && !isItemCancelled && (
-                  <div className="mt-1 px-2 py-0.5 rounded-lg bg-red-500/10 border border-red-500/30 text-xs font-bold text-red-400">
-                    ⚠️ Note: {item.orderItem.notes}
+                  <div className="mt-2 p-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-base font-semibold text-rose-400">
+                    ⚠️ {item.orderItem.notes}
                   </div>
                 )}
               </div>
@@ -215,8 +223,8 @@ function KotCard({
         })}
 
         {kot.order.notes && (
-          <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-300">
-            📝 Order Note: {kot.order.notes}
+          <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-base font-semibold text-amber-300">
+            📝 Note: {kot.order.notes}
           </div>
         )}
       </div>
