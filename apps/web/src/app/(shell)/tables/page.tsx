@@ -323,7 +323,7 @@ export default function TablesPage() {
   const { data: tables = [], isLoading: isTablesLoading } = useQuery<Table[]>({
     queryKey: ['tables', tableStatusFilter],
     queryFn: () => apiGet(`/tables${tableStatusFilter ? `?status=${tableStatusFilter}` : ''}`),
-    refetchInterval: 3000,
+    refetchInterval: 2000,
   });
 
   const { data: activeOrders = [] } = useQuery<any[]>({

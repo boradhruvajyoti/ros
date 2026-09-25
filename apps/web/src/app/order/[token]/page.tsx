@@ -377,11 +377,14 @@ function TableOrderContent() {
     return () => clearInterval(timerInterval);
   }, [sessionExpiresAt]);
 
-  // Live polling for table active orders & status updates (2s fast sync)
+  // Live polling for table active orders & status updates (2s fast sync with smart visibility pause)
   useEffect(() => {
     if (!token || isLocallyExpired) return;
 
-    const interval = setInterval(async () => {
+    let isVisible = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
+
+    const performSync = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       try {
         const storedSession = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
         const sessionParam = guestSessionToken || urlSession || storedSession;
@@ -413,9 +416,26 @@ function TableOrderContent() {
       } catch {
         // silent catch for background polling
       }
-    }, 2000);
+    };
 
-    return () => clearInterval(interval);
+    const interval = setInterval(performSync, 2000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        performSync();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, [token, guestSessionToken, urlSession, isLocallyExpired, storageKey, syncSessionToken]);
 
   const isSessionExpired = Boolean(

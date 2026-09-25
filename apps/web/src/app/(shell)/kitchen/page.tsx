@@ -298,7 +298,7 @@ export default function KitchenPage() {
   const { data: kots = [], isLoading } = useQuery<Kot[]>({
     queryKey: ['kitchen-queue', filterStation],
     queryFn: () => apiGet(`/kitchen/queue${filterStation ? `?stationId=${filterStation}` : ''}`),
-    refetchInterval: isLive ? 8000 : false,
+    refetchInterval: isLive ? 2000 : false,
   });
 
   const { data: stations = [] } = useQuery<any[]>({
