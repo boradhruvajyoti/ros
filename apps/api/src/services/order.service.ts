@@ -686,6 +686,36 @@ export class OrderService {
         include: this.orderInclude(),
       });
 
+      // Auto-cancel all unaccepted / active KOTs and order items under this order
+      if (['CANCELLED', 'VOIDED'].includes(dto.status)) {
+        const activeKots = await tx.orderKot.findMany({
+          where: { orderId, status: { not: 'CANCELLED' } },
+        });
+
+        if (activeKots.length > 0) {
+          await tx.orderKot.updateMany({
+            where: { orderId, status: { not: 'CANCELLED' } },
+            data: { status: 'CANCELLED' },
+          });
+
+          await tx.orderKotItem.updateMany({
+            where: {
+              kotId: { in: activeKots.map((k) => k.id) },
+              status: { not: 'CANCELLED' },
+            },
+            data: { status: 'CANCELLED' },
+          });
+        }
+
+        await tx.orderItem.updateMany({
+          where: { orderId, status: { not: 'CANCELLED' } },
+          data: {
+            status: 'CANCELLED',
+            notes: dto.reason ? `[Cancelled: ${dto.reason}]` : '[Cancelled with Order]',
+          },
+        });
+      }
+
       // Release table when order is paid/completed/voided/cancelled -> make AVAILABLE directly
       if (['PAID', 'COMPLETED', 'VOIDED', 'CANCELLED'].includes(dto.status) && order.tableId) {
         await tx.restaurantTable.update({
@@ -705,6 +735,23 @@ export class OrderService {
 
       return u;
     });
+
+    // Emit KOT cancellation events to room and specific kitchen stations
+    if (['CANCELLED', 'VOIDED'].includes(dto.status)) {
+      const allKots = updated.kots || [];
+      for (const kot of allKots) {
+        emitToRoom(this.tenantId, targetBranchId, {
+          type: 'KOT_STATUS_CHANGED',
+          payload: { kotId: kot.id, status: 'CANCELLED', stationId: kot.kitchenStationId || 'default' },
+        });
+        if (kot.kitchenStationId) {
+          emitToStation(this.tenantId, targetBranchId, kot.kitchenStationId, {
+            type: 'KOT_STATUS_CHANGED',
+            payload: { kotId: kot.id, status: 'CANCELLED', stationId: kot.kitchenStationId },
+          });
+        }
+      }
+    }
 
     emitToRoom(this.tenantId, targetBranchId, {
       type: 'ORDER_STATUS_CHANGED',

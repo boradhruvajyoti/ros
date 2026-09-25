@@ -301,11 +301,12 @@ export default function KitchenPage() {
   // Real-time WebSocket event listener with audio chime
   useEffect(() => {
     const off = onRosEvent((event) => {
-      if (['KOT_CREATED', 'KOT_STATUS_CHANGED', 'KOT_ITEM_STATUS_CHANGED'].includes(event.type)) {
+      if (['KOT_CREATED', 'KOT_STATUS_CHANGED', 'KOT_ITEM_STATUS_CHANGED', 'ORDER_STATUS_CHANGED', 'ORDER_CANCELLED', 'TABLE_STATUS_CHANGED'].includes(event.type)) {
         if (event.type === 'KOT_CREATED' && soundEnabled) {
           playKitchenChime();
         }
         queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
+        queryClient.invalidateQueries({ queryKey: ['kitchen-kots'] });
       }
     });
     return off;
