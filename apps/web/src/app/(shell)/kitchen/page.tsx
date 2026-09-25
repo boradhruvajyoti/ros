@@ -75,7 +75,7 @@ function KotCard({
   const isOverdue = kot.ageMinutes > 15;
   const isWarning = kot.ageMinutes > 10;
   const nextStatus = STATUS_FLOW[kot.status];
-  const canCancel = ['NEW', 'ACCEPTED', 'PREPARING', 'READY'].includes(kot.status);
+  const canCancel = ['NEW', 'ACCEPTED', 'PREPARING'].includes(kot.status);
 
   return (
     <div

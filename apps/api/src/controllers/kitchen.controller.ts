@@ -107,10 +107,10 @@ export class KitchenController {
     }
 
     if (status === 'CANCELLED') {
-      if (existingKot.status === 'SERVED') {
+      if (['READY', 'SERVED'].includes(existingKot.status)) {
         throw new AppError(
           ErrorCodes.VALIDATION_ERROR,
-          'Cannot cancel KOT after it has already been served.',
+          'Cannot cancel KOT once it has reached Ready to serve or Served status.',
           400
         );
       }
@@ -323,10 +323,10 @@ export class KitchenController {
     }
 
     if (status === 'CANCELLED') {
-      if (existingItem.kot.status === 'SERVED' || existingItem.status === 'SERVED') {
+      if (['READY', 'SERVED'].includes(existingItem.kot.status) || existingItem.status === 'READY' || existingItem.status === 'SERVED') {
         throw new AppError(
           ErrorCodes.VALIDATION_ERROR,
-          'Cannot cancel an item after it has already been served.',
+          'Cannot cancel an item once it has reached Ready to serve or Served status.',
           400
         );
       }
