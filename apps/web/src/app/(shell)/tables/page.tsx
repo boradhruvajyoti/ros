@@ -153,9 +153,7 @@ export default function TablesPage() {
   const [orderTypeFilter, setOrderTypeFilter] = useState<string | null>(null);
   const [orderViewMode, setOrderViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedOrder, setSelectedOrder] = useState<Order | any | null>(null);
-  const [verifyingOrder, setVerifyingOrder] = useState<Order | any | null>(null);
   const [billPreviewOrder, setBillPreviewOrder] = useState<Order | any | null>(null);
-  const [editableItems, setEditableItems] = useState<any[]>([]);
 
   // ── Data Queries ────────────────────────────────────────────────────────────
   const { data: tenant } = useQuery({
@@ -204,23 +202,6 @@ export default function TablesPage() {
     o.customer?.name?.toLowerCase().includes(orderSearch.toLowerCase()) ||
     o.table?.name?.toLowerCase().includes(orderSearch.toLowerCase())
   );
-
-  // Sync editable items when verifyingOrder modal opens
-  useEffect(() => {
-    if (verifyingOrder) {
-      setEditableItems(
-        (verifyingOrder.items || []).map((it: any) => ({
-          ...it,
-          menuItemId: it.menuItemId || it.menuItem?.id,
-          variantId: it.variantId || it.variant?.id,
-          name: it.menuItem?.name || it.name || 'Dish',
-          unitPrice: Number(it.unitPrice || it.variant?.price || 0),
-          quantity: Number(it.quantity || 1),
-          notes: it.notes || '',
-        }))
-      );
-    }
-  }, [verifyingOrder]);
 
   // Generate QR image when QR modal opens
   useEffect(() => {
@@ -464,34 +445,14 @@ export default function TablesPage() {
     );
   };
 
-  const updateOrderItemsMutation = useMutation({
-    mutationFn: ({ orderId, items, sendToKitchen }: { orderId: string; items: any[]; sendToKitchen?: boolean }) =>
-      apiPut(`/orders/${orderId}/items`, {
-        items: items.map((i) => ({
-          menuItemId: i.menuItemId || i.id,
-          variantId: i.variantId,
-          quantity: i.quantity || 1,
-          notes: i.notes,
-        })),
-        sendToKitchen,
-      }),
-    onSuccess: (_, vars) => {
-      toast.success(
-        vars.sendToKitchen ? 'Order Sent to Kitchen' : 'Order Updated',
-        vars.sendToKitchen ? 'Dispatched to kitchen stations & KOT generated.' : 'Order items updated.'
-      );
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['kds-kots'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-      setVerifyingOrder(null);
-    },
-    onError: (err: any) => toast.error('Update Failed', err.message || 'Could not update order items'),
-  });
-
   const handleAdvanceStatus = (order: any, targetStatus: string) => {
-    if (targetStatus === 'SENT_TO_KITCHEN' && ['DRAFT', 'CONFIRMED'].includes(order.status)) {
-      setVerifyingOrder(order);
+    if (['DRAFT', 'CONFIRMED'].includes(order.status) || targetStatus === 'SENT_TO_KITCHEN') {
+      const tableId = order.tableId || order.table?.id;
+      if (tableId) {
+        router.push(`/pos?table=${tableId}&orderId=${order.id}`);
+      } else {
+        router.push(`/pos?orderId=${order.id}`);
+      }
       return;
     }
     updateStatus.mutate({ orderId: order.id, status: targetStatus });
@@ -1086,6 +1047,22 @@ export default function TablesPage() {
                         );
                       })()}
 
+                      {!isCancelled && order.status !== 'PAID' && order.status !== 'COMPLETED' && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
+                              updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
+                            }
+                          }}
+                          className="p-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-bold transition-colors"
+                          title="Cancel Entire Order"
+                        >
+                          ❌
+                        </button>
+                      )}
+
                       {cfg.nextStatus && !isCancelled && (
                         <Button
                           size="sm"
@@ -1176,6 +1153,22 @@ export default function TablesPage() {
                             >
                               {isServed ? <Printer className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                             </button>
+
+                            {!isCancelled && order.status !== 'PAID' && order.status !== 'COMPLETED' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
+                                    updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                title="Cancel Entire Order"
+                              >
+                                ❌
+                              </button>
+                            )}
+
                             {cfg.nextStatus && !isCancelled && (
                               <Button
                                 size="sm"
@@ -1390,17 +1383,23 @@ export default function TablesPage() {
               </div>
             </div>
 
-            {/* Unified Modal Actions: Single "Mark as Paid & Generate Bill" */}
+            {/* Unified Modal Actions: Single "Mark as Paid & Generate Bill" + POS & Cancel */}
             <div className="space-y-2 pt-1">
               {['DRAFT', 'CONFIRMED'].includes(selectedOrder.status) && (
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setVerifyingOrder(selectedOrder);
+                    const tableId = selectedOrder.tableId || selectedOrder.table?.id;
+                    setSelectedOrder(null);
+                    if (tableId) {
+                      router.push(`/pos?table=${tableId}&orderId=${selectedOrder.id}`);
+                    } else {
+                      router.push(`/pos?orderId=${selectedOrder.id}`);
+                    }
                   }}
-                  className="w-full font-bold text-xs h-10 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 gap-1.5"
+                  className="w-full font-bold text-xs h-11 border-primary/40 text-primary hover:bg-primary/10 gap-1.5 rounded-2xl"
                 >
-                  🍳 Edit Dishes &amp; Send to Kitchen
+                  🍳 Open in POS to Edit &amp; Send KOT
                 </Button>
               )}
 
@@ -1413,7 +1412,7 @@ export default function TablesPage() {
                         onClick={() => handleMarkAsPaidAndBill(selectedOrder)}
                         disabled={updateStatus.isPending || !isServed}
                         className={cn(
-                          'w-full font-black text-xs h-12 shadow-lg gap-2 text-sm',
+                          'w-full font-black text-xs h-12 shadow-lg gap-2 text-sm rounded-2xl',
                           isServed
                             ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                             : 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75'
@@ -1432,12 +1431,31 @@ export default function TablesPage() {
                 })()
               )}
 
-              <div className="grid grid-cols-2 gap-2">
+              {selectedOrder.status !== 'CANCELLED' && selectedOrder.status !== 'PAID' && selectedOrder.status !== 'COMPLETED' && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to cancel Order #${selectedOrder.orderNumber}?`)) {
+                      updateStatus.mutate({ orderId: selectedOrder.id, status: 'CANCELLED' });
+                      setSelectedOrder(null);
+                    }
+                  }}
+                  disabled={updateStatus.isPending}
+                  className="w-full font-bold text-xs h-10 border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 gap-1.5 rounded-2xl"
+                >
+                  ❌ Cancel Entire Order
+                </Button>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 {selectedOrder.tableId && (
                   <Button
                     variant="outline"
-                    onClick={() => router.push(`/pos?table=${selectedOrder.tableId}`)}
-                    className="font-bold text-xs h-10 gap-1.5"
+                    onClick={() => {
+                      setSelectedOrder(null);
+                      router.push(`/pos?table=${selectedOrder.tableId}&orderId=${selectedOrder.id}`);
+                    }}
+                    className="font-bold text-xs h-10 gap-1.5 rounded-xl"
                   >
                     <ShoppingCart className="w-4 h-4" /> Open in POS
                   </Button>
@@ -1446,241 +1464,11 @@ export default function TablesPage() {
                 <Button
                   variant="outline"
                   onClick={() => setSelectedOrder(null)}
-                  className="w-full font-bold text-xs h-10 ml-auto"
+                  className="w-full font-bold text-xs h-10 ml-auto rounded-xl"
                 >
                   Close
                 </Button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          MODAL: PHYSICAL PRESENCE & ORDER MODIFICATION (BEFORE KITCHEN DISPATCH)
-      ───────────────────────────────────────────────────────────────────────────── */}
-      {verifyingOrder && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-card border-2 border-primary/40 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 my-8">
-            <div className="flex items-center justify-between pb-2 border-b">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center text-xl font-bold shadow-inner">
-                  🍳
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-foreground">Review &amp; Edit Order</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Order <span className="font-mono font-bold text-foreground">#{verifyingOrder.orderNumber}</span> • <strong className="text-foreground">{verifyingOrder.table ? `Table ${verifyingOrder.table.name}` : 'Dine-In Table'}</strong>
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setVerifyingOrder(null)}
-                className="h-8 w-8 p-0 rounded-full text-muted-foreground hover:text-foreground"
-              >
-                ✕
-              </Button>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1 text-amber-900 dark:text-amber-200">
-              <p className="font-bold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                Staff Order Customization &amp; Presence Verification
-              </p>
-              <p className="text-[11px] leading-relaxed opacity-90">
-                Verify guest presence at <strong>{verifyingOrder.table?.name || 'the table'}</strong>. You can modify quantities, delete, or add extra dishes before sending the order to kitchen stations.
-              </p>
-            </div>
-
-            {/* Editable Items List */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-                <span>Ordered Dishes ({editableItems.length})</span>
-                <span>Qty &amp; Total</span>
-              </div>
-
-              <div className="border rounded-2xl divide-y bg-muted/10 max-h-56 overflow-y-auto">
-                {editableItems.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground text-xs font-medium">
-                    No items in order. Please add dishes below or cancel.
-                  </div>
-                ) : (
-                  editableItems.map((it, idx) => {
-                    const lineTotal = (Number(it.unitPrice) || 0) * (Number(it.quantity) || 1);
-                    return (
-                      <div key={idx} className="p-3 flex items-center justify-between gap-3 hover:bg-muted/30 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-xs text-foreground truncate">{it.name || it.menuItem?.name || 'Dish'}</p>
-                          {it.variant?.name && <p className="text-[10px] text-muted-foreground">Variant: {it.variant.name}</p>}
-                          <p className="text-[11px] font-mono text-muted-foreground">
-                            {formatCurrency(it.unitPrice)} each
-                          </p>
-                        </div>
-
-                        {/* Quantity Controls */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="flex items-center border rounded-xl bg-background/80 shadow-xs overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditableItems((prev) =>
-                                  prev
-                                    .map((item, i) => (i === idx ? { ...item, quantity: (item.quantity || 1) - 1 } : item))
-                                    .filter((item) => item.quantity > 0)
-                                );
-                              }}
-                              className="px-2.5 py-1 text-xs hover:bg-muted font-bold text-muted-foreground transition-colors"
-                            >
-                              -
-                            </button>
-                            <span className="px-2 font-mono font-bold text-xs">{it.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditableItems((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, quantity: (item.quantity || 1) + 1 } : item))
-                                );
-                              }}
-                              className="px-2.5 py-1 text-xs hover:bg-muted font-bold text-muted-foreground transition-colors"
-                            >
-                              +
-                            </button>
-                          </div>
-
-                          <span className="w-16 text-right font-mono font-bold text-xs text-foreground">
-                            {formatCurrency(lineTotal)}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => setEditableItems((prev) => prev.filter((_, i) => i !== idx))}
-                            className="p-1.5 rounded-lg text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
-                            title="Remove item"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Add More Dishes via POS */}
-            <div className="pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  const tableId = verifyingOrder.tableId || verifyingOrder.table?.id;
-                  setVerifyingOrder(null);
-                  if (tableId) {
-                    router.push(`/pos?table=${tableId}&orderId=${verifyingOrder.id}`);
-                  } else {
-                    router.push(`/pos?orderId=${verifyingOrder.id}`);
-                  }
-                }}
-                className="w-full h-11 border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary font-bold text-xs rounded-2xl gap-2 shadow-xs"
-              >
-                <Plus className="w-4 h-4" />
-                + Add More Dishes in POS
-              </Button>
-            </div>
-
-            {/* Order Summary Calculations */}
-            {(() => {
-              const subtotal = editableItems.reduce(
-                (acc, it) => acc + (Number(it.unitPrice) || 0) * (Number(it.quantity) || 1),
-                0
-              );
-              let taxRate = 0;
-              if (tenant?.taxRate !== undefined && tenant?.taxRate !== null) {
-                taxRate = Number(tenant.taxRate);
-              } else {
-                try {
-                  const tenantStr = typeof window !== 'undefined' ? localStorage.getItem('tenant') : null;
-                  const parsed = tenantStr ? JSON.parse(tenantStr) : null;
-                  taxRate = parsed?.taxRate !== undefined ? Number(parsed.taxRate) : 0;
-                } catch {
-                  taxRate = 0;
-                }
-              }
-              const taxAmount = taxRate > 0 ? (subtotal * taxRate) / 100 : 0;
-              const grandTotal = subtotal + taxAmount;
-
-              return (
-                <div className="p-3.5 rounded-2xl bg-muted/30 border space-y-1.5 text-xs">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal:</span>
-                    <span className="font-mono font-medium">{formatCurrency(subtotal)}</span>
-                  </div>
-                  {taxAmount > 0 && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Taxes &amp; GST ({taxRate}%):</span>
-                      <span className="font-mono font-medium">{formatCurrency(taxAmount)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center pt-2 border-t font-black text-sm text-foreground">
-                    <span>New Total:</span>
-                    <span className="font-mono text-primary text-base">{formatCurrency(grandTotal)}</span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Action Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  updateStatus.mutate({ orderId: verifyingOrder.id, status: 'CANCELLED' });
-                  setVerifyingOrder(null);
-                }}
-                disabled={updateStatus.isPending || updateOrderItemsMutation.isPending}
-                className="h-11 rounded-xl text-rose-500 border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 font-bold text-xs order-3 sm:order-1"
-              >
-                ❌ Cancel Order
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (editableItems.length === 0) {
-                    toast.error('Empty Order', 'Please add at least one dish');
-                    return;
-                  }
-                  updateOrderItemsMutation.mutate({
-                    orderId: verifyingOrder.id,
-                    items: editableItems,
-                    sendToKitchen: false,
-                  });
-                }}
-                disabled={updateOrderItemsMutation.isPending || editableItems.length === 0}
-                className="h-11 rounded-xl border-primary/40 text-primary hover:bg-primary/10 font-bold text-xs order-2"
-              >
-                💾 Save Edits
-              </Button>
-
-              <Button
-                onClick={() => {
-                  if (editableItems.length === 0) {
-                    toast.error('Empty Order', 'Please add at least one dish');
-                    return;
-                  }
-                  updateOrderItemsMutation.mutate({
-                    orderId: verifyingOrder.id,
-                    items: editableItems,
-                    sendToKitchen: true,
-                  });
-                }}
-                disabled={updateOrderItemsMutation.isPending || editableItems.length === 0}
-                className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md order-1 sm:order-3"
-              >
-                🍳 Send to Kitchen
-              </Button>
             </div>
           </div>
         </div>

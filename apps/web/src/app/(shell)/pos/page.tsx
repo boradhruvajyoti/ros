@@ -185,40 +185,47 @@ export default function POSPage() {
     return Array.isArray(rawTables) ? rawTables : [];
   }, [rawTables]);
 
-  // Pre-select table and populate cart from active order if table is specified in URL
+  // Pre-select table and populate cart from active order if table/order is specified in URL
   useEffect(() => {
-    if (!tableParam || tables.length === 0) return;
-    const targetTable = tables.find((t: any) => t.id === tableParam);
+    if ((!tableParam && !orderParam) || tables.length === 0) return;
+
+    let targetTable = tableParam ? tables.find((t: any) => t.id === tableParam) : null;
+    let activeOrder = orderParam ? (activeOrders || []).find((o: any) => o.id === orderParam) : null;
+
+    if (!targetTable && activeOrder?.tableId) {
+      targetTable = tables.find((t: any) => t.id === activeOrder.tableId);
+    }
+
     if (targetTable) {
       setSelectedTable(targetTable.id);
       setSelectedTableName(targetTable.name);
       setOrderType('DINE_IN');
+    }
 
-      const activeOrder = orderParam
-        ? (activeOrders || []).find((o: any) => o.id === orderParam)
-        : (activeOrders || []).find((o: any) => o.tableId === targetTable.id);
+    if (!activeOrder && targetTable) {
+      activeOrder = (activeOrders || []).find((o: any) => o.tableId === targetTable.id);
+    }
 
-      if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
-        setCart(
-          activeOrder.items.map((it: any) => ({
-            key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
-            menuItemId: it.menuItemId || it.menuItem?.id,
-            name: it.menuItem?.name || it.name || 'Dish',
-            variantId: it.variantId || it.variant?.id,
-            variantName: it.variant?.name,
-            unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
-            quantity: Number(it.quantity || 1),
-            foodType: it.menuItem?.foodType || 'VEG',
-            notes: it.notes || '',
-            modifiers: it.modifiers?.map((m: any) => ({
-              id: m.modifierId || m.id,
-              name: m.name,
-              price: Number(m.price || 0),
-            })) || [],
-          }))
-        );
-        if (activeOrder.notes) setNotes(activeOrder.notes);
-      }
+    if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
+      setCart(
+        activeOrder.items.map((it: any) => ({
+          key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
+          menuItemId: it.menuItemId || it.menuItem?.id,
+          name: it.menuItem?.name || it.name || 'Dish',
+          variantId: it.variantId || it.variant?.id,
+          variantName: it.variant?.name,
+          unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
+          quantity: Number(it.quantity || 1),
+          foodType: it.menuItem?.foodType || 'VEG',
+          notes: it.notes || '',
+          modifiers: it.modifiers?.map((m: any) => ({
+            id: m.modifierId || m.id,
+            name: m.name,
+            price: Number(m.price || 0),
+          })) || [],
+        }))
+      );
+      if (activeOrder.notes) setNotes(activeOrder.notes);
     }
   }, [tableParam, orderParam, tables, activeOrders]);
 
