@@ -5,8 +5,10 @@
 import { Request, Response } from 'express';
 import { OrderService } from '../services/order.service';
 import { PaymentService } from '../services/payment.service';
-import { sendSuccess } from '../middlewares/error.middleware';
+import { sendSuccess, AppError } from '../middlewares/error.middleware';
+import { ErrorCodes } from '@ros/shared-types';
 import { writeAuditLog, AuditActions } from '../middlewares/audit.middleware';
+import { emitToRoom } from '../socket';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { generateInvoicePdf } from '../services/invoice.service';
@@ -180,34 +182,162 @@ export class OrderController {
     sendSuccess(res, order);
   }
 
-  static async voidItem(req: Request, res: Response): Promise<void> {
-    const { reason } = z.object({ reason: z.string().max(500).optional() }).parse(req.body);
+  static async cancelItem(req: Request, res: Response): Promise<void> {
+    const { reason } = z.object({ reason: z.string().max(500).optional() }).parse(req.body || {});
     const { id: orderId, itemId } = req.params;
 
-    const item = await prisma.orderItem.findFirst({
-      where: { id: itemId, orderId, status: { not: 'VOIDED' } },
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tenantId: req.user!.tid },
+      include: { table: true },
     });
-    if (!item) throw new Error('Item not found or already voided');
+    if (!order) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    }
+
+    if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        `Cannot cancel item because order is already ${order.status}`,
+        400
+      );
+    }
+
+    const item = await prisma.orderItem.findFirst({
+      where: { id: itemId, orderId, status: { notIn: ['VOIDED', 'CANCELLED'] } },
+      include: { menuItem: true, variant: true },
+    });
+    if (!item) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Item not found or already cancelled', 404);
+    }
 
     const old = { ...item };
+    const cancelNote = reason ? `[Cancelled: ${reason}]` : '[Cancelled by Staff]';
+
+    // 1. Mark OrderItem as CANCELLED
     await prisma.orderItem.update({
       where: { id: itemId },
-      data: { status: 'VOIDED', voidedAt: new Date(), voidedBy: req.user!.sub },
+      data: {
+        status: 'CANCELLED',
+        notes: item.notes ? `${item.notes} ${cancelNote}` : cancelNote,
+      },
     });
 
-    // Recalculate order totals
+    // 2. Mark any matching OrderKotItem records as CANCELLED
+    const kotItems = await prisma.orderKotItem.findMany({
+      where: { orderItemId: itemId, status: { not: 'CANCELLED' } },
+      include: { kot: true },
+    });
+
+    for (const ki of kotItems) {
+      await prisma.orderKotItem.update({
+        where: { id: ki.id },
+        data: { status: 'CANCELLED' },
+      });
+
+      emitToRoom(req.user!.tid, req.user!.bid, {
+        type: 'KOT_ITEM_STATUS_CHANGED',
+        payload: { kotItemId: ki.id, kotId: ki.kotId, status: 'CANCELLED' },
+      });
+
+      // Check remaining active items in this KOT
+      const activeSiblingItems = await prisma.orderKotItem.findMany({
+        where: { kotId: ki.kotId, status: { not: 'CANCELLED' } },
+      });
+
+      if (activeSiblingItems.length === 0) {
+        await prisma.orderKot.update({
+          where: { id: ki.kotId },
+          data: { status: 'CANCELLED' },
+        });
+
+        emitToRoom(req.user!.tid, req.user!.bid, {
+          type: 'KOT_STATUS_CHANGED',
+          payload: { kotId: ki.kotId, status: 'CANCELLED', stationId: ki.kot.kitchenStationId || 'default' },
+        });
+      }
+    }
+
+    // 3. Recalculate order totals dynamically
     const svc = getOrderService(req);
-    await svc.recalculateTotals(orderId);
+    const updatedOrder = await svc.recalculateTotals(orderId);
+
+    // 4. Check remaining active items in the entire order
+    const remainingActiveItems = await prisma.orderItem.findMany({
+      where: { orderId, status: { notIn: ['VOIDED', 'CANCELLED'] } },
+    });
+
+    let newOrderStatus: string | null = null;
+    if (remainingActiveItems.length === 0) {
+      // If ALL items are cancelled, cancel the whole order & release table
+      newOrderStatus = 'CANCELLED';
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancellationReason: reason ? `Item Cancelled: ${reason}` : 'All items cancelled by staff',
+        },
+      });
+
+      if (order.tableId) {
+        await prisma.restaurantTable.update({
+          where: { id: order.tableId },
+          data: { status: 'AVAILABLE' },
+        });
+        emitToRoom(req.user!.tid, req.user!.bid, {
+          type: 'TABLE_STATUS_CHANGED',
+          payload: { tableId: order.tableId, status: 'AVAILABLE' },
+        });
+      }
+    } else {
+      // Check if all remaining KOTs are served
+      const activeKots = await prisma.orderKot.findMany({
+        where: { orderId, status: { not: 'CANCELLED' } },
+      });
+      if (activeKots.length > 0 && activeKots.every((k) => k.status === 'SERVED')) {
+        newOrderStatus = 'SERVED';
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'SERVED' },
+        });
+      }
+    }
+
+    if (newOrderStatus && newOrderStatus !== order.status) {
+      emitToRoom(req.user!.tid, req.user!.bid, {
+        type: 'ORDER_STATUS_CHANGED',
+        payload: {
+          orderId,
+          orderNumber: order.orderNumber,
+          status: newOrderStatus as any,
+        },
+      });
+    }
+
+    emitToRoom(req.user!.tid, req.user!.bid, {
+      type: 'ORDER_UPDATED',
+      payload: {
+        orderId,
+        orderNumber: order.orderNumber,
+        total: Number(updatedOrder?.total || 0),
+        itemCount: remainingActiveItems.length,
+      },
+    });
 
     await writeAuditLog(req, {
       action: AuditActions.ORDER_ITEM_VOID,
       entity: 'OrderItem',
       entityId: itemId,
       previousValue: old as any,
-      newValue: { status: 'VOIDED', reason },
+      newValue: { status: 'CANCELLED', reason },
     });
 
-    sendSuccess(res, { message: 'Item voided' });
+    const refreshedOrder = await svc.getOrder(orderId);
+    sendSuccess(res, refreshedOrder);
+  }
+
+  static async voidItem(req: Request, res: Response): Promise<void> {
+    return OrderController.cancelItem(req, res);
   }
 
   static async addItem(req: Request, res: Response): Promise<void> {

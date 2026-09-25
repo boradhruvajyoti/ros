@@ -526,6 +526,37 @@ export default function TablesPage() {
     },
   });
 
+  const cancelOrderItemMutation = useMutation({
+    mutationFn: ({ orderId, itemId, reason }: { orderId: string; itemId: string; reason?: string }) =>
+      apiPost(`/orders/${orderId}/items/${itemId}/cancel`, { reason }),
+    onSuccess: (res: any, vars) => {
+      toast.success('Dish Cancelled', 'Item removed from bill & kitchen display.');
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['table-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+
+      if (res?.data) {
+        if (res.data.status === 'CANCELLED') {
+          setSelectedOrder(null);
+        } else {
+          setSelectedOrder(res.data);
+        }
+      } else {
+        setSelectedOrder((prev: any) => {
+          if (!prev) return null;
+          const updatedItems = (prev.items || []).filter((it: any) => it.id !== vars.itemId);
+          return { ...prev, items: updatedItems };
+        });
+      }
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Could not cancel item';
+      toast.error('Partial Cancel Failed', msg);
+    },
+  });
+
   const handleMarkAsPaidAndBill = (order: any) => {
     if (!order) return;
     const isServedOrLater = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
@@ -1555,20 +1586,23 @@ export default function TablesPage() {
                       </div>
                     );
                   }
+                  const canPartiallyCancel = !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(selectedOrder.status);
+
                   return activeItems.map((it: any, idx: number) => {
                     const unitPrice = Number(it.unitPrice || it.variant?.price || 0);
                     const qty = Number(it.quantity || 1);
                     const lineTotal = Number(it.totalPrice || (qty * unitPrice));
                     const foodType = it.menuItem?.foodType || 'VEG';
+                    const dishName = it.menuItem?.name || it.name || 'Dish';
 
                     return (
-                      <div key={it.id || idx} className="p-3 flex items-start justify-between text-sm gap-2">
-                        <div className="flex items-start gap-2.5">
+                      <div key={it.id || idx} className="p-3 flex items-center justify-between text-sm gap-2 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
                           <span className="text-xs mt-0.5 shrink-0">
                             {foodType === 'VEG' ? '🟢' : '🔴'}
                           </span>
-                          <div>
-                            <p className="font-bold text-foreground">{it.menuItem?.name || it.name || 'Dish'}</p>
+                          <div className="min-w-0">
+                            <p className="font-bold text-foreground truncate">{dishName}</p>
                             {it.variant?.name && (
                               <p className="text-[11px] text-muted-foreground font-medium">Variant: {it.variant.name}</p>
                             )}
@@ -1578,13 +1612,38 @@ export default function TablesPage() {
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <div className="font-bold font-mono text-foreground">
-                            {formatCurrency(lineTotal)}
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <div className="text-right">
+                            <div className="font-bold font-mono text-foreground">
+                              {formatCurrency(lineTotal)}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground font-mono">
+                              {qty} × {formatCurrency(unitPrice)}
+                            </div>
                           </div>
-                          <div className="text-[11px] text-muted-foreground font-mono">
-                            {qty} × {formatCurrency(unitPrice)}
-                          </div>
+
+                          {canPartiallyCancel && it.id && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={cancelOrderItemMutation.isPending}
+                              className="h-7 w-7 p-0 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const reason = prompt(`Cancel "${dishName}" from Order #${selectedOrder.orderNumber}? (Optional reason):`, 'Guest requested cancellation');
+                                if (reason !== null) {
+                                  cancelOrderItemMutation.mutate({
+                                    orderId: selectedOrder.id,
+                                    itemId: it.id,
+                                    reason: reason.trim() || undefined,
+                                  });
+                                }
+                              }}
+                              title={`Partial Cancel "${dishName}"`}
+                            >
+                              <span className="text-xs">❌</span>
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
