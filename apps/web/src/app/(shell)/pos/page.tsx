@@ -240,13 +240,29 @@ export default function POSPage() {
       ) {
         if (t === 'ORDER_STATUS_CHANGED') {
           const payload = (event as any).payload || {};
-          if (payload.status === 'CANCELLED' || payload.status === 'VOIDED') {
+          if (['CANCELLED', 'VOIDED', 'PAID', 'COMPLETED'].includes(payload.status)) {
             if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
               setCart([]);
               setNotes('');
               lastSyncedSignatureRef.current = '';
-              toast.error('Order Cancelled', `Order #${payload.orderNumber || ''} was cancelled. Cart cleared.`);
+              if (['PAID', 'COMPLETED'].includes(payload.status)) {
+                setSelectedTable(null);
+                setSelectedTableName(null);
+                toast.success('Order Settled & Paid', `Order #${payload.orderNumber || ''} marked as paid. Cart cleared.`);
+              } else {
+                toast.error('Order Cancelled', `Order #${payload.orderNumber || ''} was cancelled. Cart cleared.`);
+              }
             }
+          }
+        }
+        if (t === 'PAYMENT_COMPLETED') {
+          const payload = (event as any).payload || {};
+          if (payload.orderId === orderParam) {
+            setCart([]);
+            setNotes('');
+            lastSyncedSignatureRef.current = '';
+            setSelectedTable(null);
+            setSelectedTableName(null);
           }
         }
         queryClient.invalidateQueries({ queryKey: ['active-orders'] });
