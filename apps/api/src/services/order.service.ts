@@ -1080,8 +1080,8 @@ export class OrderService {
       customer: { select: { id: true, name: true, phone: true } },
       items: {
         include: {
-          menuItem: { select: { id: true, name: true, foodType: true } },
-          variant: { select: { id: true, name: true } },
+          menuItem: { select: { id: true, name: true, foodType: true, imageUrl: true } },
+          variant: { select: { id: true, name: true, price: true } },
           modifiers: true,
         },
       },

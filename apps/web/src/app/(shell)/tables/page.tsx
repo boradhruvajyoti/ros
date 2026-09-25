@@ -385,7 +385,9 @@ export default function TablesPage() {
                 </tr>
               </thead>
               <tbody>
-                ${(order.items || []).map((i: any) => `
+                ${(order.items || [])
+                  .filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status))
+                  .map((i: any) => `
                   <tr>
                     <td class="bold font-mono" style="font-size: 13px;">${i.quantity}x</td>
                     <td>
@@ -422,7 +424,9 @@ export default function TablesPage() {
                 </tr>
               </thead>
               <tbody>
-                ${(order.items || []).map((i: any) => {
+                ${(order.items || [])
+                  .filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status))
+                  .map((i: any) => {
                   const qty = Number(i.quantity || 1);
                   const rate = Number(i.unitPrice || i.variant?.price || 0);
                   const amt = Number(i.totalPrice || (qty * rate));
@@ -866,7 +870,7 @@ export default function TablesPage() {
                         <span className="font-mono font-black text-primary">{formatCurrency(activeOrder.total)}</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        {activeOrder.items?.length || 1} items · {ORDER_STATUS_CONFIG[activeOrder.status]?.label || activeOrder.status}
+                        {(activeOrder.items || []).filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status)).length || activeOrder._count?.items || 1} items · {ORDER_STATUS_CONFIG[activeOrder.status]?.label || activeOrder.status}
                       </p>
                     </div>
                   ) : (
@@ -1062,25 +1066,32 @@ export default function TablesPage() {
 
                     {/* Dish Preview */}
                     <div className="p-2.5 rounded-2xl bg-muted/20 border border-border/50 text-xs space-y-1">
-                      {order.items && order.items.length > 0 ? (
-                        order.items.slice(0, 3).map((it: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
-                            <span className="truncate pr-2">
-                              <strong className="text-foreground">{it.quantity}x</strong> {it.menuItem?.name || it.name || 'Dish'}
-                            </span>
-                            <span className="font-mono shrink-0">
-                              {formatCurrency(it.totalPrice || (it.quantity * it.unitPrice))}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-muted-foreground text-[11px]">{order._count?.items || 1} items</p>
-                      )}
-                      {(order.items?.length || 0) > 3 && (
-                        <p className="text-[10px] text-muted-foreground italic font-medium">
-                          + {(order.items?.length || 0) - 3} more items...
-                        </p>
-                      )}
+                      {(() => {
+                        const activeItems = (order.items || []).filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status));
+                        return (
+                          <>
+                            {activeItems.length > 0 ? (
+                              activeItems.slice(0, 3).map((it: any, idx: number) => (
+                                <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
+                                  <span className="truncate pr-2">
+                                    <strong className="text-foreground">{it.quantity}x</strong> {it.menuItem?.name || it.name || 'Dish'}
+                                  </span>
+                                  <span className="font-mono shrink-0">
+                                    {formatCurrency(it.totalPrice || (it.quantity * (it.unitPrice || it.variant?.price || 0)))}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-muted-foreground text-[11px]">{order._count?.items || 0} items</p>
+                            )}
+                            {activeItems.length > 3 && (
+                              <p className="text-[10px] text-muted-foreground italic font-medium">
+                                + {activeItems.length - 3} more items...
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
 
                       {/* KOT Round Progress */}
                       {(() => {
@@ -1282,7 +1293,7 @@ export default function TablesPage() {
                         <td className="p-3 text-muted-foreground">{format(new Date(order.createdAt), 'h:mm a')}</td>
                         <td className="p-3">
                           <div>
-                            <span>{order.items?.length || order._count?.items || 1} items</span>
+                            <span>{(order.items || []).filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status)).length || order._count?.items || 1} items</span>
                             {kotProg.total > 0 && (
                               <span className={cn('block text-[10px] font-bold', kotProg.allServed ? 'text-teal-400' : 'text-amber-400')}>
                                 🍳 {kotProg.served}/{kotProg.total} KOTs Served
@@ -1535,8 +1546,16 @@ export default function TablesPage() {
                 <span>Qty × Rate = Amount</span>
               </div>
               <div className="rounded-2xl border border-border divide-y divide-border bg-muted/20 overflow-hidden">
-                {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                  selectedOrder.items.map((it: any, idx: number) => {
+                {(() => {
+                  const activeItems = (selectedOrder.items || []).filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status));
+                  if (activeItems.length === 0) {
+                    return (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        No active billable items in order
+                      </div>
+                    );
+                  }
+                  return activeItems.map((it: any, idx: number) => {
                     const unitPrice = Number(it.unitPrice || it.variant?.price || 0);
                     const qty = Number(it.quantity || 1);
                     const lineTotal = Number(it.totalPrice || (qty * unitPrice));
@@ -1569,12 +1588,8 @@ export default function TablesPage() {
                         </div>
                       </div>
                     );
-                  })
-                ) : (
-                  <div className="p-4 text-center text-xs text-muted-foreground">
-                    {selectedOrder._count?.items || 1} items in order
-                  </div>
-                )}
+                  });
+                })()}
               </div>
             </div>
 
@@ -1756,28 +1771,38 @@ export default function TablesPage() {
                 <span>Qty × Rate = Amount</span>
               </div>
               <div className="rounded-2xl border divide-y bg-muted/20 overflow-hidden text-xs max-h-56 overflow-y-auto">
-                {(billPreviewOrder.items || []).map((it: any, idx: number) => {
-                  const qty = Number(it.quantity || 1);
-                  const rate = Number(it.unitPrice || it.variant?.price || 0);
-                  const amt = Number(it.totalPrice || (qty * rate));
-                  const foodType = it.menuItem?.foodType || 'VEG';
+                {(() => {
+                  const activeItems = (billPreviewOrder.items || []).filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status));
+                  if (activeItems.length === 0) {
+                    return (
+                      <div className="p-3 text-center text-xs text-muted-foreground">
+                        No active billable items
+                      </div>
+                    );
+                  }
+                  return activeItems.map((it: any, idx: number) => {
+                    const qty = Number(it.quantity || 1);
+                    const rate = Number(it.unitPrice || it.variant?.price || 0);
+                    const amt = Number(it.totalPrice || (qty * rate));
+                    const foodType = it.menuItem?.foodType || 'VEG';
 
-                  return (
-                    <div key={idx} className="p-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
-                        <span className="text-xs shrink-0">{foodType === 'VEG' ? '🟢' : '🔴'}</span>
-                        <div className="truncate">
-                          <p className="font-bold text-foreground truncate">{it.menuItem?.name || it.name || 'Dish'}</p>
-                          {it.variant?.name && <p className="text-[10px] text-muted-foreground">{it.variant.name}</p>}
+                    return (
+                      <div key={idx} className="p-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                          <span className="text-xs shrink-0">{foodType === 'VEG' ? '🟢' : '🔴'}</span>
+                          <div className="truncate">
+                            <p className="font-bold text-foreground truncate">{it.menuItem?.name || it.name || 'Dish'}</p>
+                            {it.variant?.name && <p className="text-[10px] text-muted-foreground">{it.variant.name}</p>}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-bold text-foreground">{formatCurrency(amt)}</span>
+                          <div className="text-[10px] text-muted-foreground font-mono">{qty} × {formatCurrency(rate)}</div>
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="font-mono font-bold text-foreground">{formatCurrency(amt)}</span>
-                        <div className="text-[10px] text-muted-foreground font-mono">{qty} × {formatCurrency(rate)}</div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </div>
 
