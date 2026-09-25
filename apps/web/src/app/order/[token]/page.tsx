@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag,
   ChefHat, MapPin, AlertCircle, ArrowRight,
   ShieldCheck, Lock, Eye, X, Ban,
   ChevronUp, ChevronDown, Download, CheckCircle2,
-  ExternalLink, Receipt, Sparkles
+  ExternalLink, Receipt, Sparkles, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -235,6 +235,8 @@ function TableOrderContent() {
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(45 * 60);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [foodFilter, setFoodFilter] = useState<'ALL' | 'VEG' | 'NON_VEG'>('ALL');
   const [cart, setCart] = useState<{ [itemId: string]: { item: any; variant: any; qty: number } }>({});
   const [guestNotes, setGuestNotes] = useState('');
   const [isCartExpanded, setIsCartExpanded] = useState<boolean>(false);
@@ -657,15 +659,49 @@ function TableOrderContent() {
     );
   }
 
-  // (currentActiveOrder & hooks already declared above, before early returns)
+  // Calculate ordered quantities for each dish across all active non-cancelled orders in this session
+  const orderedQuantitiesByItemId = useMemo(() => {
+    const map: Record<string, number> = {};
+    const orders = tableData?.activeOrders || [];
+    const allActive = [...orders];
+    if (orderPlaced && !allActive.some((o: any) => o.id === orderPlaced.id)) {
+      allActive.unshift(orderPlaced);
+    }
+
+    for (const order of allActive) {
+      if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) continue;
+      for (const item of (order.items || [])) {
+        if (['CANCELLED', 'VOIDED'].includes(item.status)) continue;
+        const mId = item.menuItemId || item.menuItem?.id || item.id;
+        if (mId) {
+          map[mId] = (map[mId] || 0) + (item.quantity || 1);
+        }
+      }
+    }
+    return map;
+  }, [tableData?.activeOrders, orderPlaced]);
 
   const allItems = Array.isArray(categories)
     ? categories.flatMap((c: any) => c?.items || [])
     : [];
 
-  const filteredItems = selectedCategory === 'ALL'
-    ? allItems
-    : (Array.isArray(categories) ? (categories.find((c: any) => c.id === selectedCategory)?.items || []) : []);
+  const processedCategories = useMemo(() => {
+    if (!Array.isArray(categories)) return [];
+    return categories.map((cat: any) => {
+      let items = Array.isArray(cat.items) ? cat.items : [];
+      if (foodFilter !== 'ALL') {
+        items = items.filter((i: any) => i.foodType === foodFilter);
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        items = items.filter((i: any) =>
+          (i.name && i.name.toLowerCase().includes(q)) ||
+          (i.description && i.description.toLowerCase().includes(q))
+        );
+      }
+      return { ...cat, items };
+    }).filter((cat: any) => cat.items.length > 0);
+  }, [categories, foodFilter, searchQuery]);
 
   const hasRunningOrder = Boolean(canOrder && currentActiveOrder && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status));
   const activeTab = canOrder ? viewTab : 'MENU';
@@ -1173,7 +1209,7 @@ function TableOrderContent() {
         </div>
       ) : (
         /* ─────────────────────────────────────────────────────────────────────────────
-            TAB 2: DIGITAL FOOD MENU & 1-TAP ORDERING
+            TAB 2: DIGITAL FOOD MENU & 1-TAP ORDERING (VERTICAL CATEGORIES LAYOUT)
         ───────────────────────────────────────────────────────────────────────────── */
         <main className="p-4 space-y-4">
           {/* Active order running banner shortcut */}
@@ -1195,100 +1231,204 @@ function TableOrderContent() {
             </button>
           )}
 
-          {/* Category Chips Carousel */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            <button
-              onClick={() => setSelectedCategory('ALL')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                selectedCategory === 'ALL'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'bg-card border border-border text-muted-foreground'
-              }`}
-            >
-              All Items ({allItems.length})
-            </button>
-            {Array.isArray(categories) && categories.map((c: any) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCategory(c.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  selectedCategory === c.id
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'bg-card border border-border text-muted-foreground'
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
+          {/* Search Bar & Dietary Filter Controls */}
+          <div className="space-y-2.5">
+            <div className="relative">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search dishes, drinks, desserts..."
+                className="w-full h-10 pl-10 pr-9 rounded-2xl bg-card border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs font-bold p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              {/* Dietary Filter Pills */}
+              <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border">
+                <button
+                  type="button"
+                  onClick={() => setFoodFilter('ALL')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer",
+                    foodFilter === 'ALL' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFoodFilter('VEG')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1",
+                    foodFilter === 'VEG' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span>🟢</span> Veg
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFoodFilter('NON_VEG')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1",
+                    foodFilter === 'NON_VEG' ? "bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span>🔴</span> Non-Veg
+                </button>
+              </div>
+
+              {/* Dishes Count Metric */}
+              <span className="text-[11px] text-muted-foreground font-medium pr-1">
+                {processedCategories.reduce((acc: number, c: any) => acc + c.items.length, 0)} dishes
+              </span>
+            </div>
           </div>
 
-          {/* Dishes List */}
-          <div className="space-y-3">
-            {filteredItems.map((item: any) => {
-              const inCart = cart[item.id];
-              const price = item.variants?.[0]?.price || 150;
-
-              return (
-                <div
-                  key={item.id}
-                  className="p-3.5 rounded-3xl bg-card border border-border flex items-center justify-between gap-3 shadow-sm hover:border-primary/40 transition-all"
+          {/* Sticky Category Quick Jump Anchor Strip */}
+          {processedCategories.length > 1 && (
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md py-2 -mx-4 px-4 border-b border-border/50 flex gap-2 overflow-x-auto no-scrollbar shadow-xs">
+              {processedCategories.map((c: any) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById(`cat-section-${c.id}`);
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all cursor-pointer shrink-0 shadow-2xs"
                 >
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs">
-                        {item.foodType === 'VEG' ? '🟢' : item.foodType === 'NON_VEG' ? '🔴' : '🟡'}
-                      </span>
-                      <h3 className="text-sm font-bold text-foreground">{item.name}</h3>
+                  {c.name} ({c.items.length})
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Vertical Category Sections with Food Items */}
+          <div className="space-y-6 pt-1">
+            {processedCategories.map((cat: any) => {
+              return (
+                <section key={cat.id} id={`cat-section-${cat.id}`} className="space-y-2.5 scroll-mt-14">
+                  {/* Category Section Header */}
+                  <div className="flex items-center justify-between pb-1.5 border-b border-border/80">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🍽️</span>
+                      <h2 className="text-xs font-black text-foreground uppercase tracking-wider">
+                        {cat.name}
+                      </h2>
                     </div>
-                    {item.description && (
-                      <p className="text-[11px] text-muted-foreground line-clamp-1">{item.description}</p>
-                    )}
-                    <p className="text-xs font-black text-primary font-mono">{safeFormatCurrency(price)}</p>
+                    <span className="text-[10px] font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border font-mono">
+                      {cat.items.length} {cat.items.length === 1 ? 'dish' : 'dishes'}
+                    </span>
                   </div>
 
-                  {/* Ordering Controls vs View-Only Badge */}
-                  <div className="shrink-0">
-                    {canOrder ? (
-                      inCart ? (
-                        <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="text-xs font-black text-primary px-1">{inCart.qty}</span>
-                          <button
-                            onClick={() => addToCart(item)}
-                            className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => addToCart(item)}
-                          className="h-8 text-xs font-bold rounded-xl gap-1 bg-primary text-primary-foreground cursor-pointer"
+                  {/* Food Items Under This Category */}
+                  <div className="space-y-2.5">
+                    {cat.items.map((item: any) => {
+                      const orderedQty = orderedQuantitiesByItemId[item.id] || 0;
+                      const inCart = cart[item.id];
+                      const price = item.variants?.[0]?.price || 150;
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={cn(
+                            "p-3.5 rounded-3xl bg-card border flex items-center justify-between gap-3 shadow-xs hover:border-primary/40 transition-all",
+                            orderedQty > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-border"
+                          )}
                         >
-                          <Plus className="w-3.5 h-3.5" /> Add
-                        </Button>
-                      )
-                    ) : (
-                      <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-xl border border-border">
-                        View Only
-                      </span>
-                    )}
+                          <div className="space-y-1 flex-1 min-w-0 pr-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs shrink-0">
+                                {item.foodType === 'VEG' ? '🟢' : item.foodType === 'NON_VEG' ? '🔴' : '🟡'}
+                              </span>
+                              <h3 className="text-sm font-bold text-foreground truncate">{item.name}</h3>
+                            </div>
+
+                            {item.description && (
+                              <p className="text-[11px] text-muted-foreground line-clamp-1">{item.description}</p>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                              <span className="text-xs font-black text-primary font-mono">{safeFormatCurrency(price)}</span>
+
+                              {/* Retained Ordered Quantity Badge on the Main Menu */}
+                              {orderedQty > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black font-mono shadow-2xs">
+                                  <span>🍳</span>
+                                  <span>{orderedQty} in Kitchen</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Ordering Controls vs View-Only Badge */}
+                          <div className="shrink-0">
+                            {canOrder ? (
+                              inCart ? (
+                                <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeFromCart(item.id)}
+                                    className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer hover:bg-muted transition-colors"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <span className="text-xs font-black text-primary px-1 font-mono">{inCart.qty}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => addToCart(item)}
+                                    className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-primary/90 transition-colors"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => addToCart(item)}
+                                  className={cn(
+                                    "h-8 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all",
+                                    orderedQty > 0
+                                      ? "bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/40"
+                                      : "bg-primary text-primary-foreground"
+                                  )}
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>{orderedQty > 0 ? 'Add More' : 'Add'}</span>
+                                </Button>
+                              )
+                            ) : (
+                              <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-xl border border-border">
+                                View Only
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
+                </section>
               );
             })}
 
-            {filteredItems.length === 0 && (
+            {processedCategories.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <UtensilsCrossed className="w-12 h-12 mb-3 opacity-30" />
-                <p className="text-sm font-bold">No dishes available</p>
-                <p className="text-xs text-muted-foreground">Please select another category.</p>
+                <p className="text-sm font-bold text-foreground">No dishes match your search</p>
+                <p className="text-xs text-muted-foreground">Try searching for other items or reset dietary filters.</p>
               </div>
             )}
           </div>
