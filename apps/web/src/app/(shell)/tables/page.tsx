@@ -69,6 +69,34 @@ export interface Order {
   completedAt?: string;
 }
 
+function formatItemTitle(itemOrMenuName?: any, variantName?: string): string {
+  let base = '';
+  let vName = '';
+  if (typeof itemOrMenuName === 'object' && itemOrMenuName !== null) {
+    base = itemOrMenuName.menuItem?.name || itemOrMenuName.name || 'Dish Item';
+    vName = itemOrMenuName.variant?.name || itemOrMenuName.variantName || variantName || '';
+  } else {
+    base = itemOrMenuName || 'Dish Item';
+    vName = variantName || '';
+  }
+  if (!vName) return base;
+  const lower = vName.toLowerCase().trim();
+  if (
+    lower === 'regular' ||
+    lower === 'regular portion' ||
+    lower === 'standard' ||
+    lower === 'default' ||
+    lower === 'single' ||
+    lower === 'normal' ||
+    lower === 'standard portion' ||
+    lower === 'portion' ||
+    lower.includes('regular portion')
+  ) {
+    return base;
+  }
+  return `${base} (${vName})`;
+}
+
 const TABLE_STATUS_META = {
   AVAILABLE: {
     label: '🟢 Available / Free',
@@ -454,8 +482,7 @@ export default function TablesPage() {
                   <tr>
                     <td class="bold font-mono" style="font-size: 13px;">${i.quantity}x</td>
                     <td>
-                      <div class="item-name">${i.menuItem?.name || i.name || 'Dish'}</div>
-                      ${i.variant?.name ? `<div class="item-sub">Variant: ${i.variant.name}</div>` : ''}
+                      <div class="item-name">${formatItemTitle(i)}</div>
                       ${i.notes ? `<div class="item-sub bold" style="color: #000;">* Instructions: ${i.notes}</div>` : ''}
                     </td>
                   </tr>
@@ -496,8 +523,7 @@ export default function TablesPage() {
                   return `
                     <tr>
                       <td>
-                        <div class="item-name">${i.menuItem?.name || i.name || 'Dish'}</div>
-                        ${i.variant?.name ? `<div class="item-sub">${i.variant.name}</div>` : ''}
+                        <div class="item-name">${formatItemTitle(i)}</div>
                       </td>
                       <td class="text-center bold">${qty}</td>
                       <td class="text-right font-mono">₹${rate.toFixed(2)}</td>
@@ -1027,7 +1053,7 @@ export default function TablesPage() {
                       {validItems.map((it: any, idx: number) => (
                         <div key={it.id || idx} className="pt-1 flex items-center justify-between gap-1 text-muted-foreground">
                           <span className="truncate flex-1 font-medium text-foreground">
-                            {it.quantity}x {it.menuItem?.name || it.name || 'Dish'}
+                            {it.quantity}x {formatItemTitle(it)}
                           </span>
                           <span className="font-mono text-[10px] shrink-0">
                             {formatCurrency(it.totalPrice || (it.quantity * (it.unitPrice || it.variant?.price || 0)))}
@@ -1317,7 +1343,7 @@ export default function TablesPage() {
                     const qty = Number(it.quantity || 1);
                     const lineTotal = Number(it.totalPrice || (qty * unitPrice));
                     const foodType = it.menuItem?.foodType || 'VEG';
-                    const dishName = it.menuItem?.name || it.name || 'Dish';
+                    const dishName = formatItemTitle(it);
 
                     return (
                       <div key={it.id || idx} className="p-3 flex items-center justify-between text-sm gap-2 hover:bg-muted/30 transition-colors">
@@ -1327,9 +1353,6 @@ export default function TablesPage() {
                           </span>
                           <div className="min-w-0">
                             <p className="font-bold text-foreground truncate">{dishName}</p>
-                            {it.variant?.name && (
-                              <p className="text-[11px] text-muted-foreground font-medium">Variant: {it.variant.name}</p>
-                            )}
                             {it.notes && (
                               <p className="text-[10px] text-amber-500 italic">Note: {it.notes}</p>
                             )}
@@ -1574,8 +1597,7 @@ export default function TablesPage() {
                         <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
                           <span className="text-xs shrink-0">{foodType === 'VEG' ? '🟢' : '🔴'}</span>
                           <div className="truncate">
-                            <p className="font-bold text-foreground truncate">{it.menuItem?.name || it.name || 'Dish'}</p>
-                            {it.variant?.name && <p className="text-[10px] text-muted-foreground">{it.variant.name}</p>}
+                            <p className="font-bold text-foreground truncate">{formatItemTitle(it)}</p>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
@@ -2009,7 +2031,7 @@ export default function TablesPage() {
                           {validItems.map((it: any, iIdx: number) => (
                             <div key={it.id || iIdx} className="flex justify-between text-muted-foreground">
                               <span className="truncate flex-1 font-medium text-foreground">
-                                {it.quantity}x {it.menuItem?.name || it.name || 'Dish Item'}
+                                {it.quantity}x {formatItemTitle(it)}
                               </span>
                               <span className="font-mono text-[11px]">
                                 {formatCurrency(it.totalPrice || (it.quantity * (it.unitPrice || it.variant?.price || 0)))}

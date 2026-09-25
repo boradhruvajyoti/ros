@@ -30,6 +30,34 @@ function formatCurrency(amount: any): string {
   }
 }
 
+function formatItemTitle(itemOrMenuName?: any, variantName?: string): string {
+  let base = '';
+  let vName = '';
+  if (typeof itemOrMenuName === 'object' && itemOrMenuName !== null) {
+    base = itemOrMenuName.menuItem?.name || itemOrMenuName.name || 'Dish Item';
+    vName = itemOrMenuName.variant?.name || itemOrMenuName.variantName || variantName || '';
+  } else {
+    base = itemOrMenuName || 'Dish Item';
+    vName = variantName || '';
+  }
+  if (!vName) return base;
+  const lower = vName.toLowerCase().trim();
+  if (
+    lower === 'regular' ||
+    lower === 'regular portion' ||
+    lower === 'standard' ||
+    lower === 'default' ||
+    lower === 'single' ||
+    lower === 'normal' ||
+    lower === 'standard portion' ||
+    lower === 'portion' ||
+    lower.includes('regular portion')
+  ) {
+    return base;
+  }
+  return `${base} (${vName})`;
+}
+
 const ORDER_STATUS_META: Record<string, { label: string; emoji: string; bg: string; border: string; text: string }> = {
   DRAFT:           { label: 'Draft',        emoji: '📝', bg: 'bg-muted/40',       border: 'border-border',          text: 'text-muted-foreground' },
   CONFIRMED:       { label: 'Confirmed',    emoji: '✨', bg: 'bg-blue-500/15',    border: 'border-blue-500/40',     text: 'text-blue-400' },
@@ -202,8 +230,7 @@ export default function OrderHistoryPage() {
       return `
         <tr>
           <td style="padding: 6px 0; border-bottom: 1px dashed #e2e8f0;">
-            <div style="font-weight: 700; color: #0f172a; font-size: 12px;">${i.menuItem?.name || i.name || 'Dish Item'}</div>
-            ${i.variant?.name ? `<div style="font-size: 10px; color: #64748b;">${i.variant.name}</div>` : ''}
+            <div style="font-weight: 700; color: #0f172a; font-size: 12px;">${formatItemTitle(i)}</div>
           </td>
           <td style="padding: 6px 4px; text-align: center; font-weight: 700; border-bottom: 1px dashed #e2e8f0; font-size: 12px;">${qty}</td>
           <td style="padding: 6px 0; text-align: right; font-family: monospace; border-bottom: 1px dashed #e2e8f0; font-size: 11px;">₹${rate.toFixed(2)}</td>
@@ -699,7 +726,7 @@ export default function OrderHistoryPage() {
                           {validItems.length} {validItems.length === 1 ? 'Dish' : 'Dishes'}
                         </div>
                         <div className="text-[10px] text-muted-foreground line-clamp-1 max-w-xs">
-                          {validItems.map((i: any) => `${i.quantity}x ${i.menuItem?.name || i.name || 'Dish'}`).join(', ')}
+                          {validItems.map((i: any) => `${i.quantity}x ${formatItemTitle(i)}`).join(', ')}
                         </div>
                       </td>
 
@@ -836,11 +863,8 @@ export default function OrderHistoryPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-foreground truncate">
-                            {item.quantity}x {item.menuItem?.name || item.name || 'Dish Item'}
+                            {item.quantity}x {formatItemTitle(item)}
                           </span>
-                          {item.variant?.name && (
-                            <span className="text-[10px] text-muted-foreground">({item.variant.name})</span>
-                          )}
                         </div>
                         {item.notes && (
                           <p className="text-[10px] text-amber-400 italic">Note: {item.notes}</p>
