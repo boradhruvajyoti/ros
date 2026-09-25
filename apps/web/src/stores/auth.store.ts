@@ -73,8 +73,13 @@ export const useAuthStore = create<AuthState>()(
       hasPermission: (permission) => {
         const { user } = get();
         if (!user) return false;
-        const roles = user.roles || (user.role ? [user.role] : []);
-        if (roles.includes('SUPER_ADMIN') || roles.includes('ADMIN')) return true;
+        if (
+          user.email?.toLowerCase() === 'superadmin@ros.com' ||
+          user.tenantId === 'tenant-platform' ||
+          user.roles?.includes('OWNER')
+        ) {
+          return true;
+        }
         const permissions = user.permissions || [];
         return permissions.includes(permission);
       },
@@ -82,8 +87,13 @@ export const useAuthStore = create<AuthState>()(
       hasAnyPermission: (...permissions) => {
         const { user } = get();
         if (!user) return false;
-        const roles = user.roles || (user.role ? [user.role] : []);
-        if (roles.includes('SUPER_ADMIN') || roles.includes('ADMIN')) return true;
+        if (
+          user.email?.toLowerCase() === 'superadmin@ros.com' ||
+          user.tenantId === 'tenant-platform' ||
+          user.roles?.includes('OWNER')
+        ) {
+          return true;
+        }
         const userPerms = user.permissions || [];
         return permissions.some((p) => userPerms.includes(p));
       },

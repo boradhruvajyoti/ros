@@ -215,23 +215,17 @@ export class StaffController {
 
       const passwordHash = await bcrypt.hash(data.password, 10);
 
-      // Determine or create Role
-      const roleName = (data.roleName || data.designation || 'STAFF').toUpperCase().replace(/\s+/g, '_');
-      let role = await prisma.role.findFirst({
-        where: { tenantId, name: roleName },
+      // Create a unique staff role for this user account so their permissions are exact and isolated
+      const cleanBaseName = (data.roleName || data.designation || 'STAFF').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+      const role = await prisma.role.create({
+        data: {
+          tenantId,
+          name: `${cleanBaseName}_${Date.now().toString(36).toUpperCase()}`,
+          description: `${data.designation || cleanBaseName} User Role`,
+        },
       });
 
-      if (!role) {
-        role = await prisma.role.create({
-          data: {
-            tenantId,
-            name: roleName,
-            description: `${data.designation || roleName} User Role`,
-          },
-        });
-      }
-
-      // Assign selected permissions to this role
+      // Assign ONLY the selected permissions to this role
       if (data.permissions && data.permissions.length > 0) {
         for (const code of data.permissions) {
           // Ensure permission exists in DB
@@ -247,18 +241,11 @@ export class StaffController {
           }
 
           // Link to role
-          await prisma.rolePermission.upsert({
-            where: {
-              roleId_permissionId: {
-                roleId: role.id,
-                permissionId: perm.id,
-              },
-            },
-            create: {
+          await prisma.rolePermission.create({
+            data: {
               roleId: role.id,
               permissionId: perm.id,
             },
-            update: {},
           });
         }
       }

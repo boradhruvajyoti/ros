@@ -95,9 +95,7 @@ export function isPlatformAdmin(user: any): boolean {
 /** Check if user is restaurant owner / full administrator */
 export function isTenantAdmin(user: any): boolean {
   if (isPlatformAdmin(user)) return true;
-  return user?.roles?.some((r: string) =>
-    ['OWNER', 'ADMINISTRATOR', 'SUPER_ADMIN', 'GENERAL_MANAGER'].includes(r)
-  );
+  return user?.roles?.some((r: string) => ['OWNER'].includes(r));
 }
 
 /** Check if a specific route is accessible by the user */

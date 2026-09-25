@@ -91,11 +91,11 @@ export class AuthService {
     const isPlatformSuperAdmin =
       user.email?.toLowerCase() === 'superadmin@ros.com' || user.tenantId === 'tenant-platform';
 
-    // If user is superadmin or has OWNER/ADMIN role, ensure active restaurant permissions
-    if (roles.includes('SUPER_ADMIN') || roles.includes('OWNER') || roles.includes('ADMINISTRATOR')) {
+    // If user is superadmin or root OWNER, ensure active restaurant permissions
+    if (isPlatformSuperAdmin || roles.includes('OWNER')) {
       const allPerms = await prisma.permission.findMany();
       allPerms.forEach((p) => {
-        // Strip platform-level tenant management from restaurant owners/admins
+        // Strip platform-level tenant management from restaurant owners
         if (p.code === 'tenants:manage' && !isPlatformSuperAdmin) {
           return;
         }
