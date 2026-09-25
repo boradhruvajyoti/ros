@@ -26,13 +26,16 @@ interface MenuItem {
   isAvailable: boolean;
   isActive: boolean;
   categoryId: string;
-  category: { id: string; name: string };
+  category: { id: string; name: string; parentId?: string | null; parent?: { id: string; name: string } | null };
   variants: Array<{ id: string; name: string; price: number; cost: number }>;
 }
 
 interface MenuCategory {
   id: string;
   name: string;
+  parentId?: string | null;
+  parent?: { id: string; name: string } | null;
+  children?: MenuCategory[];
   sortOrder: number;
   isActive?: boolean;
 }
@@ -50,6 +53,11 @@ export default function MenuPage() {
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
 
+  // Quick subcategory creation in Dish Modal
+  const [isQuickAddCategoryOpen, setIsQuickAddCategoryOpen] = useState(false);
+  const [quickCategoryName, setQuickCategoryName] = useState('');
+  const [quickCategoryParentId, setQuickCategoryParentId] = useState<string | null>(null);
+
   // Add/Edit Dish Form States
   const [dishName, setDishName] = useState('');
   const [dishCategoryId, setDishCategoryId] = useState('');
@@ -63,7 +71,8 @@ export default function MenuPage() {
 
   // Category Management States
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string } | null>(null);
+  const [newCategoryParentId, setNewCategoryParentId] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; parentId?: string | null } | null>(null);
 
   // Menu OCR Scanner States
   const [isScanning, setIsScanning] = useState(false);
@@ -93,6 +102,10 @@ export default function MenuPage() {
     queryKey: ['menu', 'items'],
     queryFn: () => apiGet<MenuItem[]>('/menu/items'),
   });
+
+  // Derived top-level and subcategories
+  const topLevelCategories = categories.filter((c) => !c.parentId);
+  const getSubcategories = (parentId: string) => categories.filter((c) => c.parentId === parentId);
 
   // Mutations
   const createDishMutation = useMutation({
@@ -165,20 +178,32 @@ export default function MenuPage() {
   });
 
   const createCategoryMutation = useMutation({
-    mutationFn: async (name: string) => apiPost('/menu/categories', { name, sortOrder: categories.length + 1 }),
-    onSuccess: () => {
+    mutationFn: async ({ name, parentId }: { name: string; parentId?: string | null }) =>
+      apiPost('/menu/categories', { name, parentId: parentId || null, sortOrder: categories.length + 1 }),
+    onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] });
-      toast.success('Category Created', 'New menu category added.');
+      toast.success(
+        res?.parentId ? 'Subcategory Created' : 'Category Created',
+        res?.parentId ? `Subcategory "${res.name}" created.` : `Category "${res?.name || 'New'}" added.`
+      );
       setNewCategoryName('');
+      setNewCategoryParentId(null);
+      if (isQuickAddCategoryOpen && res?.id) {
+        setDishCategoryId(res.id);
+        setIsQuickAddCategoryOpen(false);
+        setQuickCategoryName('');
+        setQuickCategoryParentId(null);
+      }
     },
     onError: (err: any) => toast.error('Category Creation Failed', err.message),
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => apiPatch(`/menu/categories/${id}`, { name }),
+    mutationFn: async ({ id, name, parentId }: { id: string; name: string; parentId?: string | null }) =>
+      apiPatch(`/menu/categories/${id}`, { name, ...(parentId !== undefined ? { parentId } : {}) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] });
-      toast.success('Category Updated', 'Category name modified.');
+      toast.success('Category Updated', 'Category modified.');
       setEditingCategory(null);
     },
     onError: (err: any) => toast.error('Category Update Failed', err.message),
@@ -420,8 +445,11 @@ DESSERTS & DRINKS
   // Filter items
   const filteredItems = items.filter((item) => {
     const itemCatId = item.categoryId || item.category?.id;
+    const childCategoryIds = categories.filter((c) => c.parentId === selectedCategoryId).map((c) => c.id);
     const matchesCat =
-      selectedCategoryId === 'all' || itemCatId === selectedCategoryId;
+      selectedCategoryId === 'all' ||
+      itemCatId === selectedCategoryId ||
+      childCategoryIds.includes(itemCatId);
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -440,7 +468,7 @@ DESSERTS & DRINKS
             Menu Catalogue
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {items.length} dishes across {categories.length} categories · Live real-time POS catalogue
+            {items.length} dishes across {categories.length} categories &amp; subcategories · Live real-time POS catalogue
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -470,43 +498,89 @@ DESSERTS & DRINKS
       {/* Categories & Filter Bar */}
       <div className="flex flex-col gap-4">
         {/* Category Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            onClick={() => setSelectedCategoryId('all')}
-            className={cn(
-              'px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all',
-              selectedCategoryId === 'all'
-                ? 'bg-primary text-primary-foreground shadow-md font-semibold'
-                : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground border border-border'
-            )}
-          >
-            All Items ({items.length})
-          </button>
-          {categories.map((cat) => {
-            const count = items.filter((i) => (i.categoryId || i.category?.id) === cat.id).length;
-            return (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => setSelectedCategoryId('all')}
+              className={cn(
+                'px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all',
+                selectedCategoryId === 'all'
+                  ? 'bg-primary text-primary-foreground shadow-md font-semibold'
+                  : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground border border-border'
+              )}
+            >
+              All Items ({items.length})
+            </button>
+            {topLevelCategories.map((cat) => {
+              const childIds = getSubcategories(cat.id).map((c) => c.id);
+              const count = items.filter((i) => {
+                const cId = i.categoryId || i.category?.id;
+                return cId === cat.id || childIds.includes(cId);
+              }).length;
+              const isSelected = selectedCategoryId === cat.id;
+
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className={cn(
+                    'px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground shadow-md font-semibold'
+                      : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground border border-border'
+                  )}
+                >
+                  <span>{cat.name}</span>
+                  <span className="text-xs opacity-75">({count})</span>
+                </button>
+              );
+            })}
+            {categories.length === 0 && (
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategoryId(cat.id)}
+                onClick={() => setIsManageCategoriesOpen(true)}
+                className="px-3 py-1.5 rounded-lg border border-dashed text-xs text-primary font-medium hover:bg-primary/10"
+              >
+                + Create Category
+              </button>
+            )}
+          </div>
+
+          {/* Subcategory Pills Row (if selected category has children) */}
+          {selectedCategoryId !== 'all' && getSubcategories(selectedCategoryId).length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pl-2 py-1 bg-muted/30 border border-border/40 rounded-xl">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider pl-2 flex items-center gap-1">
+                <Layers className="w-3 h-3 text-primary" /> Subcategories:
+              </span>
+              <button
+                onClick={() => setSelectedCategoryId(selectedCategoryId)}
                 className={cn(
-                  'px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5',
-                  selectedCategoryId === cat.id
-                    ? 'bg-primary text-primary-foreground shadow-md font-semibold'
-                    : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground border border-border'
+                  'px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border',
+                  selectedCategoryId === selectedCategoryId
+                    ? 'bg-primary/15 border-primary/40 text-primary font-bold'
+                    : 'bg-card border-border text-muted-foreground hover:text-foreground'
                 )}
               >
-                <span>{cat.name}</span>
-                <span className="text-xs opacity-75">({count})</span>
+                All in {categories.find((c) => c.id === selectedCategoryId)?.name}
               </button>
-            );
-          })}
-          {categories.length === 0 && (
-            <button
-              onClick={() => setIsManageCategoriesOpen(true)}
-              className="px-3 py-1.5 rounded-lg border border-dashed text-xs text-primary font-medium hover:bg-primary/10"
-            >
-              + Create Category
-            </button>
+              {getSubcategories(selectedCategoryId).map((sub) => {
+                const subCount = items.filter((i) => (i.categoryId || i.category?.id) === sub.id).length;
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => setSelectedCategoryId(sub.id)}
+                    className={cn(
+                      'px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all border flex items-center gap-1',
+                      selectedCategoryId === sub.id
+                        ? 'bg-primary text-primary-foreground border-primary font-bold shadow-sm'
+                        : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <span>↳ {sub.name}</span>
+                    <span className="text-[10px] opacity-80">({subCount})</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -577,6 +651,10 @@ DESSERTS & DRINKS
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {filteredItems.map((item) => {
           const isSelected = selectedItemIds.includes(item.id);
+          const categoryDisplay = item.category?.parent
+            ? `${item.category.parent.name} › ${item.category.name}`
+            : item.category?.name || 'Main';
+
           return (
             <Card
               key={item.id}
@@ -664,8 +742,8 @@ DESSERTS & DRINKS
 
                   {/* Card Footer Actions */}
                   <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                    <span className="text-[11px] text-muted-foreground">
-                      Category: <span className="font-medium text-foreground">{item.category?.name || 'Main'}</span>
+                    <span className="text-[11px] text-muted-foreground truncate max-w-[180px]" title={categoryDisplay}>
+                      Category: <span className="font-medium text-foreground">{categoryDisplay}</span>
                     </span>
                     <div className="flex items-center gap-1">
                       <Button
@@ -813,23 +891,125 @@ DESSERTS & DRINKS
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    Category <span className="text-destructive">*</span>
-                  </label>
+                <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-foreground">
+                      Category / Subcategory <span className="text-destructive">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsQuickAddCategoryOpen(!isQuickAddCategoryOpen);
+                        if (!isQuickAddCategoryOpen && dishCategoryId) {
+                          const curr = categories.find((c) => c.id === dishCategoryId);
+                          if (curr && !curr.parentId) {
+                            setQuickCategoryParentId(curr.id);
+                          }
+                        }
+                      }}
+                      className="text-[11px] text-primary font-semibold hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> New Subcategory
+                    </button>
+                  </div>
+
+                  {/* Inline quick category / subcategory creator */}
+                  {isQuickAddCategoryOpen && (
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl space-y-2 mb-2 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5" /> Quick Create
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsQuickAddCategoryOpen(false)}
+                          className="text-muted-foreground hover:text-foreground text-xs"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">Parent Category</label>
+                        <select
+                          value={quickCategoryParentId || ''}
+                          onChange={(e) => setQuickCategoryParentId(e.target.value || null)}
+                          className="w-full h-8 px-2 rounded border border-input bg-background text-xs"
+                        >
+                          <option value="">None (Top-Level Category)</option>
+                          {topLevelCategories.map((c) => (
+                            <option key={c.id} value={c.id}>📁 {c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+                          {quickCategoryParentId ? 'Subcategory Name' : 'Category Name'}
+                        </label>
+                        <div className="flex gap-1">
+                          <Input
+                            value={quickCategoryName}
+                            onChange={(e) => setQuickCategoryName(e.target.value)}
+                            placeholder={quickCategoryParentId ? "e.g. Dim Sum, Mocktails" : "e.g. Starters, Main Course"}
+                            className="h-8 text-xs flex-1"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && quickCategoryName.trim()) {
+                                e.preventDefault();
+                                createCategoryMutation.mutate({
+                                  name: quickCategoryName.trim(),
+                                  parentId: quickCategoryParentId || null,
+                                });
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!quickCategoryName.trim() || createCategoryMutation.isPending}
+                            onClick={() => {
+                              if (quickCategoryName.trim()) {
+                                createCategoryMutation.mutate({
+                                  name: quickCategoryName.trim(),
+                                  parentId: quickCategoryParentId || null,
+                                });
+                              }
+                            }}
+                            className="h-8 px-2.5 text-xs bg-primary text-primary-foreground"
+                          >
+                            {createCategoryMutation.isPending ? '...' : 'Add'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <select
                     value={dishCategoryId}
                     onChange={(e) => setDishCategoryId(e.target.value)}
                     className="w-full h-10 px-3 rounded-md border border-input bg-background text-xs font-medium focus:outline-none"
                     required
                   >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    <option value="" disabled>Select category or subcategory...</option>
+                    {topLevelCategories.map((topCat) => {
+                      const subs = getSubcategories(topCat.id);
+                      return (
+                        <optgroup key={topCat.id} label={`📁 ${topCat.name}`}>
+                          <option value={topCat.id}>{topCat.name} (General)</option>
+                          {subs.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              &nbsp;&nbsp;&nbsp;&nbsp;↳ {sub.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                    {/* Any orphaned subcategories */}
+                    {categories.filter((c) => c.parentId && !topLevelCategories.some((t) => t.id === c.parentId)).map((orphan) => (
+                      <option key={orphan.id} value={orphan.id}>↳ {orphan.name}</option>
                     ))}
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 col-span-2 sm:col-span-1">
                   <label className="text-xs font-semibold text-foreground">Dietary Type</label>
                   <select
                     value={dishFoodType}
@@ -939,14 +1119,14 @@ DESSERTS & DRINKS
       {/* MANAGE CATEGORIES MODAL */}
       {isManageCategoriesOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 max-h-[85vh] flex flex-col">
+          <div className="bg-card border border-border rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border/60 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                   <Tag className="w-4 h-4 text-primary" />
-                  Manage Menu Categories
+                  Manage Menu Categories &amp; Subcategories
                 </h3>
-                <p className="text-xs text-muted-foreground">Create, edit, or reorder menu sections</p>
+                <p className="text-xs text-muted-foreground">Create hierarchical sections (e.g. Starters → Dim Sum)</p>
               </div>
               <button
                 onClick={() => setIsManageCategoriesOpen(false)}
@@ -956,101 +1136,225 @@ DESSERTS & DRINKS
               </button>
             </div>
 
-            {/* Add Category Form */}
-            <div className="flex gap-2 shrink-0">
-              <Input
-                placeholder="New Category (e.g. Dim Sum, Wood-Fired Pizzas, Mocktails)"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newCategoryName.trim()) {
-                    e.preventDefault();
-                    createCategoryMutation.mutate(newCategoryName.trim());
-                  }
-                }}
-                className="text-xs h-10"
-              />
-              <Button
-                type="button"
-                disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
-                onClick={() => {
-                  if (newCategoryName.trim()) createCategoryMutation.mutate(newCategoryName.trim());
-                }}
-                className="bg-primary text-primary-foreground shrink-0 text-xs gap-1"
-              >
-                <Plus className="w-4 h-4" /> Add
-              </Button>
+            {/* Add Category / Subcategory Form */}
+            <div className="p-3 rounded-xl border border-border/70 bg-muted/20 space-y-2.5 shrink-0">
+              <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-primary" /> Add New Category or Subcategory
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase">Parent Category</label>
+                  <select
+                    value={newCategoryParentId || ''}
+                    onChange={(e) => setNewCategoryParentId(e.target.value || null)}
+                    className="w-full h-9 px-2 rounded-lg border border-input bg-background text-xs font-medium focus:outline-none"
+                  >
+                    <option value="">None (Top-Level Category)</option>
+                    {topLevelCategories.map((c) => (
+                      <option key={c.id} value={c.id}>📁 {c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    {newCategoryParentId ? 'Subcategory Name' : 'Category Name'}
+                  </label>
+                  <div className="flex gap-1.5">
+                    <Input
+                      placeholder={newCategoryParentId ? "e.g. Dim Sum, Wood-Fired Pizzas" : "e.g. Starters, Main Course, Drinks"}
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newCategoryName.trim()) {
+                          e.preventDefault();
+                          createCategoryMutation.mutate({
+                            name: newCategoryName.trim(),
+                            parentId: newCategoryParentId || null,
+                          });
+                        }
+                      }}
+                      className="text-xs h-9 flex-1"
+                    />
+                    <Button
+                      type="button"
+                      disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                      onClick={() => {
+                        if (newCategoryName.trim()) {
+                          createCategoryMutation.mutate({
+                            name: newCategoryName.trim(),
+                            parentId: newCategoryParentId || null,
+                          });
+                        }
+                      }}
+                      className="bg-primary text-primary-foreground shrink-0 text-xs h-9 px-3 gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Categories List */}
-            <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-              {categories.map((cat) => {
-                const isEditing = editingCategory?.id === cat.id;
-                const count = items.filter((i) => (i.categoryId || i.category?.id) === cat.id).length;
+            {/* Hierarchical Categories & Subcategories List */}
+            <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+              {topLevelCategories.map((topCat) => {
+                const isEditingTop = editingCategory?.id === topCat.id;
+                const subs = getSubcategories(topCat.id);
+                const subIds = subs.map((s) => s.id);
+                const directCount = items.filter((i) => (i.categoryId || i.category?.id) === topCat.id).length;
+                const totalCount = items.filter((i) => {
+                  const cId = i.categoryId || i.category?.id;
+                  return cId === topCat.id || subIds.includes(cId);
+                }).length;
+
                 return (
-                  <div
-                    key={cat.id}
-                    className="p-3 rounded-xl border border-border/70 bg-card/60 flex items-center justify-between gap-3 text-xs"
-                  >
-                    {isEditing ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <Input
-                          value={editingCategory.name}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                          className="h-8 text-xs font-semibold"
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => updateCategoryMutation.mutate({ id: cat.id, name: editingCategory.name })}
-                          className="h-8 px-2.5 bg-primary text-primary-foreground"
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditingCategory(null)}
-                          className="h-8 px-2 text-muted-foreground"
-                        >
-                          Cancel
-                        </Button>
+                  <div key={topCat.id} className="rounded-xl border border-border/80 bg-card/60 overflow-hidden">
+                    {/* Top Level Category Row */}
+                    <div className="p-3 bg-muted/40 flex items-center justify-between gap-3 text-xs border-b border-border/50">
+                      {isEditingTop ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <Input
+                            value={editingCategory.name}
+                            onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                            className="h-8 text-xs font-semibold"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => updateCategoryMutation.mutate({ id: topCat.id, name: editingCategory.name })}
+                            className="h-8 px-2.5 bg-primary text-primary-foreground"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingCategory(null)}
+                            className="h-8 px-2 text-muted-foreground"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 font-bold text-foreground">
+                            <span className="text-sm">📁</span>
+                            <span className="text-sm">{topCat.name}</span>
+                            <span className="text-[11px] text-muted-foreground font-normal">
+                              ({totalCount} dishes{subs.length > 0 ? ` · ${subs.length} subcategories` : ''})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setNewCategoryParentId(topCat.id);
+                              }}
+                              className="h-7 text-[11px] px-2 text-primary border-primary/30 hover:bg-primary/10 gap-1"
+                              title="Add subcategory under this category"
+                            >
+                              <Plus className="w-3 h-3" /> Subcategory
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingCategory({ id: topCat.id, name: topCat.name, parentId: null })}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`Delete category "${topCat.name}" and all its subcategories?`)) {
+                                  deleteCategoryMutation.mutate(topCat.id);
+                                }
+                              }}
+                              className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Subcategories nested under top-level */}
+                    {subs.length > 0 && (
+                      <div className="p-2 pl-6 space-y-1.5 bg-background/50">
+                        {subs.map((sub) => {
+                          const isEditingSub = editingCategory?.id === sub.id;
+                          const subCount = items.filter((i) => (i.categoryId || i.category?.id) === sub.id).length;
+                          return (
+                            <div
+                              key={sub.id}
+                              className="p-2 px-3 rounded-lg border border-border/50 bg-card/80 flex items-center justify-between gap-3 text-xs"
+                            >
+                              {isEditingSub ? (
+                                <div className="flex items-center gap-2 flex-1">
+                                  <Input
+                                    value={editingCategory.name}
+                                    onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                                    className="h-7 text-xs font-medium"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    onClick={() => updateCategoryMutation.mutate({ id: sub.id, name: editingCategory.name })}
+                                    className="h-7 px-2 bg-primary text-primary-foreground text-xs"
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setEditingCategory(null)}
+                                    className="h-7 px-2 text-muted-foreground text-xs"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                                    <span className="text-primary font-bold">↳</span>
+                                    <span>{sub.name}</span>
+                                    <span className="text-[10px] text-muted-foreground font-normal">({subCount} dishes)</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setEditingCategory({ id: sub.id, name: sub.name, parentId: topCat.id })}
+                                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (confirm(`Delete subcategory "${sub.name}"?`)) {
+                                          deleteCategoryMutation.mutate(sub.id);
+                                        }
+                                      }}
+                                      className="h-6 w-6 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 font-bold text-foreground">
-                          <span className="w-2 h-2 rounded-full bg-primary" />
-                          <span>{cat.name}</span>
-                          <span className="text-[11px] text-muted-foreground font-normal">({count} dishes)</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingCategory({ id: cat.id, name: cat.name })}
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(`Delete category "${cat.name}"?`)) {
-                                deleteCategoryMutation.mutate(cat.id);
-                              }
-                            }}
-                            className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </>
                     )}
                   </div>
                 );
               })}
 
-              {categories.length === 0 && (
+              {topLevelCategories.length === 0 && (
                 <div className="py-8 text-center text-xs text-muted-foreground">
                   No categories created yet. Add your first category above.
                 </div>

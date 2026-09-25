@@ -59,8 +59,11 @@ export class MenuController {
   static async listCategories(req: Request, res: Response): Promise<void> {
     const categories = await prisma.menuCategory.findMany({
       where: { tenantId: req.user!.tid, isActive: true },
-      include: { children: true },
-      orderBy: { sortOrder: 'asc' },
+      include: {
+        parent: { select: { id: true, name: true } },
+        children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     sendSuccess(res, categories);
   }
@@ -69,6 +72,10 @@ export class MenuController {
     const dto = categorySchema.parse(req.body);
     const category = await prisma.menuCategory.create({
       data: { ...dto, tenantId: req.user!.tid, branchId: req.user!.bid },
+      include: {
+        parent: { select: { id: true, name: true } },
+        children: true,
+      },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
     sendSuccess(res, category, 201);
@@ -79,6 +86,10 @@ export class MenuController {
     const category = await prisma.menuCategory.update({
       where: { id: req.params.id },
       data: dto,
+      include: {
+        parent: { select: { id: true, name: true } },
+        children: true,
+      },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
     sendSuccess(res, category);
@@ -89,8 +100,13 @@ export class MenuController {
       where: { id: req.params.id },
       data: { isActive: false },
     });
+    // Also deactivate children if any
+    await prisma.menuCategory.updateMany({
+      where: { parentId: req.params.id },
+      data: { isActive: false },
+    });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
-    sendSuccess(res, { message: 'Category deactivated' });
+    sendSuccess(res, { message: 'Category and subcategories deactivated' });
   }
 
   // ── Items ──────────────────────────────────────────────────────────────────
@@ -108,7 +124,14 @@ export class MenuController {
         ...(search ? { name: { contains: search as string } } : {}),
       },
       include: {
-        category: { select: { id: true, name: true } },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            parentId: true,
+            parent: { select: { id: true, name: true } },
+          },
+        },
         kitchenStation: { select: { id: true, name: true } },
         variants: { orderBy: { sortOrder: 'asc' } },
         modifierGroups: { include: { modifierGroup: { include: { modifiers: { where: { isActive: true } } } } } },
