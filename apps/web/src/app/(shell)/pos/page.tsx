@@ -7,7 +7,7 @@ import {
   ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
-  Volume2
+  Volume2, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -752,6 +752,28 @@ export default function POSPage() {
             </div>
           </div>
 
+          {/* Search Input Bar for Quick Dish Lookup */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search dishes by name, keywords..."
+              className="w-full bg-background/80 border border-border rounded-xl pl-10 pr-9 py-2 text-xs font-medium placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all shadow-2xs"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
           {/* Large Visual Category Buttons (MAIN CATEGORIES ONLY) */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-1">
             <button
@@ -1004,7 +1026,19 @@ export default function POSPage() {
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <Utensils className="w-12 h-12 mb-3 opacity-30" />
               <p className="text-sm font-bold">No dishes found</p>
-              <p className="text-xs text-muted-foreground">Try selecting "All Categories" or clearing the search.</p>
+              <p className="text-xs text-muted-foreground">
+                {search ? `No items matching "${search}"` : 'Try selecting "All Categories" or clearing filters.'}
+              </p>
+              {search && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearch('')}
+                  className="mt-3 text-xs rounded-xl"
+                >
+                  Clear Search
+                </Button>
+              )}
             </div>
           )}
         </div>
