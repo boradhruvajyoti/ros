@@ -228,7 +228,7 @@ export class OrderService {
     });
   }
 
-  // ── Update Order Items (Before & After Sending to Kitchen) ─────────────────
+  // ── Update Order Items (Before Sending to Kitchen) ─────────────────────────
   async updateOrderItems(
     orderId: string,
     dto: {
@@ -240,34 +240,25 @@ export class OrderService {
   ): Promise<any> {
     const order = await prisma.order.findFirst({
       where: { id: orderId, tenantId: this.tenantId },
-      include: {
-        items: {
-          include: {
-            modifiers: true,
-            kotItems: true,
-          },
-        },
-      },
+      include: { items: true },
     });
 
     if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
 
-    if (['COMPLETED', 'VOIDED', 'CANCELLED'].includes(order.status)) {
+    if (!['DRAFT', 'CONFIRMED'].includes(order.status)) {
       throw new AppError(
         ErrorCodes.VALIDATION_ERROR,
-        `Cannot modify items for an order in terminal status ${order.status}.`,
+        `Cannot modify items for an order in status ${order.status}. Only un-dispatched orders (Draft / Pending) can be modified.`,
         400
       );
     }
-
-    const isDraftOrPending = ['DRAFT', 'CONFIRMED'].includes(order.status);
-    const effectiveBranchId = order.branchId || this.branchId;
 
     const menuItemIds = dto.items.map((i) => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
       where: { id: { in: menuItemIds }, tenantId: this.tenantId },
       include: { variants: true },
     });
+
     const itemMap = new Map(menuItems.map((m) => [m.id, m]));
 
     const allModifierIds = dto.items.flatMap((i) => i.modifierIds || []);
@@ -275,6 +266,43 @@ export class OrderService {
       ? await prisma.modifier.findMany({ where: { id: { in: allModifierIds } } })
       : [];
     const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
+
+    let subtotal = 0;
+    const orderItemsData = dto.items.map((item) => {
+      const menuItem = itemMap.get(item.menuItemId);
+      if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
+
+      let variant = null;
+      if (item.variantId && !item.variantId.startsWith('v-')) {
+        variant = menuItem.variants.find((v) => v.id === item.variantId) || null;
+      }
+      if (!variant && menuItem.variants.length > 0) {
+        variant = menuItem.variants[0];
+      }
+
+      const itemModifiers = (item.modifierIds || []).map((mid) => {
+        const mod = modifierMap.get(mid);
+        if (!mod) throw new AppError(ErrorCodes.NOT_FOUND, `Modifier ${mid} not found`);
+        return { modifierId: mod.id, name: mod.name, price: toAmount(mod.price) };
+      });
+
+      const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
+      const fallbackPrice = Number(item.unitPrice !== undefined && item.unitPrice !== null ? item.unitPrice : (menuItem as any).basePrice || (menuItem as any).price || 0);
+      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : toAmount(fallbackPrice + modifierTotal);
+      const lineTotal = multiplyAmount(unitPrice, item.quantity);
+      subtotal = addAmounts(subtotal, lineTotal);
+
+      return {
+        menuItemId: item.menuItemId,
+        variantId: variant?.id || null,
+        quantity: item.quantity,
+        unitPrice,
+        lineTotal,
+        notes: item.notes,
+        modifiers: itemModifiers,
+        kitchenStationId: menuItem.kitchenStationId,
+      };
+    });
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: this.tenantId },
@@ -287,223 +315,18 @@ export class OrderService {
         if (parsed?.taxRate !== undefined) taxRate = Number(parsed.taxRate) || 0;
       } catch {}
     }
+    const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
+    const total = toAmount(addAmounts(subtotal, taxAmount));
 
-    if (isDraftOrPending) {
-      // Free modification / recreation for Draft & Confirmed orders
-      let subtotal = 0;
-      const orderItemsData = dto.items.map((item) => {
-        const menuItem = itemMap.get(item.menuItemId);
-        if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
-
-        let variant = null;
-        if (item.variantId && !item.variantId.startsWith('v-')) {
-          variant = menuItem.variants.find((v) => v.id === item.variantId) || null;
-        }
-        if (!variant && menuItem.variants.length > 0) {
-          variant = menuItem.variants[0];
-        }
-
-        const itemModifiers = (item.modifierIds || []).map((mid) => {
-          const mod = modifierMap.get(mid);
-          if (!mod) throw new AppError(ErrorCodes.NOT_FOUND, `Modifier ${mid} not found`);
-          return { modifierId: mod.id, name: mod.name, price: toAmount(mod.price) };
-        });
-
-        const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
-        const fallbackPrice = Number(item.unitPrice !== undefined && item.unitPrice !== null ? item.unitPrice : (menuItem as any).basePrice || (menuItem as any).price || 0);
-        const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : toAmount(fallbackPrice + modifierTotal);
-        const lineTotal = multiplyAmount(unitPrice, item.quantity);
-        subtotal = addAmounts(subtotal, lineTotal);
-
-        return {
-          menuItemId: item.menuItemId,
-          variantId: variant?.id || null,
-          quantity: item.quantity,
-          unitPrice,
-          lineTotal,
-          notes: item.notes,
-          modifiers: itemModifiers,
-          kitchenStationId: menuItem.kitchenStationId,
-        };
-      });
-
-      const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
-      const total = toAmount(addAmounts(subtotal, taxAmount));
-
-      return prisma.$transaction(async (tx) => {
-        await tx.orderItemModifier.deleteMany({
-          where: { orderItem: { orderId } },
-        });
-        await tx.orderItem.deleteMany({
-          where: { orderId },
-        });
-
-        const updatedOrder = await tx.order.update({
-          where: { id: orderId },
-          data: {
-            subtotal,
-            taxAmount,
-            total,
-            notes: dto.notes !== undefined ? dto.notes : order.notes,
-            status: dto.sendToKitchen ? 'SENT_TO_KITCHEN' : order.status,
-            updatedBy: userId,
-            items: {
-              create: orderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
-                ...itemData,
-                modifiers: {
-                  create: modifiers.map((m) => ({
-                    modifierId: m.modifierId,
-                    name: m.name,
-                    price: m.price,
-                  })),
-                },
-              })),
-            },
-          },
-          include: this.orderInclude(),
-        });
-
-        if (dto.sendToKitchen) {
-          await this.generateKots(orderId, tx as any, effectiveBranchId);
-          emitToRoom(this.tenantId, effectiveBranchId, {
-            type: 'ORDER_STATUS_CHANGED',
-            payload: { orderId, orderNumber: order.orderNumber, status: 'SENT_TO_KITCHEN' },
-          });
-        }
-
-        emitToRoom(this.tenantId, effectiveBranchId, {
-          type: 'ORDER_UPDATED',
-          payload: { orderId, orderNumber: order.orderNumber, total, itemCount: orderItemsData.length },
-        });
-
-        return updatedOrder;
-      });
-    }
-
-    // ── Running Order (Sent to Kitchen / Preparing / Ready / Served / Billed) ──
-    // Enforce Kitchen Lock: Dispatched items cannot be deleted or reduced in quantity.
-    const existingDispatchedMap = new Map<string, number>();
-    for (const item of order.items) {
-      if (item.status !== 'PENDING' || item.kotItems.length > 0) {
-        const key = item.variantId ? `${item.menuItemId}:${item.variantId}` : item.menuItemId;
-        existingDispatchedMap.set(key, (existingDispatchedMap.get(key) || 0) + item.quantity);
-      }
-    }
-
-    const incomingMap = new Map<string, number>();
-    for (const item of dto.items) {
-      const vId = item.variantId && !item.variantId.startsWith('v-') ? item.variantId : undefined;
-      const key = vId ? `${item.menuItemId}:${vId}` : item.menuItemId;
-      incomingMap.set(key, (incomingMap.get(key) || 0) + item.quantity);
-    }
-
-    // Validate no reduction/deletion of kitchen-accepted items
-    for (const [key, dispatchedQty] of existingDispatchedMap) {
-      const incomingQty = incomingMap.get(key) || 0;
-      if (incomingQty < dispatchedQty) {
-        throw new AppError(
-          ErrorCodes.VALIDATION_ERROR,
-          'Items already sent to or accepted in the kitchen cannot be removed or reduced in quantity. You can only add new items or increase quantity.',
-          400
-        );
-      }
-    }
-
-    // Calculate incremental / new items to add with status 'PENDING'
-    const newItemsToCreate: Array<{
-      menuItemId: string;
-      variantId?: string | null;
-      quantity: number;
-      unitPrice: number;
-      lineTotal: number;
-      notes?: string;
-      modifiers: Array<{ modifierId: string; name: string; price: number }>;
-      kitchenStationId?: string | null;
-    }> = [];
-
-    const allocatedDispatchedMap = new Map<string, number>();
-
-    for (const item of dto.items) {
-      const menuItem = itemMap.get(item.menuItemId);
-      if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
-
-      let variant = null;
-      if (item.variantId && !item.variantId.startsWith('v-')) {
-        variant = menuItem.variants.find((v) => v.id === item.variantId) || null;
-      }
-      if (!variant && menuItem.variants.length > 0) {
-        variant = menuItem.variants[0];
-      }
-
-      const key = variant?.id ? `${item.menuItemId}:${variant.id}` : item.menuItemId;
-      const dispatchedQty = existingDispatchedMap.get(key) || 0;
-      const alreadyAllocated = allocatedDispatchedMap.get(key) || 0;
-
-      const remainingDispatchedToCover = Math.max(0, dispatchedQty - alreadyAllocated);
-      const coveredByThis = Math.min(item.quantity, remainingDispatchedToCover);
-      allocatedDispatchedMap.set(key, alreadyAllocated + coveredByThis);
-
-      const deltaQty = item.quantity - coveredByThis;
-
-      if (deltaQty > 0) {
-        const itemModifiers = (item.modifierIds || []).map((mid) => {
-          const mod = modifierMap.get(mid);
-          if (!mod) throw new AppError(ErrorCodes.NOT_FOUND, `Modifier ${mid} not found`);
-          return { modifierId: mod.id, name: mod.name, price: toAmount(mod.price) };
-        });
-
-        const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
-        const fallbackPrice = Number(item.unitPrice !== undefined && item.unitPrice !== null ? item.unitPrice : (menuItem as any).basePrice || (menuItem as any).price || 0);
-        const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : toAmount(fallbackPrice + modifierTotal);
-        const lineTotal = multiplyAmount(unitPrice, deltaQty);
-
-        newItemsToCreate.push({
-          menuItemId: item.menuItemId,
-          variantId: variant?.id || null,
-          quantity: deltaQty,
-          unitPrice,
-          lineTotal,
-          notes: item.notes,
-          modifiers: itemModifiers,
-          kitchenStationId: menuItem.kitchenStationId,
-        });
-      }
-    }
+    const effectiveBranchId = order.branchId || this.branchId;
 
     return prisma.$transaction(async (tx) => {
-      // Insert any incremental items as PENDING
-      if (newItemsToCreate.length > 0) {
-        for (const newItem of newItemsToCreate) {
-          const createdItem = await tx.orderItem.create({
-            data: {
-              orderId,
-              menuItemId: newItem.menuItemId,
-              variantId: newItem.variantId,
-              quantity: newItem.quantity,
-              unitPrice: newItem.unitPrice,
-              lineTotal: newItem.lineTotal,
-              notes: newItem.notes,
-              status: 'PENDING',
-              modifiers: {
-                create: newItem.modifiers.map((m) => ({
-                  modifierId: m.modifierId,
-                  name: m.name,
-                  price: m.price,
-                })),
-              },
-            },
-          });
-        }
-      }
-
-      // Recalculate totals across ALL active items for this order
-      const allActiveItems = await tx.orderItem.findMany({
-        where: { orderId, status: { notIn: ['VOIDED', 'CANCELLED'] } },
+      await tx.orderItemModifier.deleteMany({
+        where: { orderItem: { orderId } },
       });
-
-      const subtotal = allActiveItems.reduce((s, i) => addAmounts(s, Number(i.lineTotal)), 0);
-      const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
-      const total = toAmount(addAmounts(subtotal, taxAmount));
+      await tx.orderItem.deleteMany({
+        where: { orderId },
+      });
 
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
@@ -512,19 +335,35 @@ export class OrderService {
           taxAmount,
           total,
           notes: dto.notes !== undefined ? dto.notes : order.notes,
+          status: dto.sendToKitchen ? 'SENT_TO_KITCHEN' : order.status,
           updatedBy: userId,
+          items: {
+            create: orderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
+              ...itemData,
+              modifiers: {
+                create: modifiers.map((m) => ({
+                  modifierId: m.modifierId,
+                  name: m.name,
+                  price: m.price,
+                })),
+              },
+            })),
+          },
         },
         include: this.orderInclude(),
       });
 
-      // Dispatch supplemental KOT if sendToKitchen is requested or order is actively in kitchen
-      if (dto.sendToKitchen && newItemsToCreate.length > 0) {
+      if (dto.sendToKitchen) {
         await this.generateKots(orderId, tx as any, effectiveBranchId);
+        emitToRoom(this.tenantId, effectiveBranchId, {
+          type: 'ORDER_STATUS_CHANGED',
+          payload: { orderId, orderNumber: order.orderNumber, status: 'SENT_TO_KITCHEN' },
+        });
       }
 
       emitToRoom(this.tenantId, effectiveBranchId, {
         type: 'ORDER_UPDATED',
-        payload: { orderId, orderNumber: order.orderNumber, total, itemCount: allActiveItems.length },
+        payload: { orderId, orderNumber: order.orderNumber, total, itemCount: orderItemsData.length },
       });
 
       return updatedOrder;
