@@ -29,7 +29,7 @@ export const ALL_RESTAURANT_NAV_SECTIONS: Array<
 
   // Inventory & Kitchen
   { type: 'divider', label: 'INVENTORY & RECIPES' },
-  { href: '/menu',          label: 'Menu Catalog',          icon: BookOpen,        permissions: ['menu:view', 'menu:create', 'menu:edit'] },
+  { href: '/menu',          label: 'Menu Catalog',          icon: BookOpen,        permissions: ['menu:create', 'menu:edit'] },
   { href: '/inventory',     label: 'Stock & Inventory',     icon: Package,         permissions: ['inventory:view', 'inventory:adjust', 'inventory:count'] },
   { href: '/production',    label: 'Recipe Yields',          icon: Flame,           permissions: ['inventory:view'] },
   { href: '/procurement',   label: 'Procurement & Vendors', icon: Truck,           permissions: ['procurement:view', 'procurement:create'] },
@@ -152,7 +152,7 @@ export function getDefaultLandingRoute(
   if (hasAnyPermission('kitchen:view', 'kitchen:update')) return '/kitchen';
   if (hasAnyPermission('orders:view', 'payments:view')) return '/order-history';
   if (hasAnyPermission('inventory:view')) return '/inventory';
-  if (hasAnyPermission('menu:view')) return '/menu';
+  if (hasAnyPermission('menu:create', 'menu:edit')) return '/menu';
   if (hasAnyPermission('reservations:view')) return '/reservations';
   if (hasAnyPermission('procurement:view')) return '/procurement';
   if (hasAnyPermission('customers:view')) return '/customers';
