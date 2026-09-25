@@ -519,29 +519,80 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      {/* 4 Traffic Light Kitchen Columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* 4 Distinguishable Kitchen Columns with Clear Dividers and Vibrant Large Headers */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {[
-          { key: 'NEW', title: '🔵 NEW TICKETS', list: groupedKots.NEW, badgeColor: 'bg-blue-500' },
-          { key: 'ACCEPTED', title: '🟡 ACCEPTED', list: groupedKots.ACCEPTED, badgeColor: 'bg-amber-500' },
-          { key: 'PREPARING', title: '🔥 COOKING NOW', list: groupedKots.PREPARING, badgeColor: 'bg-orange-500' },
-          { key: 'READY', title: '✅ READY TO SERVE', list: groupedKots.READY, badgeColor: 'bg-emerald-500' },
-        ].map(({ key, title, list, badgeColor }) => (
-          <div key={key} className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <span className={cn('w-2.5 h-2.5 rounded-full', badgeColor)} />
-                <h2 className="text-xs font-black text-foreground tracking-wider">{title}</h2>
+          {
+            key: 'NEW',
+            title: 'NEW TICKETS',
+            emoji: '🔵',
+            icon: Bell,
+            list: groupedKots.NEW,
+            headerBg: 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-md shadow-blue-500/20',
+            badgeBg: 'bg-white/20 text-white border-white/30',
+            containerBorder: 'border-2 border-blue-500/30 bg-blue-500/[0.03]',
+            emptyMsg: 'No new tickets waiting',
+          },
+          {
+            key: 'ACCEPTED',
+            title: 'ACCEPTED',
+            emoji: '🟡',
+            icon: ChefHat,
+            list: groupedKots.ACCEPTED,
+            headerBg: 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-slate-950 font-black shadow-md shadow-amber-500/20',
+            badgeBg: 'bg-slate-950/20 text-slate-950 border-slate-950/30',
+            containerBorder: 'border-2 border-amber-500/30 bg-amber-500/[0.03]',
+            emptyMsg: 'No accepted tickets in queue',
+          },
+          {
+            key: 'PREPARING',
+            title: 'COOKING NOW',
+            emoji: '🔥',
+            icon: Flame,
+            list: groupedKots.PREPARING,
+            headerBg: 'bg-gradient-to-r from-orange-600 via-red-600 to-rose-600 text-white shadow-md shadow-orange-500/20',
+            badgeBg: 'bg-white/20 text-white border-white/30',
+            containerBorder: 'border-2 border-orange-500/30 bg-orange-500/[0.03]',
+            emptyMsg: 'Nothing currently on the stove',
+          },
+          {
+            key: 'READY',
+            title: 'READY TO SERVE',
+            emoji: '✅',
+            icon: CheckCircle,
+            list: groupedKots.READY,
+            headerBg: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-md shadow-emerald-500/20',
+            badgeBg: 'bg-white/20 text-white border-white/30',
+            containerBorder: 'border-2 border-emerald-500/30 bg-emerald-500/[0.03]',
+            emptyMsg: 'All orders picked up and served',
+          },
+        ].map(({ key, title, emoji, icon: Icon, list, headerBg, badgeBg, containerBorder, emptyMsg }) => (
+          <div
+            key={key}
+            className={cn(
+              'rounded-3xl p-3 sm:p-3.5 space-y-3.5 shadow-sm transition-all flex flex-col',
+              containerBorder
+            )}
+          >
+            {/* Distinct Bold Colorful Header Banner */}
+            <div className={cn('p-3.5 rounded-2xl flex items-center justify-between gap-2 shadow-sm', headerBg)}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-xl shrink-0 leading-none">{emoji}</span>
+                <h2 className="text-base sm:text-lg font-black tracking-wide uppercase truncate">
+                  {title}
+                </h2>
               </div>
-              <span className="text-xs font-black px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
+              <span className={cn('text-sm font-black px-3 py-1 rounded-xl border shrink-0', badgeBg)}>
                 {list.length}
               </span>
             </div>
 
-            <div className="space-y-3 min-h-[200px]">
+            {/* Ticket Cards Column */}
+            <div className="space-y-3 flex-1 min-h-[220px]">
               {list.length === 0 ? (
-                <div className="rounded-3xl border-2 border-dashed border-border/70 h-32 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
-                  <p className="text-xs font-bold">No tickets in this stage</p>
+                <div className="rounded-2xl border-2 border-dashed border-border/70 h-40 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
+                  <Icon className="w-8 h-8 opacity-25 mb-1.5" />
+                  <p className="text-xs font-bold text-foreground/70">{emptyMsg}</p>
                 </div>
               ) : (
                 list.map((kot) => (
