@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, ChefHat, CheckCircle, Flame, Bell, Wifi, WifiOff,
   Check, Volume2, VolumeX, AlertTriangle, Sparkles, Utensils,
-  ArrowRight, ShieldCheck, XCircle, Trash2, Ban
+  ArrowRight, ShieldCheck, XCircle, Trash2, Ban, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -281,6 +281,136 @@ function KotCard({
   );
 }
 
+function KitchenStatusSection({
+  title,
+  subtitle,
+  icon: Icon,
+  headerBg,
+  accentBorder,
+  dotActiveColor,
+  kots,
+  onUpdateKot,
+  onRequestCancelItem,
+  onRequestCancelKot,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: any;
+  headerBg: string;
+  accentBorder: string;
+  dotActiveColor: string;
+  kots: Kot[];
+  onUpdateKot: (kotId: string, status: string) => void;
+  onRequestCancelItem: (kotId: string, itemId: string, itemName: string) => void;
+  onRequestCancelKot: (kotId: string, kotNumber: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    if (clientWidth > 0) {
+      const idx = Math.round(scrollLeft / (clientWidth * 0.85 || 1));
+      setActiveIndex(Math.min(Math.max(0, idx), kots.length - 1));
+    }
+  };
+
+  const scrollToCard = (index: number) => {
+    if (!scrollRef.current) return;
+    const cardElements = scrollRef.current.children;
+    if (cardElements[index]) {
+      (cardElements[index] as HTMLElement).scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      });
+      setActiveIndex(index);
+    }
+  };
+
+  return (
+    <div className={cn('rounded-3xl border-2 bg-card/60 backdrop-blur-sm overflow-hidden shadow-md transition-all', accentBorder)}>
+      {/* Large, Bold, Colorful Header */}
+      <div className={cn('px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-white shadow-md', headerBg)}>
+        <div className="flex items-center gap-3.5">
+          <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-md shrink-0 shadow-inner">
+            <Icon className="w-6 h-6 sm:w-8 sm:h-8" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-black uppercase tracking-wider drop-shadow-sm flex items-center gap-2">
+              {title}
+            </h2>
+            {subtitle && (
+              <p className="text-xs sm:text-sm font-medium opacity-90">{subtitle}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="px-4 py-1.5 rounded-2xl text-sm sm:text-base font-black bg-white/25 backdrop-blur-md border border-white/30 shadow-inner">
+            {kots.length} {kots.length === 1 ? 'Ticket' : 'Tickets'}
+          </span>
+        </div>
+      </div>
+
+      {/* Ticket List Container */}
+      <div className="p-3 sm:p-5">
+        {kots.length === 0 ? (
+          <div className="rounded-2xl border-2 border-dashed border-border/70 py-12 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
+            <Icon className="w-10 h-10 opacity-30 mb-2" />
+            <p className="text-base font-bold text-foreground/80">No tickets currently in this stage</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Tickets will automatically slide in here</p>
+          </div>
+        ) : (
+          <div>
+            {/* Mobile: Horizontal Scroll Snap / Desktop: Responsive Rows & Columns Grid */}
+            <div
+              ref={scrollRef}
+              onScroll={handleScroll}
+              className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 pt-1 px-1 scroll-smooth no-scrollbar touch-pan-x md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-4 md:overflow-visible md:p-0"
+            >
+              {kots.map((kot) => (
+                <div
+                  key={kot.id}
+                  className="w-[88vw] max-w-[390px] shrink-0 snap-center md:w-auto md:max-w-none md:shrink md:snap-align-none flex flex-col"
+                >
+                  <KotCard
+                    kot={kot}
+                    onUpdate={onUpdateKot}
+                    onRequestCancelItem={onRequestCancelItem}
+                    onRequestCancelKot={onRequestCancelKot}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile Dot Scrolling Indicators */}
+            {kots.length > 1 && (
+              <div className="flex md:hidden items-center justify-center gap-2 pt-3 pb-1">
+                {kots.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => scrollToCard(idx)}
+                    aria-label={`Go to ticket ${idx + 1}`}
+                    className={cn(
+                      'transition-all duration-300 cursor-pointer',
+                      activeIndex === idx
+                        ? cn('w-7 h-2.5 rounded-full shadow-sm', dotActiveColor)
+                        : 'w-2.5 h-2.5 rounded-full bg-muted-foreground/30 hover:bg-muted-foreground/60'
+                    )}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function KitchenPage() {
   const queryClient = useQueryClient();
   const [isLive, setIsLive] = useState(true);
@@ -481,57 +611,115 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      {/* 4 Traffic Light Kitchen Columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {[
-          { key: 'NEW', title: '🔵 NEW TICKETS', list: groupedKots.NEW, badgeColor: 'bg-blue-500' },
-          { key: 'ACCEPTED', title: '🟡 ACCEPTED', list: groupedKots.ACCEPTED, badgeColor: 'bg-amber-500' },
-          { key: 'PREPARING', title: '🔥 COOKING NOW', list: groupedKots.PREPARING, badgeColor: 'bg-orange-500' },
-          { key: 'READY', title: '✅ READY TO SERVE', list: groupedKots.READY, badgeColor: 'bg-emerald-500' },
-        ].map(({ key, title, list, badgeColor }) => (
-          <div key={key} className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <span className={cn('w-2.5 h-2.5 rounded-full', badgeColor)} />
-                <h2 className="text-xs font-black text-foreground tracking-wider">{title}</h2>
-              </div>
-              <span className="text-xs font-black px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
-                {list.length}
-              </span>
-            </div>
+      {/* 4 Vertically Stacked Status Sections */}
+      <div className="space-y-6 sm:space-y-8">
+        {/* 1. NEW TICKETS */}
+        <KitchenStatusSection
+          title="🔵 NEW TICKETS"
+          subtitle="Freshly arrived orders waiting for kitchen acceptance"
+          icon={Bell}
+          headerBg="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-800 text-white"
+          accentBorder="border-blue-500/40 hover:border-blue-500/60"
+          dotActiveColor="bg-blue-500"
+          kots={groupedKots.NEW}
+          onUpdateKot={(kotId, status) => {
+            if (status === 'ACCEPTED') {
+              playOrderAcceptedSound();
+            } else if (status === 'READY') {
+              playOrderReadySound();
+            }
+            updateKot.mutate({ kotId, status });
+          }}
+          onRequestCancelItem={(kotId, itemId, itemName) => {
+            setCancelModalItem({ kotId, itemId, itemName });
+            setCancelReason('');
+          }}
+          onRequestCancelKot={(kotId, kotNumber) => {
+            setCancelModalKot({ kotId, kotNumber });
+            setCancelReason('');
+          }}
+        />
 
-            <div className="space-y-3 min-h-[200px]">
-              {list.length === 0 ? (
-                <div className="rounded-3xl border-2 border-dashed border-border/70 h-32 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
-                  <p className="text-xs font-bold">No tickets in this stage</p>
-                </div>
-              ) : (
-                list.map((kot) => (
-                  <KotCard
-                    key={kot.id}
-                    kot={kot}
-                    onUpdate={(kotId, status) => {
-                      if (status === 'ACCEPTED') {
-                        playOrderAcceptedSound();
-                      } else if (status === 'READY') {
-                        playOrderReadySound();
-                      }
-                      updateKot.mutate({ kotId, status });
-                    }}
-                    onRequestCancelItem={(kotId, itemId, itemName) => {
-                      setCancelModalItem({ kotId, itemId, itemName });
-                      setCancelReason('');
-                    }}
-                    onRequestCancelKot={(kotId, kotNumber) => {
-                      setCancelModalKot({ kotId, kotNumber });
-                      setCancelReason('');
-                    }}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        ))}
+        {/* 2. ACCEPTED */}
+        <KitchenStatusSection
+          title="🟡 ACCEPTED ORDERS"
+          subtitle="Confirmed by kitchen, queued up for prep"
+          icon={ChefHat}
+          headerBg="bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-slate-950 font-black"
+          accentBorder="border-amber-500/40 hover:border-amber-500/60"
+          dotActiveColor="bg-amber-500"
+          kots={groupedKots.ACCEPTED}
+          onUpdateKot={(kotId, status) => {
+            if (status === 'ACCEPTED') {
+              playOrderAcceptedSound();
+            } else if (status === 'READY') {
+              playOrderReadySound();
+            }
+            updateKot.mutate({ kotId, status });
+          }}
+          onRequestCancelItem={(kotId, itemId, itemName) => {
+            setCancelModalItem({ kotId, itemId, itemName });
+            setCancelReason('');
+          }}
+          onRequestCancelKot={(kotId, kotNumber) => {
+            setCancelModalKot({ kotId, kotNumber });
+            setCancelReason('');
+          }}
+        />
+
+        {/* 3. COOKING NOW (PREPARING) */}
+        <KitchenStatusSection
+          title="🔥 COOKING NOW"
+          subtitle="Active dishes on the grill, wok, and ovens"
+          icon={Flame}
+          headerBg="bg-gradient-to-r from-orange-600 via-red-600 to-rose-600 text-white"
+          accentBorder="border-orange-500/40 hover:border-orange-500/60"
+          dotActiveColor="bg-orange-500"
+          kots={groupedKots.PREPARING}
+          onUpdateKot={(kotId, status) => {
+            if (status === 'ACCEPTED') {
+              playOrderAcceptedSound();
+            } else if (status === 'READY') {
+              playOrderReadySound();
+            }
+            updateKot.mutate({ kotId, status });
+          }}
+          onRequestCancelItem={(kotId, itemId, itemName) => {
+            setCancelModalItem({ kotId, itemId, itemName });
+            setCancelReason('');
+          }}
+          onRequestCancelKot={(kotId, kotNumber) => {
+            setCancelModalKot({ kotId, kotNumber });
+            setCancelReason('');
+          }}
+        />
+
+        {/* 4. READY TO SERVE */}
+        <KitchenStatusSection
+          title="✅ READY TO SERVE"
+          subtitle="Plated & ready for food runners and table service"
+          icon={CheckCircle}
+          headerBg="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-800 text-white"
+          accentBorder="border-emerald-500/40 hover:border-emerald-500/60"
+          dotActiveColor="bg-emerald-500"
+          kots={groupedKots.READY}
+          onUpdateKot={(kotId, status) => {
+            if (status === 'ACCEPTED') {
+              playOrderAcceptedSound();
+            } else if (status === 'READY') {
+              playOrderReadySound();
+            }
+            updateKot.mutate({ kotId, status });
+          }}
+          onRequestCancelItem={(kotId, itemId, itemName) => {
+            setCancelModalItem({ kotId, itemId, itemName });
+            setCancelReason('');
+          }}
+          onRequestCancelKot={(kotId, kotNumber) => {
+            setCancelModalKot({ kotId, kotNumber });
+            setCancelReason('');
+          }}
+        />
       </div>
 
       {/* Item Cancel Confirmation Dialog */}
