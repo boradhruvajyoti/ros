@@ -340,18 +340,38 @@ export default function POSPage() {
   const explodeItemVariants = useCallback((item: MenuItem) => {
     const variants = Array.isArray(item.variants) && item.variants.length > 0
       ? item.variants
-      : [{ id: `v-${item.id}`, name: 'Standard', price: (item as any).basePrice || (item as any).price || 299 }];
+      : [{ id: `v-${item.id}`, name: '', price: (item as any).basePrice || (item as any).price || 299 }];
+
+    // Function to check if a variant is Half, Full, or a genuine multi-portion option (exclude 'Regular Portion', 'Standard', etc.)
+    const isHalfOrFullVariant = (name?: string) => {
+      if (!name) return false;
+      const lower = name.toLowerCase().trim();
+      if (
+        lower === 'regular' ||
+        lower === 'regular portion' ||
+        lower === 'standard' ||
+        lower === 'default' ||
+        lower === 'single' ||
+        lower === 'normal' ||
+        lower === 'standard portion' ||
+        lower === 'portion' ||
+        lower.includes('regular portion')
+      ) {
+        return false;
+      }
+      return true;
+    };
 
     if (variants.length <= 1) {
       const v = variants[0];
-      const isStandardName = !v.name || v.name.toLowerCase() === 'standard' || v.name.toLowerCase() === 'regular' || v.name.toLowerCase() === 'default';
+      const showVariant = isHalfOrFullVariant(v.name);
       return [{
         cardId: `${item.id}_${v.id}`,
         menuItemId: item.id,
         variantId: v.id,
-        displayName: isStandardName ? item.name : `${item.name} (${v.name})`,
+        displayName: showVariant ? `${item.name} (${v.name})` : item.name,
         baseName: item.name,
-        variantName: isStandardName ? undefined : v.name,
+        variantName: showVariant ? v.name : undefined,
         price: Number(v.price || 0),
         foodType: item.foodType,
         itemRef: item,
@@ -359,19 +379,22 @@ export default function POSPage() {
       }];
     }
 
-    // Multiple variants (e.g. Half, Full, Quarter, Regular, Large) -> exploded into separate items
-    return variants.map((v) => ({
-      cardId: `${item.id}_${v.id}`,
-      menuItemId: item.id,
-      variantId: v.id,
-      displayName: `${item.name} (${v.name})`,
-      baseName: item.name,
-      variantName: v.name,
-      price: Number(v.price || 0),
-      foodType: item.foodType,
-      itemRef: item,
-      variantRef: v,
-    }));
+    // Multiple variants (e.g. Half, Full) -> exploded into separate items
+    return variants.map((v) => {
+      const showVariant = isHalfOrFullVariant(v.name);
+      return {
+        cardId: `${item.id}_${v.id}`,
+        menuItemId: item.id,
+        variantId: v.id,
+        displayName: showVariant ? `${item.name} (${v.name})` : item.name,
+        baseName: item.name,
+        variantName: showVariant ? v.name : undefined,
+        price: Number(v.price || 0),
+        foodType: item.foodType,
+        itemRef: item,
+        variantRef: v,
+      };
+    });
   }, []);
 
   // ── Processed Subcategory Sections (Hierarchical View & Exploded Variants) ──
