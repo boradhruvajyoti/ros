@@ -149,20 +149,40 @@ export default function POSPage() {
   // Helper to map backend order items into POS CartItem interface
   const mapOrderItemsToCart = useCallback((order: any): CartItem[] => {
     if (!order || !Array.isArray(order.items)) return [];
+    const isHalfOrFull = (name?: string) => {
+      if (!name) return false;
+      const lower = name.toLowerCase().trim();
+      if (
+        lower === 'regular' ||
+        lower === 'regular portion' ||
+        lower === 'standard' ||
+        lower === 'default' ||
+        lower === 'single' ||
+        lower === 'normal' ||
+        lower === 'standard portion' ||
+        lower === 'portion' ||
+        lower.includes('regular portion')
+      ) {
+        return false;
+      }
+      return true;
+    };
+
     return order.items
       .filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status))
       .map((it: any) => {
         const vId = it.variantId || it.variant?.id || `v-${it.menuItemId || it.id}`;
         const vName = it.variant?.name || it.variantName || 'Standard';
         const mId = it.menuItemId || it.menuItem?.id || it.id;
-        const name = it.menuItem?.name || it.name || 'Dish';
+        const baseName = it.menuItem?.name || it.name || 'Dish';
+        const displayName = isHalfOrFull(vName) ? `${baseName} (${vName})` : baseName;
         const unitPrice = Number(it.unitPrice !== undefined && it.unitPrice !== null ? it.unitPrice : (it.variant?.price || it.price || 0));
         const key = `${mId}-${vId}`;
         return {
           key,
           menuItemId: mId,
           variantId: vId,
-          name,
+          name: displayName,
           variantName: vName,
           unitPrice,
           quantity: it.quantity || 1,
@@ -522,6 +542,25 @@ export default function POSPage() {
     const variantId = variant?.id || `v-${item.id}`;
     const unitPrice = Number(variant?.price) || Number((item as any).basePrice) || 0;
     const variantName = variant?.name || 'Standard';
+    const isHalfOrFull = (name?: string) => {
+      if (!name) return false;
+      const lower = name.toLowerCase().trim();
+      if (
+        lower === 'regular' ||
+        lower === 'regular portion' ||
+        lower === 'standard' ||
+        lower === 'default' ||
+        lower === 'single' ||
+        lower === 'normal' ||
+        lower === 'standard portion' ||
+        lower === 'portion' ||
+        lower.includes('regular portion')
+      ) {
+        return false;
+      }
+      return true;
+    };
+    const displayName = isHalfOrFull(variantName) ? `${item.name} (${variantName})` : item.name;
     const key = `${item.id}-${variantId}`;
 
     setCart((prev) => {
@@ -537,7 +576,7 @@ export default function POSPage() {
         key,
         menuItemId: item.id,
         variantId,
-        name: item.name,
+        name: displayName,
         variantName,
         unitPrice,
         quantity: 1,
