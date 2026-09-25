@@ -1,17 +1,72 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag, CheckCircle2,
   Clock, Sparkles, ChefHat, Phone, MapPin, AlertCircle, ArrowRight,
-  ShieldCheck, RefreshCw, Lock, Eye
+  ShieldCheck, RefreshCw, Lock, Eye, Bell, X, Volume2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@ros/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+
+interface StatusFlashNotification {
+  id: string;
+  orderNumber?: string;
+  title: string;
+  message: string;
+  icon: string;
+  type: 'info' | 'success' | 'warning' | 'alert';
+  bg: string;
+  border: string;
+  text: string;
+}
+
+function playStatusChime(type: 'success' | 'info' | 'alert') {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'success') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16); // G5
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } else if (type === 'alert') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.45);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    }
+  } catch {}
+
+  try {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([120, 60, 120]);
+    }
+  } catch {}
+}
 
 export default function PublicTableOrderPage() {
   const params = useParams();
@@ -33,6 +88,10 @@ export default function PublicTableOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<any | null>(null);
   const [viewTab, setViewTab] = useState<'MENU' | 'LIVE_STATUS'>('MENU');
+  const [statusFlash, setStatusFlash] = useState<StatusFlashNotification | null>(null);
+
+  const lastSeenStatusRef = useRef<string | null>(null);
+  const isInitialStatusLoadRef = useRef<boolean>(true);
 
   const fetchTableData = () => {
     if (!token) return;
@@ -250,6 +309,131 @@ export default function PublicTableOrderPage() {
   const { table = {}, restaurant = {}, categories = [], activeOrders = [] } = tableData || {};
   const currentActiveOrder = (activeOrders && activeOrders.length > 0) ? activeOrders[0] : orderPlaced;
 
+  // ── Watch order status transitions and flash notifications ─────────────────
+  useEffect(() => {
+    if (!currentActiveOrder) {
+      lastSeenStatusRef.current = null;
+      return;
+    }
+
+    const currentStatus = currentActiveOrder.status;
+    const orderNum = currentActiveOrder.orderNumber;
+
+    if (isInitialStatusLoadRef.current) {
+      isInitialStatusLoadRef.current = false;
+      lastSeenStatusRef.current = currentStatus;
+      return;
+    }
+
+    if (lastSeenStatusRef.current && lastSeenStatusRef.current !== currentStatus) {
+      const prev = lastSeenStatusRef.current;
+      lastSeenStatusRef.current = currentStatus;
+
+      let config: {
+        title: string;
+        message: string;
+        icon: string;
+        type: 'info' | 'success' | 'warning' | 'alert';
+        bg: string;
+        border: string;
+        text: string;
+      } | null = null;
+
+      if (['SENT_TO_KITCHEN', 'PREPARING'].includes(currentStatus)) {
+        config = {
+          title: 'Cooking in Kitchen!',
+          message: 'Our kitchen team is now preparing your dishes fresh at the station.',
+          icon: '👨‍🍳',
+          type: 'info',
+          bg: 'bg-emerald-950/95 text-white',
+          border: 'border-emerald-500/60 shadow-emerald-500/20',
+          text: 'text-emerald-400',
+        };
+      } else if (currentStatus === 'READY') {
+        config = {
+          title: 'Food is Ready to Serve!',
+          message: 'Your dishes are plated and our waitstaff is bringing them straight to your table.',
+          icon: '🛎️',
+          type: 'success',
+          bg: 'bg-amber-950/95 text-white',
+          border: 'border-amber-500/60 shadow-amber-500/20',
+          text: 'text-amber-400',
+        };
+      } else if (currentStatus === 'SERVED') {
+        config = {
+          title: 'Dishes Served!',
+          message: 'Enjoy your meal! You can order more dishes anytime from your phone.',
+          icon: '🍽️',
+          type: 'success',
+          bg: 'bg-teal-950/95 text-white',
+          border: 'border-teal-500/60 shadow-teal-500/20',
+          text: 'text-teal-400',
+        };
+      } else if (currentStatus === 'BILLED') {
+        config = {
+          title: 'Bill Prepared',
+          message: 'Your dining bill has been prepared. Please settle with the staff.',
+          icon: '🧾',
+          type: 'info',
+          bg: 'bg-blue-950/95 text-white',
+          border: 'border-blue-500/60 shadow-blue-500/20',
+          text: 'text-blue-400',
+        };
+      } else if (['PAID', 'COMPLETED'].includes(currentStatus)) {
+        config = {
+          title: 'Payment Complete!',
+          message: 'Thank you for dining with us! Have a wonderful day.',
+          icon: '✅',
+          type: 'success',
+          bg: 'bg-emerald-950/95 text-white',
+          border: 'border-emerald-500/60 shadow-emerald-500/20',
+          text: 'text-emerald-400',
+        };
+      } else if (['CANCELLED', 'VOIDED'].includes(currentStatus)) {
+        config = {
+          title: 'Order Cancelled',
+          message: 'This dining order was cancelled. Please speak with your dining captain.',
+          icon: '❌',
+          type: 'alert',
+          bg: 'bg-rose-950/95 text-white',
+          border: 'border-rose-500/60 shadow-rose-500/20',
+          text: 'text-rose-400',
+        };
+      } else if (currentStatus === 'CONFIRMED' && prev === 'DRAFT') {
+        config = {
+          title: 'Order Confirmed!',
+          message: 'Your order was confirmed and sent to the kitchen queue.',
+          icon: '✨',
+          type: 'info',
+          bg: 'bg-indigo-950/95 text-white',
+          border: 'border-indigo-500/60 shadow-indigo-500/20',
+          text: 'text-indigo-400',
+        };
+      }
+
+      if (config) {
+        setStatusFlash({
+          id: `${currentStatus}-${Date.now()}`,
+          orderNumber: orderNum,
+          ...config,
+        });
+
+        playStatusChime(config.type === 'alert' ? 'alert' : config.type === 'success' ? 'success' : 'info');
+      }
+    } else if (!lastSeenStatusRef.current) {
+      lastSeenStatusRef.current = currentStatus;
+    }
+  }, [currentActiveOrder]);
+
+  // Auto-dismiss status flash notification after 7 seconds
+  useEffect(() => {
+    if (!statusFlash) return;
+    const timer = setTimeout(() => {
+      setStatusFlash(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [statusFlash]);
+
   const allItems = categories.flatMap((c: any) => c.items || []);
   const filteredItems = selectedCategory === 'ALL'
     ? allItems
@@ -258,7 +442,64 @@ export default function PublicTableOrderPage() {
   const hasRunningOrder = !!currentActiveOrder;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-36 max-w-lg mx-auto shadow-2xl border-x border-border">
+    <div className="min-h-screen bg-background text-foreground pb-36 max-w-lg mx-auto shadow-2xl border-x border-border relative">
+      {/* ── Floating Status Change Flash Notification ───────────────────────── */}
+      {statusFlash && (
+        <div className="fixed top-4 left-4 right-4 max-w-md mx-auto z-50 animate-in slide-in-from-top-4 duration-300">
+          <div
+            className={cn(
+              'p-4 rounded-3xl border shadow-2xl backdrop-blur-xl flex items-start gap-3.5 relative overflow-hidden ring-2 ring-white/10',
+              statusFlash.bg,
+              statusFlash.border
+            )}
+          >
+            {/* Ambient background glow */}
+            <div className="absolute -right-8 -top-8 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+            <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-2xl shrink-0 shadow-inner">
+              {statusFlash.icon}
+            </div>
+
+            <div className="flex-1 min-w-0 pr-5 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={cn('text-xs font-black uppercase tracking-wider', statusFlash.text)}>
+                  {statusFlash.title}
+                </span>
+                {statusFlash.orderNumber && (
+                  <span className="text-[10px] font-mono bg-white/20 border border-white/30 px-1.5 py-0.5 rounded-md text-white font-bold">
+                    #{statusFlash.orderNumber}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-white/95 font-medium leading-snug">
+                {statusFlash.message}
+              </p>
+              {viewTab !== 'LIVE_STATUS' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewTab('LIVE_STATUS');
+                    setStatusFlash(null);
+                  }}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-black underline text-white hover:text-white/80 cursor-pointer pt-0.5"
+                >
+                  View Live Tracking <ArrowRight className="w-3 h-3 inline" />
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setStatusFlash(null)}
+              aria-label="Close notification"
+              className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/10 hover:bg-white/25 text-white/90 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Restaurant & Table Banner */}
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border p-4 shadow-sm space-y-3">
         {restaurant?.logoUrl && (
