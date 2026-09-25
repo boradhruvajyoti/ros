@@ -100,7 +100,11 @@ export class MenuController {
       where: {
         tenantId: req.user!.tid,
         ...(categoryId ? { categoryId: categoryId as string } : {}),
-        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+        ...(isActive === 'all'
+          ? {}
+          : isActive !== undefined
+            ? { isActive: isActive === 'true' }
+            : { isActive: true }),
         ...(search ? { name: { contains: search as string } } : {}),
       },
       include: {
@@ -160,14 +164,33 @@ export class MenuController {
   }
 
   static async deleteItem(req: Request, res: Response): Promise<void> {
-    await prisma.menuItem.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.menuItem.updateMany({
+      where: { id: req.params.id, tenantId: req.user!.tid },
+      data: { isActive: false },
+    });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
-    sendSuccess(res, { message: 'Item deactivated' });
+    sendSuccess(res, { message: 'Item deleted from active menu' });
+  }
+
+  static async batchDeleteItems(req: Request, res: Response): Promise<void> {
+    const { ids } = z.object({ ids: z.array(z.string()).min(1) }).parse(req.body);
+    const result = await prisma.menuItem.updateMany({
+      where: {
+        id: { in: ids },
+        tenantId: req.user!.tid,
+      },
+      data: { isActive: false },
+    });
+    await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    sendSuccess(res, { count: result.count, message: `${result.count} items deleted from active menu.` });
   }
 
   static async toggleAvailability(req: Request, res: Response): Promise<void> {
     const { isAvailable } = z.object({ isAvailable: z.boolean() }).parse(req.body);
-    await prisma.menuItem.update({ where: { id: req.params.id }, data: { isAvailable } });
+    await prisma.menuItem.updateMany({
+      where: { id: req.params.id, tenantId: req.user!.tid },
+      data: { isAvailable },
+    });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
     sendSuccess(res, { isAvailable });
   }

@@ -20,6 +20,8 @@ router.delete('/categories/:id',      requirePermission('menu:delete'), asyncHan
 // Items
 router.get('/items',                  requirePermission('menu:view'),   asyncHandler(MenuController.listItems));
 router.post('/items',                 requirePermission('menu:create'), asyncHandler(MenuController.createItem));
+router.post('/items/batch-delete',    requirePermission('menu:delete'), asyncHandler(MenuController.batchDeleteItems));
+router.delete('/items/batch',         requirePermission('menu:delete'), asyncHandler(MenuController.batchDeleteItems));
 router.get('/items/:id',              requirePermission('menu:view'),   asyncHandler(MenuController.getItem));
 router.patch('/items/:id',            requirePermission('menu:edit'),   asyncHandler(MenuController.updateItem));
 router.delete('/items/:id',           requirePermission('menu:delete'), asyncHandler(MenuController.deleteItem));

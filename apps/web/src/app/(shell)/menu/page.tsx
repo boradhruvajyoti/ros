@@ -6,7 +6,7 @@ import {
   UtensilsCrossed, Plus, Search, CheckCircle2,
   XCircle, Edit3, Trash2, Tag,
   UploadCloud, FileCheck, ShieldCheck, RefreshCw, Wand2, X, Check,
-  Layers, ChevronRight, AlertCircle, Sparkles
+  Layers, ChevronRight, AlertCircle, Sparkles, CheckSquare, Square
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ export default function MenuPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFoodType, setSelectedFoodType] = useState<string>('ALL');
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
   // Modal States
   const [isAddDishOpen, setIsAddDishOpen] = useState(false);
@@ -118,11 +119,36 @@ export default function MenuPage() {
 
   const deleteDishMutation = useMutation({
     mutationFn: async (id: string) => apiDelete(`/menu/items/${id}`),
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
+      setSelectedItemIds((prev) => prev.filter((i) => i !== deletedId));
       toast.success('Dish Deleted', 'Item removed from active menu.');
     },
     onError: (err: any) => toast.error('Delete Failed', err.message),
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => apiPost('/menu/items/batch-delete', { ids }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
+      setSelectedItemIds([]);
+      toast.success('Dishes Deleted', res?.message || 'Selected items removed from active menu.');
+    },
+    onError: (err: any) => toast.error('Bulk Delete Failed', err.message),
+  });
+
+  const batchAvailabilityMutation = useMutation({
+    mutationFn: async ({ ids, isAvailable }: { ids: string[]; isAvailable: boolean }) => {
+      await Promise.all(ids.map((id) => apiPatch(`/menu/items/${id}/availability`, { isAvailable })));
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
+      toast.success(
+        variables.isAvailable ? 'Items Available' : 'Items 86’d (Unavailable)',
+        `Updated availability for ${variables.ids.length} dishes.`
+      );
+    },
+    onError: (err: any) => toast.error('Batch Update Failed', err.message),
   });
 
   const toggleAvailabilityMutation = useMutation({
@@ -512,113 +538,165 @@ DESSERTS & DRINKS
             ))}
           </div>
         </div>
+
+        {/* Sub-toolbar: Selection Controls & Results Count */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-1 py-1 bg-card/40 border border-border/50 rounded-xl">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none font-medium hover:text-foreground">
+              <input
+                type="checkbox"
+                checked={filteredItems.length > 0 && filteredItems.every((i) => selectedItemIds.includes(i.id))}
+                onChange={() => {
+                  const filteredIds = filteredItems.map((i) => i.id);
+                  const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedItemIds.includes(id));
+                  if (allSelected) {
+                    setSelectedItemIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+                  } else {
+                    setSelectedItemIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+                  }
+                }}
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary ml-1"
+              />
+              <span className="font-semibold text-foreground">
+                Select All ({filteredItems.length})
+              </span>
+            </label>
+            {selectedItemIds.length > 0 && (
+              <span className="text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                {selectedItemIds.length} selected
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] pr-2">
+            Showing {filteredItems.length} of {items.length} dishes
+          </div>
+        </div>
       </div>
 
       {/* Dish Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-        {filteredItems.map((item) => (
-          <Card
-            key={item.id}
-            className={cn(
-              'border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden',
-              !item.isAvailable && 'opacity-65 border-dashed'
-            )}
-          >
-            <CardHeader className="p-5 pb-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {getFoodTypeBadge(item.foodType)}
-                    {item.spiceLevel && item.spiceLevel !== 'NONE' && (
-                      <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase">
-                        {item.spiceLevel}
-                      </span>
+        {filteredItems.map((item) => {
+          const isSelected = selectedItemIds.includes(item.id);
+          return (
+            <Card
+              key={item.id}
+              className={cn(
+                'border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden relative',
+                !item.isAvailable && 'opacity-65 border-dashed',
+                isSelected && 'ring-2 ring-primary bg-primary/[0.03] border-primary/50 shadow-md'
+              )}
+            >
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-2.5 flex-1">
+                    <div className="pt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          setSelectedItemIds((prev) =>
+                            prev.includes(item.id) ? prev.filter((i) => i !== item.id) : [...prev, item.id]
+                          );
+                        }}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary"
+                        title="Select dish for bulk actions"
+                      />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {getFoodTypeBadge(item.foodType)}
+                        {item.spiceLevel && item.spiceLevel !== 'NONE' && (
+                          <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase">
+                            {item.spiceLevel}
+                          </span>
+                        )}
+                      </div>
+                      <CardTitle className="text-base font-bold text-foreground line-clamp-1">
+                        {item.name}
+                      </CardTitle>
+                    </div>
+                  </div>
+                  {/* Availability Toggle */}
+                  <button
+                    onClick={() => toggleAvailabilityMutation.mutate({ id: item.id, isAvailable: !item.isAvailable })}
+                    title={item.isAvailable ? 'Click to 86 / Mark Unavailable' : 'Click to Make Available'}
+                    className={cn(
+                      'p-1.5 rounded-lg border transition-colors shrink-0',
+                      item.isAvailable
+                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+                        : 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
+                    )}
+                  >
+                    {item.isAvailable ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
+                  {item.description || 'No description provided.'}
+                </p>
+              </CardHeader>
+
+              <CardContent className="p-5 pt-0 mt-auto">
+                <div className="border-t border-border/50 pt-3 space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Portion & Pricing
+                  </p>
+                  <div className="space-y-1.5">
+                    {item.variants && item.variants.length > 0 ? (
+                      item.variants.map((v) => (
+                        <div
+                          key={v.id || v.name}
+                          className="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-accent/40"
+                        >
+                          <span className="font-medium text-foreground">{v.name}</span>
+                          <span className="font-bold text-foreground font-mono">
+                            {formatCurrency(v.price)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-muted-foreground">Standard Portion</div>
                     )}
                   </div>
-                  <CardTitle className="text-base font-bold text-foreground line-clamp-1">
-                    {item.name}
-                  </CardTitle>
-                </div>
-                {/* Availability Toggle */}
-                <button
-                  onClick={() => toggleAvailabilityMutation.mutate({ id: item.id, isAvailable: !item.isAvailable })}
-                  title={item.isAvailable ? 'Click to 86 / Mark Unavailable' : 'Click to Make Available'}
-                  className={cn(
-                    'p-1.5 rounded-lg border transition-colors',
-                    item.isAvailable
-                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
-                      : 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
-                  )}
-                >
-                  {item.isAvailable ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : (
-                    <XCircle className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
-                {item.description || 'No description provided.'}
-              </p>
-            </CardHeader>
 
-            <CardContent className="p-5 pt-0 mt-auto">
-              <div className="border-t border-border/50 pt-3 space-y-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Portion & Pricing
-                </p>
-                <div className="space-y-1.5">
-                  {item.variants && item.variants.length > 0 ? (
-                    item.variants.map((v) => (
-                      <div
-                        key={v.id || v.name}
-                        className="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-accent/40"
+                  {/* Card Footer Actions */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                    <span className="text-[11px] text-muted-foreground">
+                      Category: <span className="font-medium text-foreground">{item.category?.name || 'Main'}</span>
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        onClick={() => handleOpenEditDish(item)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        title="Edit dish"
                       >
-                        <span className="font-medium text-foreground">{v.name}</span>
-                        <span className="font-bold text-foreground font-mono">
-                          {formatCurrency(v.price)}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-xs text-muted-foreground">Standard Portion</div>
-                  )}
-                </div>
-
-                {/* Card Footer Actions */}
-                <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                  <span className="text-[11px] text-muted-foreground">
-                    Category: <span className="font-medium text-foreground">{item.category?.name || 'Main'}</span>
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      onClick={() => handleOpenEditDish(item)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                      title="Edit dish"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (confirm(`Remove "${item.name}" from menu?`)) {
-                          deleteDishMutation.mutate(item.id);
-                        }
-                      }}
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
-                      title="Delete dish"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (confirm(`Remove "${item.name}" from menu?`)) {
+                            deleteDishMutation.mutate(item.id);
+                          }
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                        title="Delete dish"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
 
         {filteredItems.length === 0 && !isLoadingItems && (
           <div className="col-span-full flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-border/80 rounded-2xl p-8 bg-card/20">
@@ -640,6 +718,63 @@ DESSERTS & DRINKS
           </div>
         )}
       </div>
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedItemIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-2xl px-5 py-3.5 flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+              {selectedItemIds.length}
+            </span>
+            <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+              {selectedItemIds.length} {selectedItemIds.length === 1 ? 'Dish' : 'Dishes'} Selected
+            </span>
+          </div>
+          <div className="hidden sm:block h-5 w-px bg-border" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedItemIds([])}
+              className="text-xs text-muted-foreground hover:text-foreground h-8 px-2.5"
+            >
+              Clear
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => batchAvailabilityMutation.mutate({ ids: selectedItemIds, isAvailable: true })}
+              disabled={batchAvailabilityMutation.isPending}
+              className="text-xs h-8 px-2.5 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Mark Available
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => batchAvailabilityMutation.mutate({ ids: selectedItemIds, isAvailable: false })}
+              disabled={batchAvailabilityMutation.isPending}
+              className="text-xs h-8 px-2.5 text-amber-500 border-amber-500/30 hover:bg-amber-500/10"
+            >
+              <XCircle className="w-3.5 h-3.5 mr-1" /> 86 (Unavailable)
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm(`Are you sure you want to delete ${selectedItemIds.length} selected dishes from your menu?`)) {
+                  batchDeleteMutation.mutate(selectedItemIds);
+                }
+              }}
+              disabled={batchDeleteMutation.isPending}
+              className="text-xs h-8 px-3 gap-1.5 shadow-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {batchDeleteMutation.isPending ? 'Deleting...' : `Delete Selected (${selectedItemIds.length})`}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ADD / EDIT DISH MODAL */}
       {(isAddDishOpen || editingDish) && (
