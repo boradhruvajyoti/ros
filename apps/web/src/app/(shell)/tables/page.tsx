@@ -1106,29 +1106,29 @@ export default function TablesPage() {
                         <button
                           type="button"
                           onClick={() => router.push(`/pos?table=${table.id}&order=${activeOrder.id}&accept=true`)}
-                          className="w-full h-11 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40 animate-pulse"
+                          className="w-full h-11 px-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40 animate-pulse min-w-0"
                           title="Open POS to review, edit dishes, and send KOT to Kitchen"
                         >
-                          <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-200" />
-                          <span>Accept Order (Edit &amp; Send KOT)</span>
-                          <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5" />
+                          <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-200 shrink-0" />
+                          <span className="truncate">Accept (Edit &amp; Send KOT)</span>
+                          <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 shrink-0" />
                         </button>
                       </div>
                     ) : (
-                      <div className="pt-2 border-t border-border/60 grid grid-cols-4 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="pt-2 border-t border-border/60 grid grid-cols-4 gap-1 sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {/* 1. KOT Button */}
                         <button
                           type="button"
                           disabled={isCancelled}
                           onClick={() => handlePrintOrder(activeOrder, true)}
                           className={cn(
-                            'h-9 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            'h-9 px-1 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
                             isCancelled && 'opacity-30 cursor-not-allowed'
                           )}
                           title="Print Kitchen Order Ticket (KOT)"
                         >
-                          <span>🍳</span>
-                          <span>KOT</span>
+                          <span className="shrink-0 text-xs">🍳</span>
+                          <span className="truncate">KOT</span>
                         </button>
 
                         {/* 2. Print Bill Button */}
@@ -1143,14 +1143,14 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-9 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            'h-9 px-1 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
                             !isServed && 'text-amber-400 border-amber-500/30',
                             isCancelled && 'opacity-30 cursor-not-allowed'
                           )}
                           title={isServed ? 'Print Bill / Tax Invoice' : 'Preview Bill (Food in Kitchen)'}
                         >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>{isServed ? 'Bill' : 'Bill'}</span>
+                          <Printer className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{isServed ? 'Bill' : 'Bill'}</span>
                         </button>
 
                         {/* 3. Mark Paid Button */}
@@ -1163,15 +1163,15 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-9 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs',
+                            'h-9 px-1 rounded-xl font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs min-w-0',
                             payCheck.canPay
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                               : 'bg-muted/70 text-muted-foreground opacity-50 cursor-not-allowed'
                           )}
                           title={payCheck.reason || 'Mark as Paid & Done'}
                         >
-                          <span>💰</span>
-                          <span>Paid</span>
+                          <span className="shrink-0 text-xs">💰</span>
+                          <span className="truncate">Paid</span>
                         </button>
 
                         {/* 4. Cancel Button */}
@@ -1184,13 +1184,13 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-9 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            'h-9 px-1 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
                             !cancelCheck.canCancel && 'opacity-30 cursor-not-allowed hover:bg-transparent'
                           )}
                           title={cancelCheck.canCancel ? 'Cancel Order' : cancelCheck.reason || 'Cannot cancel'}
                         >
-                          <span>❌</span>
-                          <span>Void</span>
+                          <span className="shrink-0 text-xs">❌</span>
+                          <span className="truncate">Void</span>
                         </button>
                       </div>
                     )}

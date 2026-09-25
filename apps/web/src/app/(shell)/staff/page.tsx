@@ -584,37 +584,37 @@ export default function StaffPage() {
                 const hasLoginAccount = Boolean(emp.userId || emp.user);
 
                 return (
-                  <Card key={emp.id} className="border-border/70 bg-card/60 backdrop-blur-sm p-5 space-y-4 rounded-3xl shadow-sm flex flex-col justify-between">
-                    <div className="space-y-3">
+                  <Card key={emp.id} className="border-border/70 bg-card/60 backdrop-blur-sm p-5 space-y-4 rounded-3xl shadow-sm flex flex-col justify-between min-w-0 overflow-hidden">
+                    <div className="space-y-3 min-w-0">
                       {/* Top Row: Name, Designation & Status */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="font-black text-base text-foreground flex items-center gap-1.5">
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-black text-base text-foreground flex items-center gap-1.5 truncate">
                             {emp.name}
                           </h3>
-                          <p className="text-xs text-primary font-bold">{emp.designation}</p>
-                          <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full mt-1.5 inline-block">
+                          <p className="text-xs text-primary font-bold truncate">{emp.designation}</p>
+                          <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full mt-1.5 inline-block truncate max-w-full">
                             {emp.department}
                           </span>
                         </div>
 
-                        <div className="flex flex-col items-end gap-1.5">
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
                           {isClockedIn ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
                               ● On Duty
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full border border-border">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full border border-border shrink-0">
                               Off Duty
                             </span>
                           )}
 
                           {hasLoginAccount ? (
-                            <Badge className="bg-indigo-600/15 text-indigo-400 border-indigo-500/30 font-bold text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1">
+                            <Badge className="bg-indigo-600/15 text-indigo-400 border-indigo-500/30 font-bold text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 shrink-0">
                               <Key className="w-3 h-3" /> Account Active
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-muted-foreground font-medium text-[10px] px-2 py-0.5 rounded-lg">
+                            <Badge variant="outline" className="text-muted-foreground font-medium text-[10px] px-2 py-0.5 rounded-lg shrink-0">
                               No Login Account
                             </Badge>
                           )}
@@ -622,28 +622,28 @@ export default function StaffPage() {
                       </div>
 
                       {/* Contact Info */}
-                      <div className="space-y-1 text-xs text-muted-foreground pt-1">
+                      <div className="space-y-1 text-xs text-muted-foreground pt-1 min-w-0">
                         {emp.phone && (
-                          <p className="flex items-center gap-2">
-                            <Phone className="w-3.5 h-3.5 text-primary shrink-0" /> {emp.phone}
+                          <p className="flex items-center gap-2 truncate min-w-0">
+                            <Phone className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="truncate">{emp.phone}</span>
                           </p>
                         )}
                         {emp.email && (
-                          <p className="flex items-center gap-2 truncate">
-                            <Mail className="w-3.5 h-3.5 text-primary shrink-0" /> {emp.email}
+                          <p className="flex items-center gap-2 truncate min-w-0">
+                            <Mail className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="truncate">{emp.email}</span>
                           </p>
                         )}
                       </div>
 
                       {/* User Account Role Details */}
                       {hasLoginAccount && emp.user && (
-                        <div className="p-2.5 rounded-2xl bg-muted/40 border border-border text-[11px] space-y-1">
-                          <div className="flex items-center justify-between text-muted-foreground font-medium">
-                            <span>Role / Access:</span>
-                            <span className="font-bold text-foreground">{emp.user.roles?.[0] || 'STAFF'}</span>
+                        <div className="p-2.5 rounded-2xl bg-muted/40 border border-border text-[11px] space-y-1 min-w-0">
+                          <div className="flex items-center justify-between text-muted-foreground font-medium gap-1">
+                            <span className="shrink-0">Role:</span>
+                            <span className="font-bold text-foreground truncate">{emp.user.roles?.[0] || 'STAFF'}</span>
                           </div>
                           {emp.user.permissions?.length > 0 && (
-                            <div className="text-[10px] text-muted-foreground">
+                            <div className="text-[10px] text-muted-foreground truncate">
                               <span>Accessible Features: </span>
                               <strong className="text-foreground">{emp.user.permissions.length} modules granted</strong>
                             </div>

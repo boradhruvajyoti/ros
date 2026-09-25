@@ -179,4 +179,61 @@
 
   /* Numeric tabular for currency */
   .tabular { font-variant-numeric: tabular-nums; }
+
+  /* ── Fluid Responsive Auto-Resizing Typography ── */
+  .text-fluid-xs   { font-size: clamp(0.65rem, 0.58rem + 0.25vw, 0.75rem); line-height: 1.25; }
+  .text-fluid-sm   { font-size: clamp(0.72rem, 0.65rem + 0.25vw, 0.875rem); line-height: 1.3; }
+  .text-fluid-base { font-size: clamp(0.82rem, 0.75rem + 0.35vw, 1rem); line-height: 1.4; }
+  .text-fluid-lg   { font-size: clamp(0.95rem, 0.85rem + 0.45vw, 1.125rem); line-height: 1.35; }
+  .text-fluid-xl   { font-size: clamp(1.05rem, 0.95rem + 0.55vw, 1.25rem); line-height: 1.3; }
+  .text-fluid-2xl  { font-size: clamp(1.2rem, 1.05rem + 0.75vw, 1.5rem); line-height: 1.25; }
+  .text-fluid-3xl  { font-size: clamp(1.4rem, 1.2rem + 1vw, 2rem); line-height: 1.2; }
+
+  /* ── Overflow Safety & Text Fitting Utilities ── */
+  .truncate-1-line {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .truncate-2-lines {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .truncate-3-lines {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .auto-wrap {
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    min-width: 0;
+  }
+
+  .btn-fluid-text {
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.15;
+    text-align: center;
+    min-width: 0;
+  }
 }
+
+/* Universal text containment to ensure no element blows out container boundaries */
+p, span, h1, h2, h3, h4, h5, h6, label, td, th {
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
