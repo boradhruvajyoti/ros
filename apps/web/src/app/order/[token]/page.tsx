@@ -336,6 +336,42 @@ function TableOrderContent() {
     } catch {}
   }, [storageKey, storageExpiryKey]);
 
+  // Session renewal handler (used on QR re-scan, session renew tap, or auto-renew)
+  const renewSession = useCallback(async () => {
+    if (!token) return;
+    try {
+      try {
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem(storageExpiryKey);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('session');
+          url.searchParams.delete('token');
+          url.searchParams.delete('diningToken');
+          window.history.replaceState({}, '', url.pathname);
+        }
+      } catch {}
+      setGuestSessionToken(null);
+      setSessionExpiresAt(null);
+      setIsLocallyExpired(false);
+
+      const res = await fetch(`${API_BASE}/tables/public/qr/${token}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.data) {
+        setTableData(data.data);
+        if (data.data.guestSessionToken) {
+          setGuestSessionToken(data.data.guestSessionToken);
+          syncSessionToken(data.data.guestSessionToken, data.data.sessionExpiresAt);
+        }
+        if (data.data.sessionExpiresAt) {
+          setSessionExpiresAt(data.data.sessionExpiresAt);
+        }
+        setIsLocallyExpired(false);
+      }
+    } catch {}
+  }, [token, storageKey, storageExpiryKey, syncSessionToken]);
+
   // Initial table data load
   useEffect(() => {
     if (!token) return;
@@ -483,10 +519,13 @@ function TableOrderContent() {
   const minutesLeft = Math.floor(timeRemainingSeconds / 60);
   const secondsLeft = timeRemainingSeconds % 60;
 
-  const addToCart = (item: any, specificVariant?: any) => {
-    if (!canOrder) {
-      alert('Please scan the QR code at your dining table to unlock ordering.');
+  const addToCart = async (item: any, specificVariant?: any) => {
+    if (tableData?.table?.status === 'BLOCKED') {
+      alert('This dining table is currently blocked. Please speak with your dining captain.');
       return;
+    }
+    if (isSessionExpired || !guestSessionToken) {
+      await renewSession();
     }
     const variant = specificVariant || getActiveVariant(item);
     const cartKey = getCartKey(item.id, variant?.id);
@@ -597,7 +636,7 @@ function TableOrderContent() {
       : null;
 
   const hasRunningOrder = Boolean(currentActiveOrder && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status));
-  const activeTab = (isSessionExpired && hasRunningOrder) ? 'LIVE_STATUS' : (canOrder ? viewTab : (hasRunningOrder ? 'LIVE_STATUS' : 'MENU'));
+  const activeTab = hasRunningOrder ? viewTab : 'MENU';
 
   // ── Watch order status transitions and flash notifications ─────────────────
   useEffect(() => {
@@ -780,96 +819,6 @@ function TableOrderContent() {
     );
   }
 
-  // ── STRICT NON-SLIDING 45-MINUTE SESSION EXPIRED SCREEN (Only if NO running order) ───
-  if ((isSessionExpired || tableData?.isSessionExpired) && !hasRunningOrder && !paidSettledOrder) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center space-y-6 max-w-md mx-auto relative overflow-hidden">
-        {/* Ambient Glow */}
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative">
-          <div className="w-24 h-24 rounded-3xl bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center text-4xl shadow-xl shadow-rose-500/10">
-            ⏳
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center text-sm shadow-md border-2 border-background">
-            <Lock className="w-4 h-4" />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <span className="text-[11px] font-black uppercase tracking-wider text-rose-500 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-full">
-            45-Minute Session Expired
-          </span>
-          <h1 className="text-2xl font-black text-foreground pt-1">
-            Dining Window Ended
-          </h1>
-          <p className="text-xs text-muted-foreground leading-relaxed px-4">
-            For security and dining management, this table ordering session has expired. The digital menu is locked and orders cannot be placed from this link.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-3xl bg-card border border-border w-full space-y-3 text-left shadow-sm">
-          <div className="flex items-start gap-3 text-xs">
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 text-lg border border-primary/20">
-              📱
-            </div>
-            <div className="space-y-0.5">
-              <p className="font-black text-foreground">Scan Table Standee Again</p>
-              <p className="text-muted-foreground text-[11px] leading-relaxed">
-                Please visit <strong>{tableData?.restaurant?.name || 'the restaurant'}</strong> and re-scan the physical QR standee at your table to initiate a fresh session.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <Button
-          onClick={() => {
-            try {
-              localStorage.removeItem(storageKey);
-              localStorage.removeItem(storageExpiryKey);
-              if (typeof window !== 'undefined') {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('session');
-                url.searchParams.delete('token');
-                url.searchParams.delete('diningToken');
-                window.history.replaceState({}, '', url.pathname);
-              }
-            } catch {}
-            setGuestSessionToken(null);
-            setSessionExpiresAt(null);
-            setIsLocallyExpired(false);
-            setLoading(true);
-            fetch(`${API_BASE}/tables/public/qr/${token}`)
-              .then((res) => res.json())
-              .then((data) => {
-                setTableData(data.data);
-                if (data.data?.guestSessionToken) {
-                  setGuestSessionToken(data.data.guestSessionToken);
-                  syncSessionToken(data.data.guestSessionToken, data.data.sessionExpiresAt);
-                }
-                if (data.data?.sessionExpiresAt) {
-                  setSessionExpiresAt(data.data.sessionExpiresAt);
-                }
-                setLoading(false);
-              })
-              .catch(() => setLoading(false));
-          }}
-          className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg cursor-pointer"
-        >
-          <span>📱</span>
-          <span>Scanned Table QR • Unlock &amp; Start Session</span>
-        </Button>
-
-        {tableData?.restaurant && (
-          <div className="pt-2 text-center text-xs text-muted-foreground space-y-0.5">
-            <p className="font-black text-foreground">{tableData.restaurant.name}</p>
-            {tableData.restaurant.branchName && <p className="text-[11px]">{tableData.restaurant.branchName}</p>}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   if (error || !tableData) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center space-y-4">
@@ -979,21 +928,33 @@ function TableOrderContent() {
               ⏳ {minutesLeft}m {secondsLeft < 10 ? `0${secondsLeft}` : secondsLeft}s
             </div>
           </div>
-        ) : isSessionExpired && hasRunningOrder ? (
-          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-900 dark:text-amber-200">
+        ) : isSessionExpired ? (
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px]">
             <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
               <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">45-Min Ordering Closed • Tracking Active</span>
+              <span>45-Min Session Ended</span>
             </div>
-            <span className="text-[10px] font-mono font-bold text-emerald-500 shrink-0">Live Kitchen</span>
+            <button
+              type="button"
+              onClick={renewSession}
+              className="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-lg border border-primary/30 transition-colors cursor-pointer"
+            >
+              Start New Session ⚡
+            </button>
           </div>
         ) : (
           <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-900 dark:text-amber-200">
             <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
               <Eye className="w-3.5 h-3.5 shrink-0" />
-              <span>View-Only Digital Menu</span>
+              <span>Digital Menu</span>
             </div>
-            <span className="text-[10px] opacity-90 font-medium">Scan Table QR to Order</span>
+            <button
+              type="button"
+              onClick={renewSession}
+              className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
+            >
+              Tap to Order ⚡
+            </button>
           </div>
         )}
 
@@ -1002,24 +963,15 @@ function TableOrderContent() {
           <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
             <button
               type="button"
-              onClick={() => {
-                if (isSessionExpired) {
-                  alert('The 45-minute ordering session has expired. You can continue tracking your live order status here.');
-                  return;
-                }
-                setViewTab('MENU');
-              }}
-              disabled={isSessionExpired}
+              onClick={() => setViewTab('MENU')}
               className={cn(
                 'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5',
                 activeTab === 'MENU'
                   ? 'bg-primary text-primary-foreground shadow-md'
-                  : isSessionExpired
-                  ? 'opacity-40 cursor-not-allowed text-muted-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {isSessionExpired ? <Lock className="w-3.5 h-3.5" /> : <UtensilsCrossed className="w-3.5 h-3.5" />}
+              <UtensilsCrossed className="w-3.5 h-3.5" />
               <span>Browse Menu</span>
             </button>
 
@@ -1348,7 +1300,7 @@ function TableOrderContent() {
                   </Button>
                 </div>
               ) : isSessionExpired && hasRunningOrder ? (
-                <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/25 text-center space-y-2 shadow-sm animate-in fade-in-50 duration-200">
+                <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/25 text-center space-y-3 shadow-sm animate-in fade-in-50 duration-200">
                   <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto text-sm font-bold">
                     ⏳
                   </div>
@@ -1357,9 +1309,19 @@ function TableOrderContent() {
                       45-Minute Ordering Session Ended
                     </p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                      Your ongoing order is being prepared and live tracking remains active above. To order additional items, please ask your waitstaff or re-scan the table QR code.
+                      Your ongoing order is being prepared. Want to order another round of food?
                     </p>
                   </div>
+                  <Button
+                    onClick={async () => {
+                      await renewSession();
+                      setViewTab('MENU');
+                    }}
+                    className="w-full h-11 rounded-2xl font-bold text-xs gap-2 bg-primary text-primary-foreground shadow-md cursor-pointer"
+                  >
+                    <span>⚡</span>
+                    <span>Start New Session &amp; Order Next Round</span>
+                  </Button>
                 </div>
               ) : null}
 

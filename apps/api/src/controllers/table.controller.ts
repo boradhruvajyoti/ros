@@ -298,8 +298,6 @@ export class TableController {
           const expMs = decoded.sessionExpiresAt || (decoded.exp ? decoded.exp * 1000 : null);
           if (expMs && Date.now() > expMs) {
             isSessionExpired = true;
-            canOrder = false;
-            sessionExpiresAt = expMs;
           } else {
             validSessionToken = rawSession;
             sessionExpiresAt = expMs;
@@ -308,15 +306,16 @@ export class TableController {
       } catch (err: any) {
         if (err?.name === 'TokenExpiredError') {
           isSessionExpired = true;
-          canOrder = false;
         }
       }
     }
 
-    if (!validSessionToken && !isSessionExpired && canOrder) {
+    // Auto-generate fresh 45-minute session token if none exists or if old one expired on QR scan
+    if (!validSessionToken && canOrder) {
       const session = generateGuestSessionToken(table);
       validSessionToken = session.guestSessionToken;
       sessionExpiresAt = session.sessionExpiresAt;
+      isSessionExpired = false;
     }
 
     const recentSettledOrder = await prisma.order.findFirst({
@@ -360,7 +359,7 @@ export class TableController {
         address: table.branch.address,
         phone: table.branch.phone,
       },
-      categories: isSessionExpired ? [] : categories,
+      categories,
       activeOrders: activeOrders,
       recentSettledOrder,
     });
