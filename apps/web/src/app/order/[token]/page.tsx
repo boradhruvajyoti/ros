@@ -535,11 +535,14 @@ function TableOrderContent() {
 
   // Derive active order BEFORE early returns so hooks below can reference it safely
   const { table = {}, restaurant = {}, categories = [], activeOrders = [] } = tableData || {};
-  const currentActiveOrder = (canOrder && activeOrders && activeOrders.length > 0)
+  const currentActiveOrder = (activeOrders && activeOrders.length > 0)
     ? activeOrders[0]
-    : (canOrder && orderPlaced && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(orderPlaced.status))
+    : (orderPlaced && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(orderPlaced.status))
       ? orderPlaced
       : null;
+
+  const hasRunningOrder = Boolean(currentActiveOrder && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status));
+  const activeTab = (isSessionExpired && hasRunningOrder) ? 'LIVE_STATUS' : (canOrder ? viewTab : (hasRunningOrder ? 'LIVE_STATUS' : 'MENU'));
 
   // ── Watch order status transitions and flash notifications ─────────────────
   useEffect(() => {
@@ -712,9 +715,6 @@ function TableOrderContent() {
     }).filter((cat: any) => cat.items.length > 0);
   }, [categories, foodFilter, searchQuery]);
 
-  const hasRunningOrder = Boolean(canOrder && currentActiveOrder && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status));
-  const activeTab = canOrder ? viewTab : 'MENU';
-
   // ── Early returns (after ALL hooks are declared to strictly satisfy Rules of Hooks) ────
   if (loading) {
     return (
@@ -725,8 +725,8 @@ function TableOrderContent() {
     );
   }
 
-  // ── STRICT NON-SLIDING 45-MINUTE SESSION EXPIRED SCREEN ──────────────────────────
-  if (isSessionExpired || tableData?.isSessionExpired) {
+  // ── STRICT NON-SLIDING 45-MINUTE SESSION EXPIRED SCREEN (Only if NO running order) ───
+  if ((isSessionExpired || tableData?.isSessionExpired) && !hasRunningOrder && !paidSettledOrder) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center space-y-6 max-w-md mx-auto relative overflow-hidden">
         {/* Ambient Glow */}
@@ -749,7 +749,7 @@ function TableOrderContent() {
             Dining Window Ended
           </h1>
           <p className="text-xs text-muted-foreground leading-relaxed px-4">
-            For security and dining management, this table session has expired. The digital menu is locked and orders cannot be placed from this link.
+            For security and dining management, this table ordering session has expired. The digital menu is locked and orders cannot be placed from this link.
           </p>
         </div>
 
@@ -886,6 +886,14 @@ function TableOrderContent() {
               ⏳ {minutesLeft}m {secondsLeft < 10 ? `0${secondsLeft}` : secondsLeft}s
             </div>
           </div>
+        ) : isSessionExpired && hasRunningOrder ? (
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-900 dark:text-amber-200">
+            <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">45-Min Ordering Closed • Tracking Active</span>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-emerald-500 shrink-0">Live Kitchen</span>
+          </div>
         ) : (
           <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-900 dark:text-amber-200">
             <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
@@ -896,20 +904,29 @@ function TableOrderContent() {
           </div>
         )}
 
-        {/* Tab Navigation: Enabled when ordering session is active; hidden in view-only mode */}
-        {canOrder && (
+        {/* Tab Navigation: Visible when ordering session is active OR when tracking a running order */}
+        {(canOrder || hasRunningOrder) && (
           <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
             <button
               type="button"
-              onClick={() => setViewTab('MENU')}
+              onClick={() => {
+                if (isSessionExpired) {
+                  alert('The 45-minute ordering session has expired. You can continue tracking your live order status here.');
+                  return;
+                }
+                setViewTab('MENU');
+              }}
+              disabled={isSessionExpired}
               className={cn(
                 'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5',
                 activeTab === 'MENU'
                   ? 'bg-primary text-primary-foreground shadow-md'
+                  : isSessionExpired
+                  ? 'opacity-40 cursor-not-allowed text-muted-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <UtensilsCrossed className="w-3.5 h-3.5" />
+              {isSessionExpired ? <Lock className="w-3.5 h-3.5" /> : <UtensilsCrossed className="w-3.5 h-3.5" />}
               <span>Browse Menu</span>
             </button>
 
@@ -1207,8 +1224,8 @@ function TableOrderContent() {
                 )}
               </div>
 
-              {/* Ready to Take New Orders Card */}
-              {canOrder && (
+              {/* Ready to Take New Orders Card / Ordering Session Expired Card */}
+              {canOrder ? (
                 <div className="p-4 rounded-3xl bg-primary/10 border border-primary/25 text-center space-y-3 shadow-sm animate-in fade-in-50 duration-200">
                   <div className="space-y-1">
                     <p className="text-sm font-black text-foreground flex items-center justify-center gap-1.5">
@@ -1237,7 +1254,21 @@ function TableOrderContent() {
                     </span>
                   </Button>
                 </div>
-              )}
+              ) : isSessionExpired && hasRunningOrder ? (
+                <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/25 text-center space-y-2 shadow-sm animate-in fade-in-50 duration-200">
+                  <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto text-sm font-bold">
+                    ⏳
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-black text-foreground">
+                      45-Minute Ordering Session Ended
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
+                      Your ongoing order is being prepared and live tracking remains active above. To order additional items, please ask your waitstaff or re-scan the table QR code.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Current Bill Summary (Compact) */}
               <div className="p-4 rounded-3xl bg-card border border-border space-y-2.5">

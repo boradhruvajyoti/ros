@@ -319,7 +319,7 @@ export class TableController {
       sessionExpiresAt = session.sessionExpiresAt;
     }
 
-    const recentSettledOrder = (!isSessionExpired && canOrder) ? await prisma.order.findFirst({
+    const recentSettledOrder = await prisma.order.findFirst({
       where: {
         tenantId: table.tenantId,
         branchId: table.branchId,
@@ -337,7 +337,7 @@ export class TableController {
         },
       },
       orderBy: { updatedAt: 'desc' },
-    }) : null;
+    });
 
     sendSuccess(res, {
       canOrder: !isSessionExpired && canOrder,
@@ -361,7 +361,7 @@ export class TableController {
         phone: table.branch.phone,
       },
       categories: isSessionExpired ? [] : categories,
-      activeOrders: (!isSessionExpired && canOrder) ? activeOrders : [],
+      activeOrders: activeOrders,
       recentSettledOrder,
     });
   }
