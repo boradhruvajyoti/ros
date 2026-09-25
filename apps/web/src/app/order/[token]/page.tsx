@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag, CheckCircle2,
@@ -12,6 +12,16 @@ import { cn } from '@/lib/utils';
 import { formatCurrency } from '@ros/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+
+function safeFormatCurrency(amount: any): string {
+  const num = Number(amount);
+  if (isNaN(num)) return '₹0.00';
+  try {
+    return formatCurrency(num);
+  } catch {
+    return `₹${num.toFixed(2)}`;
+  }
+}
 
 interface StatusFlashNotification {
   id: string;
@@ -27,7 +37,10 @@ interface StatusFlashNotification {
 
 function playStatusChime(type: 'success' | 'info' | 'alert') {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (typeof window === 'undefined') return;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -68,7 +81,7 @@ function playStatusChime(type: 'success' | 'info' | 'alert') {
   } catch {}
 }
 
-export default function PublicTableOrderPage() {
+function TableOrderContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const token = (params?.token as string) || '';
@@ -306,10 +319,10 @@ export default function PublicTableOrderPage() {
       return;
     }
 
-    const tenantName = restaurant?.name || tableData?.restaurant?.name || 'Restaurant Dining';
-    const tenantLogo = restaurant?.logoUrl || tableData?.restaurant?.logoUrl;
-    const branchName = restaurant?.branchName || tableData?.restaurant?.branchName || 'Main Dining Hall';
-    const tableName = table?.name || tableData?.table?.name || 'Table';
+    const tenantName = tableData?.restaurant?.name || 'Restaurant Dining';
+    const tenantLogo = tableData?.restaurant?.logoUrl;
+    const branchName = tableData?.restaurant?.branchName || 'Main Dining Hall';
+    const tableName = tableData?.table?.name || 'Table';
     const orderDate = new Date(order.createdAt || Date.now()).toLocaleString();
     const subtotalAmt = Number(order.subtotal || order.total || 0);
     const taxAmt = Number(order.taxAmount || 0);
@@ -597,10 +610,13 @@ export default function PublicTableOrderPage() {
     return () => clearTimeout(timer);
   }, [statusFlash]);
 
-  const allItems = categories.flatMap((c: any) => c.items || []);
+  const allItems = Array.isArray(categories)
+    ? categories.flatMap((c: any) => c?.items || [])
+    : [];
+
   const filteredItems = selectedCategory === 'ALL'
     ? allItems
-    : (categories.find((c: any) => c.id === selectedCategory)?.items || []);
+    : (Array.isArray(categories) ? (categories.find((c: any) => c.id === selectedCategory)?.items || []) : []);
 
   const hasRunningOrder = !!currentActiveOrder;
 
@@ -757,7 +773,7 @@ export default function PublicTableOrderPage() {
             <div className="space-y-4">
               {/* Order Status Hero Card */}
               {(() => {
-                const status = currentActiveOrder.status;
+                const status = currentActiveOrder.status || 'DRAFT';
                 const isDraft = status === 'DRAFT';
                 const isReceived = status === 'CONFIRMED' || isDraft;
                 const isCooking = ['SENT_TO_KITCHEN', 'PREPARING'].includes(status);
@@ -872,8 +888,9 @@ export default function PublicTableOrderPage() {
 
                 <div className="divide-y divide-border/60">
                   {(() => {
-                    const consolidated = (currentActiveOrder.items || []).reduce((acc: any[], it: any) => {
-                      const mId = it.menuItemId || it.menuItem?.id || it.name;
+                    const items = currentActiveOrder.items || [];
+                    const consolidated = items.reduce((acc: any[], it: any) => {
+                      const mId = it.menuItemId || it.menuItem?.id || it.name || 'item';
                       const vId = it.variantId || it.variant?.id || 'std';
                       const existing = acc.find(
                         (x) => (x.menuItemId || x.menuItem?.id || x.name) === mId && (x.variantId || x.variant?.id || 'std') === vId
@@ -906,7 +923,7 @@ export default function PublicTableOrderPage() {
                               <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
                                 {it.variant?.name && <span>{it.variant.name}</span>}
                                 <span>Qty: <strong className="text-foreground">{qty}</strong></span>
-                                <span>@ {formatCurrency(unitPrice)}</span>
+                                <span>@ {safeFormatCurrency(unitPrice)}</span>
                               </div>
                               {it.notes && (
                                 <p className="text-[10px] text-amber-400 italic mt-0.5">Note: {it.notes}</p>
@@ -915,7 +932,7 @@ export default function PublicTableOrderPage() {
                           </div>
 
                           <div className="text-right shrink-0 font-mono font-bold text-foreground">
-                            {formatCurrency(lineTotal)}
+                            {safeFormatCurrency(lineTotal)}
                           </div>
                         </div>
                       );
@@ -927,18 +944,18 @@ export default function PublicTableOrderPage() {
                 <div className="border-t border-border pt-3 space-y-1.5 text-xs">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal:</span>
-                    <span className="font-mono">{formatCurrency(currentActiveOrder.subtotal || currentActiveOrder.total)}</span>
+                    <span className="font-mono">{safeFormatCurrency(currentActiveOrder.subtotal || currentActiveOrder.total || 0)}</span>
                   </div>
                   {Number(currentActiveOrder.taxAmount || 0) > 0 && (
                     <div className="flex justify-between text-muted-foreground">
                       <span>Taxes &amp; GST:</span>
-                      <span className="font-mono">{formatCurrency(Number(currentActiveOrder.taxAmount || 0))}</span>
+                      <span className="font-mono">{safeFormatCurrency(Number(currentActiveOrder.taxAmount || 0))}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-baseline pt-2 border-t border-border text-sm font-black text-foreground">
                     <span>Total Amount:</span>
                     <span className="text-base font-mono text-emerald-400">
-                      {formatCurrency(currentActiveOrder.total)}
+                      {safeFormatCurrency(currentActiveOrder.total || 0)}
                     </span>
                   </div>
                 </div>
@@ -1050,7 +1067,7 @@ export default function PublicTableOrderPage() {
             >
               All Items ({allItems.length})
             </button>
-            {categories.map((c: any) => (
+            {Array.isArray(categories) && categories.map((c: any) => (
               <button
                 key={c.id}
                 onClick={() => setSelectedCategory(c.id)}
@@ -1086,7 +1103,7 @@ export default function PublicTableOrderPage() {
                     {item.description && (
                       <p className="text-[11px] text-muted-foreground line-clamp-1">{item.description}</p>
                     )}
-                    <p className="text-xs font-black text-primary font-mono">{formatCurrency(price)}</p>
+                    <p className="text-xs font-black text-primary font-mono">{safeFormatCurrency(price)}</p>
                   </div>
 
                   {/* Ordering Controls vs View-Only Badge */}
@@ -1149,11 +1166,11 @@ export default function PublicTableOrderPage() {
             <div className="text-right">
               {taxRate > 0 && gst > 0 && (
                 <div className="text-[10px] text-muted-foreground font-mono">
-                  Subtotal: {formatCurrency(subtotal)} + GST ({taxRate}%): {formatCurrency(gst)}
+                  Subtotal: {safeFormatCurrency(subtotal)} + GST ({taxRate}%): {safeFormatCurrency(gst)}
                 </div>
               )}
               <span className="font-black text-base font-mono text-primary">
-                {formatCurrency(total)}
+                {safeFormatCurrency(total)}
               </span>
             </div>
           </div>
@@ -1180,5 +1197,20 @@ export default function PublicTableOrderPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PublicTableOrderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-bold text-muted-foreground">Loading Table Menu...</p>
+        </div>
+      }
+    >
+      <TableOrderContent />
+    </Suspense>
   );
 }
