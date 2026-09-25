@@ -14,6 +14,11 @@ import { cn } from '@/lib/utils';
 import { apiGet, apiPatch } from '@/lib/api';
 import { onRosEvent } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
+import {
+  announceNewOrder,
+  announceOrderAccepted,
+  announceOrderReady,
+} from '@/lib/voice-announcer';
 
 interface KotItem {
   id: string;
@@ -322,12 +327,29 @@ export default function KitchenPage() {
     queryFn: () => apiGet('/kitchen/stations'),
   });
 
-  // Real-time WebSocket event listener with audio chime
+  // Real-time WebSocket event listener with audio chime and human voice announcement
   useEffect(() => {
     const off = onRosEvent((event) => {
-      if (['KOT_CREATED', 'KOT_STATUS_CHANGED', 'KOT_ITEM_STATUS_CHANGED', 'ORDER_STATUS_CHANGED', 'ORDER_CANCELLED', 'TABLE_STATUS_CHANGED'].includes(event.type)) {
-        if (event.type === 'KOT_CREATED' && soundEnabled) {
+      const t = event.type as string;
+      const payload = (event as any).payload || {};
+
+      if (['KOT_CREATED', 'KOT_STATUS_CHANGED', 'KOT_ITEM_STATUS_CHANGED', 'ORDER_STATUS_CHANGED', 'ORDER_CANCELLED', 'TABLE_STATUS_CHANGED'].includes(t)) {
+        if (t === 'KOT_CREATED' && soundEnabled) {
           playKitchenChime();
+          if (payload?.items?.length) {
+            announceNewOrder({
+              items: payload.items,
+              tableName: payload.tableName || payload.table?.name,
+              kotNumber: payload.kotNumber,
+              orderType: payload.orderType,
+            });
+          }
+        } else if (t === 'KOT_STATUS_CHANGED' && soundEnabled) {
+          if (payload?.status === 'ACCEPTED') {
+            announceOrderAccepted(payload.kotNumber || payload.id);
+          } else if (payload?.status === 'READY') {
+            announceOrderReady(payload.kotNumber || payload.id);
+          }
         }
         queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
         queryClient.invalidateQueries({ queryKey: ['kitchen-kots'] });
@@ -491,7 +513,14 @@ export default function KitchenPage() {
                   <KotCard
                     key={kot.id}
                     kot={kot}
-                    onUpdate={(kotId, status) => updateKot.mutate({ kotId, status })}
+                    onUpdate={(kotId, status) => {
+                      if (status === 'ACCEPTED') {
+                        announceOrderAccepted(kot.kotNumber);
+                      } else if (status === 'READY') {
+                        announceOrderReady(kot.kotNumber);
+                      }
+                      updateKot.mutate({ kotId, status });
+                    }}
                     onRequestCancelItem={(kotId, itemId, itemName) => {
                       setCancelModalItem({ kotId, itemId, itemName });
                       setCancelReason('');

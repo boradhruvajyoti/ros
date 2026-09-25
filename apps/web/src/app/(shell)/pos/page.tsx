@@ -17,6 +17,12 @@ import { useSearchParams } from 'next/navigation';
 import { apiGet, apiPost, apiPatch, apiPut } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { onRosEvent } from '@/lib/socket';
+import {
+  announceNewOrder,
+  announceOrderAccepted,
+  announceOrderReady,
+  announcePaymentReceived,
+} from '@/lib/voice-announcer';
 
 function getClientId(): string {
   if (typeof window !== 'undefined' && window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -238,6 +244,65 @@ export default function POSPage() {
   useEffect(() => {
     const unsub = onRosEvent((event) => {
       const t = event.type as string;
+      const payload = (event as any).payload || {};
+
+      if (t === 'KOT_CREATED') {
+        if (payload?.items?.length) {
+          announceNewOrder({
+            items: payload.items,
+            tableName: payload.tableName || payload.table?.name,
+            kotNumber: payload.kotNumber,
+            orderType: payload.orderType,
+          });
+        }
+        if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
+          setCart([]);
+          setNotes('');
+        }
+      } else if (t === 'KOT_STATUS_CHANGED') {
+        if (payload?.status === 'ACCEPTED') {
+          announceOrderAccepted(payload.kotNumber || payload.id);
+        } else if (payload?.status === 'READY') {
+          announceOrderReady(payload.kotNumber || payload.id);
+        }
+      } else if (t === 'ORDER_STATUS_CHANGED') {
+        if (payload?.status === 'ACCEPTED' || payload?.status === 'CONFIRMED') {
+          announceOrderAccepted(payload.kotNumber || payload.orderNumber || payload.id);
+        } else if (payload?.status === 'READY' || payload?.status === 'READY_FOR_PICKUP') {
+          announceOrderReady(payload.kotNumber || payload.orderNumber || payload.id);
+        } else if (payload?.status === 'PAID' || payload?.status === 'COMPLETED') {
+          announcePaymentReceived(payload.total || payload.amount, tenant?.name);
+        }
+
+        if (['SENT_TO_KITCHEN', 'PREPARING', 'COOKING', 'READY', 'SERVED'].includes(payload.status)) {
+          if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
+            setCart([]);
+            setNotes('');
+          }
+        }
+        if (['CANCELLED', 'VOIDED', 'PAID', 'COMPLETED'].includes(payload.status)) {
+          if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
+            setCart([]);
+            setNotes('');
+            if (['PAID', 'COMPLETED'].includes(payload.status)) {
+              setSelectedTable(null);
+              setSelectedTableName(null);
+              toast.success('Order Settled & Paid', `Order #${payload.orderNumber || ''} marked as paid. Cart cleared.`);
+            } else {
+              toast.error('Order Cancelled', `Order #${payload.orderNumber || ''} was cancelled. Cart cleared.`);
+            }
+          }
+        }
+      } else if (t === 'PAYMENT_COMPLETED') {
+        announcePaymentReceived(payload?.amount, tenant?.name);
+        if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
+          setCart([]);
+          setNotes('');
+          setSelectedTable(null);
+          setSelectedTableName(null);
+        }
+      }
+
       if (
         t === 'ORDER_CREATED' ||
         t === 'ORDER_UPDATED' ||
@@ -247,51 +312,13 @@ export default function POSPage() {
         t === 'KOT_CREATED' ||
         t === 'PAYMENT_COMPLETED'
       ) {
-        if (t === 'KOT_CREATED') {
-          const payload = (event as any).payload || {};
-          if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
-            setCart([]);
-            setNotes('');
-          }
-        }
-        if (t === 'ORDER_STATUS_CHANGED') {
-          const payload = (event as any).payload || {};
-          if (['SENT_TO_KITCHEN', 'PREPARING', 'COOKING', 'READY', 'SERVED'].includes(payload.status)) {
-            if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
-              setCart([]);
-              setNotes('');
-            }
-          }
-          if (['CANCELLED', 'VOIDED', 'PAID', 'COMPLETED'].includes(payload.status)) {
-            if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
-              setCart([]);
-              setNotes('');
-              if (['PAID', 'COMPLETED'].includes(payload.status)) {
-                setSelectedTable(null);
-                setSelectedTableName(null);
-                toast.success('Order Settled & Paid', `Order #${payload.orderNumber || ''} marked as paid. Cart cleared.`);
-              } else {
-                toast.error('Order Cancelled', `Order #${payload.orderNumber || ''} was cancelled. Cart cleared.`);
-              }
-            }
-          }
-        }
-        if (t === 'PAYMENT_COMPLETED') {
-          const payload = (event as any).payload || {};
-          if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
-            setCart([]);
-            setNotes('');
-            setSelectedTable(null);
-            setSelectedTableName(null);
-          }
-        }
         queryClient.invalidateQueries({ queryKey: ['active-orders'] });
         queryClient.invalidateQueries({ queryKey: ['tables'] });
         queryClient.invalidateQueries({ queryKey: ['orders'] });
       }
     });
     return () => unsub();
-  }, [queryClient, orderParam, selectedTable]);
+  }, [queryClient, orderParam, selectedTable, tenant?.name]);
 
   const categories = useMemo(() => {
     return Array.isArray(rawCategories) ? rawCategories : [];
@@ -645,6 +672,18 @@ export default function POSPage() {
       });
     },
     onSuccess: (order: any) => {
+      // Announce new order with dishes, variants, quantity and table
+      announceNewOrder({
+        items: cart.map((c) => ({
+          name: c.name,
+          quantity: c.quantity,
+          variant: c.variantName ? { name: c.variantName } : undefined,
+        })),
+        tableName: selectedTableName || (tables as any[])?.find((t: any) => t.id === selectedTable)?.name,
+        orderType,
+        kotNumber: order?.orderNumber,
+      });
+
       toast.success('KOT Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} sent — table stays open for more rounds.`);
       // Clear cart and notes but KEEP the table selected so staff can add another running KOT
       setCart([]);
@@ -740,6 +779,9 @@ export default function POSPage() {
           reason: `Settled via ${method}`,
         });
       } catch {}
+
+      // Voice announcement for payment
+      announcePaymentReceived(total, tenant?.name);
 
       toast.success('Order Settled & Paid! 💰', `Order #${order.orderNumber} successfully paid via ${method}`);
       setCart([]);

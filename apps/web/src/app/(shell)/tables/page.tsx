@@ -18,6 +18,13 @@ import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPatch, apiPut, apiDelete } from '@/lib/api';
 import { onRosEvent } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
+import {
+  announceNewOrder,
+  announceOrderAccepted,
+  announceOrderReady,
+  announcePaymentReceived,
+  speakVoice,
+} from '@/lib/voice-announcer';
 import QRCode from 'qrcode';
 import { formatCurrency } from '@ros/utils';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -315,10 +322,45 @@ export default function TablesPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | any | null>(null);
   const [billPreviewOrder, setBillPreviewOrder] = useState<Order | any | null>(null);
 
+  // ── Data Queries ────────────────────────────────────────────────────────────
+  const { data: tenant } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: () => apiGet<any>('/tenants/current'),
+  });
+
   // ── Realtime Socket Subscriptions for Tables ───────────────────────────
   useEffect(() => {
     const unsub = onRosEvent((event) => {
       const t = event.type as string;
+      const payload = (event as any).payload;
+
+      if (t === 'KOT_CREATED') {
+        if (payload?.items?.length) {
+          announceNewOrder({
+            items: payload.items,
+            tableName: payload.tableName || payload.table?.name,
+            kotNumber: payload.kotNumber,
+            orderType: payload.orderType,
+          });
+        }
+      } else if (t === 'KOT_STATUS_CHANGED') {
+        if (payload?.status === 'ACCEPTED') {
+          announceOrderAccepted(payload.kotNumber || payload.id);
+        } else if (payload?.status === 'READY') {
+          announceOrderReady(payload.kotNumber || payload.id);
+        }
+      } else if (t === 'ORDER_STATUS_CHANGED') {
+        if (payload?.status === 'ACCEPTED' || payload?.status === 'CONFIRMED') {
+          announceOrderAccepted(payload.kotNumber || payload.orderNumber || payload.id);
+        } else if (payload?.status === 'READY' || payload?.status === 'READY_FOR_PICKUP') {
+          announceOrderReady(payload.kotNumber || payload.orderNumber || payload.id);
+        } else if (payload?.status === 'PAID' || payload?.status === 'COMPLETED') {
+          announcePaymentReceived(payload.total || payload.amount, tenant?.name);
+        }
+      } else if (t === 'PAYMENT_COMPLETED') {
+        announcePaymentReceived(payload?.amount, tenant?.name);
+      }
+
       if (
         t === 'ORDER_CREATED' ||
         t === 'ORDER_UPDATED' ||
@@ -335,13 +377,7 @@ export default function TablesPage() {
       }
     });
     return () => unsub();
-  }, [queryClient]);
-
-  // ── Data Queries ────────────────────────────────────────────────────────────
-  const { data: tenant } = useQuery({
-    queryKey: ['current-tenant'],
-    queryFn: () => apiGet<any>('/tenants/current'),
-  });
+  }, [queryClient, tenant?.name]);
 
   const { data: floors = [] } = useQuery({
     queryKey: ['floors'],
@@ -581,11 +617,19 @@ export default function TablesPage() {
   };
 
   const speakOrder = (order: Order) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const text = `Order number ${order.orderNumber}. Table ${order.table?.name || order.type}. Status is ${ORDER_STATUS_CONFIG[order.status]?.label || order.status}. Total amount ${order.total} rupees.`;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
-      window.speechSynthesis.speak(utterance);
+    if (order.status === 'PAID' || order.status === 'COMPLETED') {
+      announcePaymentReceived(order.total, tenant?.name);
+    } else if (order.status === 'READY') {
+      announceOrderReady((order as any).kotNumber || order.orderNumber || order.id);
+    } else if (order.status === 'ACCEPTED' || order.status === 'CONFIRMED') {
+      announceOrderAccepted((order as any).kotNumber || order.orderNumber || order.id);
+    } else {
+      announceNewOrder({
+        items: order.items || [],
+        tableName: order.table?.name,
+        orderType: order.type,
+        kotNumber: order.orderNumber,
+      });
     }
   };
 
@@ -656,6 +700,7 @@ export default function TablesPage() {
       );
       return;
     }
+    announcePaymentReceived(order.total, tenant?.name);
     updateStatus.mutate(
       { orderId: order.id, status: 'PAID' },
       {
@@ -677,6 +722,15 @@ export default function TablesPage() {
       }
       return;
     }
+
+    if (targetStatus === 'ACCEPTED' || targetStatus === 'CONFIRMED') {
+      announceOrderAccepted(order.kotNumber || order.orderNumber || order.id);
+    } else if (targetStatus === 'READY' || targetStatus === 'READY_FOR_PICKUP') {
+      announceOrderReady(order.kotNumber || order.orderNumber || order.id);
+    } else if (targetStatus === 'PAID' || targetStatus === 'COMPLETED') {
+      announcePaymentReceived(order.total, tenant?.name);
+    }
+
     updateStatus.mutate({ orderId: order.id, status: targetStatus });
   };
 

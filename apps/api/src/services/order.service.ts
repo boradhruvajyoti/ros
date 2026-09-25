@@ -791,6 +791,11 @@ export class OrderService {
       stationGroups.get(stationId)!.push(item);
     });
 
+    const orderData = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { orderNumber: true, type: true, table: { select: { name: true } } },
+    });
+
     for (const [stationId, items] of stationGroups) {
       const kotNumber = await this.getNextSequence('KOT', targetBranchId);
 
@@ -822,13 +827,20 @@ export class OrderService {
         id: kot.id,
         kotNumber: kot.kotNumber,
         orderId,
-        orderNumber: '', // will be populated by room context
-        orderType: 'DINE_IN',
+        orderNumber: orderData?.orderNumber || '',
+        orderType: orderData?.type || 'DINE_IN',
+        tableName: orderData?.table?.name || '',
         stationId: stationId || 'default',
         stationName: stationId || 'Kitchen',
         status: 'NEW' as any,
         priority: 0,
         itemCount: items.length,
+        items: items.map((i) => ({
+          quantity: i.quantity,
+          name: i.menuItem?.name || 'Dish',
+          menuItem: { name: i.menuItem?.name },
+          variant: { name: i.variant?.name },
+        })),
         createdAt: kot.createdAt.toISOString(),
         ageMinutes: 0,
       };
