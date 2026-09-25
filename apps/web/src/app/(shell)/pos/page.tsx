@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Plus, Minus, Trash2, User, TableIcon,
@@ -274,6 +274,58 @@ export default function POSPage() {
     } catch {}
   };
 
+  // ── Auto-Sync Draft Order to Tables & Orders ────────────────────────────
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const triggerDraftSync = useCallback((newCart: CartItem[], tableId: string | null, currentNotes?: string) => {
+    if (!tableId || newCart.length === 0) return;
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+
+    syncTimeoutRef.current = setTimeout(async () => {
+      try {
+        const activeOrder = (activeOrders || []).find((o: any) => o.tableId === tableId && ['DRAFT', 'CONFIRMED'].includes(o.status));
+        if (activeOrder) {
+          await apiPut(`/orders/${activeOrder.id}/items`, {
+            items: newCart.map((c) => ({
+              menuItemId: c.menuItemId,
+              variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+              quantity: c.quantity,
+              unitPrice: c.unitPrice,
+              notes: c.notes || undefined,
+              modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+            })),
+            sendToKitchen: false,
+            notes: currentNotes || undefined,
+          });
+          queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['tables'] });
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+        } else {
+          await apiPost('/orders', {
+            type: 'DINE_IN',
+            status: 'DRAFT',
+            tableId,
+            notes: currentNotes || undefined,
+            clientId: getClientId(),
+            items: newCart.map((c) => ({
+              menuItemId: c.menuItemId,
+              variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+              quantity: c.quantity,
+              unitPrice: c.unitPrice,
+              notes: c.notes || undefined,
+              modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+            })),
+          });
+          queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['tables'] });
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+        }
+      } catch (e) {
+        console.error('Failed to auto-sync draft items to table', e);
+      }
+    }, 250);
+  }, [activeOrders, queryClient]);
+
   // ── Cart Actions ─────────────────────────────────────────────────────────
   const addToCart = useCallback((item: MenuItem) => {
     // Enforce dining table selection for Dine-In orders
@@ -292,37 +344,53 @@ export default function POSPage() {
     const key = `${item.id}-${variant.id}`;
 
     setCart((prev) => {
+      let nextCart: CartItem[];
       const existing = prev.find((c) => c.key === key);
       if (existing) {
-        return prev.map((c) =>
+        nextCart = prev.map((c) =>
           c.key === key ? { ...c, quantity: c.quantity + 1 } : c
         );
+      } else {
+        nextCart = [...prev, {
+          key,
+          menuItemId: item.id,
+          variantId: variant.id,
+          name: item.name,
+          variantName: variant.name,
+          unitPrice,
+          quantity: 1,
+          foodType: item.foodType,
+          modifiers: [],
+        }];
       }
-      return [...prev, {
-        key,
-        menuItemId: item.id,
-        variantId: variant.id,
-        name: item.name,
-        variantName: variant.name,
-        unitPrice,
-        quantity: 1,
-        foodType: item.foodType,
-        modifiers: [],
-      }];
+      if (orderType === 'DINE_IN' && selectedTable) {
+        triggerDraftSync(nextCart, selectedTable, notes);
+      }
+      return nextCart;
     });
-  }, [orderType, selectedTable]);
+  }, [orderType, selectedTable, notes, triggerDraftSync]);
 
   const updateQty = useCallback((key: string, delta: number) => {
-    setCart((prev) =>
-      prev
+    setCart((prev) => {
+      const nextCart = prev
         .map((c) => (c.key === key ? { ...c, quantity: c.quantity + delta } : c))
-        .filter((c) => c.quantity > 0)
-    );
-  }, []);
+        .filter((c) => c.quantity > 0);
+      if (orderType === 'DINE_IN' && selectedTable) {
+        triggerDraftSync(nextCart, selectedTable, notes);
+      }
+      return nextCart;
+    });
+  }, [orderType, selectedTable, notes, triggerDraftSync]);
 
   const removeItem = useCallback((key: string) => {
-    setCart((prev) => prev.filter((c) => c.key !== key));
-  }, []);
+    setCart((prev) => {
+      const nextCart = prev.filter((c) => c.key !== key);
+      if (orderType === 'DINE_IN' && selectedTable) {
+        triggerDraftSync(nextCart, selectedTable, notes);
+      }
+      return nextCart;
+    });
+  }, [orderType, selectedTable, notes, triggerDraftSync]);
 
   // ── Order Mutation ───────────────────────────────────────────────────────
   const createOrderMutation = useMutation({

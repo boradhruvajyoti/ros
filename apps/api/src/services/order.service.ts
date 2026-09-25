@@ -473,6 +473,17 @@ export class OrderService {
         include: this.orderInclude(),
       });
 
+      if (order.tableId) {
+        await tx.restaurantTable.update({
+          where: { id: order.tableId },
+          data: { status: 'OCCUPIED' },
+        });
+        emitToRoom(this.tenantId, effectiveBranchId, {
+          type: 'TABLE_STATUS_CHANGED',
+          payload: { tableId: order.tableId, status: 'OCCUPIED', orderId: updatedOrder.id },
+        });
+      }
+
       if (dto.sendToKitchen) {
         await this.generateKots(orderId, tx as any, effectiveBranchId);
         emitToRoom(this.tenantId, effectiveBranchId, {
