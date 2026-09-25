@@ -3,17 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth.store';
-import { useUIStore } from '@/stores/ui.store';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { AppTopbar } from '@/components/layout/app-topbar';
 import { AppMobileNav } from '@/components/layout/app-mobile-nav';
-import { Loader2, ShieldAlert, ArrowRight, Minimize2 } from 'lucide-react';
+import { Loader2, ShieldAlert, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isRouteAccessible, getDefaultLandingRoute } from '@/lib/nav-permissions';
 
 export default function ShellLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, hasAnyPermission, _hasHydrated, setHasHydrated } = useAuthStore();
-  const { isFullscreen, toggleFullscreen } = useUIStore();
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -96,20 +94,6 @@ export default function ShellLayout({ children }: { children: React.ReactNode })
 
       {/* Bottom Mobile Navigation for 1-Tap Thumb Action */}
       <AppMobileNav />
-
-      {/* Floating Minimise Button when Fullscreen Mode is Active */}
-      {isFullscreen && (
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          className="fixed top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/90 hover:bg-slate-900 text-white border border-white/25 shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 text-xs font-bold animate-in fade-in zoom-in-95 duration-200"
-          title="Exit Full Screen (or press Esc)"
-        >
-          <Minimize2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span className="hidden sm:inline">Exit Fullscreen</span>
-          <span className="sm:hidden">Exit</span>
-        </button>
-      )}
     </div>
   );
 }
