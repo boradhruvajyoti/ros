@@ -6,7 +6,8 @@ import {
   UtensilsCrossed, Plus, Minus, ShoppingBag,
   ChefHat, MapPin, AlertCircle, ArrowRight,
   ShieldCheck, Lock, Eye, X, Ban,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, Download, CheckCircle2,
+  ExternalLink, Receipt, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,139 @@ function safeFormatCurrency(amount: any): string {
   } catch {
     return `₹${num.toFixed(2)}`;
   }
+}
+
+// ── Thermal & Standard Tax Invoice Printable Receipt Generator ────────────────
+function handlePrintTaxInvoice(order: any, restaurant: any, table: any) {
+  if (!order) return;
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Please allow popups to download and print the receipt.');
+    return;
+  }
+
+  const itemsList = (order.items || []).filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status));
+  const itemsHtml = itemsList.map((i: any) => {
+    const qty = Number(i.quantity || 1);
+    const rate = Number(i.unitPrice || i.variant?.price || 0);
+    const amt = Number(i.totalPrice || qty * rate);
+    return `
+      <tr>
+        <td style="padding: 6px 0; border-bottom: 1px dashed #e2e8f0;">
+          <div style="font-weight: 700; color: #0f172a; font-size: 12px;">${i.menuItem?.name || i.name || 'Dish Item'}</div>
+          ${i.variant?.name ? `<div style="font-size: 10px; color: #64748b;">${i.variant.name}</div>` : ''}
+        </td>
+        <td style="padding: 6px 4px; text-align: center; font-weight: 700; border-bottom: 1px dashed #e2e8f0; font-size: 12px;">${qty}</td>
+        <td style="padding: 6px 0; text-align: right; font-family: monospace; border-bottom: 1px dashed #e2e8f0; font-size: 11px;">₹${rate.toFixed(2)}</td>
+        <td style="padding: 6px 0; text-align: right; font-family: monospace; font-weight: 700; border-bottom: 1px dashed #e2e8f0; font-size: 12px;">₹${amt.toFixed(2)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Dining Bill - ${restaurant?.name || 'Restaurant'} - #${order.orderNumber || ''}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+          @page { margin: 8mm; size: 80mm auto; }
+          body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; color: #0f172a; margin: 0; padding: 16px 12px; background: #fff; line-height: 1.4; }
+          .receipt-box { max-width: 340px; margin: 0 auto; }
+          .center { text-align: center; }
+          .logo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; margin: 0 auto 8px; border: 2px solid #0f172a; display: block; }
+          .title { font-size: 18px; font-weight: 900; text-transform: uppercase; margin: 0 0 2px; color: #0f172a; letter-spacing: -0.5px; }
+          .subtitle { font-size: 11px; color: #64748b; margin-bottom: 2px; }
+          .badge-paid { display: inline-block; background: #ecfdf5; color: #047857; border: 1.5px solid #059669; font-weight: 900; font-size: 11px; padding: 3px 12px; border-radius: 999px; margin: 8px 0; }
+          .divider { border-top: 1px dashed #cbd5e1; margin: 10px 0; }
+          .double-divider { border-top: 2px solid #0f172a; margin: 10px 0; }
+          table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+          th { text-align: left; padding: 4px 0; font-size: 10px; text-transform: uppercase; color: #64748b; border-bottom: 1.5px solid #0f172a; }
+          .row-flex { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
+          .grand-total { font-size: 15px; font-weight: 900; color: #0f172a; padding: 6px 0; }
+          .footer-note { font-size: 11px; color: #475569; margin-top: 14px; text-align: center; }
+          .oxom-brand { font-size: 10px; color: #64748b; margin-top: 14px; border-top: 1px dashed #cbd5e1; padding-top: 10px; text-align: center; }
+          .oxom-brand a { color: #0284c7; text-decoration: none; font-weight: 700; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="receipt-box">
+          <div class="center">
+            ${restaurant?.logoUrl ? `<img src="${restaurant.logoUrl}" class="logo" alt="Logo" />` : ''}
+            <div class="title">${restaurant?.name || 'Restaurant Dining'}</div>
+            ${restaurant?.branchName ? `<div class="subtitle">${restaurant.branchName}</div>` : ''}
+            ${restaurant?.address ? `<div class="subtitle">${restaurant.address}</div>` : ''}
+            ${restaurant?.phone ? `<div class="subtitle">Tel: ${restaurant.phone}</div>` : ''}
+            <div class="divider"></div>
+            <div class="badge-paid">PAID &amp; SETTLED ✅</div>
+            <div class="subtitle"><strong>Order #${order.orderNumber || ''}</strong> · Table: <strong>${table?.name || 'Table'}</strong></div>
+            <div class="subtitle">${new Date(order.createdAt || Date.now()).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 48%;">Item</th>
+                <th style="width: 14%; text-align: center;">Qty</th>
+                <th style="width: 18%; text-align: right;">Rate</th>
+                <th style="width: 20%; text-align: right;">Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="divider"></div>
+
+          <div class="row-flex">
+            <span style="color: #64748b;">Subtotal:</span>
+            <span style="font-family: monospace; font-weight: 600;">₹${Number(order.subtotal || order.total || 0).toFixed(2)}</span>
+          </div>
+
+          ${Number(order.taxAmount || 0) > 0 ? `
+            <div class="row-flex">
+              <span style="color: #64748b;">Taxes &amp; GST:</span>
+              <span style="font-family: monospace; font-weight: 600;">₹${Number(order.taxAmount).toFixed(2)}</span>
+            </div>
+          ` : ''}
+
+          ${Number(order.discountAmount || 0) > 0 ? `
+            <div class="row-flex">
+              <span style="color: #64748b;">Discount:</span>
+              <span style="font-family: monospace; font-weight: 600;">-₹${Number(order.discountAmount).toFixed(2)}</span>
+            </div>
+          ` : ''}
+
+          <div class="double-divider"></div>
+
+          <div class="row-flex grand-total">
+            <span>TOTAL PAID:</span>
+            <span style="font-family: monospace; color: #047857;">₹${Number(order.total || 0).toFixed(2)}</span>
+          </div>
+
+          <div class="double-divider"></div>
+
+          <div class="footer-note">
+            <p style="margin: 0;"><strong>Thank you for dining with us!</strong><br/>We look forward to serving you again.</p>
+          </div>
+
+          <div class="oxom-brand">
+            Digital Experience Powered by <strong>Oxomsoft Software Solution</strong><br/>
+            <a href="https://www.oxomsoft.com" target="_blank">www.oxomsoft.com</a>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+  }, 250);
 }
 
 interface StatusFlashNotification {
@@ -109,8 +243,27 @@ function TableOrderContent() {
   const [viewTab, setViewTab] = useState<'MENU' | 'LIVE_STATUS'>('MENU');
   const [statusFlash, setStatusFlash] = useState<StatusFlashNotification | null>(null);
 
+  // Paid & Settled completion sequence state
+  const [paidSettledOrder, setPaidSettledOrder] = useState<any | null>(null);
+  const [isReceiptExpanded, setIsReceiptExpanded] = useState<boolean>(false);
+  const handledPaidOrderIdsRef = useRef<Set<string>>(new Set());
+
   const lastSeenStatusRef = useRef<string | null>(null);
   const isInitialStatusLoadRef = useRef<boolean>(true);
+
+  const triggerPaymentSettlement = (settledOrder: any) => {
+    if (!settledOrder || !settledOrder.id) return;
+    if (handledPaidOrderIdsRef.current.has(settledOrder.id)) return;
+    handledPaidOrderIdsRef.current.add(settledOrder.id);
+    setPaidSettledOrder(settledOrder);
+    // Sequence Step 2: Close token session immediately
+    setGuestSessionToken(null);
+    setSessionExpiresAt(null);
+    setCart({});
+    setGuestNotes('');
+    setOrderPlaced(null);
+    playStatusChime('success');
+  };
 
   const fetchTableData = () => {
     if (!token) return;
@@ -125,6 +278,9 @@ function TableOrderContent() {
       })
       .then((data) => {
         setTableData(data.data);
+        if (data.data?.recentSettledOrder) {
+          triggerPaymentSettlement(data.data.recentSettledOrder);
+        }
         if (data.data?.activeOrders && data.data.activeOrders.length > 0) {
           setOrderPlaced(data.data.activeOrders[0]);
         } else {
@@ -159,6 +315,9 @@ function TableOrderContent() {
       .then((data) => {
         if (!isMounted) return;
         setTableData(data.data);
+        if (data.data?.recentSettledOrder) {
+          triggerPaymentSettlement(data.data.recentSettledOrder);
+        }
         if (data.data?.activeOrders && data.data.activeOrders.length > 0) {
           setOrderPlaced(data.data.activeOrders[0]);
         } else {
@@ -211,6 +370,9 @@ function TableOrderContent() {
         const json = await res.json();
         if (json.data) {
           setTableData(json.data);
+          if (json.data?.recentSettledOrder) {
+            triggerPaymentSettlement(json.data.recentSettledOrder);
+          }
           if (json.data.activeOrders && json.data.activeOrders.length > 0) {
             setOrderPlaced(json.data.activeOrders[0]);
           } else {
@@ -443,7 +605,9 @@ function TableOrderContent() {
       }
 
       if (config) {
-        if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentStatus)) {
+        if (['PAID', 'COMPLETED'].includes(currentStatus)) {
+          triggerPaymentSettlement(currentActiveOrder);
+        } else if (['CANCELLED', 'VOIDED'].includes(currentStatus)) {
           setCart({});
           setGuestNotes('');
           setOrderPlaced(null);
@@ -1306,6 +1470,133 @@ function TableOrderContent() {
               </Button>
             </>
           )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          PAID & SETTLED COMPLETION MODAL (Payment Confirmation, Bill Download & Branding)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {paidSettledOrder && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-card border-2 border-emerald-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 text-center my-auto relative">
+            
+            {/* Step 1: Payment Confirmation Message */}
+            <div className="space-y-3">
+              <div className="w-16 h-16 bg-emerald-500/15 border-2 border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner animate-bounce">
+                ✅
+              </div>
+              <div className="space-y-1">
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full inline-block">
+                  Payment Confirmed &amp; Settled
+                </span>
+                <h2 className="text-xl font-black text-foreground">
+                  Thank You for Dining With Us!
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Order <strong className="text-foreground">#{paidSettledOrder.orderNumber}</strong> for <strong className="text-foreground">{table?.name || 'Table'}</strong> has been successfully settled.
+                </p>
+              </div>
+
+              {/* Amount Paid Pill */}
+              <div className="p-3 rounded-2xl bg-muted/50 border border-border flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-bold">Total Amount Paid:</span>
+                <span className="text-lg font-mono font-black text-emerald-400">
+                  {safeFormatCurrency(paidSettledOrder.total || 0)}
+                </span>
+              </div>
+            </div>
+
+            {/* Step 2: Session Closed Notice */}
+            <div className="flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground bg-muted/30 border border-border/80 px-3 py-2 rounded-2xl">
+              <Lock className="w-3.5 h-3.5 text-amber-500" />
+              <span>Dining Token Session Closed &amp; Cleared</span>
+            </div>
+
+            {/* Step 3: Download Bill & Itemized Preview */}
+            <div className="space-y-3 pt-1 text-left">
+              <Button
+                onClick={() => handlePrintTaxInvoice(paidSettledOrder, restaurant, table)}
+                className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download / Print Tax Invoice Receipt</span>
+              </Button>
+
+              {/* Expandable itemized summary */}
+              <div className="border border-border/70 rounded-2xl p-3 bg-muted/20 space-y-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsReceiptExpanded(!isReceiptExpanded)}
+                  className="w-full flex items-center justify-between font-bold text-muted-foreground hover:text-foreground cursor-pointer text-[11px]"
+                >
+                  <span>View Itemized Bill Details</span>
+                  {isReceiptExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {isReceiptExpanded && (
+                  <div className="space-y-1.5 pt-2 border-t border-border/50 divide-y divide-border/30 max-h-40 overflow-y-auto pr-1">
+                    {(paidSettledOrder.items || [])
+                      .filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status))
+                      .map((it: any, idx: number) => (
+                        <div key={idx} className="flex justify-between py-1 text-[11px]">
+                          <span className="truncate flex-1 pr-2">
+                            {it.quantity || 1}x {it.menuItem?.name || it.name || 'Dish'}
+                          </span>
+                          <span className="font-mono font-bold text-foreground shrink-0">
+                            {safeFormatCurrency(
+                              it.totalPrice ||
+                                (it.quantity || 1) * (it.unitPrice || it.variant?.price || 0)
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Thank you & Powered by Oxomsoft Branding */}
+            <div className="pt-3 border-t border-border/80 space-y-3 text-center">
+              <div className="space-y-1.5">
+                {restaurant?.logoUrl && (
+                  <div className="w-12 h-12 rounded-full border-2 border-primary/30 p-0.5 mx-auto overflow-hidden shadow-sm">
+                    <img
+                      src={restaurant.logoUrl}
+                      alt={restaurant?.name}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  </div>
+                )}
+                <p className="text-sm font-black text-foreground">
+                  Thank you for choosing {restaurant?.name || 'our restaurant'}!
+                </p>
+              </div>
+
+              <div className="text-[11px] text-muted-foreground space-y-1 bg-muted/40 p-3 rounded-2xl border border-border/60">
+                <p className="font-medium">
+                  Digital Experience Powered by <strong className="text-foreground font-bold">Oxomsoft Software Solution</strong>
+                </p>
+                <a
+                  href="https://www.oxomsoft.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline font-bold inline-flex items-center gap-1"
+                >
+                  <span>www.oxomsoft.com</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => setPaidSettledOrder(null)}
+                className="w-full h-10 rounded-2xl text-xs font-bold border-border hover:bg-muted cursor-pointer"
+              >
+                Close &amp; Browse Menu (View Only)
+              </Button>
+            </div>
+
+          </div>
         </div>
       )}
     </div>

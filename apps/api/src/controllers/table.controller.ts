@@ -301,6 +301,26 @@ export class TableController {
       } catch {}
     }
 
+    const recentSettledOrder = await prisma.order.findFirst({
+      where: {
+        tenantId: table.tenantId,
+        branchId: table.branchId,
+        tableId: table.id,
+        status: { in: ['PAID', 'COMPLETED'] },
+        updatedAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+      },
+      include: {
+        items: {
+          where: { status: { notIn: ['VOIDED', 'CANCELLED'] } },
+          include: {
+            menuItem: { select: { id: true, name: true, foodType: true, imageUrl: true } },
+            variant: { select: { id: true, name: true, price: true } },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
     sendSuccess(res, {
       canOrder,
       guestSessionToken: validSessionToken,
@@ -323,6 +343,7 @@ export class TableController {
       },
       categories,
       activeOrders: canOrder ? activeOrders : [],
+      recentSettledOrder: canOrder ? recentSettledOrder : null,
     });
   }
 
