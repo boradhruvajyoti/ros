@@ -154,6 +154,7 @@ export default function POSPage() {
   const [showMobileCategories, setShowMobileCategories] = useState(false);
   const [isMobileCartDrawerOpen, setIsMobileCartDrawerOpen] = useState(false);
   const loadedOrderIdRef = useRef<string | null>(null);
+  const initialParamProcessedRef = useRef(false);
 
   // Helper to map backend order items into POS CartItem interface
   const mapOrderItemsToCart = useCallback((order: any): CartItem[] => {
@@ -323,8 +324,9 @@ export default function POSPage() {
     return Array.isArray(rawTables) ? rawTables : [];
   }, [rawTables]);
 
-  // Pre-select table if table/order is specified in URL query parameters
+  // Pre-select table ONLY ONCE if table/order is specified in URL query parameters
   useEffect(() => {
+    if (initialParamProcessedRef.current) return;
     if ((!tableParam && !orderParam) || tables.length === 0) return;
 
     let targetTable = tableParam ? tables.find((t: any) => t.id === tableParam) : null;
@@ -338,31 +340,60 @@ export default function POSPage() {
       setSelectedTable(targetTable.id);
       setSelectedTableName(targetTable.name);
       setOrderType('DINE_IN');
-    }
-  }, [tableParam, orderParam, tables, activeOrders]);
+      initialParamProcessedRef.current = true;
 
-  // Auto-populate Cart with Pending QR / Draft items for the selected table
-  useEffect(() => {
-    if (!selectedTable && !orderParam) return;
-
-    const activeOrder = orderParam
-      ? (activeOrders || []).find((o: any) => o.id === orderParam)
-      : (activeOrders || []).find((o: any) => o.tableId === selectedTable);
-
-    if (activeOrder && ['CONFIRMED', 'DRAFT'].includes(activeOrder.status)) {
-      if (loadedOrderIdRef.current !== activeOrder.id) {
-        const mapped = mapOrderItemsToCart(activeOrder);
-        if (mapped.length > 0) {
-          setCart(mapped);
-          if (activeOrder.notes) {
-            setNotes(activeOrder.notes);
+      // Auto-populate cart if this initial table has draft/pending QR items
+      if (activeOrder && ['CONFIRMED', 'DRAFT'].includes(activeOrder.status)) {
+        if (loadedOrderIdRef.current !== activeOrder.id) {
+          const mapped = mapOrderItemsToCart(activeOrder);
+          if (mapped.length > 0) {
+            setCart(mapped);
+            if (activeOrder.notes) {
+              setNotes(activeOrder.notes);
+            }
+            loadedOrderIdRef.current = activeOrder.id;
+            toast.info('QR Order Loaded', `Loaded ${mapped.length} items from Guest QR Order #${activeOrder.orderNumber} for review.`);
           }
-          loadedOrderIdRef.current = activeOrder.id;
-          toast.info('QR Order Loaded', `Loaded ${mapped.length} items from Guest QR Order #${activeOrder.orderNumber} for review.`);
         }
       }
     }
-  }, [selectedTable, orderParam, activeOrders, mapOrderItemsToCart]);
+  }, [tableParam, orderParam, tables, activeOrders, mapOrderItemsToCart]);
+
+  // Unified Table Selection Handler — Allows effortlessly switching to any other table without URL lock
+  const handleSelectTable = useCallback((t: any | null) => {
+    initialParamProcessedRef.current = true;
+    if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    if (!t || selectedTable === t.id) {
+      setSelectedTable(null);
+      setSelectedTableName(null);
+      setCart([]);
+      setNotes('');
+      loadedOrderIdRef.current = null;
+      return;
+    }
+
+    setSelectedTable(t.id);
+    setSelectedTableName(t.name);
+    setOrderType('DINE_IN');
+
+    const tableOrder = (activeOrders || []).find((o: any) => o.tableId === t.id && ['CONFIRMED', 'DRAFT'].includes(o.status));
+    if (tableOrder) {
+      const mapped = mapOrderItemsToCart(tableOrder);
+      setCart(mapped);
+      setNotes(tableOrder.notes || '');
+      loadedOrderIdRef.current = tableOrder.id;
+      if (mapped.length > 0) {
+        toast.info('QR Order Loaded', `Loaded ${mapped.length} items from QR Order #${tableOrder.orderNumber}`);
+      }
+    } else {
+      setCart([]);
+      setNotes('');
+      loadedOrderIdRef.current = null;
+    }
+  }, [selectedTable, activeOrders, mapOrderItemsToCart]);
 
 
 
@@ -630,9 +661,9 @@ export default function POSPage() {
   // ── Order Mutation ───────────────────────────────────────────────────────
   const createOrderMutation = useMutation({
     mutationFn: async (extraPayload?: any) => {
-      const activeOrder = orderParam
-        ? (activeOrders || []).find((o: any) => o.id === orderParam)
-        : (activeOrders || []).find((o: any) => o.tableId === selectedTable);
+      const activeOrder = selectedTable
+        ? (activeOrders || []).find((o: any) => o.tableId === selectedTable)
+        : (orderParam ? (activeOrders || []).find((o: any) => o.id === orderParam) : null);
 
       if (activeOrder && ['DRAFT', 'CONFIRMED'].includes(activeOrder.status)) {
         return apiPut(`/orders/${activeOrder.id}/items`, {
@@ -1246,13 +1277,8 @@ export default function POSPage() {
                       {selectedTable && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedTable(null);
-                            setSelectedTableName(null);
-                            setCart([]);
-                            setNotes('');
-                          }}
-                          className="text-[10px] text-destructive cursor-pointer"
+                          onClick={() => handleSelectTable(null)}
+                          className="text-[10px] text-destructive cursor-pointer font-bold"
                         >
                           ✕ Clear Table
                         </button>
@@ -1265,15 +1291,7 @@ export default function POSPage() {
                           <button
                             key={t.id}
                             type="button"
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedTable(null);
-                                setSelectedTableName(null);
-                              } else {
-                                setSelectedTable(t.id);
-                                setSelectedTableName(t.name);
-                              }
-                            }}
+                            onClick={() => handleSelectTable(isSelected ? null : t)}
                             className={cn(
                               "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border shrink-0 cursor-pointer transition-all",
                               isSelected
@@ -1445,12 +1463,7 @@ export default function POSPage() {
                 {selectedTable && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedTable(null);
-                      setSelectedTableName(null);
-                      setCart([]);
-                      setNotes('');
-                    }}
+                    onClick={() => handleSelectTable(null)}
                     className="text-[10px] font-bold text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                   >
                     ✕ Clear Table
@@ -1478,31 +1491,7 @@ export default function POSPage() {
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedTable(null);
-                            setSelectedTableName(null);
-                            setCart([]);
-                            setNotes('');
-                            loadedOrderIdRef.current = null;
-                          } else {
-                            setSelectedTable(t.id);
-                            setSelectedTableName(t.name);
-                            if (tableOrder && ['CONFIRMED', 'DRAFT'].includes(tableOrder.status)) {
-                              const mapped = mapOrderItemsToCart(tableOrder);
-                              setCart(mapped);
-                              setNotes(tableOrder.notes || '');
-                              loadedOrderIdRef.current = tableOrder.id;
-                              if (mapped.length > 0) {
-                                toast.info('QR Order Loaded', `Loaded ${mapped.length} items from QR Order #${tableOrder.orderNumber}`);
-                              }
-                            } else {
-                              setCart([]);
-                              setNotes('');
-                              loadedOrderIdRef.current = null;
-                            }
-                          }
-                        }}
+                        onClick={() => handleSelectTable(isSelected ? null : t)}
                         className={cn(
                           'p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm text-center relative overflow-hidden',
                           isSelected
