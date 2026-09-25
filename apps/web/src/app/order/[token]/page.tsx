@@ -269,6 +269,16 @@ function TableOrderContent() {
   // Selected variant per item ID: { [itemId]: variantId }
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   
+  // Collapsible category accordion state (collapsed by default)
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
+  const toggleCategory = useCallback((catId: string) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [catId]: !prev[catId],
+    }));
+  }, []);
+  
   // Cart keyed by item + variant: { [cartKey]: { item, variant, qty } }
   const [cart, setCart] = useState<{ [cartKey: string]: { item: any; variant: any; qty: number } }>({});
   const [guestNotes, setGuestNotes] = useState('');
@@ -890,64 +900,64 @@ function TableOrderContent() {
         </div>
       )}
 
-      {/* Top Restaurant & Table Banner */}
-      <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border p-4 shadow-sm space-y-3">
-        {restaurant?.logoUrl && (
-          <div className="flex justify-center pb-0.5">
-            <div className="w-14 h-14 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-sm flex items-center justify-center overflow-hidden mx-auto">
-              <img
-                src={restaurant.logoUrl}
-                alt={restaurant.name || 'Restaurant Logo'}
-                className="w-full h-full object-cover rounded-full"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-black text-foreground">{restaurant?.name || 'Dining Restaurant'}</h1>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-primary" /> {restaurant?.branchName || 'Main Dining Hall'}
+      {/* ── Compact Fixed Header (Reduced height, Restaurant on Left, Logo at Center) ── */}
+      <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-3.5 py-2.5 shadow-sm space-y-2">
+        {/* Top Row: Restaurant on Left | Logo Center | Table Badge Right */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Restaurant Name & Branch */}
+          <div className="flex-1 min-w-0 pr-1">
+            <h1 className="text-sm sm:text-base font-black text-foreground truncate leading-tight">
+              {restaurant?.name || 'Dining Restaurant'}
+            </h1>
+            <p className="text-[10px] text-muted-foreground truncate leading-none mt-0.5">
+              {restaurant?.branchName || 'Dine-In Menu'}
             </p>
           </div>
-          <div className="px-3 py-1.5 rounded-2xl bg-primary text-primary-foreground font-black text-xs shadow flex items-center gap-1.5">
-            <span>🍽️</span>
-            <span>{table?.name || 'Table'}</span>
+
+          {/* Center: Restaurant Logo */}
+          <div className="shrink-0 flex items-center justify-center px-1">
+            {restaurant?.logoUrl ? (
+              <div className="w-8 h-8 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-xs overflow-hidden">
+                <img
+                  src={restaurant.logoUrl}
+                  alt={restaurant.name || 'Restaurant Logo'}
+                  className="w-full h-full object-cover rounded-full"
+                />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center text-sm font-black border border-primary/30 shadow-xs">
+                🍴
+              </div>
+            )}
+          </div>
+
+          {/* Right: Quick Table Pill */}
+          <div className="flex-1 min-w-0 flex justify-end pl-1">
+            <div className="px-2.5 py-1 rounded-xl bg-primary text-primary-foreground font-black text-xs shadow-xs flex items-center gap-1 shrink-0 font-mono">
+              <span>🍽️</span>
+              <span>{table?.name || 'Table'}</span>
+            </div>
           </div>
         </div>
 
-        {/* Security & Access State Indicator */}
-        {canOrder ? (
-          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px]">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
-              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">In-Restaurant Session Active</span>
-            </div>
-            <div className="flex items-center gap-1 shrink-0 font-mono font-bold text-emerald-600 dark:text-emerald-400">
-              ⏳ {minutesLeft}m {secondsLeft < 10 ? `0${secondsLeft}` : secondsLeft}s
-            </div>
+        {/* Subheader: Table Number Indicator (Without Active Countdown Timer) */}
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-muted/60 border border-border/80 text-[11px]">
+          <div className="flex items-center gap-1.5 font-bold text-foreground">
+            <span className="text-primary font-black">Table: {table?.name || '1'}</span>
+            <span className="text-muted-foreground/60">•</span>
+            <span className="text-[10px] text-muted-foreground font-medium">Digital QR Service</span>
           </div>
-        ) : isSessionExpired ? (
-          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px]">
-            <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>45-Min Session Ended</span>
-            </div>
-            <button
-              type="button"
-              onClick={renewSession}
-              className="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-lg border border-primary/30 transition-colors cursor-pointer"
-            >
-              Start New Session ⚡
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-900 dark:text-amber-200">
-            <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
-              <Eye className="w-3.5 h-3.5 shrink-0" />
-              <span>Digital Menu</span>
-            </div>
+
+          {hasRunningOrder ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-black font-mono animate-pulse">
+              <span>🍳</span>
+              <span>Order Live</span>
+            </span>
+          ) : canOrder ? (
+            <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ready to Order
+            </span>
+          ) : (
             <button
               type="button"
               onClick={renewSession}
@@ -955,19 +965,19 @@ function TableOrderContent() {
             >
               Tap to Order ⚡
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Tab Navigation: Visible when ordering session is active OR when tracking a running order */}
+        {/* Below Subheader: Tabs (Browse Menu & Live Order Status) */}
         {(canOrder || hasRunningOrder) && (
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
+          <div className="grid grid-cols-2 gap-1 p-0.5 bg-muted/80 rounded-xl border border-border">
             <button
               type="button"
               onClick={() => setViewTab('MENU')}
               className={cn(
-                'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5',
+                'py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5',
                 activeTab === 'MENU'
-                  ? 'bg-primary text-primary-foreground shadow-md'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -979,9 +989,9 @@ function TableOrderContent() {
               type="button"
               onClick={() => setViewTab('LIVE_STATUS')}
               className={cn(
-                'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 relative',
+                'py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 relative',
                 activeTab === 'LIVE_STATUS'
-                  ? 'bg-emerald-600 text-white shadow-md'
+                  ? 'bg-emerald-600 text-white shadow-xs'
                   : hasRunningOrder
                   ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
                   : 'text-muted-foreground hover:text-foreground'
@@ -990,7 +1000,7 @@ function TableOrderContent() {
               <ChefHat className="w-3.5 h-3.5" />
               <span>Live Order Status</span>
               {hasRunningOrder && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute right-2.5 top-2.5" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute right-2.5 top-2" />
               )}
             </button>
           </div>
@@ -1467,199 +1477,257 @@ function TableOrderContent() {
           {/* Sticky Category Quick Jump Anchor Strip */}
           {processedCategories.length > 1 && (
             <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md py-2 -mx-4 px-4 border-b border-border/50 flex gap-2 overflow-x-auto no-scrollbar shadow-xs">
-              {processedCategories.map((c: any) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    const el = document.getElementById(`cat-section-${c.id}`);
-                    if (el) {
-                      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all cursor-pointer shrink-0 shadow-2xs"
-                >
-                  {c.name} ({c.items.length})
-                </button>
-              ))}
+              {processedCategories.map((c: any) => {
+                const isExpanded = searchQuery.trim().length > 0 || !!expandedCategories[c.id];
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setExpandedCategories((prev) => ({ ...prev, [c.id]: true }));
+                      setTimeout(() => {
+                        const el = document.getElementById(`cat-section-${c.id}`);
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      }, 50);
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border transition-all cursor-pointer shrink-0 shadow-2xs flex items-center gap-1.5",
+                      isExpanded
+                        ? "bg-primary/15 text-primary border-primary/40 font-black"
+                        : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                    )}
+                  >
+                    <span>{c.name}</span>
+                    <span className="text-[10px] font-mono opacity-80">({c.items.length})</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* Vertical Category Sections with Food Items */}
-          <div className="space-y-6 pt-1">
+          {/* Vertical Collapsible Category Sections with Food Items */}
+          <div className="space-y-3 pt-1">
             {processedCategories.map((cat: any) => {
+              const isExpanded = searchQuery.trim().length > 0 || !!expandedCategories[cat.id];
+              const categoryCartCount = cat.items.reduce((acc: number, item: any) => {
+                let count = 0;
+                if (Array.isArray(item.variants) && item.variants.length > 0) {
+                  for (const v of item.variants) {
+                    const key = getCartKey(item.id, v.id);
+                    if (cart[key]) count += cart[key].qty;
+                  }
+                } else {
+                  const key = getCartKey(item.id);
+                  if (cart[key]) count += cart[key].qty;
+                }
+                return acc + count;
+              }, 0);
+
               return (
-                <section key={cat.id} id={`cat-section-${cat.id}`} className="space-y-2.5 scroll-mt-14">
-                  {/* Category Section Header */}
-                  <div className="flex items-center justify-between pb-1.5 border-b border-border/80">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">🍽️</span>
-                      <h2 className="text-xs font-black text-foreground uppercase tracking-wider">
-                        {cat.name}
-                      </h2>
+                <section key={cat.id} id={`cat-section-${cat.id}`} className="rounded-3xl bg-card border border-border/80 shadow-xs overflow-hidden scroll-mt-14 transition-all">
+                  {/* Category Collapsible Header Button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(cat.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3.5 text-left cursor-pointer transition-colors duration-200 select-none",
+                      isExpanded
+                        ? "bg-muted/60 border-b border-border/70"
+                        : "bg-card hover:bg-muted/30"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center text-sm shrink-0">
+                        🍽️
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="text-xs sm:text-sm font-black text-foreground uppercase tracking-wider truncate">
+                          {cat.name}
+                        </h2>
+                        <p className="text-[10px] text-muted-foreground font-medium">
+                          {cat.items.length} {cat.items.length === 1 ? 'dish' : 'dishes'}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border font-mono">
-                      {cat.items.length} {cat.items.length === 1 ? 'dish' : 'dishes'}
-                    </span>
-                  </div>
 
-                  {/* Food Items Under This Category */}
-                  <div className="space-y-2.5">
-                    {cat.items.map((item: any) => {
-                      const orderedQty = orderedQuantitiesByItemId[item.id] || 0;
-                      const activeVariant = getActiveVariant(item);
-                      const activeVariantPrice = activeVariant?.price || item.variants?.[0]?.price || 0;
-                      const activeCartKey = getCartKey(item.id, activeVariant?.id);
-                      const inCart = cart[activeCartKey];
-                      const hasMultipleVariants = Array.isArray(item.variants) && item.variants.length > 1;
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Active Items in Cart Pill */}
+                      {categoryCartCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-black font-mono shadow-2xs animate-in zoom-in-75">
+                          {categoryCartCount} in cart
+                        </span>
+                      )}
+                      
+                      <div className={cn(
+                        "w-6 h-6 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground transition-transform duration-200",
+                        isExpanded && "rotate-180 bg-primary/20 text-primary border-primary/30"
+                      )}>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                  </button>
 
-                      return (
-                        <div
-                          key={item.id}
-                          className={cn(
-                            "p-3.5 rounded-3xl bg-card border flex flex-col gap-2.5 shadow-xs hover:border-primary/40 transition-all",
-                            orderedQty > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-border"
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="space-y-1 flex-1 min-w-0 pr-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs shrink-0">
-                                  {item.foodType === 'VEG' ? '🟢' : item.foodType === 'NON_VEG' ? '🔴' : '🟡'}
-                                </span>
-                                <h3 className="text-sm font-bold text-foreground truncate">{item.name}</h3>
+                  {/* Food Items Under This Category (Revealed on Click) */}
+                  {isExpanded && (
+                    <div className="p-3 space-y-2.5 bg-background/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {cat.items.map((item: any) => {
+                        const orderedQty = orderedQuantitiesByItemId[item.id] || 0;
+                        const activeVariant = getActiveVariant(item);
+                        const activeVariantPrice = activeVariant?.price || item.variants?.[0]?.price || 0;
+                        const activeCartKey = getCartKey(item.id, activeVariant?.id);
+                        const inCart = cart[activeCartKey];
+                        const hasMultipleVariants = Array.isArray(item.variants) && item.variants.length > 1;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "p-3.5 rounded-2xl bg-card border flex flex-col gap-2.5 shadow-2xs hover:border-primary/40 transition-all",
+                              orderedQty > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-border"
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1 flex-1 min-w-0 pr-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs shrink-0">
+                                    {item.foodType === 'VEG' ? '🟢' : item.foodType === 'NON_VEG' ? '🔴' : '🟡'}
+                                  </span>
+                                  <h3 className="text-sm font-bold text-foreground truncate">{item.name}</h3>
+                                </div>
+
+                                {item.description && (
+                                  <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
+                                )}
+
+                                <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                                  <span className="text-xs font-black text-primary font-mono">
+                                    {safeFormatCurrency(activeVariantPrice)}
+                                  </span>
+
+                                  {/* Retained Ordered Quantity Badge on the Main Menu */}
+                                  {orderedQty > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black font-mono shadow-2xs">
+                                      <span>🍳</span>
+                                      <span>{orderedQty} in Kitchen</span>
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
-                              {item.description && (
-                                <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
-                              )}
-
-                              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                                <span className="text-xs font-black text-primary font-mono">
-                                  {safeFormatCurrency(activeVariantPrice)}
-                                </span>
-
-                                {/* Retained Ordered Quantity Badge on the Main Menu */}
-                                {orderedQty > 0 && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black font-mono shadow-2xs">
-                                    <span>🍳</span>
-                                    <span>{orderedQty} in Kitchen</span>
+                              {/* Ordering Controls vs View-Only Badge */}
+                              <div className="shrink-0 pt-0.5">
+                                {canOrder ? (
+                                  inCart ? (
+                                    <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeFromCart(activeCartKey)}
+                                        className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer hover:bg-muted transition-colors"
+                                      >
+                                        <Minus className="w-3.5 h-3.5" />
+                                      </button>
+                                      <span className="text-xs font-black text-primary px-1 font-mono">{inCart.qty}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => addToCart(item, activeVariant)}
+                                        className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-primary/90 transition-colors"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => addToCart(item, activeVariant)}
+                                      className={cn(
+                                        "h-8 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all",
+                                        orderedQty > 0
+                                          ? "bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/40"
+                                          : "bg-primary text-primary-foreground"
+                                      )}
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>{orderedQty > 0 ? 'Add More' : 'Add'}</span>
+                                    </Button>
+                                  )
+                                ) : (
+                                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-xl border border-border">
+                                    View Only
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            {/* Ordering Controls vs View-Only Badge */}
-                            <div className="shrink-0 pt-0.5">
-                              {canOrder ? (
-                                inCart ? (
-                                  <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => removeFromCart(activeCartKey)}
-                                      className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer hover:bg-muted transition-colors"
-                                    >
-                                      <Minus className="w-3.5 h-3.5" />
-                                    </button>
-                                    <span className="text-xs font-black text-primary px-1 font-mono">{inCart.qty}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => addToCart(item, activeVariant)}
-                                      className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-primary/90 transition-colors"
-                                    >
-                                      <Plus className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => addToCart(item, activeVariant)}
-                                    className={cn(
-                                      "h-8 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all",
-                                      orderedQty > 0
-                                        ? "bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/40"
-                                        : "bg-primary text-primary-foreground"
-                                    )}
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    <span>{orderedQty > 0 ? 'Add More' : 'Add'}</span>
-                                  </Button>
-                                )
-                              ) : (
-                                <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-xl border border-border">
-                                  View Only
+                            {/* ── HALF / FULL PORTION UNIFIED TOGGLE BUTTON ────────────── */}
+                            {hasMultipleVariants && (
+                              <div className="pt-1.5 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Portion:
                                 </span>
-                              )}
-                            </div>
-                          </div>
+                                {(() => {
+                                  const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
+                                  return (
+                                    <div
+                                      className={cn(
+                                        "inline-flex items-center p-0.5 rounded-full border transition-all duration-200",
+                                        isVeg
+                                          ? "bg-emerald-500/10 border-emerald-500/30 dark:bg-emerald-950/40"
+                                          : "bg-rose-500/10 border-rose-500/30 dark:bg-rose-950/40"
+                                      )}
+                                    >
+                                      {item.variants.map((v: any) => {
+                                        const isSelected = activeVariant?.id === v.id;
+                                        const vCartKey = getCartKey(item.id, v.id);
+                                        const vQty = cart[vCartKey]?.qty || 0;
 
-                          {/* ── HALF / FULL PORTION UNIFIED TOGGLE BUTTON ────────────── */}
-                          {hasMultipleVariants && (
-                            <div className="pt-1.5 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                Portion:
-                              </span>
-                              {(() => {
-                                const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
-                                return (
-                                  <div
-                                    className={cn(
-                                      "inline-flex items-center p-0.5 rounded-full border transition-all duration-200",
-                                      isVeg
-                                        ? "bg-emerald-500/10 border-emerald-500/30 dark:bg-emerald-950/40"
-                                        : "bg-rose-500/10 border-rose-500/30 dark:bg-rose-950/40"
-                                    )}
-                                  >
-                                    {item.variants.map((v: any) => {
-                                      const isSelected = activeVariant?.id === v.id;
-                                      const vCartKey = getCartKey(item.id, v.id);
-                                      const vQty = cart[vCartKey]?.qty || 0;
-
-                                      return (
-                                        <button
-                                          key={v.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setSelectedVariants((prev) => ({ ...prev, [item.id]: v.id }));
-                                          }}
-                                          className={cn(
-                                            "px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 font-mono",
-                                            isSelected
-                                              ? (isVeg
-                                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-black"
-                                                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-xs font-black")
-                                              : (isVeg
-                                                  ? "text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100"
-                                                  : "text-rose-700 dark:text-rose-300 hover:text-rose-900 dark:hover:text-rose-100")
-                                          )}
-                                        >
-                                          <span>{v.name}</span>
-                                          <span className={cn(
-                                            "text-[10px]",
-                                            isSelected ? "opacity-90 font-bold" : "opacity-70"
-                                          )}>
-                                            ({safeFormatCurrency(v.price)})
-                                          </span>
-                                          {vQty > 0 && (
+                                        return (
+                                          <button
+                                            key={v.id}
+                                            type="button"
+                                            onClick={() => {
+                                              setSelectedVariants((prev) => ({ ...prev, [item.id]: v.id }));
+                                            }}
+                                            className={cn(
+                                              "px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 font-mono",
+                                              isSelected
+                                                ? (isVeg
+                                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-black"
+                                                    : "bg-rose-600 hover:bg-rose-700 text-white shadow-xs font-black")
+                                                : (isVeg
+                                                    ? "text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100"
+                                                    : "text-rose-700 dark:text-rose-300 hover:text-rose-900 dark:hover:text-rose-100")
+                                            )}
+                                          >
+                                            <span>{v.name}</span>
                                             <span className={cn(
-                                              "w-3.5 h-3.5 rounded-full text-[8px] font-black flex items-center justify-center ml-0.5 shadow-2xs",
-                                              isSelected ? "bg-white text-foreground" : "bg-foreground text-background"
+                                              "text-[10px]",
+                                              isSelected ? "opacity-90 font-bold" : "opacity-70"
                                             )}>
-                                              {vQty}
+                                              ({safeFormatCurrency(v.price)})
                                             </span>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                                            {vQty > 0 && (
+                                              <span className={cn(
+                                                "w-3.5 h-3.5 rounded-full text-[8px] font-black flex items-center justify-center ml-0.5 shadow-2xs",
+                                                isSelected ? "bg-white text-foreground" : "bg-foreground text-background"
+                                              )}>
+                                                {vQty}
+                                              </span>
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </section>
               );
             })}
