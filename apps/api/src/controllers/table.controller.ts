@@ -149,7 +149,8 @@ export class TableController {
         floor: true,
         section: true,
         orders: {
-          where: { status: { notIn: ['COMPLETED', 'CANCELLED', 'VOIDED'] } },
+          where: { status: { notIn: ['COMPLETED', 'CANCELLED', 'VOIDED', 'PAID', 'REFUNDED'] } },
+          orderBy: { createdAt: 'desc' },
           take: 1,
           include: { _count: { select: { items: true } } },
         },

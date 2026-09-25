@@ -139,9 +139,6 @@ export class OrderService {
 
     const initialStatus = dto.status || 'DRAFT';
 
-    // Get next daily sequence
-    const orderNumber = await this.getNextSequence('ORDER', effectiveBranchId);
-
     // Dynamic tax rate from tenant settings
     const tenant = await prisma.tenant.findUnique({
       where: { id: this.tenantId },
@@ -154,6 +151,129 @@ export class OrderService {
         if (parsed?.taxRate !== undefined) taxRate = Number(parsed.taxRate) || 0;
       } catch {}
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Check if table already has an active order (unpaid/uncompleted)
+    // ─────────────────────────────────────────────────────────────────────────
+    const activeOrderStatuses: OrderStatus[] = [
+      'DRAFT',
+      'CONFIRMED',
+      'SENT_TO_KITCHEN',
+      'PREPARING',
+      'READY',
+      'SERVED',
+      'BILLED',
+      'PARTIALLY_PAID',
+    ];
+
+    const existingActiveOrder = dto.tableId
+      ? await prisma.order.findFirst({
+          where: {
+            tenantId: this.tenantId,
+            tableId: dto.tableId,
+            status: { in: activeOrderStatuses },
+          },
+          include: {
+            items: true,
+            table: true,
+            customer: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null;
+
+    if (existingActiveOrder) {
+      const combinedSubtotal = addAmounts(toAmount(existingActiveOrder.subtotal), subtotal);
+      const combinedTaxAmount = taxRate > 0 ? Math.round((combinedSubtotal * (taxRate / 100)) * 100) / 100 : 0;
+      const combinedTotal = toAmount(addAmounts(combinedSubtotal, combinedTaxAmount));
+
+      let combinedNotes = existingActiveOrder.notes || '';
+      if (dto.notes) {
+        combinedNotes = combinedNotes ? `${combinedNotes} | ${dto.notes}` : dto.notes;
+      }
+
+      return prisma.$transaction(async (tx) => {
+        // Insert new items linked to the existing order ID with status PENDING
+        for (const { modifiers, kitchenStationId, ...itemData } of orderItemsData) {
+          await tx.orderItem.create({
+            data: {
+              orderId: existingActiveOrder.id,
+              ...itemData,
+              status: 'PENDING',
+              modifiers: {
+                create: modifiers.map((m) => ({
+                  modifierId: m.modifierId,
+                  name: m.name,
+                  price: m.price,
+                })),
+              },
+            },
+          });
+        }
+
+        // Determine if status should change (e.g. if previous was DRAFT/CONFIRMED and sent to kitchen)
+        let newStatus = existingActiveOrder.status;
+        if (initialStatus === 'SENT_TO_KITCHEN' && ['DRAFT', 'CONFIRMED'].includes(existingActiveOrder.status as any)) {
+          newStatus = 'SENT_TO_KITCHEN';
+        }
+
+        const updatedOrder = await tx.order.update({
+          where: { id: existingActiveOrder.id },
+          data: {
+            status: newStatus,
+            subtotal: combinedSubtotal,
+            taxAmount: combinedTaxAmount,
+            total: combinedTotal,
+            notes: combinedNotes || null,
+            customerId: existingActiveOrder.customerId || dto.customerId || undefined,
+            updatedBy: createdBy,
+            statusHistory: {
+              create: {
+                fromStatus: existingActiveOrder.status,
+                toStatus: newStatus,
+                changedBy: createdBy,
+                reason: `Appended ${orderItemsData.length} item(s) to order #${existingActiveOrder.orderNumber}`,
+              },
+            },
+          },
+          include: this.orderInclude(),
+        });
+
+        // Ensure table status remains OCCUPIED
+        await tx.restaurantTable.update({
+          where: { id: dto.tableId },
+          data: { status: 'OCCUPIED' },
+        });
+
+        // If sent to kitchen, generate KOT for the new items
+        if (initialStatus === 'SENT_TO_KITCHEN') {
+          await this.generateKots(existingActiveOrder.id, tx as any, effectiveBranchId);
+        }
+
+        // Real-time broadcast
+        emitToRoom(this.tenantId, effectiveBranchId, {
+          type: 'ORDER_UPDATED',
+          payload: {
+            orderId: updatedOrder.id,
+            orderNumber: updatedOrder.orderNumber,
+            total: toAmount(updatedOrder.total),
+            itemCount: updatedOrder.items.length,
+          },
+        });
+
+        emitToRoom(this.tenantId, effectiveBranchId, {
+          type: 'TABLE_STATUS_CHANGED',
+          payload: { tableId: dto.tableId!, status: 'OCCUPIED', orderId: updatedOrder.id },
+        });
+
+        return updatedOrder;
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Brand new order creation
+    // ─────────────────────────────────────────────────────────────────────────
+    const orderNumber = await this.getNextSequence('ORDER', effectiveBranchId);
     const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
     const total = toAmount(addAmounts(subtotal, taxAmount));
 

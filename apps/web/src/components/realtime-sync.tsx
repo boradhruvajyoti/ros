@@ -46,6 +46,7 @@ export function RealtimeSync() {
           break;
 
         case 'ORDER_STATUS_CHANGED':
+        case 'ORDER_UPDATED':
           queryClient.invalidateQueries({ queryKey: ['orders'] });
           queryClient.invalidateQueries({ queryKey: ['active-orders'] });
           queryClient.invalidateQueries({ queryKey: ['tables'] });
