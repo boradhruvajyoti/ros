@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useSearchParams } from 'next/navigation';
 import { apiGet, apiPost, apiPatch, apiPut } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { onRosEvent } from '@/lib/socket';
 
 function getClientId(): string {
   if (typeof window !== 'undefined' && window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -141,6 +142,10 @@ export default function POSPage() {
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
 
+  // Tracks the last synced server state signature for the selected table's active order
+  const lastSyncedSignatureRef = useRef<string>('');
+  const isInitialLoadRef = useRef<boolean>(true);
+
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data: rawCategories, isLoading } = useQuery<Category[]>({
     queryKey: ['pos-menu'],
@@ -165,17 +170,40 @@ export default function POSPage() {
         return [];
       }
     },
+    refetchInterval: 2000,
   });
 
   const { data: activeOrders = [] } = useQuery<any[]>({
     queryKey: ['active-orders'],
     queryFn: () => apiGet<any[]>('/orders/active'),
+    refetchInterval: 2000,
   });
 
   const { data: tenant } = useQuery({
     queryKey: ['current-tenant'],
     queryFn: () => apiGet<any>('/tenants/current'),
   });
+
+  // ── Realtime Socket Event Subscriptions ─────────────────────────────────
+  useEffect(() => {
+    const unsub = onRosEvent((event) => {
+      const t = event.type as string;
+      if (
+        t === 'ORDER_CREATED' ||
+        t === 'ORDER_UPDATED' ||
+        t === 'ORDER_STATUS_CHANGED' ||
+        t === 'QR_ORDER_PENDING' ||
+        t === 'TABLE_STATUS_CHANGED' ||
+        t === 'KOT_CREATED' ||
+        t === 'PAYMENT_COMPLETED'
+      ) {
+        queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['tables'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      }
+    });
+    return () => unsub();
+  }, [queryClient]);
 
   const categories = useMemo(() => {
     return Array.isArray(rawCategories) ? rawCategories : [];
@@ -185,7 +213,7 @@ export default function POSPage() {
     return Array.isArray(rawTables) ? rawTables : [];
   }, [rawTables]);
 
-  // Pre-select table and populate cart from active order if table/order is specified in URL
+  // Pre-select table if table/order is specified in URL query parameters
   useEffect(() => {
     if ((!tableParam && !orderParam) || tables.length === 0) return;
 
@@ -201,19 +229,45 @@ export default function POSPage() {
       setSelectedTableName(targetTable.name);
       setOrderType('DINE_IN');
     }
+  }, [tableParam, orderParam, tables]);
 
-    if (!activeOrder && targetTable) {
-      activeOrder = (activeOrders || []).find((o: any) => o.tableId === targetTable.id);
+  // ── Real-time Live Order Sync for Selected Table ─────────────────────────
+  // Whenever activeOrders updates (via socket or fast polling), reflect guest QR additions live in POS cart
+  useEffect(() => {
+    if (!selectedTable && !orderParam) {
+      lastSyncedSignatureRef.current = '';
+      return;
     }
 
-    if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
-      setCart(
-        activeOrder.items.map((it: any) => ({
+    const currentOrder = (activeOrders || []).find(
+      (o: any) => (selectedTable && o.tableId === selectedTable) || (orderParam && o.id === orderParam)
+    );
+
+    if (!currentOrder) {
+      return;
+    }
+
+    // Deterministic signature based on order ID, status, notes, item counts, item IDs, and quantities
+    const itemsSig = Array.isArray(currentOrder.items)
+      ? currentOrder.items
+          .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
+          .sort()
+          .join('|')
+      : '';
+    const serverSignature = `${currentOrder.id}_${currentOrder.status}_${currentOrder.notes || ''}_${itemsSig}`;
+
+    // If server signature changed, update the active cart
+    if (lastSyncedSignatureRef.current !== serverSignature) {
+      const prevSig = lastSyncedSignatureRef.current;
+      lastSyncedSignatureRef.current = serverSignature;
+
+      if (Array.isArray(currentOrder.items)) {
+        const newCart: CartItem[] = currentOrder.items.map((it: any) => ({
           key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
           menuItemId: it.menuItemId || it.menuItem?.id,
           name: it.menuItem?.name || it.name || 'Dish',
-          variantId: it.variantId || it.variant?.id,
-          variantName: it.variant?.name,
+          variantId: it.variantId || it.variant?.id || 'std',
+          variantName: it.variant?.name || 'Standard',
           unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
           quantity: Number(it.quantity || 1),
           foodType: it.menuItem?.foodType || 'VEG',
@@ -223,11 +277,36 @@ export default function POSPage() {
             name: m.name,
             price: Number(m.price || 0),
           })) || [],
-        }))
-      );
-      if (activeOrder.notes) setNotes(activeOrder.notes);
+        }));
+
+        setCart(newCart);
+        if (currentOrder.notes) setNotes(currentOrder.notes);
+
+        // Notify staff if this was an incoming live update while on the table
+        if (prevSig && prevSig !== '' && !isInitialLoadRef.current) {
+          try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.35);
+          } catch {}
+          toast.success('Live Order Updated', `Guest added new item(s) on ${selectedTableName || 'Table'} QR menu!`);
+        }
+      }
     }
-  }, [tableParam, orderParam, tables, activeOrders]);
+
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+    }
+  }, [activeOrders, selectedTable, orderParam, selectedTableName]);
 
   const taxRate = useMemo(() => {
     try {
@@ -765,7 +844,10 @@ export default function POSPage() {
             {cart.length > 0 && (
               <button
                 type="button"
-                onClick={() => setCart([])}
+                onClick={() => {
+                  lastSyncedSignatureRef.current = '';
+                  setCart([]);
+                }}
                 className="px-2.5 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Clear All
@@ -786,6 +868,9 @@ export default function POSPage() {
                     onClick={() => {
                       setSelectedTable(null);
                       setSelectedTableName(null);
+                      lastSyncedSignatureRef.current = '';
+                      setCart([]);
+                      setNotes('');
                     }}
                     className="text-[10px] font-bold text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                   >
@@ -815,32 +900,42 @@ export default function POSPage() {
                           if (isSelected) {
                             setSelectedTable(null);
                             setSelectedTableName(null);
+                            lastSyncedSignatureRef.current = '';
+                            setCart([]);
+                            setNotes('');
                           } else {
                             setSelectedTable(t.id);
                             setSelectedTableName(t.name);
-                            if (cart.length === 0) {
-                              const activeOrder = (activeOrders || []).find((o: any) => o.tableId === t.id);
-                              if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
-                                setCart(
-                                  activeOrder.items.map((it: any) => ({
-                                    key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
-                                    menuItemId: it.menuItemId || it.menuItem?.id,
-                                    name: it.menuItem?.name || it.name || 'Dish',
-                                    variantId: it.variantId || it.variant?.id,
-                                    variantName: it.variant?.name,
-                                    unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
-                                    quantity: Number(it.quantity || 1),
-                                    foodType: it.menuItem?.foodType || 'VEG',
-                                    notes: it.notes || '',
-                                    modifiers: it.modifiers?.map((m: any) => ({
-                                      id: m.modifierId || m.id,
-                                      name: m.name,
-                                      price: Number(m.price || 0),
-                                    })) || [],
-                                  }))
-                                );
-                                if (activeOrder.notes) setNotes(activeOrder.notes);
-                              }
+                            const activeOrder = (activeOrders || []).find((o: any) => o.tableId === t.id);
+                            if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
+                              const itemsSig = activeOrder.items
+                                .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
+                                .sort()
+                                .join('|');
+                              lastSyncedSignatureRef.current = `${activeOrder.id}_${activeOrder.status}_${activeOrder.notes || ''}_${itemsSig}`;
+                              setCart(
+                                activeOrder.items.map((it: any) => ({
+                                  key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
+                                  menuItemId: it.menuItemId || it.menuItem?.id,
+                                  name: it.menuItem?.name || it.name || 'Dish',
+                                  variantId: it.variantId || it.variant?.id || 'std',
+                                  variantName: it.variant?.name || 'Standard',
+                                  unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
+                                  quantity: Number(it.quantity || 1),
+                                  foodType: it.menuItem?.foodType || 'VEG',
+                                  notes: it.notes || '',
+                                  modifiers: it.modifiers?.map((m: any) => ({
+                                    id: m.modifierId || m.id,
+                                    name: m.name,
+                                    price: Number(m.price || 0),
+                                  })) || [],
+                                }))
+                              );
+                              if (activeOrder.notes) setNotes(activeOrder.notes);
+                            } else {
+                              lastSyncedSignatureRef.current = '';
+                              setCart([]);
+                              setNotes('');
                             }
                           }
                         }}
