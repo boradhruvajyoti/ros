@@ -75,7 +75,7 @@ function KotCard({
   const isOverdue = kot.ageMinutes > 15;
   const isWarning = kot.ageMinutes > 10;
   const nextStatus = STATUS_FLOW[kot.status];
-  const canCancel = ['NEW', 'ACCEPTED'].includes(kot.status);
+  const canCancel = ['NEW', 'ACCEPTED', 'PREPARING', 'READY'].includes(kot.status);
 
   return (
     <div
@@ -359,10 +359,13 @@ export default function KitchenPage() {
     onSuccess: () => {
       toast({
         title: 'Item Cancelled',
-        description: 'Item has been removed from KOT.',
+        description: 'Item has been removed from KOT and order total updated.',
       });
       setCancelModalItem(null);
       queryClient.invalidateQueries({ queryKey: ['kitchen-kots'] });
+      queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
     },
     onError: (err: any) => {
       toast({
@@ -380,10 +383,13 @@ export default function KitchenPage() {
     onSuccess: () => {
       toast({
         title: 'Ticket Cancelled',
-        description: 'Entire KOT has been cancelled.',
+        description: 'Entire KOT has been cancelled and order updated.',
       });
       setCancelModalKot(null);
       queryClient.invalidateQueries({ queryKey: ['kitchen-kots'] });
+      queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
     },
     onError: (err: any) => {
       toast({
@@ -626,12 +632,12 @@ export default function KitchenPage() {
               </div>
               <div>
                 <h3 className="text-lg font-black text-foreground">Cancel Item on KOT</h3>
-                <p className="text-xs text-muted-foreground">Remove dish before cooking starts</p>
+                <p className="text-xs text-muted-foreground">Remove dish and recalculate order</p>
               </div>
             </div>
 
             <p className="text-sm text-foreground">
-              Are you sure you want to cancel <strong className="text-rose-400">{cancelModalItem.itemName}</strong>? This will remove the item before cooking and recalculate the customer&apos;s bill.
+              Are you sure you want to cancel <strong className="text-rose-400">{cancelModalItem.itemName}</strong>? This will remove the item from the kitchen and recalculate the customer&apos;s bill.
             </p>
 
             <div className="space-y-1.5 py-1">
@@ -680,12 +686,12 @@ export default function KitchenPage() {
               </div>
               <div>
                 <h3 className="text-lg font-black text-foreground">Cancel Entire Ticket</h3>
-                <p className="text-xs text-muted-foreground">Remove all un-cooked items in ticket</p>
+                <p className="text-xs text-muted-foreground">Remove active items in this KOT ticket</p>
               </div>
             </div>
 
             <p className="text-sm text-foreground">
-              Are you sure you want to cancel Ticket <strong className="text-rose-400">#{cancelModalKot.kotNumber}</strong>? All un-cooked items in this ticket will be removed from the order.
+              Are you sure you want to cancel Ticket <strong className="text-rose-400">#{cancelModalKot.kotNumber}</strong>? All active items in this ticket will be cancelled and removed from the active order.
             </p>
 
             <div className="space-y-1.5 py-1">

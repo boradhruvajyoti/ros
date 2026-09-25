@@ -18,7 +18,13 @@ router.patch('/stations/:id',         requirePermission('settings:edit'),  async
 router.get('/queue',                  requirePermission('kitchen:view'),   asyncHandler(KitchenController.getQueue));
 router.get('/kots',                   requirePermission('kitchen:view'),   asyncHandler(KitchenController.getQueue));
 router.get('/',                       requirePermission('kitchen:view'),   asyncHandler(KitchenController.getQueue));
+
 router.patch('/kots/:kotId/status',   requirePermission('kitchen:update'), asyncHandler(KitchenController.updateKotStatus));
+router.patch('/kots/:kotId/cancel',   requirePermission('kitchen:update'), asyncHandler(KitchenController.cancelKot));
+router.post('/kots/:kotId/cancel',    requirePermission('kitchen:update'), asyncHandler(KitchenController.cancelKot));
+
 router.patch('/kots/:kotId/items/:itemId/status', requirePermission('kitchen:update'), asyncHandler(KitchenController.updateKotItemStatus));
+router.patch('/kots/:kotId/items/:itemId/cancel', requirePermission('kitchen:update'), asyncHandler(KitchenController.cancelKotItem));
+router.post('/kots/:kotId/items/:itemId/cancel',  requirePermission('kitchen:update'), asyncHandler(KitchenController.cancelKotItem));
 
 export default router;

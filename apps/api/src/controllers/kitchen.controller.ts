@@ -107,10 +107,17 @@ export class KitchenController {
     }
 
     if (status === 'CANCELLED') {
-      if (['PREPARING', 'READY', 'SERVED'].includes(existingKot.status)) {
+      if (existingKot.status === 'SERVED') {
         throw new AppError(
           ErrorCodes.VALIDATION_ERROR,
-          'Cannot cancel KOT after cooking has started. KOTs can only be cancelled before starting to cook (in New or Accepted status).',
+          'Cannot cancel KOT after it has already been served.',
+          400
+        );
+      }
+      if (existingKot.status === 'CANCELLED') {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'KOT is already cancelled.',
           400
         );
       }
@@ -316,10 +323,17 @@ export class KitchenController {
     }
 
     if (status === 'CANCELLED') {
-      if (['PREPARING', 'READY', 'SERVED'].includes(existingItem.kot.status)) {
+      if (existingItem.kot.status === 'SERVED' || existingItem.status === 'SERVED') {
         throw new AppError(
           ErrorCodes.VALIDATION_ERROR,
-          'Cannot cancel an item after cooking has started. Items can only be cancelled before starting to cook (in New or Accepted status).',
+          'Cannot cancel an item after it has already been served.',
+          400
+        );
+      }
+      if (existingItem.status === 'CANCELLED') {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'Item is already cancelled.',
           400
         );
       }
@@ -537,5 +551,15 @@ export class KitchenController {
     });
 
     sendSuccess(res, item);
+  }
+
+  static async cancelKot(req: Request, res: Response): Promise<void> {
+    req.body = { ...req.body, status: 'CANCELLED' };
+    return KitchenController.updateKotStatus(req, res);
+  }
+
+  static async cancelKotItem(req: Request, res: Response): Promise<void> {
+    req.body = { ...req.body, status: 'CANCELLED' };
+    return KitchenController.updateKotItemStatus(req, res);
   }
 }
