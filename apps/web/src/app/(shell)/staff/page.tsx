@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   UserCheck, Plus, Search, Clock, Calendar, Shield, Phone,
   Mail, CheckCircle2, XCircle, AlertCircle, Briefcase, Award, Users, Loader2,
-  Trash2, Key, Check, Lock, ShieldCheck, Eye, EyeOff, Sparkles, User, AlertTriangle
+  Trash2, Key, Check, Lock, ShieldCheck, Eye, EyeOff, Sparkles, User, AlertTriangle,
+  Edit3
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@ros/utils';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPost, apiDelete } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 
 interface Employee {
   id: string;
@@ -170,6 +171,7 @@ export default function StaffPage() {
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [deleteConfirmEmp, setDeleteConfirmEmp] = useState<Employee | null>(null);
 
   // Add Form State
@@ -180,12 +182,25 @@ export default function StaffPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newSalary, setNewSalary] = useState('');
 
-  // User Account & Role Feature State
+  // User Account & Role Feature State (Add)
   const [createUserAccount, setCreateUserAccount] = useState(false);
   const [userPassword, setUserPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRolePreset, setSelectedRolePreset] = useState<string>('WAITER');
   const [selectedModules, setSelectedModules] = useState<string[]>(['pos', 'tables', 'history']);
+
+  // Edit Form State
+  const [editName, setEditName] = useState('');
+  const [editDept, setEditDept] = useState('Kitchen');
+  const [editDesignation, setEditDesignation] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editSalary, setEditSalary] = useState('');
+  const [editCreateUserAccount, setEditCreateUserAccount] = useState(false);
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [editShowPassword, setEditShowPassword] = useState(false);
+  const [editSelectedRolePreset, setEditSelectedRolePreset] = useState<string>('CUSTOM');
+  const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
 
   const queryClient = useQueryClient();
 
@@ -205,6 +220,19 @@ export default function StaffPage() {
     onError: (err: any) => {
       const msg = err.response?.data?.message || err.response?.data?.error?.message || err.message || 'Failed to add staff member';
       toast.error('Registration Failed', msg);
+    },
+  });
+
+  const updateEmployeeMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiPut(`/staff/employees/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-employees'] });
+      toast.success('Staff Member Updated', 'Employee details, user account and permissions saved.');
+      setEditingEmployee(null);
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.response?.data?.error?.message || err.message || 'Failed to update staff member';
+      toast.error('Update Failed', msg);
     },
   });
 
@@ -269,6 +297,104 @@ export default function StaffPage() {
       setSelectedModules(FEATURE_MODULES.map((m) => m.id));
       setSelectedRolePreset('ADMIN');
     }
+  };
+
+  const handleOpenEdit = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setEditName(emp.name);
+    setEditDept(emp.department || 'Kitchen');
+    setEditDesignation(emp.designation || 'Staff');
+    setEditPhone(emp.phone || '');
+    setEditEmail(emp.email || emp.user?.email || '');
+    setEditSalary(emp.salary ? String(emp.salary) : '');
+    setEditCreateUserAccount(Boolean(emp.userId || emp.user));
+    setEditUserPassword('');
+    setEditShowPassword(false);
+
+    // Compute which feature modules are active for this employee
+    const userPerms = emp.user?.permissions || [];
+    let matched: string[] = [];
+    if (userPerms.length > 0) {
+      matched = FEATURE_MODULES.filter((m) =>
+        m.permissions.some((p) => userPerms.includes(p))
+      ).map((m) => m.id);
+    } else {
+      matched = ['pos', 'tables', 'history'];
+    }
+    setEditSelectedModules(matched);
+
+    const roleName = emp.user?.roles?.[0] || 'CUSTOM';
+    const foundPreset = ROLE_PRESETS.find((p) => p.id === roleName);
+    setEditSelectedRolePreset(foundPreset ? foundPreset.id : 'CUSTOM');
+  };
+
+  const handleApplyEditPreset = (presetId: string) => {
+    setEditSelectedRolePreset(presetId);
+    const preset = ROLE_PRESETS.find((p) => p.id === presetId);
+    if (preset) {
+      setEditSelectedModules(preset.modules);
+    }
+  };
+
+  const toggleEditModule = (moduleId: string) => {
+    setEditSelectedModules((prev) =>
+      prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
+    );
+    setEditSelectedRolePreset('CUSTOM');
+  };
+
+  const handleSelectAllEditModules = () => {
+    if (editSelectedModules.length === FEATURE_MODULES.length) {
+      setEditSelectedModules([]);
+      setEditSelectedRolePreset('CUSTOM');
+    } else {
+      setEditSelectedModules(FEATURE_MODULES.map((m) => m.id));
+      setEditSelectedRolePreset('ADMIN');
+    }
+  };
+
+  const handleUpdateEmployee = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmployee) return;
+
+    if (!editName.trim() || !editDesignation.trim()) {
+      toast.error('Required Fields Missing', 'Please provide full name and designation.');
+      return;
+    }
+
+    if (editCreateUserAccount && !editEmail.trim()) {
+      toast.error('Email Required', 'Please provide an email address for user login access.');
+      return;
+    }
+
+    if (editCreateUserAccount && !editingEmployee.userId && (!editUserPassword || editUserPassword.length < 6)) {
+      toast.error('Password Required', 'Please set an initial password with at least 6 characters for the new user account.');
+      return;
+    }
+
+    const selectedPerms = Array.from(
+      new Set(
+        FEATURE_MODULES.filter((m) => editSelectedModules.includes(m.id)).flatMap((m) => m.permissions)
+      )
+    );
+
+    const payload: any = {
+      name: editName.trim(),
+      department: editDept,
+      designation: editDesignation.trim(),
+      phone: editPhone.trim() || null,
+      email: editEmail.trim() || null,
+      salary: parseFloat(editSalary) || 0,
+      createUserAccount: editCreateUserAccount,
+      roleName: editSelectedRolePreset !== 'CUSTOM' ? editSelectedRolePreset : editDesignation.trim(),
+      permissions: editCreateUserAccount ? selectedPerms : undefined,
+    };
+
+    if (editUserPassword.trim()) {
+      payload.password = editUserPassword.trim();
+    }
+
+    updateEmployeeMutation.mutate({ id: editingEmployee.id, data: payload });
   };
 
   const departments = ['ALL', 'Kitchen', 'Service', 'Bar', 'Management', 'Cashier', 'Cleaning'];
@@ -546,6 +672,15 @@ export default function StaffPage() {
                         >
                           {isClockedIn ? 'Punch Out' : 'Punch In'}
                         </Button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(emp)}
+                          title="Modify Staff Profile & Permissions"
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
 
                         <button
                           type="button"
@@ -875,6 +1010,281 @@ export default function StaffPage() {
                 className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-6"
               >
                 {createEmployeeMutation.isPending ? 'Enrolling...' : 'Save & Enroll Staff'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          EDIT STAFF MEMBER & USER ACCOUNT MODAL
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {editingEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-fade-in">
+          <Card className="w-full max-w-2xl border-border bg-card shadow-2xl my-8 max-h-[90vh] flex flex-col rounded-3xl overflow-hidden">
+            <CardHeader className="p-5 pb-3 border-b border-border shrink-0 bg-muted/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-black text-foreground flex items-center gap-2">
+                    <Edit3 className="w-5 h-5 text-primary" /> Modify Staff &amp; Permissions
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Update profile, credentials, active status, or customize feature access permissions.
+                  </CardDescription>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingEmployee(null)}
+                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </CardHeader>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              <form id="edit-staff-form" onSubmit={handleUpdateEmployee} className="space-y-5">
+                {/* Section 1: Staff Details */}
+                <div className="space-y-3">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-primary" /> Employee Profile
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground">Full Name *</label>
+                      <Input
+                        required
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="e.g. Harish Kumar"
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground">Department *</label>
+                      <select
+                        value={editDept}
+                        onChange={(e) => setEditDept(e.target.value)}
+                        className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-medium"
+                      >
+                        <option>Kitchen</option>
+                        <option>Service</option>
+                        <option>Bar</option>
+                        <option>Management</option>
+                        <option>Cashier</option>
+                        <option>Cleaning</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground">Designation *</label>
+                      <Input
+                        required
+                        value={editDesignation}
+                        onChange={(e) => setEditDesignation(e.target.value)}
+                        placeholder="e.g. Captain / Waiter"
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground">Phone Number</label>
+                      <Input
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground">Monthly Salary (₹)</label>
+                      <Input
+                        type="number"
+                        value={editSalary}
+                        onChange={(e) => setEditSalary(e.target.value)}
+                        placeholder="25000"
+                        className="h-10 font-bold rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-foreground">
+                      Email Address {editCreateUserAccount && <span className="text-rose-500">* (used for login)</span>}
+                    </label>
+                    <Input
+                      type="email"
+                      required={editCreateUserAccount}
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      placeholder="staff@restaurant.in"
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                {/* Section 2: User Account & Feature Permissions */}
+                <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center font-bold">
+                        <Key className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground">
+                          {editingEmployee.userId ? 'Manage User Login Account & Permissions' : 'Provision User Login Account'}
+                        </h4>
+                        <p className="text-[11px] text-muted-foreground">
+                          {editingEmployee.userId
+                            ? 'Configure which modules and panels this account is allowed to access.'
+                            : 'Create login credentials for this staff member.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editCreateUserAccount}
+                        onChange={(e) => setEditCreateUserAccount(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  {editCreateUserAccount && (
+                    <div className="space-y-4 pt-2 border-t border-border/70 animate-fade-in">
+                      {/* Password Field */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-foreground">
+                          {editingEmployee.userId ? 'Change Password (Leave blank to keep unchanged)' : 'Set Account Password *'}
+                        </label>
+                        <div className="relative">
+                          <Input
+                            type={editShowPassword ? 'text' : 'password'}
+                            required={!editingEmployee.userId && editCreateUserAccount}
+                            value={editUserPassword}
+                            onChange={(e) => setEditUserPassword(e.target.value)}
+                            placeholder={editingEmployee.userId ? '•••••••• (Enter new password to change)' : 'Min. 6 characters (e.g. Staff@123)'}
+                            className="h-10 rounded-xl pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEditShowPassword(!editShowPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                          >
+                            {editShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Role Presets */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-foreground block">
+                          Role Presets <span className="text-muted-foreground font-normal">(Click to quickly preselect features)</span>
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {ROLE_PRESETS.map((preset) => (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => handleApplyEditPreset(preset.id)}
+                              className={cn(
+                                'p-2.5 rounded-xl border text-xs font-bold text-left transition-all cursor-pointer flex flex-col justify-between gap-1',
+                                editSelectedRolePreset === preset.id
+                                  ? 'bg-primary/10 border-primary text-primary shadow-xs ring-1 ring-primary/40'
+                                  : 'bg-card border-border text-foreground hover:bg-muted'
+                              )}
+                            >
+                              <span>{preset.name}</span>
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                {preset.modules.length} features
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Feature Permissions Matrix */}
+                      <div className="space-y-2.5 pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <ShieldCheck className="w-4 h-4 text-primary" /> Feature Access Permissions
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleSelectAllEditModules}
+                            className="text-xs font-bold text-primary hover:underline cursor-pointer"
+                          >
+                            {editSelectedModules.length === FEATURE_MODULES.length ? 'Deselect All' : 'Select All Features'}
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 no-scrollbar">
+                          {FEATURE_MODULES.map((mod) => {
+                            const isSelected = editSelectedModules.includes(mod.id);
+                            return (
+                              <div
+                                key={mod.id}
+                                onClick={() => toggleEditModule(mod.id)}
+                                className={cn(
+                                  'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
+                                  isSelected
+                                    ? 'bg-primary/10 border-primary/50 text-foreground'
+                                    : 'bg-card border-border/60 text-muted-foreground hover:border-border'
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
+                                    isSelected
+                                      ? 'bg-primary text-primary-foreground border-primary'
+                                      : 'border-muted-foreground/40 bg-background'
+                                  )}
+                                >
+                                  {isSelected && <Check className="w-3 h-3" />}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
+                                    <span>{mod.icon}</span> <span>{mod.name}</span>
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                    {mod.description}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            <div className="p-4 border-t border-border bg-muted/20 flex items-center justify-end gap-3 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingEmployee(null)}
+                className="rounded-xl px-5"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="edit-staff-form"
+                disabled={updateEmployeeMutation.isPending}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-6"
+              >
+                {updateEmployeeMutation.isPending ? 'Saving...' : 'Update Staff Member'}
               </Button>
             </div>
           </Card>

@@ -21,6 +21,10 @@ router.post('/attendance', requirePermission('attendance:manage'), asyncHandler(
 router.get('/', requirePermission('staff:view'), asyncHandler(StaffController.listEmployees));
 router.post('/employees', requirePermission('staff:create'), asyncHandler(StaffController.createEmployee));
 router.post('/', requirePermission('staff:create'), asyncHandler(StaffController.createEmployee));
+router.put('/employees/:id', requirePermission('staff:edit'), asyncHandler(StaffController.updateEmployee));
+router.patch('/employees/:id', requirePermission('staff:edit'), asyncHandler(StaffController.updateEmployee));
+router.put('/:id', requirePermission('staff:edit'), asyncHandler(StaffController.updateEmployee));
+router.patch('/:id', requirePermission('staff:edit'), asyncHandler(StaffController.updateEmployee));
 router.delete('/employees/:id', requirePermission('staff:edit'), asyncHandler(StaffController.deleteEmployee));
 router.delete('/:id', requirePermission('staff:edit'), asyncHandler(StaffController.deleteEmployee));
 

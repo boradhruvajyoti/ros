@@ -104,6 +104,21 @@ const createEmployeeSchema = z.object({
   permissions: z.array(z.string()).optional(),
 });
 
+const updateEmployeeSchema = z.object({
+  name: z.string().min(1).optional(),
+  department: z.string().min(1).optional(),
+  designation: z.string().min(1).optional(),
+  phone: z.string().optional().nullable(),
+  email: z.string().email().optional().or(z.literal('')).nullable(),
+  salary: z.number().nonnegative().optional().nullable(),
+  // User account modification options
+  createUserAccount: z.boolean().optional(),
+  password: z.string().min(4).optional().or(z.literal('')),
+  roleName: z.string().optional(),
+  permissions: z.array(z.string()).optional(),
+  isActiveUser: z.boolean().optional(),
+});
+
 const punchAttendanceSchema = z.object({
   employeeId: z.string(),
   status: z.enum(['PRESENT', 'ABSENT', 'HALF_DAY', 'LEAVE']),
@@ -284,6 +299,234 @@ export class StaffController {
     });
 
     sendSuccess(res, employee, 201);
+  }
+
+  static async updateEmployee(req: Request, res: Response) {
+    const { id } = req.params;
+    const data = updateEmployeeSchema.parse(req.body);
+    const tenantId = req.user!.tid;
+    const branchId = req.user!.bid!;
+
+    const employee = await prisma.employee.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!employee) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Staff member not found', 404);
+    }
+
+    let linkedUserId = employee.userId;
+
+    // Handle user account updates or creation
+    if (data.createUserAccount || linkedUserId) {
+      const emailToUse = (data.email || employee.email)?.toLowerCase().trim();
+
+      if (linkedUserId) {
+        // User account exists — update credentials, status, and permissions
+        const user = await prisma.user.findFirst({
+          where: { id: linkedUserId, tenantId },
+        });
+
+        if (user) {
+          const userUpdates: any = {
+            name: data.name || user.name,
+            phone: data.phone !== undefined ? data.phone : user.phone,
+          };
+
+          if (data.isActiveUser !== undefined) {
+            userUpdates.isActive = data.isActiveUser;
+          }
+
+          if (emailToUse && emailToUse !== user.email) {
+            // Check uniqueness
+            const clash = await prisma.user.findFirst({
+              where: { tenantId, email: emailToUse, id: { not: user.id } },
+            });
+            if (clash) {
+              throw new AppError(
+                ErrorCodes.ALREADY_EXISTS,
+                `Email "${emailToUse}" is already in use by another account.`,
+                409
+              );
+            }
+            userUpdates.email = emailToUse;
+          }
+
+          if (data.password && data.password.trim().length >= 4) {
+            userUpdates.passwordHash = await bcrypt.hash(data.password.trim(), 10);
+          }
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: userUpdates,
+          });
+
+          // Handle role & permissions update
+          if (data.permissions !== undefined || data.roleName !== undefined) {
+            const roleName = (data.roleName || data.designation || employee.designation || 'STAFF')
+              .toUpperCase()
+              .replace(/\s+/g, '_');
+
+            // Find or create role
+            let role = await prisma.role.findFirst({
+              where: { tenantId, name: roleName },
+            });
+
+            if (!role) {
+              role = await prisma.role.create({
+                data: {
+                  tenantId,
+                  name: roleName,
+                  description: `${data.designation || roleName} User Role`,
+                },
+              });
+            }
+
+            // If permissions array is provided, sync permissions for this role
+            if (data.permissions) {
+              // Delete current permissions on this role
+              await prisma.rolePermission.deleteMany({
+                where: { roleId: role.id },
+              });
+
+              // Add selected permissions
+              for (const code of data.permissions) {
+                let perm = await prisma.permission.findUnique({ where: { code } });
+                if (!perm) {
+                  perm = await prisma.permission.create({
+                    data: {
+                      code,
+                      category: code.split(':')[0] || 'general',
+                      description: `${code} feature access`,
+                    },
+                  });
+                }
+
+                await prisma.rolePermission.create({
+                  data: {
+                    roleId: role.id,
+                    permissionId: perm.id,
+                  },
+                });
+              }
+            }
+
+            // Ensure UserBranchRole points to this role
+            await prisma.userBranchRole.deleteMany({
+              where: { userId: user.id, branchId },
+            });
+
+            await prisma.userBranchRole.create({
+              data: {
+                userId: user.id,
+                branchId,
+                roleId: role.id,
+              },
+            });
+          }
+        }
+      } else if (data.createUserAccount && emailToUse && data.password) {
+        // Provisioning a new user login account for existing staff member
+        const clash = await prisma.user.findFirst({
+          where: { tenantId, email: emailToUse },
+        });
+        if (clash) {
+          throw new AppError(
+            ErrorCodes.ALREADY_EXISTS,
+            `Email "${emailToUse}" is already in use by another account.`,
+            409
+          );
+        }
+
+        const passwordHash = await bcrypt.hash(data.password.trim(), 10);
+        const roleName = (data.roleName || data.designation || employee.designation || 'STAFF')
+          .toUpperCase()
+          .replace(/\s+/g, '_');
+
+        let role = await prisma.role.findFirst({
+          where: { tenantId, name: roleName },
+        });
+
+        if (!role) {
+          role = await prisma.role.create({
+            data: {
+              tenantId,
+              name: roleName,
+              description: `${data.designation || roleName} User Role`,
+            },
+          });
+        }
+
+        if (data.permissions && data.permissions.length > 0) {
+          for (const code of data.permissions) {
+            let perm = await prisma.permission.findUnique({ where: { code } });
+            if (!perm) {
+              perm = await prisma.permission.create({
+                data: {
+                  code,
+                  category: code.split(':')[0] || 'general',
+                  description: `${code} feature access`,
+                },
+              });
+            }
+
+            await prisma.rolePermission.upsert({
+              where: {
+                roleId_permissionId: {
+                  roleId: role.id,
+                  permissionId: perm.id,
+                },
+              },
+              create: {
+                roleId: role.id,
+                permissionId: perm.id,
+              },
+              update: {},
+            });
+          }
+        }
+
+        const newUser = await prisma.user.create({
+          data: {
+            tenantId,
+            name: data.name || employee.name,
+            email: emailToUse,
+            phone: data.phone || employee.phone || null,
+            passwordHash,
+            isActive: true,
+            branchRoles: {
+              create: {
+                branchId,
+                roleId: role.id,
+              },
+            },
+          },
+        });
+
+        linkedUserId = newUser.id;
+      }
+    }
+
+    const updatedEmployee = await prisma.employee.update({
+      where: { id },
+      data: {
+        name: data.name !== undefined ? data.name : employee.name,
+        department: data.department !== undefined ? data.department : employee.department,
+        designation: data.designation !== undefined ? data.designation : employee.designation,
+        phone: data.phone !== undefined ? data.phone : employee.phone,
+        email: data.email !== undefined ? data.email : employee.email,
+        salary: data.salary !== undefined ? (data.salary ?? 0) : (employee.salary ?? 0),
+        userId: linkedUserId,
+      },
+      include: {
+        attendance: {
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    sendSuccess(res, updatedEmployee);
   }
 
   static async deleteEmployee(req: Request, res: Response) {
