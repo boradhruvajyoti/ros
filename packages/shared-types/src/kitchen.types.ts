@@ -2,9 +2,9 @@
 // ROS Shared Types — Kitchen / KOT
 // =============================================================================
 
-export type KotStatus = 'NEW' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED';
+export type KotStatus = 'NEW' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
 
-export type KotItemStatus = 'NEW' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED';
+export type KotItemStatus = 'NEW' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
 
 export interface KotSummary {
   id: string;

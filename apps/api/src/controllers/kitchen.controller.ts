@@ -3,10 +3,12 @@
 // =============================================================================
 
 import { Request, Response } from 'express';
-import { sendSuccess } from '../middlewares/error.middleware';
+import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { prisma } from '../lib/prisma';
 import { emitToRoom, emitToStation } from '../socket';
 import { z } from 'zod';
+import { ErrorCodes } from '@ros/shared-types';
+import { OrderService } from '../services/order.service';
 
 export class KitchenController {
   static async listStations(req: Request, res: Response): Promise<void> {
@@ -90,9 +92,73 @@ export class KitchenController {
   }
 
   static async updateKotStatus(req: Request, res: Response): Promise<void> {
-    const { status } = z.object({
-      status: z.enum(['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED']),
+    const { status, reason } = z.object({
+      status: z.enum(['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED']),
+      reason: z.string().optional(),
     }).parse(req.body);
+
+    const existingKot = await prisma.orderKot.findUnique({
+      where: { id: req.params.kotId },
+      include: { items: true, order: true },
+    });
+
+    if (!existingKot) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'KOT not found', 404);
+    }
+
+    if (status === 'CANCELLED') {
+      if (['PREPARING', 'READY', 'SERVED'].includes(existingKot.status)) {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'Cannot cancel KOT after cooking has started. KOTs can only be cancelled before starting to cook (in New or Accepted status).',
+          400
+        );
+      }
+
+      // Mark KOT and its items as CANCELLED
+      const kot = await prisma.orderKot.update({
+        where: { id: req.params.kotId },
+        data: { status: 'CANCELLED' },
+        include: { kitchenStation: true, order: true },
+      });
+
+      await prisma.orderKotItem.updateMany({
+        where: { kotId: kot.id },
+        data: { status: 'CANCELLED' },
+      });
+
+      const orderItemIds = existingKot.items.map((i) => i.orderItemId).filter(Boolean);
+      if (orderItemIds.length > 0) {
+        await prisma.orderItem.updateMany({
+          where: { id: { in: orderItemIds } },
+          data: {
+            status: 'CANCELLED',
+            notes: reason ? `[Cancelled on KOT #${kot.kotNumber}: ${reason}]` : `[Cancelled on KOT #${kot.kotNumber}]`,
+          },
+        });
+      }
+
+      const orderService = new OrderService(req.user!.tid, req.user!.bid);
+      const updatedOrder = await orderService.recalculateTotals(kot.orderId);
+
+      emitToRoom(req.user!.tid, req.user!.bid, {
+        type: 'KOT_STATUS_CHANGED',
+        payload: { kotId: kot.id, status: 'CANCELLED', stationId: kot.kitchenStationId || 'default' },
+      });
+
+      emitToRoom(req.user!.tid, req.user!.bid, {
+        type: 'ORDER_UPDATED',
+        payload: {
+          orderId: kot.orderId,
+          orderNumber: kot.order.orderNumber,
+          total: Number(updatedOrder?.total || kot.order.total),
+          itemCount: existingKot.items.length,
+        },
+      });
+
+      sendSuccess(res, kot);
+      return;
+    }
 
     const kot = await prisma.orderKot.update({
       where: { id: req.params.kotId },
@@ -106,9 +172,9 @@ export class KitchenController {
       include: { kitchenStation: true, order: true },
     });
 
-    // Synchronize all items under this KOT
+    // Synchronize all non-cancelled items under this KOT
     await prisma.orderKotItem.updateMany({
-      where: { kotId: kot.id },
+      where: { kotId: kot.id, status: { not: 'CANCELLED' } },
       data: {
         status,
         ...(status === 'ACCEPTED'  ? { acceptedAt: new Date() }  : {}),
@@ -118,9 +184,9 @@ export class KitchenController {
       },
     });
 
-    // Determine parent Order status across all KOTs for this order
+    // Determine parent Order status across all active KOTs for this order
     const allKots = await prisma.orderKot.findMany({
-      where: { orderId: kot.orderId },
+      where: { orderId: kot.orderId, status: { not: 'CANCELLED' } },
       select: { id: true, status: true },
     });
 
@@ -173,9 +239,143 @@ export class KitchenController {
   }
 
   static async updateKotItemStatus(req: Request, res: Response): Promise<void> {
-    const { status } = z.object({
-      status: z.enum(['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED']),
+    const { status, reason } = z.object({
+      status: z.enum(['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED']),
+      reason: z.string().optional(),
     }).parse(req.body);
+
+    const existingItem = await prisma.orderKotItem.findUnique({
+      where: { id: req.params.itemId },
+      include: {
+        kot: {
+          include: { order: true },
+        },
+        orderItem: true,
+      },
+    });
+
+    if (!existingItem) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'KOT Item not found', 404);
+    }
+
+    if (status === 'CANCELLED') {
+      if (['PREPARING', 'READY', 'SERVED'].includes(existingItem.kot.status)) {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'Cannot cancel an item after cooking has started. Items can only be cancelled before starting to cook (in New or Accepted status).',
+          400
+        );
+      }
+
+      // Mark the OrderKotItem as CANCELLED
+      const updatedKotItem = await prisma.orderKotItem.update({
+        where: { id: req.params.itemId },
+        data: { status: 'CANCELLED' },
+        include: {
+          kot: {
+            include: { order: true },
+          },
+          orderItem: true,
+        },
+      });
+
+      // Mark the associated OrderItem as CANCELLED
+      if (existingItem.orderItemId) {
+        await prisma.orderItem.update({
+          where: { id: existingItem.orderItemId },
+          data: {
+            status: 'CANCELLED',
+            notes: reason ? `[Cancelled in Kitchen: ${reason}]` : '[Cancelled in Kitchen]',
+          },
+        });
+      }
+
+      // Recalculate order subtotal and totals
+      const orderService = new OrderService(req.user!.tid, req.user!.bid);
+      const updatedOrder = await orderService.recalculateTotals(existingItem.kot.orderId);
+
+      // Check remaining active sibling items in the same KOT
+      const activeSiblingItems = await prisma.orderKotItem.findMany({
+        where: { kotId: existingItem.kotId, status: { not: 'CANCELLED' } },
+      });
+
+      let kotNewStatus = existingItem.kot.status;
+      if (activeSiblingItems.length === 0) {
+        // All items in this KOT are cancelled
+        kotNewStatus = 'CANCELLED';
+      } else {
+        const allSiblingServed = activeSiblingItems.every((si) => si.status === 'SERVED');
+        const allSiblingReady = activeSiblingItems.every((si) => si.status === 'READY' || si.status === 'SERVED');
+        if (allSiblingServed) {
+          kotNewStatus = 'SERVED';
+        } else if (allSiblingReady) {
+          kotNewStatus = 'READY';
+        }
+      }
+
+      if (kotNewStatus !== existingItem.kot.status) {
+        await prisma.orderKot.update({
+          where: { id: existingItem.kotId },
+          data: { status: kotNewStatus },
+        });
+
+        emitToRoom(req.user!.tid, req.user!.bid, {
+          type: 'KOT_STATUS_CHANGED',
+          payload: { kotId: existingItem.kotId, status: kotNewStatus as any, stationId: existingItem.kot.kitchenStationId || 'default' },
+        });
+      }
+
+      // Check all remaining active KOTs for the order
+      const allActiveKots = await prisma.orderKot.findMany({
+        where: { orderId: existingItem.kot.orderId, status: { not: 'CANCELLED' } },
+      });
+
+      let newOrderStatus: string | null = null;
+      if (allActiveKots.length === 0) {
+        newOrderStatus = 'CANCELLED';
+      } else {
+        const allKotsServed = allActiveKots.every((k) => (k.id === existingItem.kotId ? kotNewStatus : k.status) === 'SERVED');
+        const allKotsReady = allActiveKots.every((k) => (k.id === existingItem.kotId ? kotNewStatus : k.status) === 'READY' || (k.id === existingItem.kotId ? kotNewStatus : k.status) === 'SERVED');
+        if (allKotsServed) {
+          newOrderStatus = 'SERVED';
+        } else if (allKotsReady) {
+          newOrderStatus = 'READY';
+        }
+      }
+
+      if (newOrderStatus && newOrderStatus !== existingItem.kot.order.status) {
+        await prisma.order.update({
+          where: { id: existingItem.kot.orderId },
+          data: { status: newOrderStatus as any },
+        });
+        emitToRoom(req.user!.tid, req.user!.bid, {
+          type: 'ORDER_STATUS_CHANGED',
+          payload: {
+            orderId: existingItem.kot.orderId,
+            orderNumber: existingItem.kot.order.orderNumber,
+            status: newOrderStatus as any,
+          },
+        });
+      }
+
+      emitToRoom(req.user!.tid, req.user!.bid, {
+        type: 'KOT_ITEM_STATUS_CHANGED',
+        payload: { kotItemId: existingItem.id, kotId: req.params.kotId, status: 'CANCELLED' },
+      });
+
+      emitToRoom(req.user!.tid, req.user!.bid, {
+        type: 'ORDER_UPDATED',
+        payload: {
+          orderId: existingItem.kot.orderId,
+          orderNumber: existingItem.kot.order.orderNumber,
+          total: Number(updatedOrder?.total || existingItem.kot.order.total),
+          itemCount: activeSiblingItems.length,
+        },
+      });
+
+      sendSuccess(res, updatedKotItem);
+      return;
+    }
 
     const item = await prisma.orderKotItem.update({
       where: { id: req.params.itemId },
@@ -195,12 +395,12 @@ export class KitchenController {
 
     // Check sibling items in the same KOT
     const siblingItems = await prisma.orderKotItem.findMany({
-      where: { kotId: item.kotId },
+      where: { kotId: item.kotId, status: { not: 'CANCELLED' } },
       select: { id: true, status: true },
     });
 
-    const allSiblingReady = siblingItems.every((si) => si.status === 'READY' || si.status === 'SERVED');
-    const allSiblingServed = siblingItems.every((si) => si.status === 'SERVED');
+    const allSiblingReady = siblingItems.length > 0 && siblingItems.every((si) => si.status === 'READY' || si.status === 'SERVED');
+    const allSiblingServed = siblingItems.length > 0 && siblingItems.every((si) => si.status === 'SERVED');
     const anySiblingPrep = siblingItems.some((si) => si.status === 'PREPARING' || si.status === 'READY');
 
     let kotNewStatus = item.kot.status;
@@ -225,12 +425,12 @@ export class KitchenController {
 
     // Check all KOTs for the order
     const allKots = await prisma.orderKot.findMany({
-      where: { orderId: item.kot.orderId },
+      where: { orderId: item.kot.orderId, status: { not: 'CANCELLED' } },
       select: { id: true, status: true },
     });
 
-    const allKotsReady = allKots.every((k) => (k.id === item.kotId ? kotNewStatus : k.status) === 'READY' || (k.id === item.kotId ? kotNewStatus : k.status) === 'SERVED');
-    const allKotsServed = allKots.every((k) => (k.id === item.kotId ? kotNewStatus : k.status) === 'SERVED');
+    const allKotsReady = allKots.length > 0 && allKots.every((k) => (k.id === item.kotId ? kotNewStatus : k.status) === 'READY' || (k.id === item.kotId ? kotNewStatus : k.status) === 'SERVED');
+    const allKotsServed = allKots.length > 0 && allKots.every((k) => (k.id === item.kotId ? kotNewStatus : k.status) === 'SERVED');
 
     let newOrderStatus: string | null = null;
     if (allKotsServed) {

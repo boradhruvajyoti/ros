@@ -119,9 +119,9 @@ const TABLE_STATUS_META = {
 const ORDER_STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: string; border: string; text: string; nextStatus?: string; nextAction?: string }> = {
   DRAFT:           { label: 'Draft',        emoji: '📝', bg: 'bg-muted/40',       border: 'border-border',          text: 'text-muted-foreground', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Send Kitchen' },
   CONFIRMED:       { label: 'Pending Verification', emoji: '⚠️', bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Verify & Send' },
-  SENT_TO_KITCHEN: { label: 'In Kitchen',   emoji: '🍳', bg: 'bg-amber-500/10',   border: 'border-amber-500/30',    text: 'text-amber-500',        nextStatus: 'READY',           nextAction: 'Mark Ready' },
-  PREPARING:       { label: 'Cooking',      emoji: '🔥', bg: 'bg-orange-500/10',  border: 'border-orange-500/30',   text: 'text-orange-500',       nextStatus: 'READY',           nextAction: 'Mark Ready' },
-  READY:           { label: 'Ready to Pick',emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-500',      nextStatus: 'SERVED',          nextAction: 'Mark Served' },
+  SENT_TO_KITCHEN: { label: 'In Kitchen',   emoji: '🍳', bg: 'bg-amber-500/10',   border: 'border-amber-500/30',    text: 'text-amber-500' },
+  PREPARING:       { label: 'Cooking',      emoji: '🔥', bg: 'bg-orange-500/10',  border: 'border-orange-500/30',   text: 'text-orange-500' },
+  READY:           { label: 'Ready to Pick',emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-500' },
   SERVED:          { label: 'Served',       emoji: '🍽️', bg: 'bg-teal-500/10',    border: 'border-teal-500/30',     text: 'text-teal-500',         nextStatus: 'PAID',            nextAction: 'Mark as Paid' },
   BILLED:          { label: 'Billed',       emoji: '🧾', bg: 'bg-purple-500/15',  border: 'border-purple-500/40',   text: 'text-purple-500',       nextStatus: 'PAID',            nextAction: 'Mark as Paid' },
   PARTIALLY_PAID:  { label: 'Partial Paid', emoji: '⏳', bg: 'bg-indigo-500/10',  border: 'border-indigo-500/30',   text: 'text-indigo-500',       nextStatus: 'PAID',            nextAction: 'Settle Balance' },
@@ -130,6 +130,41 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: st
   CANCELLED:       { label: 'Cancelled',    emoji: '❌', bg: 'bg-rose-500/10',    border: 'border-rose-500/30',     text: 'text-rose-500' },
   VOIDED:          { label: 'Voided',       emoji: '🚫', bg: 'bg-rose-500/10',    border: 'border-rose-500/30',     text: 'text-rose-500' },
 };
+
+function getOrderKotProgress(order: any): { total: number; served: number; allServed: boolean } {
+  const kots: any[] = order?.kots || [];
+  const activeKots = kots.filter((k) => k.status !== 'CANCELLED');
+  const total = activeKots.length;
+  const served = activeKots.filter((k) => k.status === 'SERVED').length;
+  return {
+    total,
+    served,
+    allServed: total > 0 && served === total,
+  };
+}
+
+function checkCanMarkPaid(order: any): { canPay: boolean; reason?: string } {
+  if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
+    return { canPay: false, reason: 'Order is already completed or cancelled' };
+  }
+  if (['DRAFT', 'CONFIRMED'].includes(order.status)) {
+    return { canPay: false, reason: 'Order must be sent to kitchen first' };
+  }
+  const { total, served, allServed } = getOrderKotProgress(order);
+  if (total > 0 && !allServed) {
+    return {
+      canPay: false,
+      reason: `Kitchen in progress: ${served}/${total} KOTs marked as Served. All KOTs (including running rounds) must be served before billing.`,
+    };
+  }
+  if (!['SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(order.status)) {
+    return {
+      canPay: false,
+      reason: `Order is ${order.status}. Kitchen staff must mark all KOTs as SERVED on KDS first.`,
+    };
+  }
+  return { canPay: true };
+}
 
 export default function TablesPage() {
   const router = useRouter();
@@ -983,6 +1018,21 @@ export default function TablesPage() {
                           + {(order.items?.length || 0) - 3} more items...
                         </p>
                       )}
+
+                      {/* KOT Round Progress */}
+                      {(() => {
+                        const kotProg = getOrderKotProgress(order);
+                        if (kotProg.total === 0) return null;
+                        return (
+                          <div className={cn(
+                            'mt-2 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px] font-bold',
+                            kotProg.allServed ? 'text-teal-400' : 'text-amber-400'
+                          )}>
+                            <span>🍳 Kitchen KOTs:</span>
+                            <span>{kotProg.served}/{kotProg.total} Served {kotProg.allServed ? '✅' : '⏳'}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1063,22 +1113,61 @@ export default function TablesPage() {
                         </button>
                       )}
 
-                      {cfg.nextStatus && !isCancelled && (
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (cfg.nextStatus === 'PAID') {
-                              handleMarkAsPaidAndBill(order);
-                            } else {
-                              handleAdvanceStatus(order, cfg.nextStatus!);
-                            }
-                          }}
-                          className="h-7 px-2.5 text-[10px] font-bold rounded-xl bg-primary text-primary-foreground ml-1"
-                        >
-                          {cfg.nextAction || 'Next'}
-                        </Button>
-                      )}
+                      {/* Action Button: Staff can only Send Kitchen or Mark Paid when all KOTs are served */}
+                      {(() => {
+                        if (isCancelled || order.status === 'PAID' || order.status === 'COMPLETED') return null;
+
+                        if (['DRAFT', 'CONFIRMED'].includes(order.status)) {
+                          return (
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAdvanceStatus(order, 'SENT_TO_KITCHEN');
+                              }}
+                              className="h-7 px-2.5 text-[10px] font-bold rounded-xl bg-primary text-primary-foreground ml-1"
+                            >
+                              {order.status === 'CONFIRMED' ? 'Verify & Send' : 'Send Kitchen'}
+                            </Button>
+                          );
+                        }
+
+                        if (['SENT_TO_KITCHEN', 'PREPARING', 'READY'].includes(order.status)) {
+                          const kotProg = getOrderKotProgress(order);
+                          return (
+                            <span
+                              title="Kitchen exclusive control: Line cooks must start cooking, finish, and mark SERVED on KDS."
+                              className="px-2 py-1 rounded-xl text-[10px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1 cursor-default select-none ml-1"
+                            >
+                              <span>👨‍🍳</span>
+                              <span>In Kitchen{kotProg.total > 0 ? ` (${kotProg.served}/${kotProg.total})` : ''}</span>
+                            </span>
+                          );
+                        }
+
+                        const payCheck = checkCanMarkPaid(order);
+                        return (
+                          <Button
+                            size="sm"
+                            disabled={!payCheck.canPay}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (payCheck.canPay) {
+                                handleMarkAsPaidAndBill(order);
+                              }
+                            }}
+                            title={payCheck.reason || 'Mark as Paid & Generate Bill'}
+                            className={cn(
+                              'h-7 px-2.5 text-[10px] font-bold rounded-xl ml-1 transition-all',
+                              payCheck.canPay
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                                : 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60'
+                            )}
+                          >
+                            {payCheck.canPay ? 'Mark Paid & Bill' : 'Wait KOTs'}
+                          </Button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -1105,6 +1194,7 @@ export default function TablesPage() {
                     const cfg = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.DRAFT;
                     const isCancelled = ['CANCELLED', 'VOIDED'].includes(order.status);
                     const isServed = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
+                    const kotProg = getOrderKotProgress(order);
 
                     return (
                       <tr
@@ -1115,7 +1205,16 @@ export default function TablesPage() {
                         <td className="p-3 font-mono font-bold text-foreground">#{order.orderNumber}</td>
                         <td className="p-3 font-bold">{order.table?.name ? `Table ${order.table.name}` : order.type}</td>
                         <td className="p-3 text-muted-foreground">{format(new Date(order.createdAt), 'h:mm a')}</td>
-                        <td className="p-3">{order.items?.length || order._count?.items || 1} items</td>
+                        <td className="p-3">
+                          <div>
+                            <span>{order.items?.length || order._count?.items || 1} items</span>
+                            {kotProg.total > 0 && (
+                              <span className={cn('block text-[10px] font-bold', kotProg.allServed ? 'text-teal-400' : 'text-amber-400')}>
+                                🍳 {kotProg.served}/{kotProg.total} KOTs Served
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-3 font-mono font-black text-primary">{formatCurrency(order.total)}</td>
                         <td className="p-3">
                           <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1', cfg.bg, cfg.text, cfg.border)}>
@@ -1169,21 +1268,55 @@ export default function TablesPage() {
                               </button>
                             )}
 
-                            {cfg.nextStatus && !isCancelled && (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  if (cfg.nextStatus === 'PAID') {
-                                    handleMarkAsPaidAndBill(order);
-                                  } else {
-                                    handleAdvanceStatus(order, cfg.nextStatus!);
-                                  }
-                                }}
-                                className="h-7 text-[10px] font-bold rounded-lg"
-                              >
-                                {cfg.nextAction || 'Advance'}
-                              </Button>
-                            )}
+                            {/* Action Button */}
+                            {(() => {
+                              if (isCancelled || order.status === 'PAID' || order.status === 'COMPLETED') return null;
+
+                              if (['DRAFT', 'CONFIRMED'].includes(order.status)) {
+                                return (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAdvanceStatus(order, 'SENT_TO_KITCHEN')}
+                                    className="h-7 text-[10px] font-bold rounded-lg"
+                                  >
+                                    {order.status === 'CONFIRMED' ? 'Verify & Send' : 'Send Kitchen'}
+                                  </Button>
+                                );
+                              }
+
+                              if (['SENT_TO_KITCHEN', 'PREPARING', 'READY'].includes(order.status)) {
+                                return (
+                                  <span
+                                    title="Controlled by Kitchen Staff on KDS"
+                                    className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 select-none"
+                                  >
+                                    👨‍🍳 Kitchen
+                                  </span>
+                                );
+                              }
+
+                              const payCheck = checkCanMarkPaid(order);
+                              return (
+                                <Button
+                                  size="sm"
+                                  disabled={!payCheck.canPay}
+                                  onClick={() => {
+                                    if (payCheck.canPay) {
+                                      handleMarkAsPaidAndBill(order);
+                                    }
+                                  }}
+                                  title={payCheck.reason || 'Mark as Paid'}
+                                  className={cn(
+                                    'h-7 text-[10px] font-bold rounded-lg',
+                                    payCheck.canPay
+                                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                      : 'bg-muted text-muted-foreground opacity-60'
+                                  )}
+                                >
+                                  {payCheck.canPay ? 'Mark Paid' : 'Wait KOTs'}
+                                </Button>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -1405,25 +1538,26 @@ export default function TablesPage() {
 
               {selectedOrder.status !== 'PAID' && selectedOrder.status !== 'COMPLETED' && selectedOrder.status !== 'CANCELLED' && (
                 (() => {
-                  const isServed = ['SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(selectedOrder.status);
+                  const payCheck = checkCanMarkPaid(selectedOrder);
+                  const kotProg = getOrderKotProgress(selectedOrder);
                   return (
                     <div className="space-y-1.5">
                       <Button
                         onClick={() => handleMarkAsPaidAndBill(selectedOrder)}
-                        disabled={updateStatus.isPending || !isServed}
+                        disabled={updateStatus.isPending || !payCheck.canPay}
                         className={cn(
                           'w-full font-black text-xs h-12 shadow-lg gap-2 text-sm rounded-2xl',
-                          isServed
+                          payCheck.canPay
                             ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                             : 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75'
                         )}
                       >
                         <CheckCircle2 className="w-5 h-5" />
-                        {isServed ? 'Mark as Paid & Generate Bill' : 'Mark as Paid (Disabled: Must be SERVED first)'}
+                        {payCheck.canPay ? 'Mark as Paid & Generate Bill' : 'Mark as Paid (Locked: Food In Kitchen)'}
                       </Button>
-                      {!isServed && (
+                      {!payCheck.canPay && (
                         <p className="text-[11px] text-amber-500 text-center font-medium">
-                          ⚠️ Order is in kitchen ({selectedOrder.status}). Kitchen staff must mark it <strong>SERVED</strong> on KDS before payment can be collected.
+                          ⚠️ {payCheck.reason || 'Kitchen staff must mark all KOT tickets as SERVED on KDS before payment can be collected.'}
                         </p>
                       )}
                     </div>

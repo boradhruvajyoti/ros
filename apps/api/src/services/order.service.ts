@@ -583,6 +583,21 @@ export class OrderService {
       );
     }
 
+    // Guard: Prevent billing / payment if any active KOT is not yet SERVED
+    if (['BILLED', 'PAID', 'COMPLETED'].includes(dto.status)) {
+      const activeKots = await prisma.orderKot.findMany({
+        where: { orderId, status: { not: 'CANCELLED' } },
+      });
+      const unservedKots = activeKots.filter((k) => k.status !== 'SERVED');
+      if (unservedKots.length > 0) {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          `Cannot proceed to billing or payment. ${unservedKots.length} KOT(s) are still in preparation and must be marked as SERVED in the kitchen first.`,
+          400
+        );
+      }
+    }
+
     const updateData: Prisma.OrderUpdateInput = {
       status: dto.status,
       updatedBy: dto.userId,
@@ -743,7 +758,7 @@ export class OrderService {
   }
 
   // ── Order Totals ───────────────────────────────────────────────────────────
-  async recalculateTotals(orderId: string): Promise<void> {
+  async recalculateTotals(orderId: string): Promise<any> {
     const items = await prisma.orderItem.findMany({
       where: { orderId, status: { notIn: ['VOIDED', 'CANCELLED'] } },
     });
@@ -769,7 +784,7 @@ export class OrderService {
     const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
     const total = toAmount(addAmounts(subtotal, taxAmount) - discountAmount);
 
-    await prisma.order.update({
+    return prisma.order.update({
       where: { id: orderId },
       data: { subtotal, discountAmount, taxAmount, total },
     });

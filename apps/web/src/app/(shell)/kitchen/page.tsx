@@ -5,10 +5,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, ChefHat, CheckCircle, Flame, Bell, Wifi, WifiOff,
   Check, Volume2, VolumeX, AlertTriangle, Sparkles, Utensils,
-  ArrowRight, ShieldCheck
+  ArrowRight, ShieldCheck, XCircle, Trash2, Ban
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPatch } from '@/lib/api';
 import { onRosEvent } from '@/lib/socket';
@@ -70,13 +71,18 @@ function playKitchenChime() {
 function KotCard({
   kot,
   onUpdate,
+  onRequestCancelItem,
+  onRequestCancelKot,
 }: {
   kot: Kot;
   onUpdate: (kotId: string, status: string) => void;
+  onRequestCancelItem: (kotId: string, itemId: string, itemName: string) => void;
+  onRequestCancelKot: (kotId: string, kotNumber: string) => void;
 }) {
   const isOverdue = kot.ageMinutes > 15;
   const isWarning = kot.ageMinutes > 10;
   const nextStatus = STATUS_FLOW[kot.status];
+  const canCancel = ['NEW', 'ACCEPTED'].includes(kot.status);
 
   return (
     <div
@@ -106,46 +112,107 @@ function KotCard({
           </Badge>
         </div>
 
-        <div className={cn(
-          'flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black tabular',
-          isOverdue ? 'bg-red-500 text-white animate-pulse' :
-          isWarning ? 'bg-amber-500/20 text-amber-400' :
-          'bg-muted text-foreground'
-        )}>
-          <Clock className="w-3.5 h-3.5" />
-          <span>{kot.ageMinutes}m ago</span>
+        <div className="flex items-center gap-1.5">
+          <div className={cn(
+            'flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black tabular',
+            isOverdue ? 'bg-red-500 text-white animate-pulse' :
+            isWarning ? 'bg-amber-500/20 text-amber-400' :
+            'bg-muted text-foreground'
+          )}>
+            <Clock className="w-3.5 h-3.5" />
+            <span>{kot.ageMinutes}m ago</span>
+          </div>
+
+          {canCancel && (
+            <button
+              type="button"
+              onClick={() => onRequestCancelKot(kot.id, kot.kotNumber)}
+              title="Cancel Entire KOT Ticket"
+              className="p-1 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Dishes List (Giant Large Font for Line Cooks) */}
       <div className="p-4 flex-1 space-y-3">
-        {kot.items.map((item) => (
-          <div key={item.id} className="flex items-start gap-3 pb-2 border-b border-border/40 last:border-0 last:pb-0">
-            {/* Quantity Number Box */}
-            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center text-lg font-black shrink-0 shadow-sm">
-              {item.orderItem.quantity}
-            </div>
+        {kot.items.map((item) => {
+          const isItemCancelled = item.status === 'CANCELLED';
 
-            <div className="flex-1 min-w-0">
-              <p className="font-black text-base text-foreground leading-snug">
-                {item.orderItem.menuItem.name}
-              </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs font-bold text-muted-foreground">{item.orderItem.variant.name}</span>
-                {item.orderItem.modifiers?.length > 0 && (
-                  <span className="text-xs font-semibold text-indigo-400">
-                    + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                'flex items-start gap-3 pb-2 border-b border-border/40 last:border-0 last:pb-0',
+                isItemCancelled && 'opacity-40 line-through'
+              )}
+            >
+              {/* Quantity Number Box */}
+              <div className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black shrink-0 shadow-sm',
+                isItemCancelled
+                  ? 'bg-muted text-muted-foreground'
+                  : 'bg-primary text-primary-foreground'
+              )}>
+                {item.orderItem?.quantity || 1}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-1">
+                  <p className={cn(
+                    'font-black text-base leading-snug',
+                    isItemCancelled ? 'text-muted-foreground line-through' : 'text-foreground'
+                  )}>
+                    {item.orderItem?.menuItem?.name || 'Dish'}
+                  </p>
+
+                  {/* Cancel item button if KOT is before cooking */}
+                  {canCancel && !isItemCancelled && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onRequestCancelItem(
+                          kot.id,
+                          item.id,
+                          item.orderItem?.menuItem?.name || 'Dish'
+                        )
+                      }
+                      className="p-1 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0"
+                      title="Cancel this item from KOT"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {item.orderItem?.variant?.name}
+                  </span>
+                  {item.orderItem?.modifiers?.length > 0 && (
+                    <span className="text-xs font-semibold text-indigo-400">
+                      + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
+                    </span>
+                  )}
+                </div>
+
+                {isItemCancelled && (
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400">
+                    CANCELLED
                   </span>
                 )}
+
+                {item.orderItem?.notes && !isItemCancelled && (
+                  <div className="mt-1 px-2 py-0.5 rounded-lg bg-red-500/10 border border-red-500/30 text-xs font-bold text-red-400">
+                    ⚠️ Note: {item.orderItem.notes}
+                  </div>
+                )}
               </div>
-              {item.orderItem.notes && (
-                <div className="mt-1 px-2 py-0.5 rounded-lg bg-red-500/10 border border-red-500/30 text-xs font-bold text-red-400">
-                  ⚠️ Note: {item.orderItem.notes}
-                </div>
-              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {kot.order.notes && (
           <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-300">
@@ -205,6 +272,21 @@ export default function KitchenPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [filterStation, setFilterStation] = useState<string | null>(null);
 
+  // Item cancellation modal state
+  const [cancelModalItem, setCancelModalItem] = useState<{
+    kotId: string;
+    itemId: string;
+    itemName: string;
+  } | null>(null);
+
+  // KOT cancellation modal state
+  const [cancelModalKot, setCancelModalKot] = useState<{
+    kotId: string;
+    kotNumber: string;
+  } | null>(null);
+
+  const [cancelReason, setCancelReason] = useState('');
+
   const { data: kots = [], isLoading } = useQuery<Kot[]>({
     queryKey: ['kitchen-queue', filterStation],
     queryFn: () => apiGet(`/kitchen/queue${filterStation ? `?stationId=${filterStation}` : ''}`),
@@ -243,7 +325,39 @@ export default function KitchenPage() {
       queryClient.invalidateQueries({ queryKey: ['table-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
-    onError: () => toast.error('Could not update KOT status'),
+    onError: (err: any) => toast.error(err?.message || 'Could not update KOT status'),
+  });
+
+  const cancelKotItem = useMutation({
+    mutationFn: ({ kotId, itemId, reason }: { kotId: string; itemId: string; reason?: string }) =>
+      apiPatch(`/kitchen/kots/${kotId}/items/${itemId}/status`, { status: 'CANCELLED', reason }),
+    onSuccess: () => {
+      toast.success('Item cancelled and order totals updated');
+      setCancelModalItem(null);
+      setCancelReason('');
+      queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err: any) => toast.error(err?.message || 'Could not cancel item'),
+  });
+
+  const cancelKot = useMutation({
+    mutationFn: ({ kotId, reason }: { kotId: string; reason?: string }) =>
+      apiPatch(`/kitchen/kots/${kotId}/status`, { status: 'CANCELLED', reason }),
+    onSuccess: () => {
+      toast.success('KOT ticket cancelled');
+      setCancelModalKot(null);
+      setCancelReason('');
+      queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err: any) => toast.error(err?.message || 'Could not cancel KOT ticket'),
   });
 
   const groupedKots = {
@@ -353,6 +467,14 @@ export default function KitchenPage() {
                     key={kot.id}
                     kot={kot}
                     onUpdate={(kotId, status) => updateKot.mutate({ kotId, status })}
+                    onRequestCancelItem={(kotId, itemId, itemName) => {
+                      setCancelModalItem({ kotId, itemId, itemName });
+                      setCancelReason('');
+                    }}
+                    onRequestCancelKot={(kotId, kotNumber) => {
+                      setCancelModalKot({ kotId, kotNumber });
+                      setCancelReason('');
+                    }}
                   />
                 ))
               )}
@@ -360,6 +482,113 @@ export default function KitchenPage() {
           </div>
         ))}
       </div>
+
+      {/* Item Cancel Confirmation Dialog */}
+      {cancelModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/15 flex items-center justify-center">
+                <Ban className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-foreground">Cancel Item on KOT</h3>
+                <p className="text-xs text-muted-foreground">Remove dish before cooking starts</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-foreground">
+              Are you sure you want to cancel <strong className="text-rose-400">{cancelModalItem.itemName}</strong>? This will remove the item before cooking and recalculate the customer&apos;s bill.
+            </p>
+
+            <div className="space-y-1.5 py-1">
+              <label className="text-xs font-bold text-muted-foreground">Reason for cancellation (optional):</label>
+              <Input
+                placeholder="e.g. Out of stock / Customer changed mind"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setCancelModalItem(null)}
+                disabled={cancelKotItem.isPending}
+              >
+                Back
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  cancelKotItem.mutate({
+                    kotId: cancelModalItem.kotId,
+                    itemId: cancelModalItem.itemId,
+                    reason: cancelReason,
+                  });
+                }}
+                disabled={cancelKotItem.isPending}
+              >
+                {cancelKotItem.isPending ? 'Cancelling...' : 'Confirm Cancel Item'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KOT Ticket Cancel Confirmation Dialog */}
+      {cancelModalKot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/15 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-foreground">Cancel Entire Ticket</h3>
+                <p className="text-xs text-muted-foreground">Remove all un-cooked items in ticket</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-foreground">
+              Are you sure you want to cancel Ticket <strong className="text-rose-400">#{cancelModalKot.kotNumber}</strong>? All un-cooked items in this ticket will be removed from the order.
+            </p>
+
+            <div className="space-y-1.5 py-1">
+              <label className="text-xs font-bold text-muted-foreground">Reason for cancellation (optional):</label>
+              <Input
+                placeholder="e.g. Table cancelled entire round"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setCancelModalKot(null)}
+                disabled={cancelKot.isPending}
+              >
+                Back
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  cancelKot.mutate({
+                    kotId: cancelModalKot.kotId,
+                    reason: cancelReason,
+                  });
+                }}
+                disabled={cancelKot.isPending}
+              >
+                {cancelKot.isPending ? 'Cancelling...' : 'Confirm Cancel Ticket'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
