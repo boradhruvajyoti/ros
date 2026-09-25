@@ -66,46 +66,7 @@ interface CartItem {
   modifiers: { id: string; name: string; price: number }[];
 }
 
-function convertOrderItemsToCart(items: any[]): CartItem[] {
-  if (!Array.isArray(items)) return [];
-  const itemMap = new Map<string, CartItem>();
 
-  for (const it of items) {
-    const menuItemId = it.menuItemId || it.menuItem?.id || '';
-    if (!menuItemId) continue;
-    const variantId = it.variantId || it.variant?.id || `v-${menuItemId}`;
-    const key = `${menuItemId}-${variantId}`;
-    const qty = Number(it.quantity || 1);
-    const unitPrice = Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0);
-
-    if (itemMap.has(key)) {
-      const existing = itemMap.get(key)!;
-      existing.quantity += qty;
-      if (it.notes && !existing.notes?.includes(it.notes)) {
-        existing.notes = existing.notes ? `${existing.notes}, ${it.notes}` : it.notes;
-      }
-    } else {
-      itemMap.set(key, {
-        key,
-        menuItemId,
-        name: it.menuItem?.name || it.name || 'Dish',
-        variantId,
-        variantName: it.variant?.name || 'Standard',
-        unitPrice,
-        quantity: qty,
-        foodType: it.menuItem?.foodType || 'VEG',
-        notes: it.notes || '',
-        modifiers: it.modifiers?.map((m: any) => ({
-          id: m.modifierId || m.id,
-          name: m.name,
-          price: Number(m.price || 0),
-        })) || [],
-      });
-    }
-  }
-
-  return Array.from(itemMap.values());
-}
 
 const CATEGORY_ICONS: Record<string, string> = {
   'Starters & Kebabs': '🔥',
@@ -183,10 +144,6 @@ export default function POSPage() {
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
 
-  // Tracks the last synced server state signature for the selected table's active order
-  const lastSyncedSignatureRef = useRef<string>('');
-  const isInitialLoadRef = useRef<boolean>(true);
-
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data: rawCategories, isLoading } = useQuery<Category[]>({
     queryKey: ['pos-menu'],
@@ -243,7 +200,6 @@ export default function POSPage() {
           if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
             setCart([]);
             setNotes('');
-            lastSyncedSignatureRef.current = '';
           }
         }
         if (t === 'ORDER_STATUS_CHANGED') {
@@ -252,14 +208,12 @@ export default function POSPage() {
             if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
               setCart([]);
               setNotes('');
-              lastSyncedSignatureRef.current = '';
             }
           }
           if (['CANCELLED', 'VOIDED', 'PAID', 'COMPLETED'].includes(payload.status)) {
             if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
               setCart([]);
               setNotes('');
-              lastSyncedSignatureRef.current = '';
               if (['PAID', 'COMPLETED'].includes(payload.status)) {
                 setSelectedTable(null);
                 setSelectedTableName(null);
@@ -275,7 +229,6 @@ export default function POSPage() {
           if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
             setCart([]);
             setNotes('');
-            lastSyncedSignatureRef.current = '';
             setSelectedTable(null);
             setSelectedTableName(null);
           }
@@ -314,87 +267,7 @@ export default function POSPage() {
     }
   }, [tableParam, orderParam, tables]);
 
-  // ── Real-time Live Order Sync for Selected Table ──────────────────────────
-  // Syncs guest QR additions into POS cart ONLY while order is in DRAFT/CONFIRMED phase
-  // Once KOT is sent to kitchen the cart is intentionally blank for the next round
-  useEffect(() => {
-    if (!selectedTable && !orderParam) {
-      lastSyncedSignatureRef.current = '';
-      return;
-    }
 
-    const currentOrder = (activeOrders || []).find(
-      (o: any) => (selectedTable && o.tableId === selectedTable) || (orderParam && o.id === orderParam)
-    );
-
-    if (!currentOrder || ['CANCELLED', 'VOIDED'].includes(currentOrder.status)) {
-      if (currentOrder && ['CANCELLED', 'VOIDED'].includes(currentOrder.status)) {
-        setCart([]);
-        setNotes('');
-        lastSyncedSignatureRef.current = `${currentOrder.id}_${currentOrder.status}`;
-      }
-      return;
-    }
-
-    // Only sync the cart from the server when the order is still in DRAFT/CONFIRMED phase
-    // (i.e. items are still being staged, not yet sent to kitchen)
-    // After KOT sent, cart is blank intentionally for the next running round
-    const isDraftPhase = ['DRAFT', 'CONFIRMED'].includes(currentOrder.status);
-    const pendingItems = Array.isArray(currentOrder.items)
-      ? currentOrder.items.filter((it: any) => (it.status || 'PENDING') === 'PENDING')
-      : [];
-
-    // Deterministic signature based on order ID, status, pending item counts
-    const itemsSig = pendingItems
-      .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
-      .sort()
-      .join('|');
-    const serverSignature = `${currentOrder.id}_${currentOrder.status}_${currentOrder.notes || ''}_${itemsSig}`;
-
-    // Only auto-sync the cart if we're in draft phase and signature changed
-    if (isDraftPhase && lastSyncedSignatureRef.current !== serverSignature) {
-      const prevSig = lastSyncedSignatureRef.current;
-      lastSyncedSignatureRef.current = serverSignature;
-
-      if (pendingItems.length > 0) {
-        const newCart = convertOrderItemsToCart(pendingItems);
-        setCart(newCart);
-        if (currentOrder.notes) setNotes(currentOrder.notes);
-
-        // Notify staff only on live incoming update (not initial load)
-        if (prevSig && prevSig !== '' && !isInitialLoadRef.current) {
-          try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
-            gain.gain.setValueAtTime(0.15, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.35);
-          } catch {}
-          toast.success('Live Order Updated', `Guest added new item(s) on ${selectedTableName || 'Table'} QR menu!`);
-        }
-      } else if (isDraftPhase && pendingItems.length === 0 && !isInitialLoadRef.current) {
-        // Order is draft/confirmed but has no pending items — keep cart as is
-      }
-    } else if (!isDraftPhase) {
-      // Order is in kitchen / served — immediately ensure cart is empty and clean for next round
-      if (lastSyncedSignatureRef.current !== serverSignature) {
-        lastSyncedSignatureRef.current = serverSignature;
-        setCart([]);
-        setNotes('');
-      }
-    }
-
-    if (isInitialLoadRef.current) {
-      isInitialLoadRef.current = false;
-    }
-  }, [activeOrders, selectedTable, orderParam, selectedTableName]);
 
   const taxRate = useMemo(() => {
     try {
@@ -448,58 +321,6 @@ export default function POSPage() {
     } catch {}
   };
 
-  // ── Auto-Sync Draft Order to Tables & Orders ────────────────────────────
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const triggerDraftSync = useCallback((newCart: CartItem[], tableId: string | null, currentNotes?: string) => {
-    if (!tableId || newCart.length === 0) return;
-    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-
-    syncTimeoutRef.current = setTimeout(async () => {
-      try {
-        const activeOrder = (activeOrders || []).find((o: any) => o.tableId === tableId && ['DRAFT', 'CONFIRMED'].includes(o.status));
-        if (activeOrder) {
-          await apiPut(`/orders/${activeOrder.id}/items`, {
-            items: newCart.map((c) => ({
-              menuItemId: c.menuItemId,
-              variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
-              quantity: c.quantity,
-              unitPrice: c.unitPrice,
-              notes: c.notes || undefined,
-              modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
-            })),
-            sendToKitchen: false,
-            notes: currentNotes || undefined,
-          });
-          queryClient.invalidateQueries({ queryKey: ['active-orders'] });
-          queryClient.invalidateQueries({ queryKey: ['tables'] });
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-        } else {
-          await apiPost('/orders', {
-            type: 'DINE_IN',
-            status: 'DRAFT',
-            tableId,
-            notes: currentNotes || undefined,
-            clientId: getClientId(),
-            items: newCart.map((c) => ({
-              menuItemId: c.menuItemId,
-              variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
-              quantity: c.quantity,
-              unitPrice: c.unitPrice,
-              notes: c.notes || undefined,
-              modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
-            })),
-          });
-          queryClient.invalidateQueries({ queryKey: ['active-orders'] });
-          queryClient.invalidateQueries({ queryKey: ['tables'] });
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-        }
-      } catch (e) {
-        console.error('Failed to auto-sync draft items to table', e);
-      }
-    }, 250);
-  }, [activeOrders, queryClient]);
-
   // ── Cart Actions ─────────────────────────────────────────────────────────
   const addToCart = useCallback((item: MenuItem) => {
     // Enforce dining table selection for Dine-In orders
@@ -519,55 +340,39 @@ export default function POSPage() {
     const key = `${item.id}-${variantId}`;
 
     setCart((prev) => {
-      let nextCart: CartItem[];
       const existing = prev.find(
         (c) => c.key === key || (c.menuItemId === item.id && (c.variantId === variantId || (!c.variantId && !variantId)))
       );
       if (existing) {
-        nextCart = prev.map((c) =>
+        return prev.map((c) =>
           c.key === existing.key ? { ...c, quantity: c.quantity + 1 } : c
         );
-      } else {
-        nextCart = [...prev, {
-          key,
-          menuItemId: item.id,
-          variantId,
-          name: item.name,
-          variantName: variant.name || 'Standard',
-          unitPrice,
-          quantity: 1,
-          foodType: item.foodType,
-          modifiers: [],
-        }];
       }
-      if (orderType === 'DINE_IN' && selectedTable) {
-        triggerDraftSync(nextCart, selectedTable, notes);
-      }
-      return nextCart;
+      return [...prev, {
+        key,
+        menuItemId: item.id,
+        variantId,
+        name: item.name,
+        variantName: variant.name || 'Standard',
+        unitPrice,
+        quantity: 1,
+        foodType: item.foodType,
+        modifiers: [],
+      }];
     });
-  }, [orderType, selectedTable, notes, triggerDraftSync]);
+  }, [orderType, selectedTable]);
 
   const updateQty = useCallback((key: string, delta: number) => {
-    setCart((prev) => {
-      const nextCart = prev
+    setCart((prev) =>
+      prev
         .map((c) => (c.key === key ? { ...c, quantity: c.quantity + delta } : c))
-        .filter((c) => c.quantity > 0);
-      if (orderType === 'DINE_IN' && selectedTable) {
-        triggerDraftSync(nextCart, selectedTable, notes);
-      }
-      return nextCart;
-    });
-  }, [orderType, selectedTable, notes, triggerDraftSync]);
+        .filter((c) => c.quantity > 0)
+    );
+  }, []);
 
   const removeItem = useCallback((key: string) => {
-    setCart((prev) => {
-      const nextCart = prev.filter((c) => c.key !== key);
-      if (orderType === 'DINE_IN' && selectedTable) {
-        triggerDraftSync(nextCart, selectedTable, notes);
-      }
-      return nextCart;
-    });
-  }, [orderType, selectedTable, notes, triggerDraftSync]);
+    setCart((prev) => prev.filter((c) => c.key !== key));
+  }, []);
 
   // ── Order Mutation ───────────────────────────────────────────────────────
   const createOrderMutation = useMutation({
@@ -616,9 +421,6 @@ export default function POSPage() {
       // Do NOT deselect table — staff can immediately add another round
       setShowFastPayModal(false);
       setCashTendered(null);
-      // Reset sync ref so next server state is picked up cleanly
-      lastSyncedSignatureRef.current = '';
-      isInitialLoadRef.current = true;
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['active-orders'] });
@@ -939,7 +741,6 @@ export default function POSPage() {
               <button
                 type="button"
                 onClick={() => {
-                  lastSyncedSignatureRef.current = '';
                   setCart([]);
                 }}
                 className="px-2.5 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-1 cursor-pointer"
@@ -962,7 +763,6 @@ export default function POSPage() {
                     onClick={() => {
                       setSelectedTable(null);
                       setSelectedTableName(null);
-                      lastSyncedSignatureRef.current = '';
                       setCart([]);
                       setNotes('');
                     }}
@@ -994,33 +794,14 @@ export default function POSPage() {
                           if (isSelected) {
                             setSelectedTable(null);
                             setSelectedTableName(null);
-                            lastSyncedSignatureRef.current = '';
                             setCart([]);
                             setNotes('');
                           } else {
                             setSelectedTable(t.id);
                             setSelectedTableName(t.name);
-                            const activeOrder = (activeOrders || []).find((o: any) => o.tableId === t.id);
-                            if (activeOrder && ['DRAFT', 'CONFIRMED'].includes(activeOrder.status) && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
-                              const pendingItems = activeOrder.items.filter((it: any) => (it.status || 'PENDING') === 'PENDING');
-                              if (pendingItems.length > 0) {
-                                const itemsSig = pendingItems
-                                  .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
-                                  .sort()
-                                  .join('|');
-                                lastSyncedSignatureRef.current = `${activeOrder.id}_${activeOrder.status}_${activeOrder.notes || ''}_${itemsSig}`;
-                                setCart(convertOrderItemsToCart(pendingItems));
-                                if (activeOrder.notes) setNotes(activeOrder.notes);
-                              } else {
-                                lastSyncedSignatureRef.current = '';
-                                setCart([]);
-                                setNotes('');
-                              }
-                            } else {
-                              lastSyncedSignatureRef.current = '';
-                              setCart([]);
-                              setNotes('');
-                            }
+                            // Always initialize cart as clean/empty for the selected table
+                            setCart([]);
+                            setNotes('');
                           }
                         }}
                         className={cn(
