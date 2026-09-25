@@ -363,15 +363,16 @@ export default function TablesPage() {
     return acc;
   }, {});
 
-  // Generate QR image when QR modal opens
+  // Generate simplified, low-density QR image when QR modal opens
   useEffect(() => {
     if (qrModalTable) {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const suffix = (qrModalTable as any).qrUrlSuffix || ((qrModalTable as any).guestSessionToken ? `?session=${(qrModalTable as any).guestSessionToken}` : '');
-      const qrUrl = `${origin}/order/${qrModalTable.qrCodeToken || qrModalTable.id}${suffix}`;
+      // Clean short permanent URL without session bloating for large, simple QR blocks
+      const qrUrl = `${origin}/order/${qrModalTable.qrCodeToken || qrModalTable.id}`;
       QRCode.toDataURL(qrUrl, {
-        width: 300,
-        margin: 2,
+        width: 320,
+        margin: 1,
+        errorCorrectionLevel: 'L',
         color: { dark: '#000000', light: '#ffffff' },
       })
         .then((url) => setQrCodeDataUrl(url))
@@ -789,9 +790,13 @@ export default function TablesPage() {
 
     const cardsHtml = await Promise.all(
       tables.map(async (t) => {
-        const suffix = (t as any).qrUrlSuffix || ((t as any).guestSessionToken ? `?session=${(t as any).guestSessionToken}` : '');
-        const url = `${origin}/order/${t.qrCodeToken || t.id}${suffix}`;
-        const qrUrl = await QRCode.toDataURL(url, { width: 200, margin: 2 });
+        const url = `${origin}/order/${t.qrCodeToken || t.id}`;
+        const qrUrl = await QRCode.toDataURL(url, {
+          width: 260,
+          margin: 1,
+          errorCorrectionLevel: 'L',
+          color: { dark: '#000000', light: '#ffffff' }
+        });
         return `
           <div class="standee">
             <h2>${t.name}</h2>

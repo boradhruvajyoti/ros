@@ -1295,34 +1295,34 @@ function TableOrderContent() {
         </main>
       )}
 
-      {/* Floating Bottom Cart Bar (Collapsed by default, expandable to view itemized list) */}
+      {/* Floating Bottom Cart Tray (Distinct Elevated Background to distinguish from Menu) */}
       {canOrder && cartList.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-3.5 bg-card/95 backdrop-blur-xl border-t border-border shadow-2xl z-40 space-y-3 animate-in slide-in-from-bottom-3 duration-200">
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-4 bg-slate-950/98 dark:bg-zinc-950/98 text-slate-100 border-t-2 border-primary/60 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] z-40 space-y-3.5 rounded-t-3xl backdrop-blur-2xl animate-in slide-in-from-bottom-3 duration-200">
           {!isCartExpanded ? (
             /* Collapsed State View */
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setIsCartExpanded(true)}
-                className="flex items-center gap-2.5 text-left flex-1 min-w-0 cursor-pointer group"
+                className="flex items-center gap-3 text-left flex-1 min-w-0 cursor-pointer group"
               >
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 relative group-hover:bg-primary/20 transition-colors">
-                  <ShoppingBag className="w-5 h-5" />
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary text-primary-foreground text-[10px] font-black rounded-full flex items-center justify-center shadow-md font-mono">
+                <div className="w-11 h-11 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary shrink-0 relative group-hover:bg-primary/30 transition-colors shadow-inner">
+                  <ShoppingBag className="w-5 h-5 text-amber-400" />
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-slate-950 text-[10px] font-black rounded-full flex items-center justify-center shadow-md font-mono">
                     {cartList.reduce((acc, c) => acc + c.qty, 0)}
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-sm font-mono text-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-base font-mono text-emerald-400">
                       {safeFormatCurrency(total)}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[11px] text-slate-400 font-medium">
                       ({cartList.reduce((acc, c) => acc + c.qty, 0)} {cartList.reduce((acc, c) => acc + c.qty, 0) === 1 ? 'item' : 'items'})
                     </span>
                   </div>
-                  <span className="text-[11px] font-bold text-primary flex items-center gap-0.5 group-hover:underline">
-                    View order details <ChevronUp className="w-3.5 h-3.5" />
+                  <span className="text-xs font-bold text-amber-400 flex items-center gap-1 group-hover:underline">
+                    View itemized tray <ChevronUp className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </button>
@@ -1333,7 +1333,7 @@ function TableOrderContent() {
                   setViewTab('LIVE_STATUS');
                 }}
                 disabled={isSubmitting}
-                className="h-11 px-4 rounded-xl font-black text-xs gap-1.5 shadow-md shadow-primary/20 cursor-pointer shrink-0"
+                className="h-11 px-4 rounded-xl font-black text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 cursor-pointer shrink-0"
               >
                 <UtensilsCrossed className="w-3.5 h-3.5" />
                 {isSubmitting ? 'Sending...' : 'Send to Kitchen'}
@@ -1342,12 +1342,12 @@ function TableOrderContent() {
           ) : (
             /* Expanded State View */
             <>
-              {/* Cart Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-border/60">
+              {/* Cart Tray Header */}
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-xs text-foreground flex items-center gap-1.5 uppercase tracking-wider">
-                    <ShoppingBag className="w-4 h-4 text-primary" />
-                    <span>Selected Dishes ({cartList.reduce((acc, c) => acc + c.qty, 0)})</span>
+                  <span className="font-black text-xs text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+                    <ShoppingBag className="w-4 h-4 text-amber-400" />
+                    <span>Itemized Cart Tray ({cartList.reduce((acc, c) => acc + c.qty, 0)})</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1358,23 +1358,23 @@ function TableOrderContent() {
                       setGuestNotes('');
                       setIsCartExpanded(false);
                     }}
-                    className="text-[11px] font-bold text-muted-foreground hover:text-rose-500 transition-colors cursor-pointer"
+                    className="text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
                   >
-                    Clear Cart
+                    Clear All
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsCartExpanded(false)}
-                    className="flex items-center gap-0.5 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                    className="flex items-center gap-0.5 text-xs font-bold text-amber-400 hover:underline cursor-pointer"
                   >
-                    <span>Hide</span>
+                    <span>Minimize</span>
                     <ChevronDown className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Itemized List of Selected Items with Title, Quantity Controls & Price */}
-              <div className="max-h-48 overflow-y-auto divide-y divide-border/50 pr-1 space-y-1">
+              {/* Itemized List of Selected Items in distinct card containers */}
+              <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
                 {cartList.map((entry) => {
                   const { item, variant, qty } = entry;
                   const unitPrice = variant?.price || item.variants?.[0]?.price || 150;
@@ -1384,17 +1384,17 @@ function TableOrderContent() {
                   return (
                     <div
                       key={item.id}
-                      className="py-2 flex items-center justify-between gap-2 text-xs"
+                      className="p-2.5 rounded-2xl bg-slate-900/90 dark:bg-zinc-900/90 border border-slate-800 dark:border-zinc-800 flex items-center justify-between gap-2 shadow-xs"
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
-                        <span className="text-[10px] shrink-0">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-1">
+                        <span className="text-[11px] shrink-0">
                           {foodType === 'NON_VEG' ? '🔴' : '🟢'}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-foreground truncate">
+                          <p className="font-bold text-slate-100 text-xs truncate">
                             {item.name}
                           </p>
-                          <p className="text-[10px] text-muted-foreground font-mono">
+                          <p className="text-[10px] text-slate-400 font-mono">
                             {variant?.name ? `${variant.name} • ` : ''}
                             {safeFormatCurrency(unitPrice)} each
                           </p>
@@ -1402,16 +1402,16 @@ function TableOrderContent() {
                       </div>
 
                       {/* Quantity Stepper & Line Price */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-xl p-0.5">
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <div className="flex items-center gap-1 bg-slate-800 dark:bg-zinc-800 border border-slate-700/80 rounded-xl p-0.5">
                           <button
                             type="button"
                             onClick={() => removeFromCart(item.id)}
-                            className="w-6 h-6 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-xs cursor-pointer hover:bg-muted"
+                            className="w-6 h-6 rounded-lg bg-slate-700/80 dark:bg-zinc-700 flex items-center justify-center text-slate-200 font-bold text-xs cursor-pointer hover:bg-slate-600"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="text-xs font-black text-primary px-1 font-mono">{qty}</span>
+                          <span className="text-xs font-black text-amber-400 px-1 font-mono">{qty}</span>
                           <button
                             type="button"
                             onClick={() => addToCart(item)}
@@ -1421,7 +1421,7 @@ function TableOrderContent() {
                           </button>
                         </div>
 
-                        <span className="font-mono font-black text-xs text-foreground min-w-[55px] text-right">
+                        <span className="font-mono font-black text-xs text-emerald-400 min-w-[55px] text-right">
                           {safeFormatCurrency(lineTotal)}
                         </span>
                       </div>
@@ -1436,22 +1436,22 @@ function TableOrderContent() {
                 placeholder="Special instructions (e.g. less spicy, no onions)..."
                 value={guestNotes}
                 onChange={(e) => setGuestNotes(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full h-9 px-3 rounded-xl border border-slate-800 bg-slate-900/90 dark:bg-zinc-900/90 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
               />
 
               {/* Subtotal / GST & Total Amount */}
-              <div className="pt-2 border-t border-border/80 flex items-center justify-between">
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                    Total ({cartList.reduce((acc, c) => acc + c.qty, 0)} items)
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                    Total Amount ({cartList.reduce((acc, c) => acc + c.qty, 0)} items)
                   </span>
                   {taxRate > 0 && gst > 0 && (
-                    <span className="text-[10px] text-muted-foreground font-mono block">
+                    <span className="text-[10px] text-slate-400 font-mono block">
                       Incl. GST ({taxRate}%): {safeFormatCurrency(gst)}
                     </span>
                   )}
                 </div>
-                <span className="font-black text-lg font-mono text-primary">
+                <span className="font-black text-xl font-mono text-emerald-400">
                   {safeFormatCurrency(total)}
                 </span>
               </div>
@@ -1463,7 +1463,7 @@ function TableOrderContent() {
                   setViewTab('LIVE_STATUS');
                 }}
                 disabled={isSubmitting}
-                className="w-full h-12 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer"
+                className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm gap-2 shadow-lg shadow-emerald-600/30 cursor-pointer"
               >
                 <UtensilsCrossed className="w-4 h-4" />
                 {isSubmitting ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}
