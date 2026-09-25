@@ -460,31 +460,13 @@ function TableOrderContent() {
     printWindow.document.close();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-bold text-muted-foreground">Loading Table Menu...</p>
-      </div>
-    );
-  }
-
-  if (error || !tableData) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <AlertCircle className="w-16 h-16 text-rose-500" />
-        <h2 className="text-xl font-bold">QR Code Expired or Invalid</h2>
-        <p className="text-sm text-muted-foreground max-w-xs">
-          Please ask your dining captain for assistance or scan the table standee again.
-        </p>
-      </div>
-    );
-  }
-
+  // Derive active order BEFORE early returns so hooks below can reference it safely
   const { table = {}, restaurant = {}, categories = [], activeOrders = [] } = tableData || {};
   const currentActiveOrder = (activeOrders && activeOrders.length > 0) ? activeOrders[0] : orderPlaced;
 
   // ── Watch order status transitions and flash notifications ─────────────────
+  // MUST be before any early returns to satisfy Rules of Hooks
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (!currentActiveOrder) {
       lastSeenStatusRef.current = null;
@@ -518,7 +500,7 @@ function TableOrderContent() {
         config = {
           title: 'Cooking in Kitchen!',
           message: 'Our kitchen team is now preparing your dishes fresh at the station.',
-          icon: '👨‍🍳',
+          icon: '👨\u200d🍳',
           type: 'info',
           bg: 'bg-emerald-950/95 text-white',
           border: 'border-emerald-500/60 shadow-emerald-500/20',
@@ -591,13 +573,11 @@ function TableOrderContent() {
           setCart({});
           setGuestNotes('');
         }
-
         setStatusFlash({
           id: `${currentStatus}-${Date.now()}`,
           orderNumber: orderNum,
           ...config,
         });
-
         playStatusChime(config.type === 'alert' ? 'alert' : config.type === 'success' ? 'success' : 'info');
       }
     } else if (!lastSeenStatusRef.current) {
@@ -606,6 +586,8 @@ function TableOrderContent() {
   }, [currentActiveOrder]);
 
   // Auto-dismiss status flash notification after 7 seconds
+  // MUST be before any early returns to satisfy Rules of Hooks
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (!statusFlash) return;
     const timer = setTimeout(() => {
@@ -613,6 +595,30 @@ function TableOrderContent() {
     }, 7000);
     return () => clearTimeout(timer);
   }, [statusFlash]);
+
+  // ── Early returns (after all hooks are declared) ────────────────────────────
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-muted-foreground">Loading Table Menu...</p>
+      </div>
+    );
+  }
+
+  if (error || !tableData) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <AlertCircle className="w-16 h-16 text-rose-500" />
+        <h2 className="text-xl font-bold">QR Code Expired or Invalid</h2>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          Please ask your dining captain for assistance or scan the table standee again.
+        </p>
+      </div>
+    );
+  }
+
+  // (currentActiveOrder & hooks already declared above, before early returns)
 
   const allItems = Array.isArray(categories)
     ? categories.flatMap((c: any) => c?.items || [])
