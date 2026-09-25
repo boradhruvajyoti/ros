@@ -1219,8 +1219,27 @@ function TableOrderContent() {
                                 const oItem = kItem.orderItem || {};
                                 const mItem = oItem.menuItem || {};
                                 const variant = oItem.variant || {};
-                                const dishName = mItem.name || oItem.name || 'Dish Item';
-                                const variantName = variant.name;
+                                const isHalfOrFull = (name?: string) => {
+                                  if (!name) return false;
+                                  const lower = name.toLowerCase().trim();
+                                  if (
+                                    lower === 'regular' ||
+                                    lower === 'regular portion' ||
+                                    lower === 'standard' ||
+                                    lower === 'default' ||
+                                    lower === 'single' ||
+                                    lower === 'normal' ||
+                                    lower === 'standard portion' ||
+                                    lower === 'portion' ||
+                                    lower.includes('regular portion')
+                                  ) {
+                                    return false;
+                                  }
+                                  return true;
+                                };
+                                const rawName = mItem.name || oItem.name || 'Dish Item';
+                                const variantName = variant.name || oItem.variantName;
+                                const dishName = isHalfOrFull(variantName) ? `${rawName} (${variantName})` : rawName;
                                 const qty = oItem.quantity || 1;
                                 const itemStatus = kItem.status || kotStatus;
                                 const isItemCancelled = itemStatus === 'CANCELLED';
@@ -1242,7 +1261,6 @@ function TableOrderContent() {
                                           {dishName}
                                         </p>
                                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                          {variantName && <span className="font-bold text-primary">{variantName}</span>}
                                           <span>Qty: <strong className="text-foreground font-mono">{qty}</strong></span>
                                           {oItem.notes && <span className="text-amber-400 italic">({oItem.notes})</span>}
                                         </div>

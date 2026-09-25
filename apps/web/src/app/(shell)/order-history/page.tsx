@@ -323,16 +323,43 @@ export default function OrderHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const isHalfOrFull = (name?: string) => {
+      if (!name) return false;
+      const lower = name.toLowerCase().trim();
+      if (
+        lower === 'regular' ||
+        lower === 'regular portion' ||
+        lower === 'standard' ||
+        lower === 'default' ||
+        lower === 'single' ||
+        lower === 'normal' ||
+        lower === 'standard portion' ||
+        lower === 'portion' ||
+        lower.includes('regular portion')
+      ) {
+        return false;
+      }
+      return true;
+    };
+
     const kots = order.kots || [];
     const kotItemsHtml = kots.flatMap((kot: any) => {
       const station = kot.kitchenStation?.name ? ` [${kot.kitchenStation.name}]` : '';
       return (kot.items || []).map((kItem: any) => {
         const oItem = kItem.orderItem || {};
+        const baseName = oItem.menuItem?.name || oItem.name || 'Dish';
+        const vName = oItem.variant?.name || oItem.variantName;
+        const itemTitle = isHalfOrFull(vName) ? `${baseName} (${vName})` : baseName;
+        const mods = Array.isArray(oItem.modifiers) && oItem.modifiers.length > 0
+          ? `<div style="font-size: 11px; font-weight: normal; color: #444;">+ ${oItem.modifiers.map((m: any) => m.name).join(', ')}</div>`
+          : '';
+        const notes = oItem.notes ? `<div style="font-size: 11px; font-style: italic; color: #c00;">Note: ${oItem.notes}</div>` : '';
+
         return `
           <tr>
-            <td style="padding: 4px 0; font-weight: bold;">${oItem.menuItem?.name || oItem.name || 'Dish'}${station}</td>
-            <td style="padding: 4px; text-align: center; font-size: 14px; font-weight: 900;">${oItem.quantity || 1}</td>
-            <td style="padding: 4px 0; text-align: right;">${kot.kotNumber ? `#${kot.kotNumber}` : ''}</td>
+            <td style="padding: 5px 0; font-weight: bold; font-size: 13px;">${itemTitle}${station}${mods}${notes}</td>
+            <td style="padding: 5px 4px; text-align: center; font-size: 15px; font-weight: 900;">${oItem.quantity || 1}</td>
+            <td style="padding: 5px 0; text-align: right; font-weight: bold;">${kot.kotNumber ? `#${kot.kotNumber}` : ''}</td>
           </tr>
         `;
       });

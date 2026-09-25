@@ -144,6 +144,27 @@ function KotCard({
           const isItemCancelled = item.status === 'CANCELLED';
           const qty = item.orderItem?.quantity || 1;
           const isMultiQty = qty > 1;
+          const isHalfOrFull = (name?: string) => {
+            if (!name) return false;
+            const lower = name.toLowerCase().trim();
+            if (
+              lower === 'regular' ||
+              lower === 'regular portion' ||
+              lower === 'standard' ||
+              lower === 'default' ||
+              lower === 'single' ||
+              lower === 'normal' ||
+              lower === 'standard portion' ||
+              lower === 'portion' ||
+              lower.includes('regular portion')
+            ) {
+              return false;
+            }
+            return true;
+          };
+          const baseName = item.orderItem?.menuItem?.name || 'Dish';
+          const vName = item.orderItem?.variant?.name;
+          const fullItemTitle = isHalfOrFull(vName) ? `${baseName} (${vName})` : baseName;
 
           return (
             <div
@@ -171,7 +192,7 @@ function KotCard({
                     'font-bold text-xl leading-snug tracking-tight',
                     isItemCancelled ? 'text-muted-foreground line-through' : 'text-foreground'
                   )}>
-                    {item.orderItem?.menuItem?.name || 'Dish'}
+                    {fullItemTitle}
                   </p>
 
                   {/* Cancel item button if KOT is before cooking */}
@@ -182,7 +203,7 @@ function KotCard({
                         onRequestCancelItem(
                           kot.id,
                           item.id,
-                          item.orderItem?.menuItem?.name || 'Dish'
+                          fullItemTitle
                         )
                       }
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0"
@@ -193,18 +214,13 @@ function KotCard({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 mt-1">
-                  {item.orderItem?.variant?.name && (
-                    <span className="text-sm font-semibold text-muted-foreground bg-muted/70 px-2 py-0.5 rounded-md">
-                      {item.orderItem?.variant?.name}
-                    </span>
-                  )}
-                  {item.orderItem?.modifiers?.length > 0 && (
+                {item.orderItem?.modifiers?.length > 0 && (
+                  <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm font-medium text-indigo-400">
                       + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {isItemCancelled && (
                   <span className="inline-block mt-1.5 px-2.5 py-0.5 rounded-md text-xs font-extrabold bg-rose-500/20 text-rose-400">
