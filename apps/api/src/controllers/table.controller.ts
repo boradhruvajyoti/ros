@@ -249,7 +249,7 @@ export class TableController {
         tenantId: table.tenantId,
         branchId: table.branchId,
         tableId: table.id,
-        status: { in: ['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN', 'PREPARING', 'READY', 'SERVED', 'BILLED', 'PARTIALLY_PAID', 'PAID'] },
+        status: { in: ['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN', 'PREPARING', 'READY', 'SERVED', 'BILLED', 'PARTIALLY_PAID'] },
       },
       include: {
         items: {

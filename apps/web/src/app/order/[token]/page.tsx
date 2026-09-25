@@ -127,6 +127,8 @@ function TableOrderContent() {
         setTableData(data.data);
         if (data.data?.activeOrders && data.data.activeOrders.length > 0) {
           setOrderPlaced(data.data.activeOrders[0]);
+        } else {
+          setOrderPlaced(null);
         }
         if (data.data?.guestSessionToken) {
           setGuestSessionToken(data.data.guestSessionToken);
@@ -159,6 +161,8 @@ function TableOrderContent() {
         setTableData(data.data);
         if (data.data?.activeOrders && data.data.activeOrders.length > 0) {
           setOrderPlaced(data.data.activeOrders[0]);
+        } else {
+          setOrderPlaced(null);
         }
         if (data.data?.guestSessionToken) {
           setGuestSessionToken(data.data.guestSessionToken);
@@ -328,7 +332,11 @@ function TableOrderContent() {
 
   // Derive active order BEFORE early returns so hooks below can reference it safely
   const { table = {}, restaurant = {}, categories = [], activeOrders = [] } = tableData || {};
-  const currentActiveOrder = (activeOrders && activeOrders.length > 0) ? activeOrders[0] : orderPlaced;
+  const currentActiveOrder = (activeOrders && activeOrders.length > 0)
+    ? activeOrders[0]
+    : (orderPlaced && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(orderPlaced.status))
+      ? orderPlaced
+      : null;
 
   // ── Watch order status transitions and flash notifications ─────────────────
   // MUST be before any early returns to satisfy Rules of Hooks
@@ -438,6 +446,7 @@ function TableOrderContent() {
         if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentStatus)) {
           setCart({});
           setGuestNotes('');
+          setOrderPlaced(null);
         }
         setStatusFlash({
           id: `${currentStatus}-${Date.now()}`,
@@ -494,7 +503,7 @@ function TableOrderContent() {
     ? allItems
     : (Array.isArray(categories) ? (categories.find((c: any) => c.id === selectedCategory)?.items || []) : []);
 
-  const hasRunningOrder = !!currentActiveOrder;
+  const hasRunningOrder = !!currentActiveOrder && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status);
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-36 max-w-lg mx-auto shadow-2xl border-x border-border relative">
