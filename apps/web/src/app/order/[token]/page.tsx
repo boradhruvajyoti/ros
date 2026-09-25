@@ -372,6 +372,12 @@ function TableOrderContent() {
         const json = await res.json();
         if (json.data) {
           setTableData(json.data);
+          if (json.data?.guestSessionToken) {
+            setGuestSessionToken((prev) => prev || json.data.guestSessionToken);
+          }
+          if (json.data?.sessionExpiresAt) {
+            setSessionExpiresAt((prev) => prev || json.data.sessionExpiresAt);
+          }
           if (json.data?.recentSettledOrder) {
             triggerPaymentSettlement(json.data.recentSettledOrder);
           }

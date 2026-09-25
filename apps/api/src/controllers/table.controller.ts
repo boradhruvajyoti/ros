@@ -282,7 +282,7 @@ export class TableController {
 
     const rawSession = (req.query.session || req.query.token || req.query.diningToken || req.headers['x-guest-session-token']) as string | undefined;
 
-    let canOrder = false;
+    let canOrder = table.status !== 'BLOCKED';
     let validSessionToken: string | null = null;
     let sessionExpiresAt: number | null = null;
 
@@ -294,11 +294,16 @@ export class TableController {
           decoded.tableId === table.id &&
           decoded.tenantId === table.tenantId
         ) {
-          canOrder = true;
           validSessionToken = rawSession;
           sessionExpiresAt = decoded.sessionExpiresAt || (decoded.exp ? decoded.exp * 1000 : null);
         }
       } catch {}
+    }
+
+    if (!validSessionToken && canOrder) {
+      const session = generateGuestSessionToken(table);
+      validSessionToken = session.guestSessionToken;
+      sessionExpiresAt = session.sessionExpiresAt;
     }
 
     const recentSettledOrder = await prisma.order.findFirst({
