@@ -342,7 +342,7 @@ export default function TablesPage() {
     queryFn: async () => {
       if (!tableOrdersModalTable) return [];
       const res = await apiGet<any>(`/orders?tableId=${tableOrdersModalTable.id}&from=${tableDateFrom}&to=${tableDateTo}&limit=300`);
-      return res?.data?.orders || res?.orders || [];
+      return res?.orders || res?.data?.orders || (Array.isArray(res) ? res : []);
     },
     enabled: Boolean(tableOrdersModalTable),
     refetchInterval: 5000,

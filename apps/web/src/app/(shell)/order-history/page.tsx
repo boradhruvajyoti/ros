@@ -52,7 +52,7 @@ export default function OrderHistoryPage() {
   });
 
   // Filter States
-  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | '7days' | '30days' | 'custom'>('today');
+  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | '7days' | '30days' | '90days' | '365days' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [selectedTableId, setSelectedTableId] = useState<string>('ALL');
@@ -89,6 +89,18 @@ export default function OrderHistoryPage() {
         dateTo: endOfDay(today).toISOString(),
       };
     }
+    if (datePreset === '90days') {
+      return {
+        dateFrom: startOfDay(subDays(today, 90)).toISOString(),
+        dateTo: endOfDay(today).toISOString(),
+      };
+    }
+    if (datePreset === '365days') {
+      return {
+        dateFrom: startOfDay(subDays(today, 365)).toISOString(),
+        dateTo: endOfDay(today).toISOString(),
+      };
+    }
     // Custom
     const start = customStartDate ? startOfDay(new Date(customStartDate)) : startOfDay(today);
     const end = customEndDate ? endOfDay(new Date(customEndDate)) : endOfDay(today);
@@ -102,8 +114,8 @@ export default function OrderHistoryPage() {
   const { data: tablesData } = useQuery({
     queryKey: ['tables-lookup'],
     queryFn: async () => {
-      const res = await apiGet('/tables');
-      return (res as any)?.data || [];
+      const res = await apiGet<any>('/tables');
+      return Array.isArray(res) ? res : res?.data || [];
     },
   });
   const tables: any[] = tablesData || [];
@@ -118,12 +130,12 @@ export default function OrderHistoryPage() {
       if (selectedTableId !== 'ALL') params.set('tableId', selectedTableId);
       if (selectedStatus !== 'ALL') params.set('status', selectedStatus);
       if (selectedType !== 'ALL') params.set('type', selectedType);
-      params.set('limit', '200');
+      params.set('limit', '300');
 
-      const res = await apiGet(`/orders?${params.toString()}`);
-      return (res as any)?.data?.orders || [];
+      const res = await apiGet<any>(`/orders?${params.toString()}`);
+      return res?.orders || res?.data?.orders || (Array.isArray(res) ? res : []);
     },
-    refetchInterval: 10000,
+    refetchInterval: 5000,
   });
 
   const orders: any[] = ordersData || [];
@@ -460,6 +472,8 @@ export default function OrderHistoryPage() {
               { id: 'yesterday', label: 'Yesterday' },
               { id: '7days', label: 'Last 7 Days' },
               { id: '30days', label: 'Last 30 Days' },
+              { id: '90days', label: 'Last 90 Days' },
+              { id: '365days', label: 'Last 365 Days' },
               { id: 'custom', label: 'Custom Calendar' },
             ].map((p) => (
               <button
