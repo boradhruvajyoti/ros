@@ -3,21 +3,25 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
-  UtensilsCrossed, Plus, Minus, ShoppingBag, CheckCircle2,
-  Clock, Sparkles, ChefHat, Phone, MapPin, AlertCircle, ArrowRight,
-  ShieldCheck, RefreshCw, Lock, Eye, Bell, X, Volume2, Download, Receipt, Printer, FileText
+  UtensilsCrossed, Plus, Minus, ShoppingBag,
+  ChefHat, MapPin, AlertCircle, ArrowRight,
+  ShieldCheck, Lock, Eye, X, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { formatCurrency } from '@ros/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
+// Self-contained currency formatter — no external package dependency
 function safeFormatCurrency(amount: any): string {
   const num = Number(amount);
-  if (isNaN(num)) return '₹0.00';
+  if (isNaN(num) || !isFinite(num)) return '₹0.00';
   try {
-    return formatCurrency(num);
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+    }).format(num);
   } catch {
     return `₹${num.toFixed(2)}`;
   }
