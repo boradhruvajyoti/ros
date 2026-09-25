@@ -229,13 +229,33 @@ function TableOrderContent() {
     : null;
 
   const storageKey = `ros_guest_session_${token}`;
+  const storageExpiryKey = `ros_guest_session_exp_${token}`;
+
+  // Helper: Get stored session only if it has NOT expired yet
+  const getValidStoredSession = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const expStr = localStorage.getItem(storageExpiryKey);
+      if (expStr) {
+        const exp = Number(expStr);
+        if (!isNaN(exp) && Date.now() > exp) {
+          localStorage.removeItem(storageKey);
+          localStorage.removeItem(storageExpiryKey);
+          return null;
+        }
+      }
+      return localStorage.getItem(storageKey);
+    } catch {
+      return null;
+    }
+  }, [storageKey, storageExpiryKey]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tableData, setTableData] = useState<any>(null);
   const [guestSessionToken, setGuestSessionToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return urlSession || localStorage.getItem(storageKey);
+      return urlSession || getValidStoredSession();
     }
     return urlSession;
   });
@@ -293,15 +313,19 @@ function TableOrderContent() {
     setOrderPlaced(null);
     try {
       localStorage.removeItem(storageKey);
+      localStorage.removeItem(storageExpiryKey);
     } catch {}
     playStatusChime('success');
   };
 
   // Sync session token into URL search params and localStorage (without page reloads)
-  const syncSessionToken = useCallback((sessToken: string) => {
+  const syncSessionToken = useCallback((sessToken: string, expMs?: number) => {
     if (!sessToken) return;
     try {
       localStorage.setItem(storageKey, sessToken);
+      if (expMs) {
+        localStorage.setItem(storageExpiryKey, String(expMs));
+      }
       if (typeof window !== 'undefined') {
         const currentUrl = new URL(window.location.href);
         if (currentUrl.searchParams.get('session') !== sessToken) {
@@ -310,14 +334,15 @@ function TableOrderContent() {
         }
       }
     } catch {}
-  }, [storageKey]);
+  }, [storageKey, storageExpiryKey]);
 
   // Initial table data load
   useEffect(() => {
     if (!token) return;
     let isMounted = true;
-    const storedSession = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
-    const sessionParam = urlSession || storedSession || guestSessionToken;
+    const validStored = getValidStoredSession();
+    // Only send session parameter if we have a valid non-expired token
+    const sessionParam = urlSession || validStored;
     const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
 
     fetch(`${API_BASE}/tables/public/qr/${token}${query}`)
@@ -330,6 +355,10 @@ function TableOrderContent() {
         setTableData(data.data);
         if (data.data?.isSessionExpired) {
           setIsLocallyExpired(true);
+          try {
+            localStorage.removeItem(storageKey);
+            localStorage.removeItem(storageExpiryKey);
+          } catch {}
         }
         if (data.data?.recentSettledOrder) {
           triggerPaymentSettlement(data.data.recentSettledOrder);
@@ -341,7 +370,7 @@ function TableOrderContent() {
         }
         if (data.data?.guestSessionToken) {
           setGuestSessionToken(data.data.guestSessionToken);
-          syncSessionToken(data.data.guestSessionToken);
+          syncSessionToken(data.data.guestSessionToken, data.data.sessionExpiresAt);
         }
         if (data.data?.sessionExpiresAt) {
           setSessionExpiresAt(data.data.sessionExpiresAt);
@@ -357,7 +386,7 @@ function TableOrderContent() {
     return () => {
       isMounted = false;
     };
-  }, [token, urlSession, storageKey, syncSessionToken]);
+  }, [token, urlSession, storageKey, storageExpiryKey, syncSessionToken, getValidStoredSession]);
 
   // Real-time 45-min Session Timer countdown (Strict non-sliding)
   useEffect(() => {
@@ -369,25 +398,27 @@ function TableOrderContent() {
       setTimeRemainingSeconds(remainingSec);
       if (remainingSec <= 0) {
         setIsLocallyExpired(true);
+        try {
+          localStorage.removeItem(storageKey);
+          localStorage.removeItem(storageExpiryKey);
+        } catch {}
       }
     };
 
     updateTimer();
     const timerInterval = setInterval(updateTimer, 1000);
     return () => clearInterval(timerInterval);
-  }, [sessionExpiresAt]);
+  }, [sessionExpiresAt, storageKey, storageExpiryKey]);
 
   // Live polling for table active orders & status updates (2s fast sync with smart visibility pause)
   useEffect(() => {
     if (!token || isLocallyExpired) return;
 
-    let isVisible = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
-
     const performSync = async () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       try {
-        const storedSession = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
-        const sessionParam = guestSessionToken || urlSession || storedSession;
+        const validStored = getValidStoredSession();
+        const sessionParam = guestSessionToken || urlSession || validStored;
         const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
         const res = await fetch(`${API_BASE}/tables/public/qr/${token}${query}`);
         if (!res.ok) return;
@@ -396,10 +427,14 @@ function TableOrderContent() {
           setTableData(json.data);
           if (json.data?.isSessionExpired) {
             setIsLocallyExpired(true);
+            try {
+              localStorage.removeItem(storageKey);
+              localStorage.removeItem(storageExpiryKey);
+            } catch {}
           }
           if (json.data?.guestSessionToken) {
             setGuestSessionToken((prev) => prev || json.data.guestSessionToken);
-            syncSessionToken(json.data.guestSessionToken);
+            syncSessionToken(json.data.guestSessionToken, json.data.sessionExpiresAt);
           }
           if (json.data?.sessionExpiresAt) {
             setSessionExpiresAt((prev) => prev || json.data.sessionExpiresAt);
@@ -436,7 +471,7 @@ function TableOrderContent() {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
-  }, [token, guestSessionToken, urlSession, isLocallyExpired, storageKey, syncSessionToken]);
+  }, [token, guestSessionToken, urlSession, isLocallyExpired, storageKey, storageExpiryKey, syncSessionToken, getValidStoredSession]);
 
   const isSessionExpired = Boolean(
     isLocallyExpired ||
@@ -786,6 +821,44 @@ function TableOrderContent() {
             </div>
           </div>
         </div>
+
+        <Button
+          onClick={() => {
+            try {
+              localStorage.removeItem(storageKey);
+              localStorage.removeItem(storageExpiryKey);
+              if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('session');
+                url.searchParams.delete('token');
+                url.searchParams.delete('diningToken');
+                window.history.replaceState({}, '', url.pathname);
+              }
+            } catch {}
+            setGuestSessionToken(null);
+            setSessionExpiresAt(null);
+            setIsLocallyExpired(false);
+            setLoading(true);
+            fetch(`${API_BASE}/tables/public/qr/${token}`)
+              .then((res) => res.json())
+              .then((data) => {
+                setTableData(data.data);
+                if (data.data?.guestSessionToken) {
+                  setGuestSessionToken(data.data.guestSessionToken);
+                  syncSessionToken(data.data.guestSessionToken, data.data.sessionExpiresAt);
+                }
+                if (data.data?.sessionExpiresAt) {
+                  setSessionExpiresAt(data.data.sessionExpiresAt);
+                }
+                setLoading(false);
+              })
+              .catch(() => setLoading(false));
+          }}
+          className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg cursor-pointer"
+        >
+          <span>📱</span>
+          <span>Scanned Table QR • Unlock &amp; Start Session</span>
+        </Button>
 
         {tableData?.restaurant && (
           <div className="pt-2 text-center text-xs text-muted-foreground space-y-0.5">
