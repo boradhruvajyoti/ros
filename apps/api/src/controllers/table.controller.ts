@@ -285,6 +285,7 @@ export class TableController {
     let canOrder = table.status !== 'BLOCKED';
     let validSessionToken: string | null = null;
     let sessionExpiresAt: number | null = null;
+    let isSessionExpired = false;
 
     if (rawSession && typeof rawSession === 'string') {
       try {
@@ -294,19 +295,31 @@ export class TableController {
           decoded.tableId === table.id &&
           decoded.tenantId === table.tenantId
         ) {
-          validSessionToken = rawSession;
-          sessionExpiresAt = decoded.sessionExpiresAt || (decoded.exp ? decoded.exp * 1000 : null);
+          const expMs = decoded.sessionExpiresAt || (decoded.exp ? decoded.exp * 1000 : null);
+          if (expMs && Date.now() > expMs) {
+            isSessionExpired = true;
+            canOrder = false;
+            sessionExpiresAt = expMs;
+          } else {
+            validSessionToken = rawSession;
+            sessionExpiresAt = expMs;
+          }
         }
-      } catch {}
+      } catch (err: any) {
+        if (err?.name === 'TokenExpiredError') {
+          isSessionExpired = true;
+          canOrder = false;
+        }
+      }
     }
 
-    if (!validSessionToken && canOrder) {
+    if (!validSessionToken && !isSessionExpired && canOrder) {
       const session = generateGuestSessionToken(table);
       validSessionToken = session.guestSessionToken;
       sessionExpiresAt = session.sessionExpiresAt;
     }
 
-    const recentSettledOrder = await prisma.order.findFirst({
+    const recentSettledOrder = (!isSessionExpired && canOrder) ? await prisma.order.findFirst({
       where: {
         tenantId: table.tenantId,
         branchId: table.branchId,
@@ -324,10 +337,11 @@ export class TableController {
         },
       },
       orderBy: { updatedAt: 'desc' },
-    });
+    }) : null;
 
     sendSuccess(res, {
-      canOrder,
+      canOrder: !isSessionExpired && canOrder,
+      isSessionExpired,
       guestSessionToken: validSessionToken,
       sessionExpiresAt,
       sessionDurationMinutes: 45,
@@ -346,9 +360,9 @@ export class TableController {
         address: table.branch.address,
         phone: table.branch.phone,
       },
-      categories,
-      activeOrders: canOrder ? activeOrders : [],
-      recentSettledOrder: canOrder ? recentSettledOrder : null,
+      categories: isSessionExpired ? [] : categories,
+      activeOrders: (!isSessionExpired && canOrder) ? activeOrders : [],
+      recentSettledOrder,
     });
   }
 

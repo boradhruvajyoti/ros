@@ -7,7 +7,7 @@ import {
   ChefHat, MapPin, AlertCircle, ArrowRight,
   ShieldCheck, Lock, Eye, X, Ban,
   ChevronUp, ChevronDown, Download, CheckCircle2,
-  ExternalLink, Receipt, Sparkles, Search
+  ExternalLink, Receipt, Sparkles, Search, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -228,16 +228,29 @@ function TableOrderContent() {
     ? (searchParams.get('session') || searchParams.get('token') || searchParams.get('diningToken'))
     : null;
 
+  const storageKey = `ros_guest_session_${token}`;
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tableData, setTableData] = useState<any>(null);
-  const [guestSessionToken, setGuestSessionToken] = useState<string | null>(null);
+  const [guestSessionToken, setGuestSessionToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return urlSession || localStorage.getItem(storageKey);
+    }
+    return urlSession;
+  });
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(45 * 60);
+  const [isLocallyExpired, setIsLocallyExpired] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [foodFilter, setFoodFilter] = useState<'ALL' | 'VEG' | 'NON_VEG'>('ALL');
-  const [cart, setCart] = useState<{ [itemId: string]: { item: any; variant: any; qty: number } }>({});
+  
+  // Selected variant per item ID: { [itemId]: variantId }
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  
+  // Cart keyed by item + variant: { [cartKey]: { item, variant, qty } }
+  const [cart, setCart] = useState<{ [cartKey: string]: { item: any; variant: any; qty: number } }>({});
   const [guestNotes, setGuestNotes] = useState('');
   const [isCartExpanded, setIsCartExpanded] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -253,6 +266,20 @@ function TableOrderContent() {
   const lastSeenStatusRef = useRef<string | null>(null);
   const isInitialStatusLoadRef = useRef<boolean>(true);
 
+  const getCartKey = (itemId: string, variantId?: string) => {
+    return `${itemId}_${variantId || 'std'}`;
+  };
+
+  const getActiveVariant = useCallback((item: any) => {
+    if (!item?.variants || item.variants.length === 0) return null;
+    const selectedId = selectedVariants[item.id];
+    if (selectedId) {
+      const found = item.variants.find((v: any) => v.id === selectedId);
+      if (found) return found;
+    }
+    return item.variants[0];
+  }, [selectedVariants]);
+
   const triggerPaymentSettlement = (settledOrder: any) => {
     if (!settledOrder || !settledOrder.id) return;
     if (handledPaidOrderIdsRef.current.has(settledOrder.id)) return;
@@ -264,49 +291,33 @@ function TableOrderContent() {
     setCart({});
     setGuestNotes('');
     setOrderPlaced(null);
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
     playStatusChime('success');
   };
 
-  const fetchTableData = () => {
-    if (!token) return;
-    setLoading(true);
-    const sessionParam = urlSession || guestSessionToken;
-    const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
-
-    fetch(`${API_BASE}/tables/public/qr/${token}${query}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Table QR token not found or expired');
-        return res.json();
-      })
-      .then((data) => {
-        setTableData(data.data);
-        if (data.data?.recentSettledOrder) {
-          triggerPaymentSettlement(data.data.recentSettledOrder);
+  // Sync session token into URL search params and localStorage (without page reloads)
+  const syncSessionToken = useCallback((sessToken: string) => {
+    if (!sessToken) return;
+    try {
+      localStorage.setItem(storageKey, sessToken);
+      if (typeof window !== 'undefined') {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('session') !== sessToken) {
+          currentUrl.searchParams.set('session', sessToken);
+          window.history.replaceState({}, '', currentUrl.toString());
         }
-        if (data.data?.activeOrders && data.data.activeOrders.length > 0) {
-          setOrderPlaced(data.data.activeOrders[0]);
-        } else {
-          setOrderPlaced(null);
-        }
-        if (data.data?.guestSessionToken) {
-          setGuestSessionToken(data.data.guestSessionToken);
-        }
-        if (data.data?.sessionExpiresAt) {
-          setSessionExpiresAt(data.data.sessionExpiresAt);
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || 'Could not load table menu');
-        setLoading(false);
-      });
-  };
+      }
+    } catch {}
+  }, [storageKey]);
 
   // Initial table data load
   useEffect(() => {
     if (!token) return;
     let isMounted = true;
-    const sessionParam = urlSession;
+    const storedSession = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+    const sessionParam = urlSession || storedSession || guestSessionToken;
     const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
 
     fetch(`${API_BASE}/tables/public/qr/${token}${query}`)
@@ -317,6 +328,9 @@ function TableOrderContent() {
       .then((data) => {
         if (!isMounted) return;
         setTableData(data.data);
+        if (data.data?.isSessionExpired) {
+          setIsLocallyExpired(true);
+        }
         if (data.data?.recentSettledOrder) {
           triggerPaymentSettlement(data.data.recentSettledOrder);
         }
@@ -327,6 +341,7 @@ function TableOrderContent() {
         }
         if (data.data?.guestSessionToken) {
           setGuestSessionToken(data.data.guestSessionToken);
+          syncSessionToken(data.data.guestSessionToken);
         }
         if (data.data?.sessionExpiresAt) {
           setSessionExpiresAt(data.data.sessionExpiresAt);
@@ -342,9 +357,9 @@ function TableOrderContent() {
     return () => {
       isMounted = false;
     };
-  }, [token, urlSession]);
+  }, [token, urlSession, storageKey, syncSessionToken]);
 
-  // Real-time 45-min Session Timer countdown
+  // Real-time 45-min Session Timer countdown (Strict non-sliding)
   useEffect(() => {
     if (!sessionExpiresAt) return;
 
@@ -352,6 +367,9 @@ function TableOrderContent() {
       const remainingMs = sessionExpiresAt - Date.now();
       const remainingSec = Math.max(0, Math.floor(remainingMs / 1000));
       setTimeRemainingSeconds(remainingSec);
+      if (remainingSec <= 0) {
+        setIsLocallyExpired(true);
+      }
     };
 
     updateTimer();
@@ -361,19 +379,24 @@ function TableOrderContent() {
 
   // Live polling for table active orders & status updates (2s fast sync)
   useEffect(() => {
-    if (!token) return;
+    if (!token || isLocallyExpired) return;
 
     const interval = setInterval(async () => {
       try {
-        const sessionParam = guestSessionToken || urlSession;
+        const storedSession = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+        const sessionParam = guestSessionToken || urlSession || storedSession;
         const query = sessionParam ? `?session=${encodeURIComponent(sessionParam)}` : '';
         const res = await fetch(`${API_BASE}/tables/public/qr/${token}${query}`);
         if (!res.ok) return;
         const json = await res.json();
         if (json.data) {
           setTableData(json.data);
+          if (json.data?.isSessionExpired) {
+            setIsLocallyExpired(true);
+          }
           if (json.data?.guestSessionToken) {
             setGuestSessionToken((prev) => prev || json.data.guestSessionToken);
+            syncSessionToken(json.data.guestSessionToken);
           }
           if (json.data?.sessionExpiresAt) {
             setSessionExpiresAt((prev) => prev || json.data.sessionExpiresAt);
@@ -393,41 +416,50 @@ function TableOrderContent() {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [token, guestSessionToken, urlSession]);
+  }, [token, guestSessionToken, urlSession, isLocallyExpired, storageKey, syncSessionToken]);
 
-  const isSessionExpired = sessionExpiresAt ? Date.now() > sessionExpiresAt : false;
+  const isSessionExpired = Boolean(
+    isLocallyExpired ||
+    tableData?.isSessionExpired ||
+    (sessionExpiresAt ? Date.now() > sessionExpiresAt : false)
+  );
+  
   const canOrder = Boolean(tableData?.canOrder && guestSessionToken && !isSessionExpired);
   const minutesLeft = Math.floor(timeRemainingSeconds / 60);
   const secondsLeft = timeRemainingSeconds % 60;
 
-  const addToCart = (item: any) => {
+  const addToCart = (item: any, specificVariant?: any) => {
     if (!canOrder) {
       alert('Please scan the QR code at your dining table to unlock ordering.');
       return;
     }
-    const variant = item.variants?.[0];
+    const variant = specificVariant || getActiveVariant(item);
+    const cartKey = getCartKey(item.id, variant?.id);
     setCart((prev) => {
-      const existing = prev[item.id];
+      const existing = prev[cartKey];
       const nextQty = existing ? existing.qty + 1 : 1;
-      return { ...prev, [item.id]: { item, variant, qty: nextQty } };
+      return { ...prev, [cartKey]: { item, variant, qty: nextQty } };
     });
   };
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = (cartKey: string) => {
     setCart((prev) => {
       const copy = { ...prev };
-      if (!copy[itemId]) return prev;
-      if (copy[itemId].qty > 1) {
-        copy[itemId].qty--;
+      if (!copy[cartKey]) return prev;
+      if (copy[cartKey].qty > 1) {
+        copy[cartKey].qty--;
       } else {
-        delete copy[itemId];
+        delete copy[cartKey];
       }
       return copy;
     });
   };
 
   const cartList = Object.values(cart);
-  const subtotal = cartList.reduce((acc, c) => acc + (c.variant?.price || 0) * c.qty, 0);
+  const subtotal = cartList.reduce((acc, c) => {
+    const itemPrice = c.variant?.price || c.item?.variants?.[0]?.price || 0;
+    return acc + itemPrice * c.qty;
+  }, 0);
 
   const taxRate = (() => {
     try {
@@ -474,6 +506,7 @@ function TableOrderContent() {
       setOrderPlaced(json.data);
       if (json.data?.guestSessionToken) {
         setGuestSessionToken(json.data.guestSessionToken);
+        syncSessionToken(json.data.guestSessionToken);
       }
       if (json.data?.sessionExpiresAt) {
         setSessionExpiresAt(json.data.sessionExpiresAt);
@@ -509,8 +542,6 @@ function TableOrderContent() {
       : null;
 
   // ── Watch order status transitions and flash notifications ─────────────────
-  // MUST be before any early returns to satisfy Rules of Hooks
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (!currentActiveOrder) {
       lastSeenStatusRef.current = null;
@@ -544,7 +575,7 @@ function TableOrderContent() {
         config = {
           title: 'Cooking in Kitchen!',
           message: 'Our kitchen team is now preparing your dishes fresh at the station.',
-          icon: '👨\u200d🍳',
+          icon: '👨‍🍳',
           type: 'info',
           bg: 'bg-emerald-950/95 text-white',
           border: 'border-emerald-500/60 shadow-emerald-500/20',
@@ -663,10 +694,6 @@ function TableOrderContent() {
     return map;
   }, [tableData?.activeOrders, orderPlaced]);
 
-  const allItems = Array.isArray(categories)
-    ? categories.flatMap((c: any) => c?.items || [])
-    : [];
-
   const processedCategories = useMemo(() => {
     if (!Array.isArray(categories)) return [];
     return categories.map((cat: any) => {
@@ -694,6 +721,58 @@ function TableOrderContent() {
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         <p className="text-sm font-bold text-muted-foreground">Loading Table Menu...</p>
+      </div>
+    );
+  }
+
+  // ── STRICT NON-SLIDING 45-MINUTE SESSION EXPIRED SCREEN ──────────────────────────
+  if (isSessionExpired || tableData?.isSessionExpired) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center space-y-6 max-w-md mx-auto relative overflow-hidden">
+        {/* Ambient Glow */}
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative">
+          <div className="w-24 h-24 rounded-3xl bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center text-4xl shadow-xl shadow-rose-500/10">
+            ⏳
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center text-sm shadow-md border-2 border-background">
+            <Lock className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <span className="text-[11px] font-black uppercase tracking-wider text-rose-500 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-full">
+            45-Minute Session Expired
+          </span>
+          <h1 className="text-2xl font-black text-foreground pt-1">
+            Dining Window Ended
+          </h1>
+          <p className="text-xs text-muted-foreground leading-relaxed px-4">
+            For security and dining management, this table session has expired. The digital menu is locked and orders cannot be placed from this link.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-card border border-border w-full space-y-3 text-left shadow-sm">
+          <div className="flex items-start gap-3 text-xs">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 text-lg border border-primary/20">
+              📱
+            </div>
+            <div className="space-y-0.5">
+              <p className="font-black text-foreground">Scan Table Standee Again</p>
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                Please visit <strong>{tableData?.restaurant?.name || 'the restaurant'}</strong> and re-scan the physical QR standee at your table to initiate a fresh session.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {tableData?.restaurant && (
+          <div className="pt-2 text-center text-xs text-muted-foreground space-y-0.5">
+            <p className="font-black text-foreground">{tableData.restaurant.name}</p>
+            {tableData.restaurant.branchName && <p className="text-[11px]">{tableData.restaurant.branchName}</p>}
+          </div>
+        )}
       </div>
     );
   }
@@ -1091,7 +1170,7 @@ function TableOrderContent() {
                                           {dishName}
                                         </p>
                                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                          {variantName && <span>{variantName}</span>}
+                                          {variantName && <span className="font-bold text-primary">{variantName}</span>}
                                           <span>Qty: <strong className="text-foreground font-mono">{qty}</strong></span>
                                           {oItem.notes && <span className="text-amber-400 italic">({oItem.notes})</span>}
                                         </div>
@@ -1342,84 +1421,139 @@ function TableOrderContent() {
                   <div className="space-y-2.5">
                     {cat.items.map((item: any) => {
                       const orderedQty = orderedQuantitiesByItemId[item.id] || 0;
-                      const inCart = cart[item.id];
-                      const price = item.variants?.[0]?.price || 150;
+                      const activeVariant = getActiveVariant(item);
+                      const activeVariantPrice = activeVariant?.price || item.variants?.[0]?.price || 0;
+                      const activeCartKey = getCartKey(item.id, activeVariant?.id);
+                      const inCart = cart[activeCartKey];
+                      const hasMultipleVariants = Array.isArray(item.variants) && item.variants.length > 1;
 
                       return (
                         <div
                           key={item.id}
                           className={cn(
-                            "p-3.5 rounded-3xl bg-card border flex items-center justify-between gap-3 shadow-xs hover:border-primary/40 transition-all",
+                            "p-3.5 rounded-3xl bg-card border flex flex-col gap-2.5 shadow-xs hover:border-primary/40 transition-all",
                             orderedQty > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-border"
                           )}
                         >
-                          <div className="space-y-1 flex-1 min-w-0 pr-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs shrink-0">
-                                {item.foodType === 'VEG' ? '🟢' : item.foodType === 'NON_VEG' ? '🔴' : '🟡'}
-                              </span>
-                              <h3 className="text-sm font-bold text-foreground truncate">{item.name}</h3>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1 flex-1 min-w-0 pr-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs shrink-0">
+                                  {item.foodType === 'VEG' ? '🟢' : item.foodType === 'NON_VEG' ? '🔴' : '🟡'}
+                                </span>
+                                <h3 className="text-sm font-bold text-foreground truncate">{item.name}</h3>
+                              </div>
+
+                              {item.description && (
+                                <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
+                              )}
+
+                              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                                <span className="text-xs font-black text-primary font-mono">
+                                  {safeFormatCurrency(activeVariantPrice)}
+                                </span>
+
+                                {/* Retained Ordered Quantity Badge on the Main Menu */}
+                                {orderedQty > 0 && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black font-mono shadow-2xs">
+                                    <span>🍳</span>
+                                    <span>{orderedQty} in Kitchen</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
-                            {item.description && (
-                              <p className="text-[11px] text-muted-foreground line-clamp-1">{item.description}</p>
-                            )}
-
-                            <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                              <span className="text-xs font-black text-primary font-mono">{safeFormatCurrency(price)}</span>
-
-                              {/* Retained Ordered Quantity Badge on the Main Menu */}
-                              {orderedQty > 0 && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black font-mono shadow-2xs">
-                                  <span>🍳</span>
-                                  <span>{orderedQty} in Kitchen</span>
+                            {/* Ordering Controls vs View-Only Badge */}
+                            <div className="shrink-0 pt-0.5">
+                              {canOrder ? (
+                                inCart ? (
+                                  <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeFromCart(activeCartKey)}
+                                      className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer hover:bg-muted transition-colors"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="text-xs font-black text-primary px-1 font-mono">{inCart.qty}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => addToCart(item, activeVariant)}
+                                      className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-primary/90 transition-colors"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => addToCart(item, activeVariant)}
+                                    className={cn(
+                                      "h-8 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all",
+                                      orderedQty > 0
+                                        ? "bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/40"
+                                        : "bg-primary text-primary-foreground"
+                                    )}
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>{orderedQty > 0 ? 'Add More' : 'Add'}</span>
+                                  </Button>
+                                )
+                              ) : (
+                                <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-xl border border-border">
+                                  View Only
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Ordering Controls vs View-Only Badge */}
-                          <div className="shrink-0">
-                            {canOrder ? (
-                              inCart ? (
-                                <div className="flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-xl p-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => removeFromCart(item.id)}
-                                    className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-sm cursor-pointer hover:bg-muted transition-colors"
-                                  >
-                                    <Minus className="w-3.5 h-3.5" />
-                                  </button>
-                                  <span className="text-xs font-black text-primary px-1 font-mono">{inCart.qty}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => addToCart(item)}
-                                    className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-primary/90 transition-colors"
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => addToCart(item)}
-                                  className={cn(
-                                    "h-8 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all",
-                                    orderedQty > 0
-                                      ? "bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/40"
-                                      : "bg-primary text-primary-foreground"
-                                  )}
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                  <span>{orderedQty > 0 ? 'Add More' : 'Add'}</span>
-                                </Button>
-                              )
-                            ) : (
-                              <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-xl border border-border">
-                                View Only
+                          {/* ── HALF / FULL PORTION VARIANT TOGGLE PILLS ────────────── */}
+                          {hasMultipleVariants && (
+                            <div className="pt-1 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                Portion:
                               </span>
-                            )}
-                          </div>
+                              <div className="flex items-center gap-1 p-0.5 bg-muted/80 rounded-xl border border-border">
+                                {item.variants.map((v: any) => {
+                                  const isSelected = activeVariant?.id === v.id;
+                                  const vCartKey = getCartKey(item.id, v.id);
+                                  const vQty = cart[vCartKey]?.qty || 0;
+
+                                  return (
+                                    <button
+                                      key={v.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedVariants((prev) => ({ ...prev, [item.id]: v.id }));
+                                      }}
+                                      className={cn(
+                                        "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 font-mono",
+                                        isSelected
+                                          ? "bg-primary text-primary-foreground shadow-xs font-black"
+                                          : "text-muted-foreground hover:text-foreground hover:bg-card"
+                                      )}
+                                    >
+                                      <span>{v.name}</span>
+                                      <span className={cn(
+                                        "text-[10px]",
+                                        isSelected ? "text-primary-foreground/90 font-bold" : "text-muted-foreground"
+                                      )}>
+                                        ({safeFormatCurrency(v.price)})
+                                      </span>
+                                      {vQty > 0 && (
+                                        <span className={cn(
+                                          "w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center ml-0.5",
+                                          isSelected ? "bg-white text-primary" : "bg-primary text-white"
+                                        )}>
+                                          {vQty}
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1521,13 +1655,14 @@ function TableOrderContent() {
               <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
                 {cartList.map((entry) => {
                   const { item, variant, qty } = entry;
-                  const unitPrice = variant?.price || item.variants?.[0]?.price || 150;
+                  const unitPrice = variant?.price || item.variants?.[0]?.price || 0;
                   const lineTotal = unitPrice * qty;
                   const foodType = item.foodType || 'VEG';
+                  const rowCartKey = getCartKey(item.id, variant?.id);
 
                   return (
                     <div
-                      key={item.id}
+                      key={rowCartKey}
                       className="p-2.5 rounded-2xl bg-slate-900/90 dark:bg-zinc-900/90 border border-slate-800 dark:border-zinc-800 flex items-center justify-between gap-2 shadow-xs"
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0 pr-1">
@@ -1539,7 +1674,7 @@ function TableOrderContent() {
                             {item.name}
                           </p>
                           <p className="text-[10px] text-slate-400 font-mono">
-                            {variant?.name ? `${variant.name} • ` : ''}
+                            {variant?.name ? <strong className="text-amber-400 font-bold">{variant.name} • </strong> : ''}
                             {safeFormatCurrency(unitPrice)} each
                           </p>
                         </div>
@@ -1550,18 +1685,18 @@ function TableOrderContent() {
                         <div className="flex items-center gap-1 bg-slate-800 dark:bg-zinc-800 border border-slate-700/80 rounded-xl p-0.5">
                           <button
                             type="button"
-                            onClick={() => removeFromCart(item.id)}
+                            onClick={() => removeFromCart(rowCartKey)}
                             className="w-6 h-6 rounded-lg bg-slate-700/80 dark:bg-zinc-700 flex items-center justify-center text-slate-200 font-bold text-xs cursor-pointer hover:bg-slate-600"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-3.5 h-3.5" />
                           </button>
                           <span className="text-xs font-black text-amber-400 px-1 font-mono">{qty}</span>
                           <button
                             type="button"
-                            onClick={() => addToCart(item)}
+                            onClick={() => addToCart(item, variant)}
                             className="w-6 h-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs cursor-pointer hover:bg-primary/90"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
@@ -1684,7 +1819,7 @@ function TableOrderContent() {
                       .map((it: any, idx: number) => (
                         <div key={idx} className="flex justify-between py-1 text-[11px]">
                           <span className="truncate flex-1 pr-2">
-                            {it.quantity || 1}x {it.menuItem?.name || it.name || 'Dish'}
+                            {it.quantity || 1}x {it.menuItem?.name || it.name || 'Dish'} {it.variant?.name ? `(${it.variant.name})` : ''}
                           </span>
                           <span className="font-mono font-bold text-foreground shrink-0">
                             {safeFormatCurrency(
@@ -1761,3 +1896,4 @@ export default function PublicTableOrderPage() {
     </Suspense>
   );
 }
+
