@@ -272,8 +272,9 @@ export default function POSPage() {
     }
   }, [tableParam, orderParam, tables]);
 
-  // ── Real-time Live Order Sync for Selected Table ─────────────────────────
-  // Whenever activeOrders updates (via socket or fast polling), reflect guest QR additions live in POS cart
+  // ── Real-time Live Order Sync for Selected Table ──────────────────────────
+  // Syncs guest QR additions into POS cart ONLY while order is in DRAFT/CONFIRMED phase
+  // Once KOT is sent to kitchen the cart is intentionally blank for the next round
   useEffect(() => {
     if (!selectedTable && !orderParam) {
       lastSyncedSignatureRef.current = '';
@@ -288,26 +289,32 @@ export default function POSPage() {
       return;
     }
 
-    // Deterministic signature based on order ID, status, notes, item counts, item IDs, and quantities
-    const itemsSig = Array.isArray(currentOrder.items)
-      ? currentOrder.items
-          .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
-          .sort()
-          .join('|')
-      : '';
+    // Only sync the cart from the server when the order is still in DRAFT/CONFIRMED phase
+    // (i.e. items are still being staged, not yet sent to kitchen)
+    // After KOT sent, cart is blank intentionally for the next running round
+    const isDraftPhase = ['DRAFT', 'CONFIRMED'].includes(currentOrder.status);
+    const pendingItems = Array.isArray(currentOrder.items)
+      ? currentOrder.items.filter((it: any) => (it.status || 'PENDING') === 'PENDING')
+      : [];
+
+    // Deterministic signature based on order ID, status, pending item counts
+    const itemsSig = pendingItems
+      .map((it: any) => `${it.id || it.menuItemId}:${it.quantity}:${it.variantId || ''}:${it.unitPrice}`)
+      .sort()
+      .join('|');
     const serverSignature = `${currentOrder.id}_${currentOrder.status}_${currentOrder.notes || ''}_${itemsSig}`;
 
-    // If server signature changed, update the active cart
-    if (lastSyncedSignatureRef.current !== serverSignature) {
+    // Only auto-sync the cart if we're in draft phase and signature changed
+    if (isDraftPhase && lastSyncedSignatureRef.current !== serverSignature) {
       const prevSig = lastSyncedSignatureRef.current;
       lastSyncedSignatureRef.current = serverSignature;
 
-      if (Array.isArray(currentOrder.items)) {
-        const newCart = convertOrderItemsToCart(currentOrder.items);
+      if (pendingItems.length > 0) {
+        const newCart = convertOrderItemsToCart(pendingItems);
         setCart(newCart);
         if (currentOrder.notes) setNotes(currentOrder.notes);
 
-        // Notify staff if this was an incoming live update while on the table
+        // Notify staff only on live incoming update (not initial load)
         if (prevSig && prevSig !== '' && !isInitialLoadRef.current) {
           try {
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -325,7 +332,13 @@ export default function POSPage() {
           } catch {}
           toast.success('Live Order Updated', `Guest added new item(s) on ${selectedTableName || 'Table'} QR menu!`);
         }
+      } else if (isDraftPhase && pendingItems.length === 0 && !isInitialLoadRef.current) {
+        // Order is draft/confirmed but has no pending items — keep cart as is
       }
+    } else if (!isDraftPhase) {
+      // Order is in kitchen / served — do not overwrite the blank cart for next round
+      // Update signature to avoid re-triggering on re-renders
+      lastSyncedSignatureRef.current = serverSignature;
     }
 
     if (isInitialLoadRef.current) {
@@ -546,13 +559,16 @@ export default function POSPage() {
       });
     },
     onSuccess: (order: any) => {
-      toast.success('Order Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} placed successfully`);
+      toast.success('KOT Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} sent — table stays open for more rounds.`);
+      // Clear cart and notes but KEEP the table selected so staff can add another running KOT
       setCart([]);
       setNotes('');
-      setSelectedTable(null);
-      setSelectedTableName(null);
+      // Do NOT deselect table — staff can immediately add another round
       setShowFastPayModal(false);
       setCashTendered(null);
+      // Reset sync ref so next server state is picked up cleanly
+      lastSyncedSignatureRef.current = '';
+      isInitialLoadRef.current = true;
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['active-orders'] });

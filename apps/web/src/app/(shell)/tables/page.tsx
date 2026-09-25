@@ -150,6 +150,8 @@ function checkCanMarkPaid(order: any): { canPay: boolean; reason?: string } {
   if (['DRAFT', 'CONFIRMED'].includes(order.status)) {
     return { canPay: false, reason: 'Order must be sent to kitchen first' };
   }
+  // Always check KOT progress first — even if order status is SERVED,
+  // a new running round may have added unserved KOTs
   const { total, served, allServed } = getOrderKotProgress(order);
   if (total > 0 && !allServed) {
     return {
@@ -157,6 +159,7 @@ function checkCanMarkPaid(order: any): { canPay: boolean; reason?: string } {
       reason: `Kitchen in progress: ${served}/${total} KOTs marked as Served. All KOTs (including running rounds) must be served before billing.`,
     };
   }
+  // After KOT guard passes, verify order-level status
   if (!['SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(order.status)) {
     return {
       canPay: false,
@@ -1145,6 +1148,7 @@ export default function TablesPage() {
                           );
                         }
 
+                        // For SERVED / BILLED / PARTIALLY_PAID — check if all KOTs (including running rounds) are served
                         const payCheck = checkCanMarkPaid(order);
                         return (
                           <Button

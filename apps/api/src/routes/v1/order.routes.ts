@@ -26,7 +26,7 @@ router.post('/:id/discount',     requirePermission('discount:apply'), asyncHandl
 router.post('/:id/payments',     requirePermission('payments:create'), asyncHandler(OrderController.addPayment));
 router.post('/:id/refund',       requirePermission('orders:refund'), asyncHandler(OrderController.refund));
 router.get('/:id/invoice',       requirePermission('orders:view'),   asyncHandler(OrderController.getInvoice));
-router.post('/:id/kots',         requirePermission('orders:edit'),   asyncHandler(OrderController.sendToKitchen));
+router.post('/:id/kots',         requirePermission('orders:edit'),   asyncHandler(OrderController.addRunningKot));
 router.get('/:id/kots',          requirePermission('kitchen:view'),  asyncHandler(OrderController.getKots));
 
 export default router;

@@ -293,13 +293,29 @@ export class OrderController {
     pdf.end();
   }
 
-  static async sendToKitchen(req: Request, res: Response): Promise<void> {
+  static async addRunningKot(req: Request, res: Response): Promise<void> {
+    const dto = z.object({
+      items: z.array(z.object({
+        menuItemId: z.string(),
+        variantId: z.string().optional(),
+        quantity: z.number().int().positive().max(999),
+        unitPrice: z.number().nonnegative().optional(),
+        notes: z.string().max(500).optional(),
+        modifierIds: z.array(z.string()).optional(),
+      })).min(1),
+    }).parse(req.body);
+
     const svc = getOrderService(req);
-    const order = await svc.updateStatus(req.params.id, {
-      status: 'SENT_TO_KITCHEN',
-      userId: req.user!.sub,
+    const order = await svc.addRunningKot(req.params.id, dto.items, req.user!.sub);
+
+    await writeAuditLog(req, {
+      action: AuditActions.ORDER_UPDATE,
+      entity: 'Order',
+      entityId: req.params.id,
+      newValue: { runningKot: true, itemCount: dto.items.length },
     });
-    sendSuccess(res, order);
+
+    sendSuccess(res, order, 201);
   }
 
   static async getKots(req: Request, res: Response): Promise<void> {

@@ -757,6 +757,156 @@ export class OrderService {
     }
   }
 
+  // ── Add Running KOT (new round of items on an in-progress order) ──────────
+  // Called when guests place another round or staff add items after first KOT dispatched
+  async addRunningKot(
+    orderId: string,
+    items: Array<{ menuItemId: string; variantId?: string; quantity: number; unitPrice?: number; notes?: string; modifierIds?: string[] }>,
+    userId: string
+  ): Promise<any> {
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tenantId: this.tenantId },
+      include: { payments: { where: { status: 'COMPLETED' } } },
+    });
+    if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
+
+    // Cannot add items to a completed/paid/cancelled order
+    if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED', 'REFUNDED'].includes(order.status)) {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        `Cannot add items to an order in status ${order.status}.`,
+        400
+      );
+    }
+
+    const menuItemIds = items.map((i) => i.menuItemId);
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds }, tenantId: this.tenantId },
+      include: { variants: true },
+    });
+    const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
+
+    const allModifierIds = items.flatMap((i) => i.modifierIds || []);
+    const modifiers = allModifierIds.length > 0
+      ? await prisma.modifier.findMany({ where: { id: { in: allModifierIds } } })
+      : [];
+    const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
+
+    let addedSubtotal = 0;
+    const newItemsData: Array<{ menuItemId: string; variantId: string | null; quantity: number; unitPrice: number; lineTotal: number; notes?: string; kitchenStationId: string | null; modifiers: Array<{ modifierId: string; name: string; price: number }> }> = [];
+
+    for (const item of items) {
+      const menuItem = menuItemMap.get(item.menuItemId);
+      if (!menuItem) throw new AppError(ErrorCodes.NOT_FOUND, `Menu item ${item.menuItemId} not found`);
+
+      let variant = null;
+      if (item.variantId && !item.variantId.startsWith('v-')) {
+        variant = menuItem.variants.find((v) => v.id === item.variantId) || null;
+      }
+      if (!variant && menuItem.variants.length > 0) variant = menuItem.variants[0];
+
+      const itemModifiers = (item.modifierIds || []).map((mid) => {
+        const mod = modifierMap.get(mid);
+        if (!mod) throw new AppError(ErrorCodes.NOT_FOUND, `Modifier ${mid} not found`);
+        return { modifierId: mod.id, name: mod.name, price: toAmount(mod.price) };
+      });
+
+      const modifierTotal = itemModifiers.reduce((s, m) => addAmounts(s, m.price), 0);
+      const fallbackPrice = Number(item.unitPrice ?? (menuItem as any).basePrice ?? (menuItem as any).price ?? 0);
+      const unitPrice = variant ? toAmount(addAmounts(variant.price, modifierTotal)) : toAmount(fallbackPrice + modifierTotal);
+      const lineTotal = multiplyAmount(unitPrice, item.quantity);
+      addedSubtotal = addAmounts(addedSubtotal, lineTotal);
+
+      newItemsData.push({
+        menuItemId: item.menuItemId,
+        variantId: variant?.id || null,
+        quantity: item.quantity,
+        unitPrice,
+        lineTotal,
+        notes: item.notes,
+        kitchenStationId: menuItem.kitchenStationId,
+        modifiers: itemModifiers,
+      });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: this.tenantId },
+      select: { settings: true },
+    });
+    let taxRate = 0;
+    if (tenant?.settings) {
+      try {
+        const parsed = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : tenant.settings;
+        if (parsed?.taxRate !== undefined) taxRate = Number(parsed.taxRate) || 0;
+      } catch {}
+    }
+
+    const newSubtotal = toAmount(addAmounts(toAmount(order.subtotal), addedSubtotal));
+    const newTaxAmount = taxRate > 0 ? Math.round((newSubtotal * (taxRate / 100)) * 100) / 100 : 0;
+    const newTotal = toAmount(addAmounts(newSubtotal, newTaxAmount));
+
+    let effectiveBranchId = order.branchId || this.branchId;
+    if (!effectiveBranchId || effectiveBranchId === 'default-branch') {
+      const fallback = await prisma.branch.findFirst({ where: { tenantId: this.tenantId }, select: { id: true } });
+      if (fallback) effectiveBranchId = fallback.id;
+    }
+
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      // Insert new items as PENDING — they will be picked up by generateKots
+      const createdItemIds: string[] = [];
+      for (const { modifiers: mods, kitchenStationId, ...itemData } of newItemsData) {
+        const created = await tx.orderItem.create({
+          data: {
+            orderId,
+            ...itemData,
+            status: 'PENDING',
+            modifiers: {
+              create: mods.map((m) => ({ modifierId: m.modifierId, name: m.name, price: m.price })),
+            },
+          },
+        });
+        createdItemIds.push(created.id);
+      }
+
+      // Set order back to CONFIRMED so order feed shows it needs acceptance
+      const u = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          subtotal: newSubtotal,
+          taxAmount: newTaxAmount,
+          total: newTotal,
+          status: 'CONFIRMED',
+          updatedBy: userId,
+          statusHistory: {
+            create: {
+              fromStatus: order.status,
+              toStatus: 'CONFIRMED',
+              changedBy: userId,
+              reason: `Running KOT: ${newItemsData.length} new item(s) added`,
+            },
+          },
+        },
+        include: this.orderInclude(),
+      });
+
+      // Generate KOT immediately for the newly added PENDING items
+      await this.generateKots(orderId, tx as any, effectiveBranchId);
+
+      return u;
+    });
+
+    emitToRoom(this.tenantId, effectiveBranchId, {
+      type: 'ORDER_STATUS_CHANGED',
+      payload: { orderId, orderNumber: order.orderNumber, status: 'CONFIRMED' },
+    });
+    emitToRoom(this.tenantId, effectiveBranchId, {
+      type: 'ORDER_UPDATED',
+      payload: { orderId, orderNumber: order.orderNumber, total: newTotal, itemCount: newItemsData.length },
+    });
+
+    return updatedOrder;
+  }
+
   // ── Order Totals ───────────────────────────────────────────────────────────
   async recalculateTotals(orderId: string): Promise<any> {
     const items = await prisma.orderItem.findMany({
