@@ -1058,13 +1058,13 @@ export default function TablesPage() {
                           disabled={isCancelled}
                           onClick={() => handlePrintOrder(activeOrder, true)}
                           className={cn(
-                            'h-8 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            'h-9 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
                             isCancelled && 'opacity-30 cursor-not-allowed'
                           )}
                           title="Print Kitchen Order Ticket (KOT)"
                         >
                           <span>🍳</span>
-                          <span className="hidden sm:inline">KOT</span>
+                          <span>KOT</span>
                         </button>
 
                         {/* 2. Print Bill Button */}
@@ -1079,14 +1079,14 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-8 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            'h-9 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
                             !isServed && 'text-amber-400 border-amber-500/30',
                             isCancelled && 'opacity-30 cursor-not-allowed'
                           )}
                           title={isServed ? 'Print Bill / Tax Invoice' : 'Preview Bill (Food in Kitchen)'}
                         >
-                          <Printer className="w-3 h-3" />
-                          <span className="hidden sm:inline">{isServed ? 'Bill' : 'Preview'}</span>
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>{isServed ? 'Bill' : 'Bill'}</span>
                         </button>
 
                         {/* 3. Mark Paid Button */}
@@ -1099,15 +1099,15 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-8 rounded-xl font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs',
+                            'h-9 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs',
                             payCheck.canPay
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                               : 'bg-muted/70 text-muted-foreground opacity-50 cursor-not-allowed'
                           )}
                           title={payCheck.reason || 'Mark as Paid & Done'}
                         >
-                          <span>✅</span>
-                          <span className="hidden sm:inline">Paid</span>
+                          <span>💰</span>
+                          <span>Paid</span>
                         </button>
 
                         {/* 4. Cancel Button */}
@@ -1120,13 +1120,13 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-8 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                            'h-9 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer',
                             !cancelCheck.canCancel && 'opacity-30 cursor-not-allowed hover:bg-transparent'
                           )}
                           title={cancelCheck.canCancel ? 'Cancel Order' : cancelCheck.reason || 'Cannot cancel'}
                         >
                           <span>❌</span>
-                          <span className="hidden sm:inline">Cancel</span>
+                          <span>Void</span>
                         </button>
                       </div>
                     )}

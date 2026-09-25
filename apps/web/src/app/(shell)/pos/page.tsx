@@ -7,7 +7,7 @@ import {
   ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
-  Volume2
+  Volume2, ChevronLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,6 +144,7 @@ export default function POSPage() {
   const [notes, setNotes] = useState('');
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
+  const [mobileTab, setMobileTab] = useState<'menu' | 'cart'>('menu');
   const loadedOrderIdRef = useRef<string | null>(null);
 
   // Helper to map backend order items into POS CartItem interface
@@ -752,11 +753,14 @@ export default function POSPage() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full gap-0 -m-6 overflow-hidden select-none">
+    <div className="flex flex-col lg:flex-row h-full w-full gap-0 -m-3 sm:-m-4 md:-m-6 overflow-hidden select-none relative">
       {/* ─────────────────────────────────────────────────────────────────────────────
           LEFT PANEL: VISUAL TOUCH MENU & CATEGORIES
       ───────────────────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 border-r border-border bg-background h-full">
+      <div className={cn(
+        "flex-col flex-1 min-w-0 border-r border-border bg-background h-full w-full overflow-hidden",
+        mobileTab === 'menu' ? 'flex' : 'hidden lg:flex'
+      )}>
         {/* Top Header: Order Mode, Search & Filters */}
         <div className="p-3.5 border-b border-border space-y-3 bg-card/60 backdrop-blur shrink-0">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1015,12 +1019,55 @@ export default function POSPage() {
             </div>
           )}
         </div>
+
+        {/* ── Floating Mobile Cart Pill when on Menu view ── */}
+        {cart.length > 0 && mobileTab === 'menu' && (
+          <div className="lg:hidden fixed bottom-18 left-3 right-3 z-30 animate-in slide-in-from-bottom-4 duration-200">
+            <button
+              type="button"
+              onClick={() => setMobileTab('cart')}
+              className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-amber-500 text-primary-foreground font-black px-4 flex items-center justify-between shadow-2xl shadow-primary/30 border border-white/20 active:scale-98 cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-black/25 flex items-center justify-center font-mono text-sm shadow-inner">
+                  {totalItemsCount}
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-black leading-tight">View Order Ticket ➔</p>
+                  <p className="text-[10px] opacity-85 font-medium">{selectedTableName ? `Table: ${selectedTableName}` : orderType.replace('_', ' ')}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-sm font-black bg-black/20 px-3 py-1.5 rounded-xl">
+                <span>₹{total.toFixed(0)}</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           RIGHT PANEL: TOUCH-FRIENDLY ORDER CART & FAST BILLING
       ───────────────────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col w-full lg:w-[380px] shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border h-full">
+      <div className={cn(
+        "flex-col w-full lg:w-[380px] xl:w-[410px] shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border h-full overflow-hidden",
+        mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'
+      )}>
+        {/* Mobile Header: Back to Menu button */}
+        <div className="lg:hidden p-2.5 bg-muted/70 border-b border-border flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setMobileTab('menu')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border text-xs font-bold text-foreground cursor-pointer shadow-xs active:scale-95 hover:bg-muted"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>← Back to Dishes (Add More)</span>
+          </button>
+          <span className="text-xs font-black font-mono text-emerald-400">
+            ₹{total.toFixed(0)}
+          </span>
+        </div>
+
         {/* Cart Header */}
         <div className="p-4 border-b border-border bg-muted/30 shrink-0 space-y-3">
           <div className="flex items-center justify-between">

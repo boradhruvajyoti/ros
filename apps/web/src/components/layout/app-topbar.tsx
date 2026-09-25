@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, LogOut, Moon, Sun, Search, Building2, ChevronDown, Check, ShieldAlert, Sparkles } from 'lucide-react';
+import { Bell, LogOut, Moon, Sun, Search, Building2, ChevronDown, Check, ShieldAlert, Sparkles, Menu } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/stores/auth.store';
+import { useUIStore } from '@/stores/ui.store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { apiPost } from '@/lib/api';
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 export function AppTopbar() {
   const { user, setAuth, logout } = useAuthStore();
+  const { toggleMobileSidebar } = useUIStore();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [showSwitchMenu, setShowSwitchMenu] = useState(false);
@@ -64,17 +66,27 @@ export function AppTopbar() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center px-6 gap-4 shrink-0 relative z-30">
+    <header className="h-16 border-b border-border bg-card/60 backdrop-blur-md flex items-center px-3 sm:px-6 gap-2.5 sm:gap-4 shrink-0 relative z-30">
+      {/* Mobile Hamburger Drawer Trigger */}
+      <button
+        type="button"
+        onClick={toggleMobileSidebar}
+        className="md:hidden p-2 rounded-xl bg-muted/80 hover:bg-muted text-foreground border border-border shrink-0 cursor-pointer active:scale-95"
+        title="Open Navigation Menu"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       {/* Search bar */}
-      <div className="flex-1 max-w-md">
+      <div className="flex-1 max-w-md hidden sm:block">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search orders, menu, customers..."
-            className="w-full pl-9 pr-4 h-9 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+            className="w-full pl-9 pr-4 h-9 rounded-xl border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
           />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden md:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
             ⌘K
           </kbd>
         </div>

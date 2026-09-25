@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth.store';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { AppTopbar } from '@/components/layout/app-topbar';
+import { AppMobileNav } from '@/components/layout/app-mobile-nav';
 import { Loader2 } from 'lucide-react';
 
 export default function ShellLayout({ children }: { children: React.ReactNode }) {
@@ -45,17 +46,20 @@ export default function ShellLayout({ children }: { children: React.ReactNode })
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar */}
+    <div className="flex h-screen w-full max-w-full overflow-hidden bg-background">
+      {/* Sidebar (Desktop docked + Mobile Slide-over Drawer) */}
       <AppSidebar />
 
       {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-w-0 w-full overflow-hidden relative">
         <AppTopbar />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6 w-full max-w-full">
           {children}
         </main>
       </div>
+
+      {/* Bottom Mobile Navigation for 1-Tap Thumb Action */}
+      <AppMobileNav />
     </div>
   );
 }
