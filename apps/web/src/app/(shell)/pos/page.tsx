@@ -7,7 +7,7 @@ import {
   ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
-  Volume2, X
+  Volume2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -137,7 +137,6 @@ export default function POSPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [foodTypeFilter, setFoodTypeFilter] = useState<'ALL' | 'VEG' | 'NON_VEG'>('ALL');
-  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -146,16 +145,6 @@ export default function POSPage() {
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
   const loadedOrderIdRef = useRef<string | null>(null);
-
-  const getActiveVariant = useCallback((item: MenuItem) => {
-    if (!item?.variants || item.variants.length === 0) return null;
-    const selectedId = selectedVariants[item.id];
-    if (selectedId) {
-      const found = item.variants.find((v) => v.id === selectedId);
-      if (found) return found;
-    }
-    return item.variants[0];
-  }, [selectedVariants]);
 
   // Helper to map backend order items into POS CartItem interface
   const mapOrderItemsToCart = useCallback((order: any): CartItem[] => {
@@ -347,19 +336,57 @@ export default function POSPage() {
     return categories.filter((c: any) => !c.parentId || !categories.some((p: any) => p.id === c.parentId));
   }, [categories]);
 
-  // ── Processed Subcategory Sections (Hierarchical View) ───────────────────
+  // Helper: Explode menu item variants into separate individual POS cards (e.g. Half / Full)
+  const explodeItemVariants = useCallback((item: MenuItem) => {
+    const variants = Array.isArray(item.variants) && item.variants.length > 0
+      ? item.variants
+      : [{ id: `v-${item.id}`, name: 'Standard', price: (item as any).basePrice || (item as any).price || 299 }];
+
+    if (variants.length <= 1) {
+      const v = variants[0];
+      const isStandardName = !v.name || v.name.toLowerCase() === 'standard' || v.name.toLowerCase() === 'regular' || v.name.toLowerCase() === 'default';
+      return [{
+        cardId: `${item.id}_${v.id}`,
+        menuItemId: item.id,
+        variantId: v.id,
+        displayName: isStandardName ? item.name : `${item.name} (${v.name})`,
+        baseName: item.name,
+        variantName: isStandardName ? undefined : v.name,
+        price: Number(v.price || 0),
+        foodType: item.foodType,
+        itemRef: item,
+        variantRef: v,
+      }];
+    }
+
+    // Multiple variants (e.g. Half, Full, Quarter, Regular, Large) -> exploded into separate items
+    return variants.map((v) => ({
+      cardId: `${item.id}_${v.id}`,
+      menuItemId: item.id,
+      variantId: v.id,
+      displayName: `${item.name} (${v.name})`,
+      baseName: item.name,
+      variantName: v.name,
+      price: Number(v.price || 0),
+      foodType: item.foodType,
+      itemRef: item,
+      variantRef: v,
+    }));
+  }, []);
+
+  // ── Processed Subcategory Sections (Hierarchical View & Exploded Variants) ──
   const processedSections = useMemo(() => {
-    const filterItem = (item: any) => {
+    const filterCard = (card: any) => {
       if (foodTypeFilter !== 'ALL') {
-        const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
+        const isVeg = card.foodType === 'VEG' || card.foodType === 'VEGAN';
         if (foodTypeFilter === 'VEG' && !isVeg) return false;
         if (foodTypeFilter === 'NON_VEG' && isVeg) return false;
       }
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
-          (item.name && item.name.toLowerCase().includes(q)) ||
-          (item.description && item.description.toLowerCase().includes(q))
+          card.displayName.toLowerCase().includes(q) ||
+          (card.itemRef.description && card.itemRef.description.toLowerCase().includes(q))
         );
       }
       return true;
@@ -377,7 +404,7 @@ export default function POSPage() {
         id: string;
         name: string;
         icon?: string;
-        items: MenuItem[];
+        items: any[];
       }>;
       totalItems: number;
     }> = [];
@@ -388,28 +415,28 @@ export default function POSPage() {
         id: string;
         name: string;
         icon?: string;
-        items: MenuItem[];
+        items: any[];
       }> = [];
 
-      // 1. Direct items belonging to the main category itself
-      const directItems = (mainCat.items || []).filter(filterItem);
-      if (directItems.length > 0) {
+      // 1. Direct items belonging to the main category itself (exploded by variant)
+      const directCards = (mainCat.items || []).flatMap(explodeItemVariants).filter(filterCard);
+      if (directCards.length > 0) {
         subGroups.push({
           id: `${mainCat.id}-direct`,
           name: childCats.length > 0 ? 'General / Main Dishes' : mainCat.name,
-          items: directItems,
+          items: directCards,
         });
       }
 
-      // 2. Items under each child subcategory
+      // 2. Items under each child subcategory (exploded by variant)
       for (const child of childCats) {
-        const childItems = (child.items || []).filter(filterItem);
-        if (childItems.length > 0) {
+        const childCards = (child.items || []).flatMap(explodeItemVariants).filter(filterCard);
+        if (childCards.length > 0) {
           subGroups.push({
             id: child.id,
             name: child.name,
             icon: child.icon || CATEGORY_ICONS[child.name],
-            items: childItems,
+            items: childCards,
           });
         }
       }
@@ -427,7 +454,7 @@ export default function POSPage() {
     }
 
     return sections;
-  }, [categories, mainCategories, selectedCategory, search, foodTypeFilter]);
+  }, [categories, mainCategories, selectedCategory, search, foodTypeFilter, explodeItemVariants]);
 
   const subtotal = useMemo(() => {
     return cart.reduce((s, i) => s + (Number(i.unitPrice) * (i.quantity || 1)), 0);
@@ -468,18 +495,16 @@ export default function POSPage() {
     }
 
     playChime();
-    const variants = Array.isArray(item.variants) && item.variants.length > 0
-      ? item.variants
-      : [{ id: `v-${item.id}`, name: 'Standard', price: (item as any).basePrice || (item as any).price || 299 }];
-
-    const variant = specificVariant || getActiveVariant(item) || variants[0];
+    const variant = specificVariant || (Array.isArray(item.variants) && item.variants.length > 0 ? item.variants[0] : { id: `v-${item.id}`, name: 'Standard', price: (item as any).basePrice || (item as any).price || 299 });
     const variantId = variant?.id || `v-${item.id}`;
-    const variantName = variant?.name || 'Standard';
     const unitPrice = Number(variant?.price) || Number((item as any).basePrice) || 0;
+    const variantName = variant?.name || 'Standard';
     const key = `${item.id}-${variantId}`;
 
     setCart((prev) => {
-      const existing = prev.find((c) => c.key === key);
+      const existing = prev.find(
+        (c) => c.key === key || (c.menuItemId === item.id && c.variantId === variantId)
+      );
       if (existing) {
         return prev.map((c) =>
           c.key === existing.key ? { ...c, quantity: c.quantity + 1 } : c
@@ -497,22 +522,7 @@ export default function POSPage() {
         modifiers: [],
       }];
     });
-  }, [orderType, selectedTable, getActiveVariant]);
-
-  const removeFromCart = useCallback((item: MenuItem, specificVariant?: Variant) => {
-    const variant = specificVariant || getActiveVariant(item);
-    const variantId = variant?.id || `v-${item.id}`;
-    const key = `${item.id}-${variantId}`;
-
-    setCart((prev) => {
-      const existing = prev.find((c) => c.key === key);
-      if (!existing) return prev;
-      if (existing.quantity > 1) {
-        return prev.map((c) => c.key === key ? { ...c, quantity: c.quantity - 1 } : c);
-      }
-      return prev.filter((c) => c.key !== key);
-    });
-  }, [getActiveVariant]);
+  }, [orderType, selectedTable]);
 
   const updateQty = useCallback((key: string, delta: number) => {
     setCart((prev) =>
@@ -685,7 +695,7 @@ export default function POSPage() {
           LEFT PANEL: VISUAL TOUCH MENU & CATEGORIES
       ───────────────────────────────────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-w-0 border-r border-border bg-background h-full">
-        {/* Top Header: Order Mode & Search */}
+        {/* Top Header: Order Mode, Search & Filters */}
         <div className="p-3.5 border-b border-border space-y-3 bg-card/60 backdrop-blur shrink-0">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             {/* 3 Giant Touch Order Type Buttons */}
@@ -700,7 +710,7 @@ export default function POSPage() {
                   type="button"
                   onClick={() => setOrderType(t.id as any)}
                   className={cn(
-                    'px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm',
+                    'px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm',
                     orderType === t.id
                       ? `${t.color} scale-100 shadow-md`
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -709,6 +719,27 @@ export default function POSPage() {
                   {t.label}
                 </button>
               ))}
+            </div>
+
+            {/* Quick Search Bar */}
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search dish (e.g. Chicken, Biryani)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 pr-8 h-10 rounded-2xl bg-muted/60 border-border text-xs font-bold focus:bg-background transition-colors"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             {/* Veg / Non-Veg Quick Filters */}
@@ -752,28 +783,6 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Search Input Bar for Quick Dish Lookup */}
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search dishes by name, keywords..."
-              className="w-full bg-background/80 border border-border rounded-xl pl-10 pr-9 py-2 text-xs font-medium placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all shadow-2xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-                title="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
           {/* Large Visual Category Buttons (MAIN CATEGORIES ONLY) */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-1">
             <button
@@ -812,7 +821,7 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* Big Food Grid (Touch-friendly 1-Tap Add) — Grouped Subcategory-wise */}
+        {/* Big Food Grid (Touch-friendly 1-Tap Add) — Grouped Subcategory-wise with Separate Variant Items */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
@@ -833,7 +842,7 @@ export default function POSPage() {
                       </h2>
                     </div>
                     <span className="text-[10px] font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border font-mono">
-                      {sec.totalItems} {sec.totalItems === 1 ? 'dish' : 'dishes'}
+                      {sec.totalItems} {sec.totalItems === 1 ? 'item' : 'items'}
                     </span>
                   </div>
                 )}
@@ -858,161 +867,75 @@ export default function POSPage() {
                         )}
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                          {sub.items.map((item) => {
-                            const variants = Array.isArray(item.variants) && item.variants.length > 0 ? item.variants : [];
-                            const activeVariant = getActiveVariant(item) || variants[0];
-                            const activeVariantPrice = Number(activeVariant?.price || variants[0]?.price || 0);
-                            const activeVariantId = activeVariant?.id || `v-${item.id}`;
-                            const activeKey = `${item.id}-${activeVariantId}`;
-                            
-                            const inCartItem = cart.find((c) => c.key === activeKey);
-                            const inCartQty = inCartItem?.quantity || 0;
-                            const totalDishInCart = cart.filter((c) => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0);
-
-                            const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
-                            const hasMultipleVariants = variants.length > 1;
+                          {sub.items.map((card) => {
+                            const inCart = cart.filter((c) => c.menuItemId === card.menuItemId && c.variantId === card.variantId).reduce((s, c) => s + c.quantity, 0);
+                            const isVeg = card.foodType === 'VEG' || card.foodType === 'VEGAN';
+                            const vNameLower = (card.variantName || '').toLowerCase();
+                            const isHalf = vNameLower.includes('half') || vNameLower.includes('small') || vNameLower.includes('qtr') || vNameLower.includes('quarter');
 
                             return (
-                              <div
-                                key={item.id}
+                              <button
+                                key={card.cardId}
+                                type="button"
+                                onClick={() => addToCart(card.itemRef, card.variantRef)}
                                 className={cn(
-                                  'p-3.5 rounded-2xl border transition-all duration-150 shadow-xs flex flex-col justify-between gap-2.5',
-                                  totalDishInCart > 0
-                                    ? 'border-primary/50 bg-primary/5 shadow-sm shadow-primary/10'
-                                    : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30'
+                                  'text-left relative p-3.5 rounded-2xl border transition-all duration-150 shadow-xs cursor-pointer flex flex-col justify-between min-h-[110px] group active:scale-95',
+                                  inCart > 0
+                                    ? 'border-primary bg-primary/10 shadow-md shadow-primary/15'
+                                    : 'border-border bg-card hover:border-primary/50 hover:bg-muted/30'
                                 )}
                               >
-                                {/* Top: Veg Indicator, Name, Price & Add/Qty Controls */}
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="space-y-1 min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <div className={cn(
-                                        'w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
-                                        isVeg ? 'border-emerald-500' : 'border-red-500'
-                                      )}>
-                                        <div className={cn('w-1.5 h-1.5 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
-                                      </div>
-                                      <p className="font-bold text-xs sm:text-sm text-foreground truncate leading-snug">
-                                        {item.name}
-                                      </p>
+                                {/* Top Badges */}
+                                <div className="flex items-center justify-between w-full">
+                                  {/* Veg / Non-Veg Indicator + Portion Badge */}
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={cn(
+                                      'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
+                                      isVeg ? 'border-emerald-500' : 'border-red-500'
+                                    )}>
+                                      <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono">
-                                        ₹{activeVariantPrice.toFixed(0)}
-                                      </span>
-                                      {activeVariant?.name && activeVariant.name !== 'Standard' && (
-                                        <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.2 rounded border border-border/50">
-                                          {activeVariant.name}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
 
-                                  {/* Quick Add / Counter Controls */}
-                                  <div className="shrink-0">
-                                    {inCartQty > 0 ? (
-                                      <div className="flex items-center gap-1 bg-primary/15 border border-primary/30 rounded-xl p-0.5">
-                                        <button
-                                          type="button"
-                                          onClick={() => removeFromCart(item, activeVariant)}
-                                          className="w-6 h-6 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-xs cursor-pointer hover:bg-muted transition-colors"
-                                        >
-                                          <Minus className="w-3 h-3" />
-                                        </button>
-                                        <span className="text-xs font-black text-primary px-1 font-mono">{inCartQty}</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => addToCart(item, activeVariant)}
-                                          className="w-6 h-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs cursor-pointer hover:bg-primary/90 transition-colors"
-                                        >
-                                          <Plus className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <Button
-                                        size="sm"
-                                        onClick={() => addToCart(item, activeVariant)}
-                                        className="h-7 px-2.5 text-xs font-bold rounded-xl gap-1 bg-primary text-primary-foreground cursor-pointer hover:scale-105 transition-all shadow-2xs"
-                                      >
-                                        <Plus className="w-3 h-3" />
-                                        <span>Add</span>
-                                      </Button>
+                                    {card.variantName && (
+                                      <span className={cn(
+                                        "px-2 py-0.5 rounded-md text-[10px] font-black font-mono border",
+                                        isVeg
+                                          ? (isHalf
+                                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                              : "bg-emerald-900/20 text-emerald-900 dark:text-emerald-300 border-emerald-800/40")
+                                          : (isHalf
+                                              ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                              : "bg-rose-900/20 text-rose-900 dark:text-rose-300 border-rose-900/40")
+                                      )}>
+                                        {card.variantName}
+                                      </span>
                                     )}
                                   </div>
+
+                                  {/* Quantity in Cart Badge */}
+                                  {inCart > 0 ? (
+                                    <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-black shadow animate-in zoom-in-75 duration-100">
+                                      {inCart} Added
+                                    </div>
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-muted/80 border border-border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </div>
+                                  )}
                                 </div>
 
-                                {/* ── HALF / FULL PORTION VARIANT TOGGLE PILLS (Identical to QR Menu) ── */}
-                                {hasMultipleVariants && (
-                                  <div className="pt-1.5 border-t border-border/60 flex items-center justify-between gap-1.5 flex-wrap">
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                                      Portion:
+                                {/* Food Title & Price */}
+                                <div className="mt-2.5">
+                                  <p className="font-bold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                                    {card.displayName}
+                                  </p>
+                                  <div className="flex items-baseline justify-between mt-2 pt-1 border-t border-border/40">
+                                    <span className="text-sm font-black text-emerald-400 font-mono">
+                                      ₹{card.price.toFixed(0)}
                                     </span>
-                                    <div className="flex items-center gap-1 p-0.5 bg-muted/80 rounded-xl border border-border">
-                                      {variants.map((v: any) => {
-                                        const isSelected = activeVariant?.id === v.id;
-                                        const vKey = `${item.id}-${v.id}`;
-                                        const vQty = cart.find((c) => c.key === vKey)?.quantity || 0;
-                                        const vNameLower = (v.name || '').toLowerCase();
-                                        const isHalf = vNameLower.includes('half') || vNameLower.includes('small') || vNameLower.includes('qtr') || vNameLower.includes('quarter');
-
-                                        // Exact Color Matching with QR Menu:
-                                        // Veg Half -> Light green (emerald-500)
-                                        // Veg Full -> Dark green (emerald-800)
-                                        // Non-Veg Half -> Light red (rose-500)
-                                        // Non-Veg Full -> Deep red (rose-900)
-                                        const buttonTheme = isVeg
-                                          ? (isHalf
-                                              ? (isSelected
-                                                  ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs font-black border border-emerald-400"
-                                                  : "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25")
-                                              : (isSelected
-                                                  ? "bg-emerald-800 hover:bg-emerald-900 text-emerald-50 shadow-xs font-black border border-emerald-700"
-                                                  : "text-emerald-900 dark:text-emerald-200 bg-emerald-800/15 hover:bg-emerald-800/25 border border-emerald-800/30")
-                                            )
-                                          : (isHalf
-                                              ? (isSelected
-                                                  ? "bg-rose-500 hover:bg-rose-600 text-white shadow-xs font-black border border-rose-400"
-                                                  : "text-rose-700 dark:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25")
-                                              : (isSelected
-                                                  ? "bg-rose-900 hover:bg-rose-950 text-rose-50 shadow-xs font-black border border-rose-800"
-                                                  : "text-rose-900 dark:text-rose-200 bg-rose-900/20 hover:bg-rose-900/30 border border-rose-900/35")
-                                            );
-
-                                        return (
-                                          <button
-                                            key={v.id}
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setSelectedVariants((prev) => ({ ...prev, [item.id]: v.id }));
-                                            }}
-                                            className={cn(
-                                              "px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 font-mono",
-                                              buttonTheme
-                                            )}
-                                          >
-                                            <span>{v.name}</span>
-                                            <span className={cn(
-                                              "text-[9px]",
-                                              isSelected ? "opacity-90 font-bold" : "opacity-75"
-                                            )}>
-                                              (₹{Number(v.price).toFixed(0)})
-                                            </span>
-                                            {vQty > 0 && (
-                                              <span className={cn(
-                                                "w-3.5 h-3.5 rounded-full text-[8px] font-black flex items-center justify-center ml-0.5 shadow-2xs",
-                                                isSelected ? "bg-white text-foreground" : "bg-foreground text-background"
-                                              )}>
-                                                {vQty}
-                                              </span>
-                                            )}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
                                   </div>
-                                )}
-                              </div>
+                                </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -1026,19 +949,7 @@ export default function POSPage() {
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <Utensils className="w-12 h-12 mb-3 opacity-30" />
               <p className="text-sm font-bold">No dishes found</p>
-              <p className="text-xs text-muted-foreground">
-                {search ? `No items matching "${search}"` : 'Try selecting "All Categories" or clearing filters.'}
-              </p>
-              {search && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSearch('')}
-                  className="mt-3 text-xs rounded-xl"
-                >
-                  Clear Search
-                </Button>
-              )}
+              <p className="text-xs text-muted-foreground">Try clearing the search or selecting "All Food".</p>
             </div>
           )}
         </div>
