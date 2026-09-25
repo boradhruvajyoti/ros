@@ -304,6 +304,17 @@ function TableOrderContent() {
       if (json.data?.sessionExpiresAt) {
         setSessionExpiresAt(json.data.sessionExpiresAt);
       }
+      setTableData((prev: any) => {
+        if (!prev) return prev;
+        const active = prev.activeOrders ? [...prev.activeOrders] : [];
+        const idx = active.findIndex((o: any) => o.id === json.data?.id);
+        if (idx >= 0) {
+          active[idx] = json.data;
+        } else if (json.data) {
+          active.unshift(json.data);
+        }
+        return { ...prev, activeOrders: active };
+      });
       setCart({});
       setGuestNotes('');
       setIsCartExpanded(false);
@@ -901,85 +912,50 @@ function TableOrderContent() {
                 )}
               </div>
 
-              {/* Itemized Order Breakdown with Rate & Qty */}
-              <div className="p-4 rounded-3xl bg-card border border-border space-y-3">
-                {restaurant?.logoUrl && (
-                  <div className="flex justify-center pb-1 border-b border-border/50">
-                    <div className="w-12 h-12 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-sm flex items-center justify-center overflow-hidden mx-auto">
-                      <img
-                        src={restaurant.logoUrl}
-                        alt={restaurant.name || 'Restaurant Logo'}
-                        className="w-full h-full object-cover rounded-full"
-                      />
-                    </div>
+              {/* Ready to Take New Orders Card */}
+              {canOrder && (
+                <div className="p-4 rounded-3xl bg-primary/10 border border-primary/25 text-center space-y-3 shadow-sm animate-in fade-in-50 duration-200">
+                  <div className="space-y-1">
+                    <p className="text-sm font-black text-foreground flex items-center justify-center gap-1.5">
+                      <span>✨</span> Ready to Take New Orders
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Dishes sent to kitchen. Cart is cleared and ready for your next round of items.
+                    </p>
                   </div>
-                )}
+                  <Button
+                    onClick={() => {
+                      setCart({});
+                      setGuestNotes('');
+                      setIsCartExpanded(false);
+                      setViewTab('MENU');
+                    }}
+                    className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>
+                      {['PAID', 'COMPLETED'].includes(currentActiveOrder.status)
+                        ? 'Start New Order / Browse Menu'
+                        : ['CANCELLED', 'VOIDED'].includes(currentActiveOrder.status)
+                        ? 'Place a New Order'
+                        : 'Add More Dishes / Order Next Round'}
+                    </span>
+                  </Button>
+                </div>
+              )}
 
-                <div className="flex items-center justify-between border-b border-border pb-2.5">
+              {/* Current Bill Summary (Compact) */}
+              <div className="p-4 rounded-3xl bg-card border border-border space-y-2.5">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
                   <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                    Ordered Dishes ({currentActiveOrder.items?.length || 0})
+                    Current Bill Summary
                   </span>
-                  <span className="text-[11px] font-semibold text-muted-foreground">
+                  <span className="text-[11px] font-bold text-foreground">
                     {table?.name}
                   </span>
                 </div>
 
-                <div className="divide-y divide-border/60">
-                  {(() => {
-                    const items = currentActiveOrder.items || [];
-                    const consolidated = items.reduce((acc: any[], it: any) => {
-                      const mId = it.menuItemId || it.menuItem?.id || it.name || 'item';
-                      const vId = it.variantId || it.variant?.id || 'std';
-                      const existing = acc.find(
-                        (x) => (x.menuItemId || x.menuItem?.id || x.name) === mId && (x.variantId || x.variant?.id || 'std') === vId
-                      );
-                      if (existing) {
-                        existing.quantity = (existing.quantity || 1) + (it.quantity || 1);
-                        existing.totalPrice = Number(existing.totalPrice || existing.lineTotal || 0) + Number(it.totalPrice || it.lineTotal || ((it.variant?.price || it.unitPrice || 0) * (it.quantity || 1)));
-                      } else {
-                        acc.push({ ...it, quantity: it.quantity || 1 });
-                      }
-                      return acc;
-                    }, []);
-
-                    return consolidated.map((it: any, i: number) => {
-                      const unitPrice = Number(it.variant?.price || it.unitPrice || 0);
-                      const qty = it.quantity || 1;
-                      const lineTotal = Number(it.totalPrice || it.lineTotal || (unitPrice * qty));
-                      const foodType = it.menuItem?.foodType || 'VEG';
-
-                      return (
-                        <div key={i} className="py-2.5 flex items-center justify-between text-xs">
-                          <div className="flex items-start gap-2 flex-1 pr-2">
-                            <span className="text-xs mt-0.5 shrink-0">
-                              {foodType === 'VEG' ? '🟢' : '🔴'}
-                            </span>
-                            <div>
-                              <p className="font-bold text-foreground">
-                                {it.menuItem?.name || it.name || 'Dish'}
-                              </p>
-                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                                {it.variant?.name && <span>{it.variant.name}</span>}
-                                <span>Qty: <strong className="text-foreground">{qty}</strong></span>
-                                <span>@ {safeFormatCurrency(unitPrice)}</span>
-                              </div>
-                              {it.notes && (
-                                <p className="text-[10px] text-amber-400 italic mt-0.5">Note: {it.notes}</p>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0 font-mono font-bold text-foreground">
-                            {safeFormatCurrency(lineTotal)}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-
-                {/* Running Total */}
-                <div className="border-t border-border pt-3 space-y-1.5 text-xs">
+                <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal:</span>
                     <span className="font-mono">{safeFormatCurrency(currentActiveOrder.subtotal || currentActiveOrder.total || 0)}</span>
@@ -991,37 +967,12 @@ function TableOrderContent() {
                     </div>
                   )}
                   <div className="flex justify-between items-baseline pt-2 border-t border-border text-sm font-black text-foreground">
-                    <span>Total Amount:</span>
+                    <span>Total Running Amount:</span>
                     <span className="text-base font-mono text-emerald-400">
                       {safeFormatCurrency(currentActiveOrder.total || 0)}
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Bottom Actions */}
-              <div className="space-y-2 pt-1">
-                {canOrder && (
-                  <Button
-                    onClick={() => {
-                      if (['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status)) {
-                        setCart({});
-                        setGuestNotes('');
-                      }
-                      setViewTab('MENU');
-                    }}
-                    className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>
-                      {['PAID', 'COMPLETED'].includes(currentActiveOrder.status)
-                        ? 'Start New Order / Add More Dishes'
-                        : ['CANCELLED', 'VOIDED'].includes(currentActiveOrder.status)
-                        ? 'Place a New Order'
-                        : 'Add More Dishes to this Table'}
-                    </span>
-                  </Button>
-                )}
               </div>
             </div>
           ) : (
