@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, LogOut, Moon, Sun, Search, Building2, ChevronDown, Check, ShieldAlert, Sparkles, Menu } from 'lucide-react';
+import { Bell, LogOut, Moon, Sun, Search, Building2, ChevronDown, Check, ShieldAlert, Sparkles, Menu, Maximize2, Minimize2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 
 export function AppTopbar() {
   const { user, setAuth, logout } = useAuthStore();
-  const { toggleMobileSidebar } = useUIStore();
+  const { toggleMobileSidebar, isFullscreen, toggleFullscreen } = useUIStore();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -101,6 +101,20 @@ export function AppTopbar() {
         <Button variant="ghost" size="icon-sm" className="relative text-muted-foreground hover:text-foreground">
           <Bell className="w-4 h-4" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-pulse-dot" />
+        </Button>
+
+        {/* Fullscreen toggle */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggleFullscreen}
+          className={cn(
+            'text-muted-foreground hover:text-foreground transition-all cursor-pointer',
+            isFullscreen && 'text-primary bg-primary/10'
+          )}
+          title={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen Mode'}
+        >
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </Button>
 
         {/* Theme toggle */}
