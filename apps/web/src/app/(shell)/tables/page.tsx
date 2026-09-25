@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPatch, apiPut, apiDelete } from '@/lib/api';
+import { onRosEvent } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
 import { formatCurrency } from '@ros/utils';
@@ -211,6 +212,29 @@ export default function TablesPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | any | null>(null);
   const [billPreviewOrder, setBillPreviewOrder] = useState<Order | any | null>(null);
 
+  // ── Realtime Socket Subscriptions for Tables & Order Feed ──────────────
+  useEffect(() => {
+    const unsub = onRosEvent((event) => {
+      const t = event.type as string;
+      if (
+        t === 'ORDER_CREATED' ||
+        t === 'ORDER_UPDATED' ||
+        t === 'ORDER_STATUS_CHANGED' ||
+        t === 'KOT_STATUS_CHANGED' ||
+        t === 'KOT_ITEM_STATUS_CHANGED' ||
+        t === 'QR_ORDER_PENDING' ||
+        t === 'TABLE_STATUS_CHANGED' ||
+        t === 'KOT_CREATED' ||
+        t === 'PAYMENT_COMPLETED'
+      ) {
+        queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['tables'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      }
+    });
+    return () => unsub();
+  }, [queryClient]);
+
   // ── Data Queries ────────────────────────────────────────────────────────────
   const { data: tenant } = useQuery({
     queryKey: ['current-tenant'],
@@ -225,13 +249,13 @@ export default function TablesPage() {
   const { data: tables = [], isLoading: isTablesLoading } = useQuery<Table[]>({
     queryKey: ['tables', tableStatusFilter],
     queryFn: () => apiGet(`/tables${tableStatusFilter ? `?status=${tableStatusFilter}` : ''}`),
-    refetchInterval: 15000,
+    refetchInterval: 3000,
   });
 
   const { data: activeOrders = [] } = useQuery<any[]>({
     queryKey: ['active-orders'],
     queryFn: () => apiGet('/orders/active'),
-    refetchInterval: 10000,
+    refetchInterval: 2000,
   });
 
   const { data: ordersData, isLoading: isOrdersLoading } = useQuery({
@@ -239,7 +263,7 @@ export default function TablesPage() {
     queryFn: () => apiGet<{ orders: Order[]; total: number; page: number; limit: number }>(
       `/orders?${orderStatusFilter ? `status=${orderStatusFilter}&` : ''}${orderTypeFilter ? `type=${orderTypeFilter}&` : ''}limit=150`
     ),
-    refetchInterval: 15000,
+    refetchInterval: 3000,
   });
 
   const { data: menuItems = [] } = useQuery<any[]>({
@@ -248,7 +272,9 @@ export default function TablesPage() {
   });
 
   const activeOrderByTableId = (activeOrders || []).reduce((acc: Record<string, any>, ord: any) => {
-    if (ord.tableId) acc[ord.tableId] = ord;
+    if (ord.tableId && !['CANCELLED', 'VOIDED', 'COMPLETED', 'PAID'].includes(ord.status)) {
+      acc[ord.tableId] = ord;
+    }
     return acc;
   }, {});
 

@@ -141,6 +141,63 @@ export class KitchenController {
       const orderService = new OrderService(req.user!.tid, req.user!.bid);
       const updatedOrder = await orderService.recalculateTotals(kot.orderId);
 
+      // Check all remaining active KOTs for the order
+      const remainingActiveKots = await prisma.orderKot.findMany({
+        where: { orderId: kot.orderId, status: { not: 'CANCELLED' } },
+      });
+
+      let newOrderStatus: string | null = null;
+      if (remainingActiveKots.length === 0) {
+        // If ALL KOTs are cancelled, the parent order is CANCELLED automatically!
+        newOrderStatus = 'CANCELLED';
+        await prisma.order.update({
+          where: { id: kot.orderId },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            cancellationReason: reason ? `KOT #${kot.kotNumber} Cancelled in Kitchen: ${reason}` : `KOT #${kot.kotNumber} Cancelled in Kitchen`,
+          },
+        });
+
+        // Release table if occupied
+        if (kot.order.tableId) {
+          await prisma.restaurantTable.update({
+            where: { id: kot.order.tableId },
+            data: { status: 'AVAILABLE' },
+          });
+          emitToRoom(req.user!.tid, req.user!.bid, {
+            type: 'TABLE_STATUS_CHANGED',
+            payload: { tableId: kot.order.tableId, status: 'AVAILABLE' },
+          });
+        }
+      } else {
+        const allKotsServed = remainingActiveKots.every((k) => k.status === 'SERVED');
+        const allKotsReady = remainingActiveKots.every((k) => k.status === 'READY' || k.status === 'SERVED');
+        if (allKotsServed) {
+          newOrderStatus = 'SERVED';
+        } else if (allKotsReady) {
+          newOrderStatus = 'READY';
+        }
+
+        if (newOrderStatus && newOrderStatus !== kot.order.status) {
+          await prisma.order.update({
+            where: { id: kot.orderId },
+            data: { status: newOrderStatus as any },
+          });
+        }
+      }
+
+      if (newOrderStatus && newOrderStatus !== kot.order.status) {
+        emitToRoom(req.user!.tid, req.user!.bid, {
+          type: 'ORDER_STATUS_CHANGED',
+          payload: {
+            orderId: kot.orderId,
+            orderNumber: kot.order.orderNumber,
+            status: newOrderStatus as any,
+          },
+        });
+      }
+
       emitToRoom(req.user!.tid, req.user!.bid, {
         type: 'KOT_STATUS_CHANGED',
         payload: { kotId: kot.id, status: 'CANCELLED', stationId: kot.kitchenStationId || 'default' },
@@ -346,8 +403,26 @@ export class KitchenController {
       if (newOrderStatus && newOrderStatus !== existingItem.kot.order.status) {
         await prisma.order.update({
           where: { id: existingItem.kot.orderId },
-          data: { status: newOrderStatus as any },
+          data: {
+            status: newOrderStatus as any,
+            ...(newOrderStatus === 'CANCELLED' ? {
+              cancelledAt: new Date(),
+              cancellationReason: reason ? `Items Cancelled in Kitchen: ${reason}` : 'All items cancelled in kitchen',
+            } : {}),
+          },
         });
+
+        if (newOrderStatus === 'CANCELLED' && existingItem.kot.order.tableId) {
+          await prisma.restaurantTable.update({
+            where: { id: existingItem.kot.order.tableId },
+            data: { status: 'AVAILABLE' },
+          });
+          emitToRoom(req.user!.tid, req.user!.bid, {
+            type: 'TABLE_STATUS_CHANGED',
+            payload: { tableId: existingItem.kot.order.tableId, status: 'AVAILABLE' },
+          });
+        }
+
         emitToRoom(req.user!.tid, req.user!.bid, {
           type: 'ORDER_STATUS_CHANGED',
           payload: {
