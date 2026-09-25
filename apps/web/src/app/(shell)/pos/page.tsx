@@ -137,6 +137,7 @@ export default function POSPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [foodTypeFilter, setFoodTypeFilter] = useState<'ALL' | 'VEG' | 'NON_VEG'>('ALL');
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -145,6 +146,16 @@ export default function POSPage() {
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
   const loadedOrderIdRef = useRef<string | null>(null);
+
+  const getActiveVariant = useCallback((item: MenuItem) => {
+    if (!item?.variants || item.variants.length === 0) return null;
+    const selectedId = selectedVariants[item.id];
+    if (selectedId) {
+      const found = item.variants.find((v) => v.id === selectedId);
+      if (found) return found;
+    }
+    return item.variants[0];
+  }, [selectedVariants]);
 
   // Helper to map backend order items into POS CartItem interface
   const mapOrderItemsToCart = useCallback((order: any): CartItem[] => {
@@ -449,7 +460,7 @@ export default function POSPage() {
   };
 
   // ── Cart Actions ─────────────────────────────────────────────────────────
-  const addToCart = useCallback((item: MenuItem) => {
+  const addToCart = useCallback((item: MenuItem, specificVariant?: Variant) => {
     // Enforce dining table selection for Dine-In orders
     if (orderType === 'DINE_IN' && !selectedTable) {
       toast.error('Dining Table Required', 'Please select a seated table first before adding items to this Dine-In ticket.');
@@ -461,15 +472,14 @@ export default function POSPage() {
       ? item.variants
       : [{ id: `v-${item.id}`, name: 'Standard', price: (item as any).basePrice || (item as any).price || 299 }];
 
-    const variant = variants[0];
+    const variant = specificVariant || getActiveVariant(item) || variants[0];
     const variantId = variant?.id || `v-${item.id}`;
+    const variantName = variant?.name || 'Standard';
     const unitPrice = Number(variant?.price) || Number((item as any).basePrice) || 0;
     const key = `${item.id}-${variantId}`;
 
     setCart((prev) => {
-      const existing = prev.find(
-        (c) => c.key === key || (c.menuItemId === item.id && (c.variantId === variantId || (!c.variantId && !variantId)))
-      );
+      const existing = prev.find((c) => c.key === key);
       if (existing) {
         return prev.map((c) =>
           c.key === existing.key ? { ...c, quantity: c.quantity + 1 } : c
@@ -480,14 +490,29 @@ export default function POSPage() {
         menuItemId: item.id,
         variantId,
         name: item.name,
-        variantName: variant.name || 'Standard',
+        variantName,
         unitPrice,
         quantity: 1,
         foodType: item.foodType,
         modifiers: [],
       }];
     });
-  }, [orderType, selectedTable]);
+  }, [orderType, selectedTable, getActiveVariant]);
+
+  const removeFromCart = useCallback((item: MenuItem, specificVariant?: Variant) => {
+    const variant = specificVariant || getActiveVariant(item);
+    const variantId = variant?.id || `v-${item.id}`;
+    const key = `${item.id}-${variantId}`;
+
+    setCart((prev) => {
+      const existing = prev.find((c) => c.key === key);
+      if (!existing) return prev;
+      if (existing.quantity > 1) {
+        return prev.map((c) => c.key === key ? { ...c, quantity: c.quantity - 1 } : c);
+      }
+      return prev.filter((c) => c.key !== key);
+    });
+  }, [getActiveVariant]);
 
   const updateQty = useCallback((key: string, delta: number) => {
     setCart((prev) =>
@@ -813,61 +838,159 @@ export default function POSPage() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
                           {sub.items.map((item) => {
                             const variants = Array.isArray(item.variants) && item.variants.length > 0 ? item.variants : [];
-                            const basePrice = Number(variants[0]?.price || 0);
-                            const inCart = cart.filter((c) => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0);
+                            const activeVariant = getActiveVariant(item) || variants[0];
+                            const activeVariantPrice = Number(activeVariant?.price || variants[0]?.price || 0);
+                            const activeVariantId = activeVariant?.id || `v-${item.id}`;
+                            const activeKey = `${item.id}-${activeVariantId}`;
+                            
+                            const inCartItem = cart.find((c) => c.key === activeKey);
+                            const inCartQty = inCartItem?.quantity || 0;
+                            const totalDishInCart = cart.filter((c) => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0);
+
                             const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
+                            const hasMultipleVariants = variants.length > 1;
 
                             return (
-                              <button
+                              <div
                                 key={item.id}
-                                type="button"
-                                onClick={() => addToCart(item)}
                                 className={cn(
-                                  'text-left relative p-3.5 rounded-2xl border transition-all duration-150 shadow-xs cursor-pointer flex flex-col justify-between min-h-[110px] group active:scale-95',
-                                  inCart > 0
-                                    ? 'border-primary bg-primary/10 shadow-md shadow-primary/15'
-                                    : 'border-border bg-card hover:border-primary/50 hover:bg-muted/30'
+                                  'p-3.5 rounded-2xl border transition-all duration-150 shadow-xs flex flex-col justify-between gap-2.5',
+                                  totalDishInCart > 0
+                                    ? 'border-primary/50 bg-primary/5 shadow-sm shadow-primary/10'
+                                    : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30'
                                 )}
                               >
-                                {/* Top Badges */}
-                                <div className="flex items-center justify-between w-full">
-                                  {/* Veg / Non-Veg Indicator */}
-                                  <div className={cn(
-                                    'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
-                                    isVeg ? 'border-emerald-500' : 'border-red-500'
-                                  )}>
-                                    <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
+                                {/* Top: Veg Indicator, Name, Price & Add/Qty Controls */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="space-y-1 min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <div className={cn(
+                                        'w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
+                                        isVeg ? 'border-emerald-500' : 'border-red-500'
+                                      )}>
+                                        <div className={cn('w-1.5 h-1.5 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
+                                      </div>
+                                      <p className="font-bold text-xs sm:text-sm text-foreground truncate leading-snug">
+                                        {item.name}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono">
+                                        ₹{activeVariantPrice.toFixed(0)}
+                                      </span>
+                                      {activeVariant?.name && activeVariant.name !== 'Standard' && (
+                                        <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.2 rounded border border-border/50">
+                                          {activeVariant.name}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
 
-                                  {/* Quantity in Cart Badge */}
-                                  {inCart > 0 ? (
-                                    <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-black shadow animate-in zoom-in-75 duration-100">
-                                      {inCart} Added
-                                    </div>
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full bg-muted/80 border border-border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                      <Plus className="w-3.5 h-3.5" />
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Food Title & Price */}
-                                <div className="mt-2.5">
-                                  <p className="font-bold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                                    {item.name}
-                                  </p>
-                                  <div className="flex items-baseline justify-between mt-2 pt-1 border-t border-border/40">
-                                    <span className="text-sm font-black text-emerald-400 font-mono">
-                                      ₹{basePrice.toFixed(0)}
-                                    </span>
-                                    {variants.length > 1 && (
-                                      <span className="text-[10px] font-semibold text-muted-foreground">
-                                        {variants.length} sizes
-                                      </span>
+                                  {/* Quick Add / Counter Controls */}
+                                  <div className="shrink-0">
+                                    {inCartQty > 0 ? (
+                                      <div className="flex items-center gap-1 bg-primary/15 border border-primary/30 rounded-xl p-0.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => removeFromCart(item, activeVariant)}
+                                          className="w-6 h-6 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-xs cursor-pointer hover:bg-muted transition-colors"
+                                        >
+                                          <Minus className="w-3 h-3" />
+                                        </button>
+                                        <span className="text-xs font-black text-primary px-1 font-mono">{inCartQty}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => addToCart(item, activeVariant)}
+                                          className="w-6 h-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs cursor-pointer hover:bg-primary/90 transition-colors"
+                                        >
+                                          <Plus className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => addToCart(item, activeVariant)}
+                                        className="h-7 px-2.5 text-xs font-bold rounded-xl gap-1 bg-primary text-primary-foreground cursor-pointer hover:scale-105 transition-all shadow-2xs"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                        <span>Add</span>
+                                      </Button>
                                     )}
                                   </div>
                                 </div>
-                              </button>
+
+                                {/* ── HALF / FULL PORTION VARIANT TOGGLE PILLS (Identical to QR Menu) ── */}
+                                {hasMultipleVariants && (
+                                  <div className="pt-1.5 border-t border-border/60 flex items-center justify-between gap-1.5 flex-wrap">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                                      Portion:
+                                    </span>
+                                    <div className="flex items-center gap-1 p-0.5 bg-muted/80 rounded-xl border border-border">
+                                      {variants.map((v: any) => {
+                                        const isSelected = activeVariant?.id === v.id;
+                                        const vKey = `${item.id}-${v.id}`;
+                                        const vQty = cart.find((c) => c.key === vKey)?.quantity || 0;
+                                        const vNameLower = (v.name || '').toLowerCase();
+                                        const isHalf = vNameLower.includes('half') || vNameLower.includes('small') || vNameLower.includes('qtr') || vNameLower.includes('quarter');
+
+                                        // Exact Color Matching with QR Menu:
+                                        // Veg Half -> Light green (emerald-500)
+                                        // Veg Full -> Dark green (emerald-800)
+                                        // Non-Veg Half -> Light red (rose-500)
+                                        // Non-Veg Full -> Deep red (rose-900)
+                                        const buttonTheme = isVeg
+                                          ? (isHalf
+                                              ? (isSelected
+                                                  ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs font-black border border-emerald-400"
+                                                  : "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25")
+                                              : (isSelected
+                                                  ? "bg-emerald-800 hover:bg-emerald-900 text-emerald-50 shadow-xs font-black border border-emerald-700"
+                                                  : "text-emerald-900 dark:text-emerald-200 bg-emerald-800/15 hover:bg-emerald-800/25 border border-emerald-800/30")
+                                            )
+                                          : (isHalf
+                                              ? (isSelected
+                                                  ? "bg-rose-500 hover:bg-rose-600 text-white shadow-xs font-black border border-rose-400"
+                                                  : "text-rose-700 dark:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25")
+                                              : (isSelected
+                                                  ? "bg-rose-900 hover:bg-rose-950 text-rose-50 shadow-xs font-black border border-rose-800"
+                                                  : "text-rose-900 dark:text-rose-200 bg-rose-900/20 hover:bg-rose-900/30 border border-rose-900/35")
+                                            );
+
+                                        return (
+                                          <button
+                                            key={v.id}
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedVariants((prev) => ({ ...prev, [item.id]: v.id }));
+                                            }}
+                                            className={cn(
+                                              "px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 font-mono",
+                                              buttonTheme
+                                            )}
+                                          >
+                                            <span>{v.name}</span>
+                                            <span className={cn(
+                                              "text-[9px]",
+                                              isSelected ? "opacity-90 font-bold" : "opacity-75"
+                                            )}>
+                                              (₹{Number(v.price).toFixed(0)})
+                                            </span>
+                                            {vQty > 0 && (
+                                              <span className={cn(
+                                                "w-3.5 h-3.5 rounded-full text-[8px] font-black flex items-center justify-center ml-0.5 shadow-2xs",
+                                                isSelected ? "bg-white text-foreground" : "bg-foreground text-background"
+                                              )}>
+                                                {vQty}
+                                              </span>
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
