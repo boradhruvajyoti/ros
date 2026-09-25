@@ -75,6 +75,22 @@ export async function cacheDelPattern(pattern: string): Promise<void> {
   }
 }
 
+export async function cachePurgeAll(): Promise<{ keysDeleted: number; redisFlushed: boolean }> {
+  const keysDeleted = inMemoryCache.size;
+  inMemoryCache.clear();
+  let redisFlushed = false;
+  if (isConnected) {
+    try {
+      await redis.flushdb();
+      redisFlushed = true;
+    } catch (err: any) {
+      logger.warn(`Redis flushdb warning: ${err?.message}`);
+    }
+  }
+  logger.info(`🧹 Platform SuperAdmin Cache Purge executed: in-memory cache cleared (${keysDeleted} keys), Redis flushed: ${redisFlushed}`);
+  return { keysDeleted, redisFlushed };
+}
+
 export const CacheKeys = {
   menu: (tenantId: string, branchId: string) => `menu:${tenantId}:${branchId}`,
   tables: (tenantId: string, branchId: string) => `tables:${tenantId}:${branchId}`,

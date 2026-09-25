@@ -5,6 +5,7 @@
 import { Request, Response } from 'express';
 import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { prisma } from '../lib/prisma';
+import { cachePurgeAll } from '../lib/redis';
 import bcrypt from 'bcryptjs';
 
 export interface SaasPlanItem {
@@ -681,6 +682,15 @@ export class SuperAdminController {
     });
 
     sendSuccess(res, updated);
+  }
+
+  static async purgeAllCache(req: Request, res: Response): Promise<void> {
+    const result = await cachePurgeAll();
+    sendSuccess(res, {
+      message: 'Global platform cache purged successfully across all tenants.',
+      timestamp: new Date().toISOString(),
+      ...result,
+    });
   }
 }
 

@@ -21,8 +21,8 @@ router.get('/platform-details',    requirePlatformSuperAdmin(), asyncHandler(Sup
 router.patch('/platform-details',  requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.updatePlatformDetails));
 
 router.patch('/tenants/:id/status',requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.updateTenantStatus));
-router.patch('/tenants/:id',       requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.updateTenant));
 router.delete('/tenants/:id',      requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.deleteTenant));
+router.post('/cache/purge',         requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.purgeAllCache));
 
 export default router;
 

@@ -362,6 +362,28 @@ export default function SuperAdminPage() {
     },
   });
 
+  const purgeCacheMutation = useMutation({
+    mutationFn: async () => {
+      return apiPost<{ message: string; keysDeleted: number; redisFlushed: boolean }>('/super-admin/cache/purge');
+    },
+    onSuccess: (data: any) => {
+      toast.success(
+        'Global Cache Purged! 🧹',
+        data?.message || 'In-memory and Redis caches cleared across all tenants.'
+      );
+      queryClient.invalidateQueries({ queryKey: ['superadmin-overview'] });
+    },
+    onError: (err: any) => {
+      toast.error('Cache Purge Failed', err?.response?.data?.error?.message || 'Could not purge cache');
+    },
+  });
+
+  const handlePurgeAllCache = () => {
+    if (confirm('Are you sure you want to purge all in-memory and Redis caches across all tenant restaurants? This will force all live sessions, menu caches, and table maps to refresh from the database.')) {
+      purgeCacheMutation.mutate();
+    }
+  };
+
   const handleImpersonateTenant = async (tenantId: string, tenantName: string) => {
     try {
       const res = await apiPost<{ accessToken: string; user: any; tenant: any }>('/auth/switch-tenant', { tenantId });
@@ -539,6 +561,16 @@ export default function SuperAdminPage() {
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              loading={purgeCacheMutation.isPending}
+              onClick={handlePurgeAllCache}
+              className="gap-1.5 text-xs bg-rose-500/15 border-rose-500/40 text-rose-200 hover:bg-rose-500/25 hover:text-white transition-colors cursor-pointer shadow-sm"
+              title="Purge all in-memory and Redis caches across all tenant restaurants"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" /> Purge Global Cache
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1176,6 +1208,61 @@ export default function SuperAdminPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Global Memory Cache & Redis Maintenance Card */}
+          <Card className="border-border bg-card/60 backdrop-blur">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-400" /> Global Cache &amp; Redis Maintenance
+                </CardTitle>
+                <CardDescription>
+                  Multi-tenant distributed caching engine, memory store, and Redis key lifecycle management
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] font-black">
+                ONLINE &amp; RESILIENT
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-1">
+                  <span className="text-muted-foreground block text-[11px]">Primary Cache Engine</span>
+                  <span className="font-bold text-foreground text-sm block">In-Memory Map + Redis</span>
+                  <span className="text-[10px] text-emerald-400">Sub-millisecond access latency</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-1">
+                  <span className="text-muted-foreground block text-[11px]">Scope &amp; Invalidation</span>
+                  <span className="font-bold text-foreground text-sm block">Cross-Tenant Global</span>
+                  <span className="text-[10px] text-indigo-400">Menus, tables, RBAC permissions</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-1">
+                  <span className="text-muted-foreground block text-[11px]">Resilience Fallback</span>
+                  <span className="font-bold text-emerald-400 text-sm block">Auto-Switching Active</span>
+                  <span className="text-[10px] text-muted-foreground">Graceful degradation mode</span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <h4 className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> Purge Global Platform Cache
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground max-w-xl">
+                    Instantly flush all Redis keys and in-memory caches across all tenant restaurants. New requests will immediately fetch fresh data from the primary database cluster.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  loading={purgeCacheMutation.isPending}
+                  onClick={handlePurgeAllCache}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-1.5 shrink-0 cursor-pointer shadow-md shadow-rose-600/20"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Purge All Cache
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Global Terminal Stream */}
           <Card className="border-border bg-card/60 backdrop-blur">

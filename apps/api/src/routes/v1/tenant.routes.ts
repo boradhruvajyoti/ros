@@ -17,9 +17,10 @@ router.post('/plans',              requirePlatformSuperAdmin(), asyncHandler(Sup
 router.patch('/plans/:id',         requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.updatePlan));
 router.delete('/plans/:id',        requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.deletePlan));
 
-// Platform Config & Infrastructure Details
+// Platform Config, Cache & Infrastructure Details
 router.get('/platform-details',    requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.getPlatformDetails));
 router.patch('/platform-details',  requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.updatePlatformDetails));
+router.post('/cache/purge',        requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.purgeAllCache));
 
 // Current Tenant Context (Available to any authenticated tenant user for their own restaurant)
 router.get('/current',             asyncHandler(SuperAdminController.getCurrentTenant));
