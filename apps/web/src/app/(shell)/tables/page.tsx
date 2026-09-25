@@ -169,6 +169,24 @@ function checkCanMarkPaid(order: any): { canPay: boolean; reason?: string } {
   return { canPay: true };
 }
 
+function checkCanCancel(order: any): { canCancel: boolean; reason?: string } {
+  if (!order || ['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
+    return { canCancel: false, reason: 'Order is already completed or cancelled' };
+  }
+  // Once any KOT is kitchen-accepted (past NEW/CANCELLED), order cannot be cancelled from order feed/tables
+  const kots: any[] = order?.kots || [];
+  const kitchenAcceptedKot = kots.some(
+    (k) => !['NEW', 'CANCELLED'].includes(k.status)
+  );
+  if (kitchenAcceptedKot) {
+    return {
+      canCancel: false,
+      reason: 'Order cannot be cancelled after KOT is accepted in kitchen. Item cancellations must be done by kitchen staff on KDS.',
+    };
+  }
+  return { canCancel: true };
+}
+
 export default function TablesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -1100,21 +1118,32 @@ export default function TablesPage() {
                         );
                       })()}
 
-                      {!isCancelled && order.status !== 'PAID' && order.status !== 'COMPLETED' && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
-                              updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
-                            }
-                          }}
-                          className="p-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-bold transition-colors"
-                          title="Cancel Entire Order"
-                        >
-                          ❌
-                        </button>
-                      )}
+                      {(() => {
+                        const cancelCheck = checkCanCancel(order);
+                        if (!cancelCheck.canCancel && ['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
+                          return null;
+                        }
+                        return (
+                          <button
+                            type="button"
+                            disabled={!cancelCheck.canCancel}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!cancelCheck.canCancel) return;
+                              if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
+                                updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
+                              }
+                            }}
+                            className={cn(
+                              "p-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-bold transition-colors",
+                              !cancelCheck.canCancel && "opacity-30 cursor-not-allowed hover:bg-transparent"
+                            )}
+                            title={cancelCheck.canCancel ? "Cancel Entire Order" : cancelCheck.reason || "Cannot cancel order"}
+                          >
+                            ❌
+                          </button>
+                        );
+                      })()}
 
                       {/* Action Button: Staff can only Send Kitchen or Mark Paid when all KOTs are served */}
                       {(() => {
@@ -1257,20 +1286,31 @@ export default function TablesPage() {
                               {isServed ? <Printer className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                             </button>
 
-                            {!isCancelled && order.status !== 'PAID' && order.status !== 'COMPLETED' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
-                                    updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors"
-                                title="Cancel Entire Order"
-                              >
-                                ❌
-                              </button>
-                            )}
+                            {(() => {
+                              const cancelCheck = checkCanCancel(order);
+                              if (!cancelCheck.canCancel && ['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
+                                return null;
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={!cancelCheck.canCancel}
+                                  onClick={() => {
+                                    if (!cancelCheck.canCancel) return;
+                                    if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
+                                      updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
+                                    }
+                                  }}
+                                  className={cn(
+                                    "p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors",
+                                    !cancelCheck.canCancel && "opacity-30 cursor-not-allowed hover:bg-transparent"
+                                  )}
+                                  title={cancelCheck.canCancel ? "Cancel Entire Order" : cancelCheck.reason || "Cannot cancel order"}
+                                >
+                                  ❌
+                                </button>
+                              );
+                            })()}
 
                             {/* Action Button */}
                             {(() => {
@@ -1569,21 +1609,38 @@ export default function TablesPage() {
                 })()
               )}
 
-              {selectedOrder.status !== 'CANCELLED' && selectedOrder.status !== 'PAID' && selectedOrder.status !== 'COMPLETED' && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (confirm(`Are you sure you want to cancel Order #${selectedOrder.orderNumber}?`)) {
-                      updateStatus.mutate({ orderId: selectedOrder.id, status: 'CANCELLED' });
-                      setSelectedOrder(null);
-                    }
-                  }}
-                  disabled={updateStatus.isPending}
-                  className="w-full font-bold text-xs h-10 border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 gap-1.5 rounded-2xl"
-                >
-                  ❌ Cancel Entire Order
-                </Button>
-              )}
+              {(() => {
+                const cancelCheck = checkCanCancel(selectedOrder);
+                if (['CANCELLED', 'PAID', 'COMPLETED', 'VOIDED'].includes(selectedOrder.status)) return null;
+
+                return (
+                  <div className="w-full space-y-1">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (!cancelCheck.canCancel) return;
+                        if (confirm(`Are you sure you want to cancel Order #${selectedOrder.orderNumber}?`)) {
+                          updateStatus.mutate({ orderId: selectedOrder.id, status: 'CANCELLED' });
+                          setSelectedOrder(null);
+                        }
+                      }}
+                      disabled={!cancelCheck.canCancel || updateStatus.isPending}
+                      className={cn(
+                        "w-full font-bold text-xs h-10 border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 gap-1.5 rounded-2xl",
+                        !cancelCheck.canCancel && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-rose-500"
+                      )}
+                      title={cancelCheck.canCancel ? "Cancel Entire Order" : cancelCheck.reason}
+                    >
+                      ❌ Cancel Entire Order
+                    </Button>
+                    {!cancelCheck.canCancel && cancelCheck.reason && (
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        ℹ️ {cancelCheck.reason}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {selectedOrder.tableId && (

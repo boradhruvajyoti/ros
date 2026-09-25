@@ -583,6 +583,23 @@ export class OrderService {
       );
     }
 
+    // Guard: Prevent cancellation once any KOT has been accepted / started in kitchen
+    if (dto.status === 'CANCELLED' || dto.status === 'VOIDED') {
+      const activeAcceptedKots = await prisma.orderKot.findMany({
+        where: {
+          orderId,
+          status: { notIn: ['NEW', 'CANCELLED'] },
+        },
+      });
+      if (activeAcceptedKots.length > 0) {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'Cannot cancel order after the KOT has been accepted in the kitchen. Kitchen staff must handle item cancellations on the Kitchen Display System (KDS).',
+          400
+        );
+      }
+    }
+
     // Guard: Prevent billing / payment if any active KOT is not yet SERVED
     if (['BILLED', 'PAID', 'COMPLETED'].includes(dto.status)) {
       const activeKots = await prisma.orderKot.findMany({
