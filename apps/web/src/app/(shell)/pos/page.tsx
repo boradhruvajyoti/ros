@@ -49,6 +49,7 @@ interface MenuItem {
 interface Category {
   id: string;
   name: string;
+  parentId?: string | null;
   icon?: string;
   items?: MenuItem[];
 }
@@ -329,18 +330,93 @@ export default function POSPage() {
     }
   }, [tenant]);
 
-  // ── Filtered Items ────────────────────────────────────────────────────────
-  const filteredItems = useMemo(() => {
-    const all = categories.flatMap((c) => (Array.isArray(c?.items) ? c.items : []));
-    let items = !search
-      ? (selectedCategory ? categories.find((c) => c?.id === selectedCategory)?.items || [] : all)
-      : all.filter((i) => i?.name?.toLowerCase().includes(search.toLowerCase()));
+  // ── Main Categories (Top Horizontal Strip) ────────────────────────────────
+  const mainCategories = useMemo(() => {
+    // Only top-level main categories (parentId is null or not in category list)
+    return categories.filter((c: any) => !c.parentId || !categories.some((p: any) => p.id === c.parentId));
+  }, [categories]);
 
-    if (foodTypeFilter !== 'ALL') {
-      items = items.filter((i) => i.foodType === foodTypeFilter);
+  // ── Processed Subcategory Sections (Hierarchical View) ───────────────────
+  const processedSections = useMemo(() => {
+    const filterItem = (item: any) => {
+      if (foodTypeFilter !== 'ALL') {
+        const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
+        if (foodTypeFilter === 'VEG' && !isVeg) return false;
+        if (foodTypeFilter === 'NON_VEG' && isVeg) return false;
+      }
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        return (
+          (item.name && item.name.toLowerCase().includes(q)) ||
+          (item.description && item.description.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    };
+
+    const targetMainCategories = selectedCategory
+      ? mainCategories.filter((m) => m.id === selectedCategory)
+      : mainCategories;
+
+    const sections: Array<{
+      id: string;
+      name: string;
+      icon: string;
+      subcategories: Array<{
+        id: string;
+        name: string;
+        icon?: string;
+        items: MenuItem[];
+      }>;
+      totalItems: number;
+    }> = [];
+
+    for (const mainCat of targetMainCategories) {
+      const childCats = categories.filter((c: any) => c.parentId === mainCat.id);
+      const subGroups: Array<{
+        id: string;
+        name: string;
+        icon?: string;
+        items: MenuItem[];
+      }> = [];
+
+      // 1. Direct items belonging to the main category itself
+      const directItems = (mainCat.items || []).filter(filterItem);
+      if (directItems.length > 0) {
+        subGroups.push({
+          id: `${mainCat.id}-direct`,
+          name: childCats.length > 0 ? 'General / Main Dishes' : mainCat.name,
+          items: directItems,
+        });
+      }
+
+      // 2. Items under each child subcategory
+      for (const child of childCats) {
+        const childItems = (child.items || []).filter(filterItem);
+        if (childItems.length > 0) {
+          subGroups.push({
+            id: child.id,
+            name: child.name,
+            icon: child.icon || CATEGORY_ICONS[child.name],
+            items: childItems,
+          });
+        }
+      }
+
+      const totalItems = subGroups.reduce((sum, g) => sum + g.items.length, 0);
+      if (totalItems > 0) {
+        sections.push({
+          id: mainCat.id,
+          name: mainCat.name,
+          icon: mainCat.icon || CATEGORY_ICONS[mainCat.name] || '🍽️',
+          subcategories: subGroups,
+          totalItems,
+        });
+      }
     }
-    return items;
-  }, [categories, selectedCategory, search, foodTypeFilter]);
+
+    return sections;
+  }, [categories, mainCategories, selectedCategory, search, foodTypeFilter]);
 
   const subtotal = useMemo(() => {
     return cart.reduce((s, i) => s + (Number(i.unitPrice) * (i.quantity || 1)), 0);
@@ -651,7 +727,7 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Large Visual Category Buttons */}
+          {/* Large Visual Category Buttons (MAIN CATEGORIES ONLY) */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-1">
             <button
               type="button"
@@ -666,7 +742,7 @@ export default function POSPage() {
               <span>✨</span>
               <span>All Categories</span>
             </button>
-            {categories.map((c) => {
+            {mainCategories.map((c) => {
               const icon = c.icon || CATEGORY_ICONS[c.name] || '🍽️';
               const active = selectedCategory === c.id;
               return (
@@ -689,83 +765,123 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* Big Food Grid (Touch-friendly 1-Tap Add) */}
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* Big Food Grid (Touch-friendly 1-Tap Add) — Grouped Subcategory-wise */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
               {Array.from({ length: 12 }).map((_, i) => (
                 <div key={i} className="h-32 rounded-2xl bg-muted/60 animate-pulse border border-border" />
               ))}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
-              {filteredItems.map((item) => {
-                const variants = Array.isArray(item.variants) && item.variants.length > 0 ? item.variants : [];
-                const basePrice = Number(variants[0]?.price || 0);
-                const inCart = cart.filter((c) => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0);
-                const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
-
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => addToCart(item)}
-                    className={cn(
-                      'text-left relative p-4 rounded-2xl border transition-all duration-150 shadow-sm cursor-pointer flex flex-col justify-between min-h-[120px] group active:scale-95',
-                      inCart > 0
-                        ? 'border-primary bg-primary/10 shadow-md shadow-primary/15'
-                        : 'border-border bg-card hover:border-primary/50 hover:bg-muted/30'
-                    )}
-                  >
-                    {/* Top Badges */}
-                    <div className="flex items-center justify-between w-full">
-                      {/* Veg / Non-Veg Indicator */}
-                      <div className={cn(
-                        'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
-                        isVeg ? 'border-emerald-500' : 'border-red-500'
-                      )}>
-                        <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
-                      </div>
-
-                      {/* Quantity in Cart Badge */}
-                      {inCart > 0 ? (
-                        <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-black shadow animate-in zoom-in-75 duration-100">
-                          {inCart} Added
-                        </div>
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-muted/80 border border-border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                          <Plus className="w-3.5 h-3.5" />
-                        </div>
-                      )}
+          ) : processedSections.length > 0 ? (
+            processedSections.map((sec) => (
+              <div key={sec.id} className="space-y-4">
+                {/* Main Category Header (Displayed when viewing All Categories) */}
+                {!selectedCategory && (
+                  <div className="flex items-center justify-between pb-1.5 border-b border-border/80 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{sec.icon}</span>
+                      <h2 className="text-xs font-black text-foreground uppercase tracking-wider">
+                        {sec.name}
+                      </h2>
                     </div>
+                    <span className="text-[10px] font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border font-mono">
+                      {sec.totalItems} {sec.totalItems === 1 ? 'dish' : 'dishes'}
+                    </span>
+                  </div>
+                )}
 
-                    {/* Food Title & Price */}
-                    <div className="mt-3">
-                      <p className="font-bold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                        {item.name}
-                      </p>
-                      <div className="flex items-baseline justify-between mt-2 pt-1 border-t border-border/40">
-                        <span className="text-base font-black text-emerald-400">
-                          ₹{basePrice.toFixed(0)}
-                        </span>
-                        {variants.length > 1 && (
-                          <span className="text-[10px] font-semibold text-muted-foreground">
-                            {variants.length} sizes
-                          </span>
+                {/* Subcategories under this Main Category */}
+                <div className="space-y-5">
+                  {sec.subcategories.map((sub) => {
+                    const showSubHeader = sec.subcategories.length > 1 || sub.name !== sec.name;
+
+                    return (
+                      <div key={sub.id} className="space-y-2.5">
+                        {showSubHeader && (
+                          <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                              <span>🏷️</span>
+                              <span className="text-foreground font-black">{sub.name}</span>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-md border border-border/60">
+                              {sub.items.length} {sub.items.length === 1 ? 'item' : 'items'}
+                            </span>
+                          </div>
                         )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
 
-              {filteredItems.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground">
-                  <Utensils className="w-12 h-12 mb-3 opacity-30" />
-                  <p className="text-sm font-bold">No dishes found</p>
-                  <p className="text-xs text-muted-foreground">Try selecting "All Categories" or clearing the search.</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                          {sub.items.map((item) => {
+                            const variants = Array.isArray(item.variants) && item.variants.length > 0 ? item.variants : [];
+                            const basePrice = Number(variants[0]?.price || 0);
+                            const inCart = cart.filter((c) => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0);
+                            const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
+
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => addToCart(item)}
+                                className={cn(
+                                  'text-left relative p-3.5 rounded-2xl border transition-all duration-150 shadow-xs cursor-pointer flex flex-col justify-between min-h-[110px] group active:scale-95',
+                                  inCart > 0
+                                    ? 'border-primary bg-primary/10 shadow-md shadow-primary/15'
+                                    : 'border-border bg-card hover:border-primary/50 hover:bg-muted/30'
+                                )}
+                              >
+                                {/* Top Badges */}
+                                <div className="flex items-center justify-between w-full">
+                                  {/* Veg / Non-Veg Indicator */}
+                                  <div className={cn(
+                                    'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
+                                    isVeg ? 'border-emerald-500' : 'border-red-500'
+                                  )}>
+                                    <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
+                                  </div>
+
+                                  {/* Quantity in Cart Badge */}
+                                  {inCart > 0 ? (
+                                    <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-black shadow animate-in zoom-in-75 duration-100">
+                                      {inCart} Added
+                                    </div>
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-muted/80 border border-border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Food Title & Price */}
+                                <div className="mt-2.5">
+                                  <p className="font-bold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                                    {item.name}
+                                  </p>
+                                  <div className="flex items-baseline justify-between mt-2 pt-1 border-t border-border/40">
+                                    <span className="text-sm font-black text-emerald-400 font-mono">
+                                      ₹{basePrice.toFixed(0)}
+                                    </span>
+                                    {variants.length > 1 && (
+                                      <span className="text-[10px] font-semibold text-muted-foreground">
+                                        {variants.length} sizes
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Utensils className="w-12 h-12 mb-3 opacity-30" />
+              <p className="text-sm font-bold">No dishes found</p>
+              <p className="text-xs text-muted-foreground">Try selecting "All Categories" or clearing the search.</p>
             </div>
           )}
         </div>
