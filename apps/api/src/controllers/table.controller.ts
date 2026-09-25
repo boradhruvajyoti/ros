@@ -263,8 +263,18 @@ export class TableController {
         kots: {
           include: {
             kitchenStation: { select: { id: true, name: true } },
-            items: true,
+            items: {
+              include: {
+                orderItem: {
+                  include: {
+                    menuItem: { select: { id: true, name: true, foodType: true, imageUrl: true } },
+                    variant: { select: { id: true, name: true, price: true } },
+                  },
+                },
+              },
+            },
           },
+          orderBy: { createdAt: 'asc' },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -427,22 +437,47 @@ export class TableController {
       notes ? `Note: ${notes}` : null,
     ].filter(Boolean).join(' | ');
 
-    const order = await orderService.createOrder(
-      {
-        type: 'DINE_IN',
-        status: 'CONFIRMED',
+    // Check if table already has an active order (e.g. from POS or previous QR round)
+    const existingActiveOrder = await prisma.order.findFirst({
+      where: {
+        tenantId: table.tenantId,
+        branchId: table.branchId,
         tableId: table.id,
-        customerId,
-        notes: formattedNotes,
-        items: items.map((it: any) => ({
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'VOIDED', 'PAID', 'REFUNDED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let order: any;
+    if (existingActiveOrder) {
+      order = await orderService.addRunningKot(
+        existingActiveOrder.id,
+        items.map((it: any) => ({
           menuItemId: it.menuItemId,
           variantId: it.variantId,
           quantity: it.quantity || 1,
           notes: it.notes,
         })),
-      },
-      tenantUser.id
-    );
+        tenantUser.id
+      );
+    } else {
+      order = await orderService.createOrder(
+        {
+          type: 'DINE_IN',
+          status: 'CONFIRMED',
+          tableId: table.id,
+          customerId,
+          notes: formattedNotes,
+          items: items.map((it: any) => ({
+            menuItemId: it.menuItemId,
+            variantId: it.variantId,
+            quantity: it.quantity || 1,
+            notes: it.notes,
+          })),
+        },
+        tenantUser.id
+      );
+    }
 
     // Real-time broadcast to Waiters, Cashiers, and Managers
     emitToRoom(table.tenantId, table.branchId, {

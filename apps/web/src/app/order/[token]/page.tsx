@@ -303,6 +303,8 @@ function TableOrderContent() {
         setSessionExpiresAt(json.data.sessionExpiresAt);
       }
       setCart({});
+      setGuestNotes('');
+      setViewTab('LIVE_STATUS');
     } catch (err: any) {
       alert(err.message || 'Failed to send order to kitchen');
     } finally {
@@ -872,6 +874,179 @@ function TableOrderContent() {
                   </div>
                 );
               })()}
+
+              {/* ───────────────────────────────────────────────────────────────────
+                  KITCHEN DISPLAY LIVE TRACKER (KOTs & Preparation Rounds)
+              ─────────────────────────────────────────────────────────────────── */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <ChefHat className="w-3.5 h-3.5 text-primary" />
+                    <span>Kitchen Display Live Tracking</span>
+                  </h3>
+                  {currentActiveOrder.kots && currentActiveOrder.kots.length > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {currentActiveOrder.kots.length} {currentActiveOrder.kots.length === 1 ? 'KOT Ticket' : 'KOT Tickets (Rounds)'}
+                    </span>
+                  )}
+                </div>
+
+                {currentActiveOrder.kots && currentActiveOrder.kots.length > 0 ? (
+                  <div className="space-y-3">
+                    {currentActiveOrder.kots.map((kot: any, kIdx: number) => {
+                      const kotStatus = kot.status || 'NEW';
+                      const isKotNew = kotStatus === 'NEW';
+                      const isKotAccepted = kotStatus === 'ACCEPTED';
+                      const isKotCooking = ['PREPARING', 'COOKING'].includes(kotStatus);
+                      const isKotReady = kotStatus === 'READY';
+                      const isKotServed = kotStatus === 'SERVED';
+                      const isKotCancelled = kotStatus === 'CANCELLED';
+
+                      return (
+                        <div
+                          key={kot.id || kIdx}
+                          className={cn(
+                            'p-4 rounded-3xl border-2 bg-card space-y-3 transition-all shadow-sm overflow-hidden',
+                            isKotNew ? 'border-blue-500/40 bg-blue-500/5' :
+                            isKotAccepted ? 'border-amber-500/50 bg-amber-500/5' :
+                            isKotCooking ? 'border-orange-500/50 bg-orange-500/5' :
+                            isKotReady ? 'border-emerald-500/50 bg-emerald-500/5' :
+                            isKotServed ? 'border-teal-500/30 bg-teal-500/5' :
+                            'border-rose-500/30 bg-rose-500/5'
+                          )}
+                        >
+                          {/* KOT Header */}
+                          <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-foreground">
+                                KOT #{kot.kotNumber || kIdx + 1}
+                              </span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">
+                                Round {kIdx + 1}
+                              </span>
+                              {kot.kitchenStation?.name && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">
+                                  {kot.kitchenStation.name}
+                                </span>
+                              )}
+                            </div>
+
+                            <span className={cn(
+                              'text-[10px] font-black uppercase px-2.5 py-1 rounded-xl flex items-center gap-1 border shadow-xs',
+                              isKotNew ? 'bg-blue-500/15 text-blue-400 border-blue-500/30' :
+                              isKotAccepted ? 'bg-amber-500/15 text-amber-400 border-amber-500/30 animate-pulse' :
+                              isKotCooking ? 'bg-orange-500/15 text-orange-400 border-orange-500/30 animate-pulse' :
+                              isKotReady ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-bounce' :
+                              isKotServed ? 'bg-teal-500/15 text-teal-400 border-teal-500/30' :
+                              'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                            )}>
+                              {isKotNew ? '⏳ Queued' :
+                               isKotAccepted ? '👨‍🍳 Accepted' :
+                               isKotCooking ? '🔥 Cooking' :
+                               isKotReady ? '🛎️ Ready' :
+                               isKotServed ? '🍽️ Served' : '❌ Cancelled'}
+                            </span>
+                          </div>
+
+                          {/* KOT Progress Stepper */}
+                          {!isKotCancelled && (
+                            <div className="pt-1 pb-1">
+                              <div className="grid grid-cols-4 gap-1 text-center">
+                                {[
+                                  { label: 'Queued', done: true, active: isKotNew },
+                                  { label: 'Accepted', done: isKotAccepted || isKotCooking || isKotReady || isKotServed, active: isKotAccepted },
+                                  { label: 'Cooking', done: isKotCooking || isKotReady || isKotServed, active: isKotCooking },
+                                  { label: 'Served', done: isKotServed, active: isKotServed || isKotReady },
+                                ].map((step, sIdx) => (
+                                  <div key={sIdx} className="space-y-1">
+                                    <div
+                                      className={cn(
+                                        'h-1.5 rounded-full transition-all',
+                                        step.active ? 'bg-primary animate-pulse' :
+                                        step.done ? 'bg-emerald-500' : 'bg-muted'
+                                      )}
+                                    />
+                                    <span
+                                      className={cn(
+                                        'text-[9px] font-bold block truncate',
+                                        step.active ? 'text-primary font-black' :
+                                        step.done ? 'text-foreground' : 'text-muted-foreground opacity-60'
+                                      )}
+                                    >
+                                      {step.label}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Dishes in this KOT */}
+                          <div className="space-y-1.5 pt-1">
+                            {kot.items && kot.items.length > 0 ? (
+                              kot.items.map((kItem: any, iIdx: number) => {
+                                const oItem = kItem.orderItem || {};
+                                const mItem = oItem.menuItem || {};
+                                const variant = oItem.variant || {};
+                                const dishName = mItem.name || oItem.name || 'Dish Item';
+                                const variantName = variant.name;
+                                const qty = oItem.quantity || 1;
+                                const itemStatus = kItem.status || kotStatus;
+                                const isItemCancelled = itemStatus === 'CANCELLED';
+
+                                return (
+                                  <div
+                                    key={kItem.id || iIdx}
+                                    className={cn(
+                                      'flex items-center justify-between p-2 rounded-2xl bg-muted/40 border border-border/50 text-xs',
+                                      isItemCancelled && 'opacity-50 line-through bg-rose-500/5 border-rose-500/20'
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                                      <span className="text-[10px] shrink-0">
+                                        {mItem.foodType === 'NON_VEG' ? '🔴' : '🟢'}
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-bold text-foreground truncate">
+                                          {dishName}
+                                        </p>
+                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                          {variantName && <span>{variantName}</span>}
+                                          <span>Qty: <strong className="text-foreground font-mono">{qty}</strong></span>
+                                          {oItem.notes && <span className="text-amber-400 italic">({oItem.notes})</span>}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <span className={cn(
+                                      'text-[9px] font-bold uppercase px-2 py-0.5 rounded-lg shrink-0',
+                                      itemStatus === 'CANCELLED' ? 'bg-rose-500/15 text-rose-400' :
+                                      itemStatus === 'SERVED' ? 'bg-teal-500/15 text-teal-400' :
+                                      itemStatus === 'READY' ? 'bg-emerald-500/15 text-emerald-400' :
+                                      itemStatus === 'PREPARING' ? 'bg-orange-500/15 text-orange-400' :
+                                      itemStatus === 'ACCEPTED' ? 'bg-amber-500/15 text-amber-400' :
+                                      'bg-blue-500/15 text-blue-400'
+                                    )}>
+                                      {itemStatus === 'PREPARING' ? 'Cooking' : itemStatus}
+                                    </span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground italic">Dishes sent to kitchen.</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-3xl bg-muted/30 border border-border text-center space-y-1 text-xs text-muted-foreground">
+                    <p className="font-bold text-foreground">⏳ Waiting for Kitchen KOT Acceptance</p>
+                    <p className="text-[11px]">Your dishes are sent to the kitchen and will appear with live station tracking once accepted.</p>
+                  </div>
+                )}
+              </div>
 
               {/* Itemized Order Breakdown with Rate & Qty */}
               <div className="p-4 rounded-3xl bg-card border border-border space-y-3">
