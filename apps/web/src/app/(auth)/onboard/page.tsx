@@ -794,12 +794,12 @@ DESSERTS & DRINKS
 
                   <div className="flex flex-col sm:flex-row items-center gap-4">
                     {/* Logo Preview */}
-                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-border bg-card flex items-center justify-center overflow-hidden shrink-0 relative group">
+                    <div className="w-20 h-20 rounded-full border-2 border-dashed border-primary/40 bg-card flex items-center justify-center overflow-hidden shrink-0 relative group">
                       {logoUrl ? (
                         <img
                           src={logoUrl}
                           alt="Restaurant Logo"
-                          className="w-full h-full object-contain p-1"
+                          className="w-full h-full object-cover rounded-full p-0.5"
                         />
                       ) : (
                         <div className="flex flex-col items-center text-muted-foreground">

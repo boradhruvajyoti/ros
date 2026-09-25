@@ -121,7 +121,7 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: st
   CONFIRMED:       { label: 'Pending Verification', emoji: '⚠️', bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', nextStatus: 'SENT_TO_KITCHEN', nextAction: 'Verify & Send' },
   SENT_TO_KITCHEN: { label: 'In Kitchen',   emoji: '🍳', bg: 'bg-amber-500/10',   border: 'border-amber-500/30',    text: 'text-amber-500',        nextStatus: 'READY',           nextAction: 'Mark Ready' },
   PREPARING:       { label: 'Cooking',      emoji: '🔥', bg: 'bg-orange-500/10',  border: 'border-orange-500/30',   text: 'text-orange-500',       nextStatus: 'READY',           nextAction: 'Mark Ready' },
-  READY:           { label: 'Ready to Pick',emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-500',      nextStatus: 'PAID',            nextAction: 'Mark as Paid' },
+  READY:           { label: 'Ready to Pick',emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-500',      nextStatus: 'SERVED',          nextAction: 'Mark Served' },
   SERVED:          { label: 'Served',       emoji: '🍽️', bg: 'bg-teal-500/10',    border: 'border-teal-500/30',     text: 'text-teal-500',         nextStatus: 'PAID',            nextAction: 'Mark as Paid' },
   BILLED:          { label: 'Billed',       emoji: '🧾', bg: 'bg-purple-500/15',  border: 'border-purple-500/40',   text: 'text-purple-500',       nextStatus: 'PAID',            nextAction: 'Mark as Paid' },
   PARTIALLY_PAID:  { label: 'Partial Paid', emoji: '⏳', bg: 'bg-indigo-500/10',  border: 'border-indigo-500/30',   text: 'text-indigo-500',       nextStatus: 'PAID',            nextAction: 'Settle Balance' },
@@ -154,6 +154,7 @@ export default function TablesPage() {
   const [orderViewMode, setOrderViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedOrder, setSelectedOrder] = useState<Order | any | null>(null);
   const [verifyingOrder, setVerifyingOrder] = useState<Order | any | null>(null);
+  const [billPreviewOrder, setBillPreviewOrder] = useState<Order | any | null>(null);
   const [editableItems, setEditableItems] = useState<any[]>([]);
 
   // ── Data Queries ────────────────────────────────────────────────────────────
@@ -237,10 +238,18 @@ export default function TablesPage() {
     }
   }, [qrModalTable]);
 
-  // ── Printing Logic (Strictly Disabled for Cancelled Orders) ─────────────────
+  // ── Printing Logic (Strictly Disabled for Cancelled Orders & Pre-Serving) ────
   const handlePrintOrder = (order: any, isKot = false) => {
+    if (!order) return;
     if (['CANCELLED', 'VOIDED'].includes(order.status)) {
       toast.error('Printing Disabled', 'KOT and bill printing is disabled for cancelled or voided orders.');
+      return;
+    }
+
+    const isServedOrLater = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
+    if (!isKot && !isServedOrLater) {
+      setBillPreviewOrder(order);
+      toast.info('Bill Preview Mode', 'This order has not been served yet. Showing pre-serving bill preview modal.');
       return;
     }
 
@@ -279,7 +288,7 @@ export default function TablesPage() {
             .grand-total { font-size: 14px; font-weight: 900; }
             .kot-box { border: 2px solid #000; padding: 4px; text-align: center; font-size: 14px; font-weight: 900; margin-bottom: 6px; }
             .logo-header { text-align: center; margin-bottom: 8px; }
-            .logo-img { max-height: 55px; max-width: 140px; margin: 0 auto; object-fit: contain; display: block; }
+            .logo-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #000; margin: 0 auto; object-fit: cover; display: block; }
           </style>
         </head>
         <body>
@@ -436,12 +445,20 @@ export default function TablesPage() {
 
   const handleMarkAsPaidAndBill = (order: any) => {
     if (!order) return;
+    const isServedOrLater = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
+    if (!isServedOrLater) {
+      toast.error(
+        'Order Not Served Yet',
+        'An order cannot be marked as paid until it is marked as SERVED in the Kitchen Display System.'
+      );
+      return;
+    }
     updateStatus.mutate(
       { orderId: order.id, status: 'PAID' },
       {
         onSuccess: () => {
           toast.success('Order Settled & Paid', 'Generating tax invoice receipt.');
-          handlePrintOrder(order, false);
+          handlePrintOrder({ ...order, status: 'PAID' }, false);
         },
       }
     );
@@ -589,6 +606,7 @@ export default function TablesPage() {
         </head>
         <body>
           <div class="standee">
+            ${tenant?.logoUrl ? `<div style="margin-bottom: 12px;"><img src="${tenant.logoUrl}" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #000; object-fit: cover; display: inline-block;" alt="Logo" /></div>` : ''}
             <h1 class="title">${table.name}</h1>
             <p class="subtitle">Scan to View Digital Menu & Order</p>
             <div class="qr-box">
@@ -1042,21 +1060,31 @@ export default function TablesPage() {
                         🍳
                       </button>
 
-                      <button
-                        type="button"
-                        disabled={isCancelled}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePrintOrder(order, false);
-                        }}
-                        className={cn(
-                          'p-1.5 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-bold',
-                          isCancelled && 'opacity-30 cursor-not-allowed hover:bg-transparent'
-                        )}
-                        title={isCancelled ? 'Printing disabled for cancelled order' : 'Print Bill'}
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </button>
+                      {(() => {
+                        const isServed = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
+                        return (
+                          <button
+                            type="button"
+                            disabled={isCancelled}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isServed) {
+                                handlePrintOrder(order, false);
+                              } else {
+                                setBillPreviewOrder(order);
+                              }
+                            }}
+                            className={cn(
+                              'p-1.5 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-bold',
+                              isCancelled && 'opacity-30 cursor-not-allowed hover:bg-transparent',
+                              !isServed && 'text-amber-500 border-amber-500/30'
+                            )}
+                            title={isCancelled ? 'Printing disabled for cancelled order' : isServed ? 'Print Bill' : 'Preview Bill (Food in Kitchen)'}
+                          >
+                            {isServed ? <Printer className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        );
+                      })()}
 
                       {cfg.nextStatus && !isCancelled && (
                         <Button
@@ -1099,6 +1127,7 @@ export default function TablesPage() {
                   {orders.map((order) => {
                     const cfg = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.DRAFT;
                     const isCancelled = ['CANCELLED', 'VOIDED'].includes(order.status);
+                    const isServed = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
 
                     return (
                       <tr
@@ -1131,11 +1160,21 @@ export default function TablesPage() {
                             <button
                               type="button"
                               disabled={isCancelled}
-                              onClick={() => handlePrintOrder(order, false)}
-                              className={cn('p-1.5 rounded-lg border text-foreground hover:bg-muted', isCancelled && 'opacity-30 cursor-not-allowed')}
-                              title="Print Bill"
+                              onClick={() => {
+                                if (isServed) {
+                                  handlePrintOrder(order, false);
+                                } else {
+                                  setBillPreviewOrder(order);
+                                }
+                              }}
+                              className={cn(
+                                'p-1.5 rounded-lg border text-foreground hover:bg-muted',
+                                isCancelled && 'opacity-30 cursor-not-allowed',
+                                !isServed && 'text-amber-500 border-amber-500/30'
+                              )}
+                              title={isCancelled ? 'Printing disabled for cancelled order' : isServed ? 'Print Bill' : 'Preview Bill (Food in Kitchen)'}
                             >
-                              <Printer className="w-3.5 h-3.5" />
+                              {isServed ? <Printer className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                             </button>
                             {cfg.nextStatus && !isCancelled && (
                               <Button
@@ -1181,11 +1220,13 @@ export default function TablesPage() {
             {/* Top Restaurant Branding */}
             {tenant?.logoUrl && (
               <div className="flex justify-center pb-1">
-                <img
-                  src={tenant.logoUrl}
-                  alt={tenant.name || 'Logo'}
-                  className="max-h-14 max-w-[150px] object-contain mx-auto"
-                />
+                <div className="w-14 h-14 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-sm flex items-center justify-center overflow-hidden mx-auto">
+                  <img
+                    src={tenant.logoUrl}
+                    alt={tenant.name || 'Logo'}
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                </div>
               </div>
             )}
 
@@ -1219,6 +1260,7 @@ export default function TablesPage() {
             {(() => {
               const cfg = ORDER_STATUS_CONFIG[selectedOrder.status] || ORDER_STATUS_CONFIG.DRAFT;
               const isCancelled = ['CANCELLED', 'VOIDED'].includes(selectedOrder.status);
+              const isServed = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(selectedOrder.status);
 
               return (
                 <div className={cn('p-3 rounded-2xl border flex items-center justify-between', cfg.bg, cfg.border)}>
@@ -1252,13 +1294,22 @@ export default function TablesPage() {
                       variant="outline"
                       size="sm"
                       disabled={isCancelled}
-                      onClick={() => handlePrintOrder(selectedOrder, false)}
+                      onClick={() => {
+                        if (isServed) {
+                          handlePrintOrder(selectedOrder, false);
+                        } else {
+                          setBillPreviewOrder(selectedOrder);
+                        }
+                      }}
                       className={cn(
                         'h-8 text-xs font-bold gap-1 bg-background text-foreground',
-                        isCancelled && 'opacity-30 cursor-not-allowed'
+                        isCancelled && 'opacity-30 cursor-not-allowed',
+                        !isServed && 'text-amber-500 border-amber-500/30'
                       )}
+                      title={!isServed ? 'Preview Bill (Physical printing locked until served)' : 'Print Bill'}
                     >
-                      <Printer className="w-3.5 h-3.5" /> Print Bill
+                      {isServed ? <Printer className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5 text-amber-500" />}
+                      {isServed ? 'Print Bill' : 'Preview Bill'}
                     </Button>
                   </div>
                 </div>
@@ -1354,14 +1405,31 @@ export default function TablesPage() {
               )}
 
               {selectedOrder.status !== 'PAID' && selectedOrder.status !== 'COMPLETED' && selectedOrder.status !== 'CANCELLED' && (
-                <Button
-                  onClick={() => handleMarkAsPaidAndBill(selectedOrder)}
-                  disabled={updateStatus.isPending}
-                  className="w-full font-black text-xs h-12 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg gap-2 text-sm"
-                >
-                  <CheckCircle2 className="w-5 h-5" />
-                  Mark as Paid &amp; Generate Bill
-                </Button>
+                (() => {
+                  const isServed = ['SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(selectedOrder.status);
+                  return (
+                    <div className="space-y-1.5">
+                      <Button
+                        onClick={() => handleMarkAsPaidAndBill(selectedOrder)}
+                        disabled={updateStatus.isPending || !isServed}
+                        className={cn(
+                          'w-full font-black text-xs h-12 shadow-lg gap-2 text-sm',
+                          isServed
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75'
+                        )}
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        {isServed ? 'Mark as Paid & Generate Bill' : 'Mark as Paid (Disabled: Must be SERVED first)'}
+                      </Button>
+                      {!isServed && (
+                        <p className="text-[11px] text-amber-500 text-center font-medium">
+                          ⚠️ Order is in kitchen ({selectedOrder.status}). Kitchen staff must mark it <strong>SERVED</strong> on KDS before payment can be collected.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()
               )}
 
               <div className="grid grid-cols-2 gap-2">
@@ -1528,7 +1596,18 @@ export default function TablesPage() {
                 (acc, it) => acc + (Number(it.unitPrice) || 0) * (Number(it.quantity) || 1),
                 0
               );
-              const taxRate = tenant?.taxRate !== undefined && tenant?.taxRate !== null ? Number(tenant.taxRate) : 5;
+              let taxRate = 0;
+              if (tenant?.taxRate !== undefined && tenant?.taxRate !== null) {
+                taxRate = Number(tenant.taxRate);
+              } else {
+                try {
+                  const tenantStr = typeof window !== 'undefined' ? localStorage.getItem('tenant') : null;
+                  const parsed = tenantStr ? JSON.parse(tenantStr) : null;
+                  taxRate = parsed?.taxRate !== undefined ? Number(parsed.taxRate) : 0;
+                } catch {
+                  taxRate = 0;
+                }
+              }
               const taxAmount = taxRate > 0 ? (subtotal * taxRate) / 100 : 0;
               const grandTotal = subtotal + taxAmount;
 
@@ -1538,9 +1617,9 @@ export default function TablesPage() {
                     <span>Subtotal:</span>
                     <span className="font-mono font-medium">{formatCurrency(subtotal)}</span>
                   </div>
-                  {taxRate > 0 && (
+                  {taxAmount > 0 && (
                     <div className="flex justify-between text-muted-foreground">
-                      <span>GST ({taxRate}%):</span>
+                      <span>Taxes &amp; GST ({taxRate}%):</span>
                       <span className="font-mono font-medium">{formatCurrency(taxAmount)}</span>
                     </div>
                   )}
@@ -1608,6 +1687,110 @@ export default function TablesPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: BILL PREVIEW (BEFORE SERVING)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {billPreviewOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="w-full max-w-md bg-card border-2 border-primary/30 rounded-3xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Header with Circular Logo */}
+            <div className="text-center space-y-2 border-b pb-4">
+              {tenant?.logoUrl && (
+                <div className="w-14 h-14 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-sm flex items-center justify-center overflow-hidden mx-auto">
+                  <img
+                    src={tenant.logoUrl}
+                    alt={tenant.name || 'Logo'}
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                </div>
+              )}
+              <h3 className="text-lg font-black text-foreground">{tenant?.name || 'Restaurant Bill Preview'}</h3>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 font-bold text-xs">
+                <Eye className="w-3.5 h-3.5" />
+                <span>Pre-Serving Bill Preview</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Order <span className="font-mono font-bold text-foreground">#{billPreviewOrder.orderNumber}</span> • {billPreviewOrder.table ? `Table ${billPreviewOrder.table.name}` : billPreviewOrder.type}
+              </p>
+            </div>
+
+            {/* Warning notice */}
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-bold text-amber-600 dark:text-amber-400">Order In Preparation ({billPreviewOrder.status})</p>
+                <p className="text-[11px] opacity-90 leading-tight">
+                  This is a live preview. Physical bill printing and payment settlement will be unlocked once this order is marked <strong>SERVED</strong> on the Kitchen Display System.
+                </p>
+              </div>
+            </div>
+
+            {/* Itemized List */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+                <span>Item</span>
+                <span>Qty × Rate = Amount</span>
+              </div>
+              <div className="rounded-2xl border divide-y bg-muted/20 overflow-hidden text-xs max-h-56 overflow-y-auto">
+                {(billPreviewOrder.items || []).map((it: any, idx: number) => {
+                  const qty = Number(it.quantity || 1);
+                  const rate = Number(it.unitPrice || it.variant?.price || 0);
+                  const amt = Number(it.totalPrice || (qty * rate));
+                  const foodType = it.menuItem?.foodType || 'VEG';
+
+                  return (
+                    <div key={idx} className="p-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                        <span className="text-xs shrink-0">{foodType === 'VEG' ? '🟢' : '🔴'}</span>
+                        <div className="truncate">
+                          <p className="font-bold text-foreground truncate">{it.menuItem?.name || it.name || 'Dish'}</p>
+                          {it.variant?.name && <p className="text-[10px] text-muted-foreground">{it.variant.name}</p>}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-mono font-bold text-foreground">{formatCurrency(amt)}</span>
+                        <div className="text-[10px] text-muted-foreground font-mono">{qty} × {formatCurrency(rate)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="p-3.5 rounded-2xl bg-card border space-y-1.5 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal:</span>
+                <span className="font-mono">{formatCurrency(billPreviewOrder.subtotal || billPreviewOrder.total)}</span>
+              </div>
+              {Number(billPreviewOrder.taxAmount || 0) > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Taxes &amp; GST:</span>
+                  <span className="font-mono">{formatCurrency(Number(billPreviewOrder.taxAmount || 0))}</span>
+                </div>
+              )}
+              {!!billPreviewOrder.discountAmount && (
+                <div className="flex justify-between text-emerald-500">
+                  <span>Discount:</span>
+                  <span className="font-mono">-{formatCurrency(Number(billPreviewOrder.discountAmount || 0))}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-black text-sm text-foreground pt-2 border-t">
+                <span>Estimated Total:</span>
+                <span className="font-mono text-primary text-base">{formatCurrency(billPreviewOrder.total)}</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setBillPreviewOrder(null)}
+              className="w-full h-11 rounded-2xl font-bold text-xs"
+            >
+              Close Preview
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
           MODAL: TABLE QR CODE STANDEE PREVIEW & PRINT
       ───────────────────────────────────────────────────────────────────────────── */}
       {qrModalTable && (
@@ -1630,6 +1813,15 @@ export default function TablesPage() {
 
             {/* Rendered Standee Preview Card */}
             <div className="p-5 rounded-2xl bg-white text-black border-2 border-zinc-900 shadow-lg space-y-3">
+              {tenant?.logoUrl && (
+                <div className="w-14 h-14 rounded-full border-2 border-zinc-900 p-0.5 bg-white shadow-sm flex items-center justify-center overflow-hidden mx-auto">
+                  <img
+                    src={tenant.logoUrl}
+                    alt="Logo"
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                </div>
+              )}
               <h2 className="text-2xl font-black">{qrModalTable.name}</h2>
               <p className="text-xs text-zinc-600 font-medium">Scan with Phone Camera to View Menu &amp; Order</p>
 

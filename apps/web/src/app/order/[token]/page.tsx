@@ -263,11 +263,13 @@ export default function PublicTableOrderPage() {
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border p-4 shadow-sm space-y-3">
         {restaurant?.logoUrl && (
           <div className="flex justify-center pb-0.5">
-            <img
-              src={restaurant.logoUrl}
-              alt={restaurant.name || 'Restaurant Logo'}
-              className="max-h-12 max-w-[140px] object-contain mx-auto"
-            />
+            <div className="w-14 h-14 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-sm flex items-center justify-center overflow-hidden mx-auto">
+              <img
+                src={restaurant.logoUrl}
+                alt={restaurant.name || 'Restaurant Logo'}
+                className="w-full h-full object-cover rounded-full"
+              />
+            </div>
           </div>
         )}
 
@@ -445,11 +447,13 @@ export default function PublicTableOrderPage() {
               <div className="p-4 rounded-3xl bg-card border border-border space-y-3">
                 {restaurant?.logoUrl && (
                   <div className="flex justify-center pb-1 border-b border-border/50">
-                    <img
-                      src={restaurant.logoUrl}
-                      alt={restaurant.name || 'Restaurant Logo'}
-                      className="max-h-12 max-w-[140px] object-contain mx-auto"
-                    />
+                    <div className="w-12 h-12 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-sm flex items-center justify-center overflow-hidden mx-auto">
+                      <img
+                        src={restaurant.logoUrl}
+                        alt={restaurant.name || 'Restaurant Logo'}
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    </div>
                   </div>
                 )}
 

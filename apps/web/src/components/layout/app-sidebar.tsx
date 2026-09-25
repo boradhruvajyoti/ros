@@ -174,17 +174,17 @@ export function AppSidebar() {
         isPlatformSuperAdmin && 'bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-transparent'
       )}>
         <div className={cn(
-          'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md overflow-hidden',
+          'w-9 h-9 flex items-center justify-center shrink-0 shadow-md overflow-hidden',
           isPlatformSuperAdmin
-            ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-indigo-500/25'
+            ? 'rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-indigo-500/25'
             : tenantLogo
-            ? 'bg-card border border-border/80 p-0.5'
-            : 'bg-primary'
+            ? 'rounded-full bg-card border-2 border-primary/40 p-0.5'
+            : 'rounded-xl bg-primary'
         )}>
           {isPlatformSuperAdmin ? (
             <Globe className="w-5 h-5 text-white" />
           ) : tenantLogo ? (
-            <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-contain rounded-lg" />
+            <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-full" />
           ) : (
             <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
           )}

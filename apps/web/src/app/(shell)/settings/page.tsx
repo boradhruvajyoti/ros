@@ -202,12 +202,12 @@ export default function SettingsPage() {
           <CardContent className="space-y-6">
             <div className="p-6 rounded-2xl border border-border bg-background/50 flex flex-col md:flex-row items-center gap-6">
               {/* Logo Preview Container */}
-              <div className="w-32 h-32 rounded-2xl border-2 border-dashed border-border bg-card flex flex-col items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
+              <div className="w-32 h-32 rounded-full border-2 border-dashed border-primary/40 bg-card flex flex-col items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
                 {logoUrl ? (
                   <img
                     src={logoUrl}
                     alt={name || 'Restaurant Logo'}
-                    className="w-full h-full object-contain p-2"
+                    className="w-full h-full object-cover rounded-full p-1"
                   />
                 ) : (
                   <div className="flex flex-col items-center text-muted-foreground p-3 text-center">
@@ -278,9 +278,9 @@ export default function SettingsPage() {
             {/* Quick Logo Bar in General Tab */}
             <div className="p-4 rounded-xl border border-border bg-background/50 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl border border-border bg-card flex items-center justify-center overflow-hidden shrink-0">
+                <div className="w-14 h-14 rounded-full border-2 border-primary/40 bg-card flex items-center justify-center overflow-hidden shrink-0">
                   {logoUrl ? (
-                    <img src={logoUrl} alt={name} className="w-full h-full object-contain p-1" />
+                    <img src={logoUrl} alt={name} className="w-full h-full object-cover rounded-full p-0.5" />
                   ) : (
                     <ChefHat className="w-6 h-6 text-muted-foreground opacity-50" />
                   )}
