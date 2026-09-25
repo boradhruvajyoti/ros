@@ -106,7 +106,26 @@ export function playOrderAcceptedSound(): void {
 }
 
 /**
- * 🛎️ 3. Food Ready to Serve Sound (Classic Service Call Bell - "Order Up!")
+ * 🔥 3. Start Cooking Sound (Energetic 3-Note Kitchen Action Cue)
+ */
+export function playOrderCookingSound(): void {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Fast energetic 3-note ascending triad: E5 -> G#5 -> B5
+    playTone(ctx, 659.25, now, 0.12, 0.25, 'sine');
+    playTone(ctx, 830.61, now + 0.08, 0.14, 0.28, 'sine');
+    playTone(ctx, 987.77, now + 0.16, 0.38, 0.32, 'triangle');
+    playTone(ctx, 1975.53, now + 0.16, 0.25, 0.1, 'sine');
+  } catch (err) {
+    console.warn('Audio play error:', err);
+  }
+}
+
+/**
+ * 🛎️ 4. Food Ready to Serve Sound (Classic High Service Call Bell - "Order Up! 🛎️")
  */
 export function playOrderReadySound(): void {
   try {
@@ -114,17 +133,37 @@ export function playOrderReadySound(): void {
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // Authentic High Service Bell (C6 - 1046.5 Hz with strong bell resonance)
-    playTone(ctx, 1046.5, now, 0.8, 0.4, 'sine');
-    playTone(ctx, 2093.0, now, 0.6, 0.18, 'sine');
-    playTone(ctx, 3135.96, now, 0.3, 0.08, 'triangle');
+    // Double-tap high resonant service bell (C6 - 1046.5 Hz & E6 - 1318.5 Hz)
+    playTone(ctx, 1046.5, now, 0.2, 0.35, 'sine');
+    playTone(ctx, 2093.0, now, 0.18, 0.15, 'sine');
+
+    playTone(ctx, 1046.5, now + 0.14, 0.7, 0.45, 'sine');
+    playTone(ctx, 1318.51, now + 0.14, 0.6, 0.22, 'sine');
+    playTone(ctx, 3135.96, now + 0.14, 0.35, 0.08, 'triangle');
   } catch (err) {
     console.warn('Audio play error:', err);
   }
 }
 
 /**
- * 💳 4. Payment Received / Paid Sound (Pleasant Ascending Success Chime)
+ * 🍽️ 5. Order Served / Completed Sound (Gentle Warm Resolution)
+ */
+export function playOrderServedSound(): void {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // F5 -> A5
+    playTone(ctx, 698.46, now, 0.16, 0.25, 'sine');
+    playTone(ctx, 880.0, now + 0.12, 0.4, 0.28, 'sine');
+  } catch (err) {
+    console.warn('Audio play error:', err);
+  }
+}
+
+/**
+ * 💳 6. Payment Received / Paid Sound (Pleasant Ascending Success Chime)
  */
 export function playPaymentReceivedSound(): void {
   try {

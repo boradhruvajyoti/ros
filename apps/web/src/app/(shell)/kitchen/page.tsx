@@ -17,7 +17,9 @@ import { toast } from '@/hooks/use-toast';
 import {
   playNewOrderSound,
   playOrderAcceptedSound,
+  playOrderCookingSound,
   playOrderReadySound,
+  playOrderServedSound,
 } from '@/lib/order-sound';
 
 interface KotItem {
@@ -474,8 +476,12 @@ export default function KitchenPage() {
         } else if (t === 'KOT_STATUS_CHANGED' && soundEnabled) {
           if (payload?.status === 'ACCEPTED') {
             playOrderAcceptedSound();
+          } else if (payload?.status === 'PREPARING') {
+            playOrderCookingSound();
           } else if (payload?.status === 'READY') {
             playOrderReadySound();
+          } else if (payload?.status === 'SERVED') {
+            playOrderServedSound();
           }
         }
         queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
@@ -501,6 +507,21 @@ export default function KitchenPage() {
     },
     onError: (err: any) => toast.error(err?.message || 'Could not update KOT status'),
   });
+
+  const handleStatusUpdate = (kotId: string, status: string) => {
+    if (soundEnabled) {
+      if (status === 'ACCEPTED') {
+        playOrderAcceptedSound();
+      } else if (status === 'PREPARING') {
+        playOrderCookingSound();
+      } else if (status === 'READY') {
+        playOrderReadySound();
+      } else if (status === 'SERVED') {
+        playOrderServedSound();
+      }
+    }
+    updateKot.mutate({ kotId, status });
+  };
 
   const cancelKotItem = useMutation({
     mutationFn: ({ kotId, itemId, reason }: { kotId: string; itemId: string; reason?: string }) =>
@@ -622,14 +643,7 @@ export default function KitchenPage() {
           accentBorder="border-blue-500/40 hover:border-blue-500/60"
           dotActiveColor="bg-blue-500"
           kots={groupedKots.NEW}
-          onUpdateKot={(kotId, status) => {
-            if (status === 'ACCEPTED') {
-              playOrderAcceptedSound();
-            } else if (status === 'READY') {
-              playOrderReadySound();
-            }
-            updateKot.mutate({ kotId, status });
-          }}
+          onUpdateKot={handleStatusUpdate}
           onRequestCancelItem={(kotId, itemId, itemName) => {
             setCancelModalItem({ kotId, itemId, itemName });
             setCancelReason('');
@@ -649,14 +663,7 @@ export default function KitchenPage() {
           accentBorder="border-amber-500/40 hover:border-amber-500/60"
           dotActiveColor="bg-amber-500"
           kots={groupedKots.ACCEPTED}
-          onUpdateKot={(kotId, status) => {
-            if (status === 'ACCEPTED') {
-              playOrderAcceptedSound();
-            } else if (status === 'READY') {
-              playOrderReadySound();
-            }
-            updateKot.mutate({ kotId, status });
-          }}
+          onUpdateKot={handleStatusUpdate}
           onRequestCancelItem={(kotId, itemId, itemName) => {
             setCancelModalItem({ kotId, itemId, itemName });
             setCancelReason('');
@@ -676,14 +683,7 @@ export default function KitchenPage() {
           accentBorder="border-orange-500/40 hover:border-orange-500/60"
           dotActiveColor="bg-orange-500"
           kots={groupedKots.PREPARING}
-          onUpdateKot={(kotId, status) => {
-            if (status === 'ACCEPTED') {
-              playOrderAcceptedSound();
-            } else if (status === 'READY') {
-              playOrderReadySound();
-            }
-            updateKot.mutate({ kotId, status });
-          }}
+          onUpdateKot={handleStatusUpdate}
           onRequestCancelItem={(kotId, itemId, itemName) => {
             setCancelModalItem({ kotId, itemId, itemName });
             setCancelReason('');
@@ -703,14 +703,7 @@ export default function KitchenPage() {
           accentBorder="border-emerald-500/40 hover:border-emerald-500/60"
           dotActiveColor="bg-emerald-500"
           kots={groupedKots.READY}
-          onUpdateKot={(kotId, status) => {
-            if (status === 'ACCEPTED') {
-              playOrderAcceptedSound();
-            } else if (status === 'READY') {
-              playOrderReadySound();
-            }
-            updateKot.mutate({ kotId, status });
-          }}
+          onUpdateKot={handleStatusUpdate}
           onRequestCancelItem={(kotId, itemId, itemName) => {
             setCancelModalItem({ kotId, itemId, itemName });
             setCancelReason('');
