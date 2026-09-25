@@ -43,6 +43,15 @@ interface Employee {
 }
 
 const FEATURE_MODULES = [
+  // Primary Operations
+  {
+    id: 'dashboard',
+    name: 'Dashboard Overview',
+    icon: '📊',
+    description: 'Executive dashboard, real-time live revenue counters and activity feed',
+    keyPermission: 'reports:view',
+    permissions: ['reports:view'],
+  },
   {
     id: 'pos',
     name: 'Point of Sale (POS)',
@@ -58,14 +67,6 @@ const FEATURE_MODULES = [
     description: 'Floor view, live table orders, KOT status advance, billing preview',
     keyPermission: 'tables:view',
     permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
-  },
-  {
-    id: 'kitchen',
-    name: 'Kitchen Display System (KDS)',
-    icon: '👨‍🍳',
-    description: 'Live KOT tickets, accept orders, food ready bump action',
-    keyPermission: 'kitchen:view',
-    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
   },
   {
     id: 'history',
@@ -84,6 +85,24 @@ const FEATURE_MODULES = [
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
   },
   {
+    id: 'kitchen',
+    name: 'Kitchen Display System (KDS)',
+    icon: '👨‍🍳',
+    description: 'Live KOT tickets, accept orders, cooking bump, partial/full cancel',
+    keyPermission: 'kitchen:view',
+    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
+  },
+  {
+    id: 'qr-order',
+    name: 'QR Ordering Setup',
+    icon: '📱',
+    description: 'Dine-in table QR codes, contactless ordering setup and table tags',
+    keyPermission: 'tables:create',
+    permissions: ['tables:create', 'tables:view', 'settings:view'],
+  },
+
+  // Inventory & Kitchen
+  {
     id: 'menu',
     name: 'Menu & Category Management',
     icon: '📖',
@@ -93,33 +112,59 @@ const FEATURE_MODULES = [
   },
   {
     id: 'inventory',
-    name: 'Inventory & Recipe Yields',
+    name: 'Stock & Inventory',
     icon: '📦',
-    description: 'Track ingredient stocks, production recipes, stock transfers',
+    description: 'Track ingredient stocks, low stock alerts, stock physical counts',
     keyPermission: 'inventory:view',
-    permissions: ['inventory:view', 'inventory:adjust', 'inventory:count', 'inventory:transfer'],
+    permissions: ['inventory:view', 'inventory:adjust', 'inventory:count'],
+  },
+  {
+    id: 'production',
+    name: 'Recipe Yields & Production',
+    icon: '🔥',
+    description: 'Batch production, sub-recipes, kitchen prep batch conversions',
+    keyPermission: 'inventory:write-off',
+    permissions: ['inventory:view', 'inventory:write-off'],
   },
   {
     id: 'procurement',
     name: 'Procurement & Vendors',
     icon: '🚚',
-    description: 'Purchase orders, supplier goods receipt notes',
+    description: 'Purchase orders, supplier bills, goods receipt notes (GRN)',
     keyPermission: 'procurement:view',
-    permissions: ['procurement:view', 'procurement:create', 'procurement:receive'],
+    permissions: ['procurement:view', 'procurement:create', 'procurement:receive', 'procurement:approve'],
   },
+  {
+    id: 'transfers',
+    name: 'Stock Transfers',
+    icon: '🔄',
+    description: 'Inter-branch stock transfers and central warehouse dispatch',
+    keyPermission: 'inventory:transfer',
+    permissions: ['inventory:view', 'inventory:transfer'],
+  },
+
+  // Finance & Management
   {
     id: 'customers',
     name: 'Customers CRM & Loyalty',
     icon: '👥',
-    description: 'Guest contacts, visit frequency, loyalty points',
+    description: 'Guest contacts, visit frequency, loyalty reward points',
     keyPermission: 'customers:view',
-    permissions: ['customers:view', 'customers:create', 'customers:edit', 'loyalty:view'],
+    permissions: ['customers:view', 'customers:create', 'loyalty:view'],
+  },
+  {
+    id: 'staff',
+    name: 'Staff & Team HR',
+    icon: '👤',
+    description: 'Employee roster, attendance check-ins, staff accounts & access control',
+    keyPermission: 'staff:view',
+    permissions: ['staff:view', 'staff:create', 'staff:edit', 'attendance:view', 'attendance:manage'],
   },
   {
     id: 'expenses',
-    name: 'Expenses & Financials',
+    name: 'Expenses & Payouts',
     icon: '💰',
-    description: 'Daily operational expenses, payouts, cash out logs',
+    description: 'Daily operational expenses, petty cash, payout vouchers',
     keyPermission: 'expenses:view',
     permissions: ['expenses:view', 'expenses:create', 'expenses:approve'],
   },
@@ -127,25 +172,119 @@ const FEATURE_MODULES = [
     id: 'reports',
     name: 'Reports & P&L Analytics',
     icon: '📊',
-    description: 'Sales summaries, tax reports, item performance',
-    keyPermission: 'reports:view',
+    description: 'Sales summaries, tax reports, item performance, profit & loss',
+    keyPermission: 'reports:export',
     permissions: ['reports:view', 'reports:export'],
   },
+
+  // Growth & Engagement
   {
-    id: 'staff',
-    name: 'Staff & Team HR',
-    icon: '👤',
-    description: 'Employee roster, attendance check-ins, staff accounts',
-    keyPermission: 'staff:view',
-    permissions: ['staff:view', 'staff:create', 'staff:edit', 'attendance:view', 'attendance:manage'],
+    id: 'ai-insights',
+    name: 'AI Insights & Forecasts',
+    icon: '✨',
+    description: 'AI revenue forecast, demand prediction, inventory wastage alerts',
+    keyPermission: 'loyalty:adjust',
+    permissions: ['reports:view', 'loyalty:adjust'],
   },
   {
+    id: 'marketing',
+    name: 'Marketing & Promotions',
+    icon: '🏷️',
+    description: 'Coupon codes, happy hour discounts, customer campaigns',
+    keyPermission: 'price:override',
+    permissions: ['customers:view', 'price:override'],
+  },
+  {
+    id: 'gift-cards',
+    name: 'Gift Cards & Vouchers',
+    icon: '🎁',
+    description: 'Issue gift vouchers, redeem prepaid cards, customer balances',
+    keyPermission: 'payments:refund',
+    permissions: ['customers:view', 'payments:refund'],
+  },
+  {
+    id: 'feedback',
+    name: 'Guest Feedback & Ratings',
+    icon: '⭐',
+    description: 'Customer ratings, food quality reviews, dining experience surveys',
+    keyPermission: 'customers:edit',
+    permissions: ['customers:view', 'customers:edit'],
+  },
+  {
+    id: 'integrations',
+    name: 'Aggregators & Online Integrations',
+    icon: '📻',
+    description: 'Zomato, Swiggy, UberEats, WhatsApp ordering channel integrations',
+    keyPermission: 'branches:view',
+    permissions: ['settings:view', 'branches:view'],
+  },
+
+  // Operations & Tech
+  {
+    id: 'kiosk',
+    name: 'Touch Kiosk System',
+    icon: '📱',
+    description: 'Self-ordering guest kiosk mode with touch menu interface',
+    keyPermission: 'orders:void',
+    permissions: ['orders:create', 'orders:void'],
+  },
+  {
+    id: 'drive-thru',
+    name: 'Drive-Thru SOS Operations',
+    icon: '🚗',
+    description: 'Order taker drive-thru lane, queue timing, pickup window',
+    keyPermission: 'orders:cancel',
+    permissions: ['orders:view', 'orders:cancel'],
+  },
+  {
+    id: 'ai-expediter',
+    name: 'AI Kitchen Expediter',
+    icon: '👁️',
+    description: 'Real-time kitchen bottleneck detection and plating assistance',
+    keyPermission: 'kitchen:update',
+    permissions: ['kitchen:view', 'kitchen:update'],
+  },
+  {
+    id: 'iot-sensors',
+    name: 'IoT HACCP Probes',
+    icon: '🌡️',
+    description: 'Refrigerator temperature probes, HACCP food compliance telemetry',
+    keyPermission: 'cash:adjust',
+    permissions: ['settings:view', 'cash:adjust'],
+  },
+  {
+    id: 'franchise',
+    name: 'Franchise HQ & Multi-Outlet',
+    icon: '🏢',
+    description: 'Franchise royalty fee tracking and central brand controls',
+    keyPermission: 'branches:create',
+    permissions: ['branches:view', 'branches:create'],
+  },
+
+  // Administration
+  {
     id: 'settings',
-    name: 'Restaurant Settings & Hardware',
+    name: 'Restaurant Settings',
     icon: '⚙️',
-    description: 'Tax configurations, thermal printer settings, general preferences',
-    keyPermission: 'settings:view',
+    description: 'Restaurant taxes (GST/VAT), service charge, operating hours',
+    keyPermission: 'settings:edit',
     permissions: ['settings:view', 'settings:edit'],
+  },
+  {
+    id: 'hardware',
+    name: 'Hardware & Printers Setup',
+    icon: '🖨️',
+    description: 'Network thermal printers, cash drawer triggers, barcode scanners',
+    keyPermission: 'cash:open',
+    permissions: ['settings:view', 'cash:open'],
+  },
+  {
+    id: 'audit-vault',
+    name: 'Security Audit Vault',
+    icon: '🛡️',
+    description: 'Immutable ledger of staff logins, bill voids, and sensitive actions',
+    keyPermission: 'cash:close',
+    permissions: ['settings:view', 'cash:close'],
   },
 ];
 
@@ -158,17 +297,20 @@ const ROLE_PRESETS = [
   {
     id: 'CHEF',
     name: '👨‍🍳 Kitchen Chef / Line Cook',
-    modules: ['kitchen', 'inventory'],
+    modules: ['kitchen', 'inventory', 'production', 'ai-expediter'],
   },
   {
     id: 'CASHIER',
     name: '💳 Cashier / Front Counter',
-    modules: ['pos', 'history', 'expenses'],
+    modules: ['pos', 'history', 'expenses', 'gift-cards'],
   },
   {
     id: 'MANAGER',
     name: '📋 Floor Manager',
-    modules: ['pos', 'tables', 'history', 'reservations', 'menu', 'customers', 'expenses', 'reports'],
+    modules: [
+      'dashboard', 'pos', 'tables', 'history', 'reservations', 'menu',
+      'inventory', 'customers', 'expenses', 'reports', 'feedback'
+    ],
   },
   {
     id: 'ADMIN',
@@ -967,7 +1109,7 @@ export default function StaffPage() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 no-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 sm:max-h-80 overflow-y-auto p-1 no-scrollbar">
                           {FEATURE_MODULES.map((mod) => {
                             const isSelected = selectedModules.includes(mod.id);
                             return (
@@ -1242,7 +1384,7 @@ export default function StaffPage() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 no-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 sm:max-h-80 overflow-y-auto p-1 no-scrollbar">
                           {FEATURE_MODULES.map((mod) => {
                             const isSelected = editSelectedModules.includes(mod.id);
                             return (

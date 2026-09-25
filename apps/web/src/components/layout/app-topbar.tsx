@@ -103,13 +103,13 @@ export function AppTopbar() {
           <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-pulse-dot" />
         </Button>
 
-        {/* Fullscreen toggle */}
+        {/* Fullscreen toggle (Desktop / Tablet only) */}
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={toggleFullscreen}
           className={cn(
-            'text-muted-foreground hover:text-foreground transition-all cursor-pointer',
+            'hidden sm:inline-flex text-muted-foreground hover:text-foreground transition-all cursor-pointer',
             isFullscreen && 'text-primary bg-primary/10'
           )}
           title={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen Mode'}

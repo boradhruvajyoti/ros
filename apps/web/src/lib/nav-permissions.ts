@@ -20,49 +20,49 @@ export const ALL_RESTAURANT_NAV_SECTIONS: Array<
 > = [
   // Primary Operations
   { href: '/dashboard',     label: 'Dashboard',             icon: LayoutDashboard, permissions: ['reports:view'] },
-  { href: '/pos',           label: 'Point of Sale (POS)',   icon: ShoppingCart,    permissions: ['orders:create', 'payments:create'] },
-  { href: '/tables',        label: 'Tables & Orders',       icon: Grid3X3,         permissions: ['tables:view', 'tables:edit'] },
-  { href: '/order-history', label: 'Order History',          icon: ClipboardList,   permissions: ['orders:view', 'payments:view'] },
-  { href: '/reservations',  label: 'Reservations',           icon: Users,           permissions: ['reservations:view', 'reservations:create'] },
-  { href: '/kitchen',       label: 'Kitchen Display (KDS)', icon: ChefHat,         permissions: ['kitchen:view', 'kitchen:update'] },
-  { href: '/qr-order',      label: 'QR Ordering Setup',     icon: QrCode,          permissions: ['tables:view', 'settings:view'] },
+  { href: '/pos',           label: 'Point of Sale (POS)',   icon: ShoppingCart,    permissions: ['orders:create'] },
+  { href: '/tables',        label: 'Tables & Orders',       icon: Grid3X3,         permissions: ['tables:view'] },
+  { href: '/order-history', label: 'Order History',          icon: ClipboardList,   permissions: ['payments:view'] },
+  { href: '/reservations',  label: 'Reservations',           icon: Users,           permissions: ['reservations:view'] },
+  { href: '/kitchen',       label: 'Kitchen Display (KDS)', icon: ChefHat,         permissions: ['kitchen:view'] },
+  { href: '/qr-order',      label: 'QR Ordering Setup',     icon: QrCode,          permissions: ['tables:create'] },
 
   // Inventory & Kitchen
   { type: 'divider', label: 'INVENTORY & RECIPES' },
-  { href: '/menu',          label: 'Menu Catalog',          icon: BookOpen,        permissions: ['menu:create', 'menu:edit'] },
-  { href: '/inventory',     label: 'Stock & Inventory',     icon: Package,         permissions: ['inventory:view', 'inventory:adjust', 'inventory:count'] },
-  { href: '/production',    label: 'Recipe Yields',          icon: Flame,           permissions: ['inventory:view'] },
-  { href: '/procurement',   label: 'Procurement & Vendors', icon: Truck,           permissions: ['procurement:view', 'procurement:create'] },
-  { href: '/transfers',     label: 'Stock Transfers',        icon: ArrowLeftRight,  permissions: ['inventory:view', 'inventory:transfer'] },
+  { href: '/menu',          label: 'Menu Catalog',          icon: BookOpen,        permissions: ['menu:create'] },
+  { href: '/inventory',     label: 'Stock & Inventory',     icon: Package,         permissions: ['inventory:view'] },
+  { href: '/production',    label: 'Recipe Yields',          icon: Flame,           permissions: ['inventory:write-off'] },
+  { href: '/procurement',   label: 'Procurement & Vendors', icon: Truck,           permissions: ['procurement:view'] },
+  { href: '/transfers',     label: 'Stock Transfers',        icon: ArrowLeftRight,  permissions: ['inventory:transfer'] },
 
   // Finance & Management
   { type: 'divider', label: 'PEOPLE & FINANCE' },
-  { href: '/customers',     label: 'Customers & CRM',       icon: Users,           permissions: ['customers:view', 'customers:create'] },
-  { href: '/staff',         label: 'Staff & HR',            icon: UserCheck,       permissions: ['staff:view', 'staff:create', 'attendance:view'] },
-  { href: '/expenses',      label: 'Expenses',              icon: Wallet,          permissions: ['expenses:view', 'expenses:create'] },
-  { href: '/reports',       label: 'Reports & P&L',         icon: BarChart3,       permissions: ['reports:view', 'reports:export'] },
+  { href: '/customers',     label: 'Customers & CRM',       icon: Users,           permissions: ['customers:view'] },
+  { href: '/staff',         label: 'Staff & HR',            icon: UserCheck,       permissions: ['staff:view'] },
+  { href: '/expenses',      label: 'Expenses',              icon: Wallet,          permissions: ['expenses:view'] },
+  { href: '/reports',       label: 'Reports & P&L',         icon: BarChart3,       permissions: ['reports:export'] },
 
   // Growth & Engagement
   { type: 'divider', label: 'GROWTH & REVENUE' },
-  { href: '/ai-insights',   label: 'AI Insights',           icon: Sparkles,        permissions: ['reports:view'] },
-  { href: '/marketing',     label: 'Marketing & Promos',    icon: Tag,             permissions: ['reports:view', 'customers:view'] },
-  { href: '/gift-cards',    label: 'Gift Cards',            icon: Gift,            permissions: ['customers:view', 'payments:create'] },
-  { href: '/feedback',      label: 'Guest Feedback',        icon: Star,            permissions: ['customers:view'] },
-  { href: '/integrations',  label: 'Aggregators Hub',       icon: Radio,           permissions: ['settings:view'] },
+  { href: '/ai-insights',   label: 'AI Insights',           icon: Sparkles,        permissions: ['loyalty:adjust'] },
+  { href: '/marketing',     label: 'Marketing & Promos',    icon: Tag,             permissions: ['price:override'] },
+  { href: '/gift-cards',    label: 'Gift Cards',            icon: Gift,            permissions: ['payments:refund'] },
+  { href: '/feedback',      label: 'Guest Feedback',        icon: Star,            permissions: ['customers:edit'] },
+  { href: '/integrations',  label: 'Aggregators Hub',       icon: Radio,           permissions: ['branches:view'] },
 
   // Operations & Tech
   { type: 'divider', label: 'NEXT-GEN OPERATIONS' },
-  { href: '/kiosk',         label: 'Touch Kiosk',           icon: Smartphone,      permissions: ['orders:create', 'settings:view'] },
-  { href: '/drive-thru',    label: 'Drive-Thru SOS',        icon: Car,             permissions: ['orders:create', 'orders:view'] },
-  { href: '/ai-expediter',  label: 'AI Expediter',          icon: Eye,             permissions: ['kitchen:view'] },
-  { href: '/iot-sensors',   label: 'IoT HACCP Probes',      icon: Activity,        permissions: ['settings:view'] },
-  { href: '/franchise',     label: 'Franchise HQ',          icon: Building2,       permissions: ['settings:view', 'reports:view'] },
+  { href: '/kiosk',         label: 'Touch Kiosk',           icon: Smartphone,      permissions: ['orders:void'] },
+  { href: '/drive-thru',    label: 'Drive-Thru SOS',        icon: Car,             permissions: ['orders:cancel'] },
+  { href: '/ai-expediter',  label: 'AI Expediter',          icon: Eye,             permissions: ['kitchen:update'] },
+  { href: '/iot-sensors',   label: 'IoT HACCP Probes',      icon: Activity,        permissions: ['cash:adjust'] },
+  { href: '/franchise',     label: 'Franchise HQ',          icon: Building2,       permissions: ['branches:create'] },
 
   // Administration
   { type: 'divider', label: 'ADMINISTRATION' },
-  { href: '/settings',      label: 'Settings',              icon: Settings,        permissions: ['settings:view', 'settings:edit'] },
-  { href: '/hardware',      label: 'Hardware & Printers',   icon: Printer,         permissions: ['settings:view'] },
-  { href: '/audit-vault',   label: 'Audit Vault',           icon: ShieldAlert,     permissions: ['settings:view'] },
+  { href: '/settings',      label: 'Settings',              icon: Settings,        permissions: ['settings:edit'] },
+  { href: '/hardware',      label: 'Hardware & Printers',   icon: Printer,         permissions: ['cash:open'] },
+  { href: '/audit-vault',   label: 'Audit Vault',           icon: ShieldAlert,     permissions: ['cash:close'] },
 ];
 
 export const PLATFORM_SUPERADMIN_NAV_SECTIONS: Array<
