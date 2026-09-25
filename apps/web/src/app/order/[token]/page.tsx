@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag, CheckCircle2,
   Clock, Sparkles, ChefHat, Phone, MapPin, AlertCircle, ArrowRight,
-  ShieldCheck, RefreshCw, Lock, Eye, Bell, X, Volume2
+  ShieldCheck, RefreshCw, Lock, Eye, Bell, X, Volume2, Download, Receipt, Printer, FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -285,6 +285,156 @@ export default function PublicTableOrderPage() {
     }
   };
 
+  const handleDownloadBill = (order: any) => {
+    if (!order) return;
+    if (!['PAID', 'COMPLETED'].includes(order.status)) {
+      alert('Bill download is only available after payment has been marked as PAID.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Please allow popups in your browser to download/print your dining bill.');
+      return;
+    }
+
+    const tenantName = restaurant?.name || tableData?.restaurant?.name || 'Restaurant Dining';
+    const tenantLogo = restaurant?.logoUrl || tableData?.restaurant?.logoUrl;
+    const branchName = restaurant?.branchName || tableData?.restaurant?.branchName || 'Main Dining Hall';
+    const tableName = table?.name || tableData?.table?.name || 'Table';
+    const orderDate = new Date(order.createdAt || Date.now()).toLocaleString();
+    const subtotalAmt = Number(order.subtotal || order.total || 0);
+    const taxAmt = Number(order.taxAmount || 0);
+    const discountAmt = Number(order.discountAmount || 0);
+    const totalAmt = Number(order.total || 0);
+
+    const itemsHtml = (order.items || []).map((it: any) => {
+      const name = it.menuItem?.name || it.name || 'Dish';
+      const variant = it.variant?.name ? ` (${it.variant.name})` : '';
+      const qty = it.quantity || 1;
+      const unitPrice = Number(it.variant?.price || it.unitPrice || 0);
+      const lineTotal = Number(it.totalPrice || it.lineTotal || (unitPrice * qty));
+      return `
+        <tr>
+          <td style="padding: 6px 2px; border-bottom: 1px dashed #e2e8f0;">
+            <div style="font-weight: bold; color: #0f172a;">${name}${variant}</div>
+            <div style="font-size: 11px; color: #64748b;">${qty} × ₹${unitPrice.toFixed(2)}</div>
+          </td>
+          <td style="padding: 6px 2px; text-align: right; font-weight: bold; font-family: monospace; border-bottom: 1px dashed #e2e8f0; vertical-align: middle;">
+            ₹${lineTotal.toFixed(2)}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bill_Receipt_${order.orderNumber}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            @page { margin: 6mm; size: auto; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              color: #0f172a;
+              background: #fff;
+              max-width: 380px;
+              margin: 0 auto;
+              padding: 16px;
+              font-size: 13px;
+              line-height: 1.4;
+            }
+            .center { text-align: center; }
+            .header-logo { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin: 0 auto 8px; display: block; border: 2px solid #059669; }
+            .restaurant-title { font-size: 18px; font-weight: 900; margin: 0 0 2px; }
+            .branch-subtitle { font-size: 12px; color: #64748b; margin: 0 0 10px; }
+            .paid-badge {
+              display: inline-block;
+              border: 2px solid #059669;
+              background: #ecfdf5;
+              color: #059669;
+              padding: 4px 14px;
+              border-radius: 9999px;
+              font-weight: 900;
+              font-size: 12px;
+              letter-spacing: 0.5px;
+              margin: 6px 0;
+            }
+            .divider { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
+            .double-divider { border-top: 2px solid #0f172a; margin: 12px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+            .row { display: flex; justify-content: space-between; margin: 4px 0; font-size: 12px; }
+            .total-row { display: flex; justify-content: space-between; margin-top: 8px; font-size: 16px; font-weight: 900; color: #0f172a; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 20px; }
+            @media print {
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="center">
+            ${tenantLogo ? `<img src="${tenantLogo}" class="header-logo" alt="Logo" />` : ''}
+            <h1 class="restaurant-title">${tenantName}</h1>
+            <p class="branch-subtitle">${branchName}</p>
+            <div class="paid-badge">✓ OFFICIAL TAX RECEIPT — PAID</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="row"><span><strong>Invoice / Order:</strong></span><span>#${order.orderNumber}</span></div>
+          <div class="row"><span><strong>Table:</strong></span><span>${tableName}</span></div>
+          <div class="row"><span><strong>Date:</strong></span><span>${orderDate}</span></div>
+
+          <div class="divider"></div>
+
+          <table>
+            <thead>
+              <tr style="border-bottom: 2px solid #0f172a; text-transform: uppercase; font-size: 11px; color: #64748b;">
+                <th style="text-align: left; padding: 4px 2px;">Item</th>
+                <th style="text-align: right; padding: 4px 2px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="divider"></div>
+
+          <div class="row"><span>Subtotal:</span><span>₹${subtotalAmt.toFixed(2)}</span></div>
+          ${discountAmt > 0 ? `<div class="row" style="color: #059669;"><span>Discount:</span><span>-₹${discountAmt.toFixed(2)}</span></div>` : ''}
+          ${taxAmt > 0 ? `<div class="row"><span>GST &amp; Taxes:</span><span>₹${taxAmt.toFixed(2)}</span></div>` : ''}
+
+          <div class="double-divider"></div>
+
+          <div class="total-row">
+            <span>Total Paid:</span>
+            <span style="font-family: monospace;">₹${totalAmt.toFixed(2)}</span>
+          </div>
+
+          <div class="footer">
+            <p style="margin: 4px 0; font-weight: bold; color: #0f172a;">Thank you for dining with us!</p>
+            <p style="margin: 2px 0;">Have a wonderful rest of your day.</p>
+          </div>
+
+          <div class="no-print" style="margin-top: 24px; text-align: center;">
+            <button onclick="window.print()" style="background: #059669; color: #fff; border: none; padding: 12px 28px; border-radius: 12px; font-weight: 900; cursor: pointer; font-size: 14px; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">
+              🖨️ Print / Save PDF
+            </button>
+          </div>
+
+          <script>
+            setTimeout(() => {
+              window.print();
+            }, 400);
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-3">
@@ -412,6 +562,11 @@ export default function PublicTableOrderPage() {
       }
 
       if (config) {
+        if (['PAID', 'COMPLETED'].includes(currentStatus)) {
+          setCart({});
+          setGuestNotes('');
+        }
+
         setStatusFlash({
           id: `${currentStatus}-${Date.now()}`,
           orderNumber: orderNum,
@@ -781,16 +936,55 @@ export default function PublicTableOrderPage() {
                 </div>
               </div>
 
-              {/* Order More Items Action (if session is active) */}
-              {canOrder && (
-                <Button
-                  onClick={() => setViewTab('MENU')}
-                  className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add More Dishes to this Table</span>
-                </Button>
-              )}
+              {/* Download Bill / Receipt Action (Enabled only once marked PAID) */}
+              <div className="space-y-2 pt-1">
+                {['PAID', 'COMPLETED'].includes(currentActiveOrder.status) ? (
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => handleDownloadBill(currentActiveOrder)}
+                      className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Paid Bill / Receipt 🧾</span>
+                    </Button>
+
+                    {canOrder && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCart({});
+                          setViewTab('MENU');
+                        }}
+                        className="w-full h-11 rounded-2xl font-bold text-xs gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Start New Order / Add More Dishes</span>
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Button
+                      disabled
+                      className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60"
+                      title="Download Bill will unlock once payment has been completed & marked as PAID by cashier."
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>Download Bill (Available Once Paid) 🧾</span>
+                    </Button>
+
+                    {canOrder && (
+                      <Button
+                        onClick={() => setViewTab('MENU')}
+                        className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-primary text-primary-foreground shadow-lg"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add More Dishes to this Table</span>
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="py-16 text-center space-y-3 bg-card rounded-3xl border border-border p-6">
