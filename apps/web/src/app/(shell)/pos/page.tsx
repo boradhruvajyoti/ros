@@ -66,6 +66,47 @@ interface CartItem {
   modifiers: { id: string; name: string; price: number }[];
 }
 
+function convertOrderItemsToCart(items: any[]): CartItem[] {
+  if (!Array.isArray(items)) return [];
+  const itemMap = new Map<string, CartItem>();
+
+  for (const it of items) {
+    const menuItemId = it.menuItemId || it.menuItem?.id || '';
+    if (!menuItemId) continue;
+    const variantId = it.variantId || it.variant?.id || `v-${menuItemId}`;
+    const key = `${menuItemId}-${variantId}`;
+    const qty = Number(it.quantity || 1);
+    const unitPrice = Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0);
+
+    if (itemMap.has(key)) {
+      const existing = itemMap.get(key)!;
+      existing.quantity += qty;
+      if (it.notes && !existing.notes?.includes(it.notes)) {
+        existing.notes = existing.notes ? `${existing.notes}, ${it.notes}` : it.notes;
+      }
+    } else {
+      itemMap.set(key, {
+        key,
+        menuItemId,
+        name: it.menuItem?.name || it.name || 'Dish',
+        variantId,
+        variantName: it.variant?.name || 'Standard',
+        unitPrice,
+        quantity: qty,
+        foodType: it.menuItem?.foodType || 'VEG',
+        notes: it.notes || '',
+        modifiers: it.modifiers?.map((m: any) => ({
+          id: m.modifierId || m.id,
+          name: m.name,
+          price: Number(m.price || 0),
+        })) || [],
+      });
+    }
+  }
+
+  return Array.from(itemMap.values());
+}
+
 const CATEGORY_ICONS: Record<string, string> = {
   'Starters & Kebabs': '🔥',
   'Main Course & Curries': '🍛',
@@ -262,23 +303,7 @@ export default function POSPage() {
       lastSyncedSignatureRef.current = serverSignature;
 
       if (Array.isArray(currentOrder.items)) {
-        const newCart: CartItem[] = currentOrder.items.map((it: any) => ({
-          key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
-          menuItemId: it.menuItemId || it.menuItem?.id,
-          name: it.menuItem?.name || it.name || 'Dish',
-          variantId: it.variantId || it.variant?.id || 'std',
-          variantName: it.variant?.name || 'Standard',
-          unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
-          quantity: Number(it.quantity || 1),
-          foodType: it.menuItem?.foodType || 'VEG',
-          notes: it.notes || '',
-          modifiers: it.modifiers?.map((m: any) => ({
-            id: m.modifierId || m.id,
-            name: m.name,
-            price: Number(m.price || 0),
-          })) || [],
-        }));
-
+        const newCart = convertOrderItemsToCart(currentOrder.items);
         setCart(newCart);
         if (currentOrder.notes) setNotes(currentOrder.notes);
 
@@ -423,26 +448,29 @@ export default function POSPage() {
     playChime();
     const variants = Array.isArray(item.variants) && item.variants.length > 0
       ? item.variants
-      : [{ id: `v-${item.id}`, name: 'Standard', price: 299 }];
+      : [{ id: `v-${item.id}`, name: 'Standard', price: (item as any).basePrice || (item as any).price || 299 }];
 
     const variant = variants[0];
-    const unitPrice = Number(variant.price) || 0;
-    const key = `${item.id}-${variant.id}`;
+    const variantId = variant?.id || `v-${item.id}`;
+    const unitPrice = Number(variant?.price) || Number((item as any).basePrice) || 0;
+    const key = `${item.id}-${variantId}`;
 
     setCart((prev) => {
       let nextCart: CartItem[];
-      const existing = prev.find((c) => c.key === key);
+      const existing = prev.find(
+        (c) => c.key === key || (c.menuItemId === item.id && (c.variantId === variantId || (!c.variantId && !variantId)))
+      );
       if (existing) {
         nextCart = prev.map((c) =>
-          c.key === key ? { ...c, quantity: c.quantity + 1 } : c
+          c.key === existing.key ? { ...c, quantity: c.quantity + 1 } : c
         );
       } else {
         nextCart = [...prev, {
           key,
           menuItemId: item.id,
-          variantId: variant.id,
+          variantId,
           name: item.name,
-          variantName: variant.name,
+          variantName: variant.name || 'Standard',
           unitPrice,
           quantity: 1,
           foodType: item.foodType,
@@ -913,24 +941,7 @@ export default function POSPage() {
                                 .sort()
                                 .join('|');
                               lastSyncedSignatureRef.current = `${activeOrder.id}_${activeOrder.status}_${activeOrder.notes || ''}_${itemsSig}`;
-                              setCart(
-                                activeOrder.items.map((it: any) => ({
-                                  key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
-                                  menuItemId: it.menuItemId || it.menuItem?.id,
-                                  name: it.menuItem?.name || it.name || 'Dish',
-                                  variantId: it.variantId || it.variant?.id || 'std',
-                                  variantName: it.variant?.name || 'Standard',
-                                  unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
-                                  quantity: Number(it.quantity || 1),
-                                  foodType: it.menuItem?.foodType || 'VEG',
-                                  notes: it.notes || '',
-                                  modifiers: it.modifiers?.map((m: any) => ({
-                                    id: m.modifierId || m.id,
-                                    name: m.name,
-                                    price: Number(m.price || 0),
-                                  })) || [],
-                                }))
-                              );
+                              setCart(convertOrderItemsToCart(activeOrder.items));
                               if (activeOrder.notes) setNotes(activeOrder.notes);
                             } else {
                               lastSyncedSignatureRef.current = '';

@@ -467,39 +467,56 @@ export default function PublicTableOrderPage() {
                 </div>
 
                 <div className="divide-y divide-border/60">
-                  {currentActiveOrder.items?.map((it: any, i: number) => {
-                    const unitPrice = Number(it.variant?.price || it.unitPrice || 0);
-                    const qty = it.quantity || 1;
-                    const lineTotal = Number(it.totalPrice || it.lineTotal || (unitPrice * qty));
-                    const foodType = it.menuItem?.foodType || 'VEG';
+                  {(() => {
+                    const consolidated = (currentActiveOrder.items || []).reduce((acc: any[], it: any) => {
+                      const mId = it.menuItemId || it.menuItem?.id || it.name;
+                      const vId = it.variantId || it.variant?.id || 'std';
+                      const existing = acc.find(
+                        (x) => (x.menuItemId || x.menuItem?.id || x.name) === mId && (x.variantId || x.variant?.id || 'std') === vId
+                      );
+                      if (existing) {
+                        existing.quantity = (existing.quantity || 1) + (it.quantity || 1);
+                        existing.totalPrice = Number(existing.totalPrice || existing.lineTotal || 0) + Number(it.totalPrice || it.lineTotal || ((it.variant?.price || it.unitPrice || 0) * (it.quantity || 1)));
+                      } else {
+                        acc.push({ ...it, quantity: it.quantity || 1 });
+                      }
+                      return acc;
+                    }, []);
 
-                    return (
-                      <div key={i} className="py-2.5 flex items-center justify-between text-xs">
-                        <div className="flex items-start gap-2 flex-1 pr-2">
-                          <span className="text-xs mt-0.5 shrink-0">
-                            {foodType === 'VEG' ? '🟢' : '🔴'}
-                          </span>
-                          <div>
-                            <p className="font-bold text-foreground">
-                              {it.menuItem?.name || it.name || 'Dish'}
-                            </p>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                              {it.variant?.name && <span>{it.variant.name}</span>}
-                              <span>Qty: <strong className="text-foreground">{qty}</strong></span>
-                              <span>@ {formatCurrency(unitPrice)}</span>
+                    return consolidated.map((it: any, i: number) => {
+                      const unitPrice = Number(it.variant?.price || it.unitPrice || 0);
+                      const qty = it.quantity || 1;
+                      const lineTotal = Number(it.totalPrice || it.lineTotal || (unitPrice * qty));
+                      const foodType = it.menuItem?.foodType || 'VEG';
+
+                      return (
+                        <div key={i} className="py-2.5 flex items-center justify-between text-xs">
+                          <div className="flex items-start gap-2 flex-1 pr-2">
+                            <span className="text-xs mt-0.5 shrink-0">
+                              {foodType === 'VEG' ? '🟢' : '🔴'}
+                            </span>
+                            <div>
+                              <p className="font-bold text-foreground">
+                                {it.menuItem?.name || it.name || 'Dish'}
+                              </p>
+                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                                {it.variant?.name && <span>{it.variant.name}</span>}
+                                <span>Qty: <strong className="text-foreground">{qty}</strong></span>
+                                <span>@ {formatCurrency(unitPrice)}</span>
+                              </div>
+                              {it.notes && (
+                                <p className="text-[10px] text-amber-400 italic mt-0.5">Note: {it.notes}</p>
+                              )}
                             </div>
-                            {it.notes && (
-                              <p className="text-[10px] text-amber-400 italic mt-0.5">Note: {it.notes}</p>
-                            )}
+                          </div>
+
+                          <div className="text-right shrink-0 font-mono font-bold text-foreground">
+                            {formatCurrency(lineTotal)}
                           </div>
                         </div>
-
-                        <div className="text-right shrink-0 font-mono font-bold text-foreground">
-                          {formatCurrency(lineTotal)}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
 
                 {/* Running Total */}

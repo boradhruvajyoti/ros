@@ -137,6 +137,21 @@ export class OrderService {
       };
     });
 
+    // Consolidate identical items so duplicate rows are never created
+    const consolidatedItemsMap = new Map<string, typeof orderItemsData[0]>();
+    for (const item of orderItemsData) {
+      const modKey = (item.modifiers || []).map((m) => m.modifierId).sort().join(',');
+      const key = `${item.menuItemId}_${item.variantId || 'std'}_${item.notes || ''}_${modKey}`;
+      if (consolidatedItemsMap.has(key)) {
+        const existing = consolidatedItemsMap.get(key)!;
+        existing.quantity += item.quantity;
+        existing.lineTotal = addAmounts(existing.lineTotal, item.lineTotal);
+      } else {
+        consolidatedItemsMap.set(key, { ...item });
+      }
+    }
+    const finalOrderItemsData = Array.from(consolidatedItemsMap.values());
+
     const initialStatus = dto.status || 'DRAFT';
 
     // Dynamic tax rate from tenant settings
@@ -174,7 +189,9 @@ export class OrderService {
             status: { in: activeOrderStatuses },
           },
           include: {
-            items: true,
+            items: {
+              include: { modifiers: true },
+            },
             table: true,
             customer: true,
           },
@@ -193,22 +210,52 @@ export class OrderService {
       }
 
       return prisma.$transaction(async (tx) => {
-        // Insert new items linked to the existing order ID with status PENDING
-        for (const { modifiers, kitchenStationId, ...itemData } of orderItemsData) {
-          await tx.orderItem.create({
-            data: {
-              orderId: existingActiveOrder.id,
-              ...itemData,
-              status: 'PENDING',
-              modifiers: {
-                create: modifiers.map((m) => ({
-                  modifierId: m.modifierId,
-                  name: m.name,
-                  price: m.price,
-                })),
-              },
-            },
+        // Update quantity of existing items with status PENDING/matching or insert new items
+        for (const { modifiers, kitchenStationId, ...itemData } of finalOrderItemsData) {
+          const modKey = (modifiers || []).map((m) => m.modifierId).sort().join(',');
+
+          const existingItem = existingActiveOrder.items.find((it) => {
+            const itModKey = (it.modifiers || []).map((m: any) => m.modifierId).sort().join(',');
+            const variantMatch = it.variantId === itemData.variantId || (!it.variantId && !itemData.variantId);
+            const notesMatch = (it.notes || '') === (itemData.notes || '');
+            return (
+              it.menuItemId === itemData.menuItemId &&
+              variantMatch &&
+              notesMatch &&
+              itModKey === modKey &&
+              it.status === 'PENDING'
+            );
           });
+
+          if (existingItem) {
+            const newQty = existingItem.quantity + itemData.quantity;
+            const newLineTotal = multiplyAmount(toAmount(existingItem.unitPrice), newQty);
+            await tx.orderItem.update({
+              where: { id: existingItem.id },
+              data: {
+                quantity: newQty,
+                lineTotal: newLineTotal,
+              },
+            });
+            // Update in-memory reference for subsequent items in the batch
+            existingItem.quantity = newQty;
+            existingItem.lineTotal = newLineTotal as any;
+          } else {
+            await tx.orderItem.create({
+              data: {
+                orderId: existingActiveOrder.id,
+                ...itemData,
+                status: 'PENDING',
+                modifiers: {
+                  create: modifiers.map((m) => ({
+                    modifierId: m.modifierId,
+                    name: m.name,
+                    price: m.price,
+                  })),
+                },
+              },
+            });
+          }
         }
 
         // Determine if status should change (e.g. if previous was DRAFT/CONFIRMED and sent to kitchen)
@@ -232,7 +279,7 @@ export class OrderService {
                 fromStatus: existingActiveOrder.status,
                 toStatus: newStatus,
                 changedBy: createdBy,
-                reason: `Appended ${orderItemsData.length} item(s) to order #${existingActiveOrder.orderNumber}`,
+                reason: `Appended ${finalOrderItemsData.length} item(s) to order #${existingActiveOrder.orderNumber}`,
               },
             },
           },
@@ -296,7 +343,7 @@ export class OrderService {
           total,
           createdBy,
           items: {
-            create: orderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
+            create: finalOrderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
               ...itemData,
               modifiers: {
                 create: modifiers.map((m) => ({
@@ -424,6 +471,21 @@ export class OrderService {
       };
     });
 
+    // Consolidate identical items so duplicate rows are never created
+    const consolidatedItemsMap = new Map<string, typeof orderItemsData[0]>();
+    for (const item of orderItemsData) {
+      const modKey = (item.modifiers || []).map((m) => m.modifierId).sort().join(',');
+      const key = `${item.menuItemId}_${item.variantId || 'std'}_${item.notes || ''}_${modKey}`;
+      if (consolidatedItemsMap.has(key)) {
+        const existing = consolidatedItemsMap.get(key)!;
+        existing.quantity += item.quantity;
+        existing.lineTotal = addAmounts(existing.lineTotal, item.lineTotal);
+      } else {
+        consolidatedItemsMap.set(key, { ...item });
+      }
+    }
+    const finalOrderItemsData = Array.from(consolidatedItemsMap.values());
+
     const tenant = await prisma.tenant.findUnique({
       where: { id: this.tenantId },
       select: { settings: true },
@@ -458,7 +520,7 @@ export class OrderService {
           status: dto.sendToKitchen ? 'SENT_TO_KITCHEN' : order.status,
           updatedBy: userId,
           items: {
-            create: orderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
+            create: finalOrderItemsData.map(({ modifiers, kitchenStationId, ...itemData }) => ({
               ...itemData,
               modifiers: {
                 create: modifiers.map((m) => ({
