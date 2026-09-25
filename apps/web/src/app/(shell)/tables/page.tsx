@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -9,7 +9,7 @@ import {
   Utensils, DollarSign, CheckCircle2, AlertCircle, Sparkles, ArrowRight,
   Printer, Download, Eye, ExternalLink, Search, RefreshCw, Receipt,
   CheckCircle, XCircle, LayoutGrid, UtensilsCrossed, Volume2, CreditCard,
-  Banknote, User, AlertTriangle, Minus
+  Banknote, User, AlertTriangle, Minus, Calendar, CalendarDays, CalendarRange
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ import { onRosEvent } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
 import { formatCurrency } from '@ros/utils';
-import { format } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
 export interface Table {
   id: string;
@@ -221,18 +221,73 @@ export default function TablesPage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
   // ── Table-Wise Orders History Modal State ───────────────────────────────────
+  type TableOrdersPreset = 'today' | 'yesterday' | '7days' | '30days' | '90days' | '365days' | 'custom';
   const [tableOrdersModalTable, setTableOrdersModalTable] = useState<Table | null>(null);
-  const [tableOrdersDate, setTableOrdersDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [tableOrdersPreset, setTableOrdersPreset] = useState<TableOrdersPreset>('today');
+  const [customTableStartDate, setCustomTableStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [customTableEndDate, setCustomTableEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+
+  // Compute active date range for table orders query
+  const { tableDateFrom, tableDateTo, tableDateLabel } = useMemo(() => {
+    const now = new Date();
+    if (tableOrdersPreset === 'today') {
+      return {
+        tableDateFrom: startOfDay(now).toISOString(),
+        tableDateTo: endOfDay(now).toISOString(),
+        tableDateLabel: 'Today',
+      };
+    }
+    if (tableOrdersPreset === 'yesterday') {
+      const yest = subDays(now, 1);
+      return {
+        tableDateFrom: startOfDay(yest).toISOString(),
+        tableDateTo: endOfDay(yest).toISOString(),
+        tableDateLabel: 'Yesterday',
+      };
+    }
+    if (tableOrdersPreset === '7days') {
+      return {
+        tableDateFrom: startOfDay(subDays(now, 7)).toISOString(),
+        tableDateTo: endOfDay(now).toISOString(),
+        tableDateLabel: 'Last 7 Days',
+      };
+    }
+    if (tableOrdersPreset === '30days') {
+      return {
+        tableDateFrom: startOfDay(subDays(now, 30)).toISOString(),
+        tableDateTo: endOfDay(now).toISOString(),
+        tableDateLabel: 'Last 30 Days',
+      };
+    }
+    if (tableOrdersPreset === '90days') {
+      return {
+        tableDateFrom: startOfDay(subDays(now, 90)).toISOString(),
+        tableDateTo: endOfDay(now).toISOString(),
+        tableDateLabel: 'Last 90 Days',
+      };
+    }
+    if (tableOrdersPreset === '365days') {
+      return {
+        tableDateFrom: startOfDay(subDays(now, 365)).toISOString(),
+        tableDateTo: endOfDay(now).toISOString(),
+        tableDateLabel: 'Last 365 Days (1 Year)',
+      };
+    }
+    // custom
+    const start = customTableStartDate ? startOfDay(new Date(customTableStartDate)) : startOfDay(now);
+    const end = customTableEndDate ? endOfDay(new Date(customTableEndDate)) : endOfDay(now);
+    return {
+      tableDateFrom: start.toISOString(),
+      tableDateTo: end.toISOString(),
+      tableDateLabel: `${format(start, 'dd MMM yyyy')} – ${format(end, 'dd MMM yyyy')}`,
+    };
+  }, [tableOrdersPreset, customTableStartDate, customTableEndDate]);
 
   // ── Orders State ────────────────────────────────────────────────────────────
-  const [orderSearch, setOrderSearch] = useState('');
-  const [orderStatusFilter, setOrderStatusFilter] = useState<string | null>(null);
-  const [orderTypeFilter, setOrderTypeFilter] = useState<string | null>(null);
-  const [orderViewMode, setOrderViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedOrder, setSelectedOrder] = useState<Order | any | null>(null);
   const [billPreviewOrder, setBillPreviewOrder] = useState<Order | any | null>(null);
 
-  // ── Realtime Socket Subscriptions for Tables & Order Feed ──────────────
+  // ── Realtime Socket Subscriptions for Tables ───────────────────────────
   useEffect(() => {
     const unsub = onRosEvent((event) => {
       const t = event.type as string;
@@ -249,7 +304,6 @@ export default function TablesPage() {
       ) {
         queryClient.invalidateQueries({ queryKey: ['active-orders'] });
         queryClient.invalidateQueries({ queryKey: ['tables'] });
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
       }
     });
     return () => unsub();
@@ -278,33 +332,29 @@ export default function TablesPage() {
     refetchInterval: 2000,
   });
 
-  const { data: ordersData, isLoading: isOrdersLoading } = useQuery({
-    queryKey: ['orders', orderStatusFilter, orderTypeFilter],
-    queryFn: () => apiGet<{ orders: Order[]; total: number; page: number; limit: number }>(
-      `/orders?${orderStatusFilter ? `status=${orderStatusFilter}&` : ''}${orderTypeFilter ? `type=${orderTypeFilter}&` : ''}limit=150`
-    ),
-    refetchInterval: 3000,
-  });
-
   const { data: menuItems = [] } = useQuery<any[]>({
     queryKey: ['menu', 'items'],
     queryFn: () => apiGet<any[]>('/menu/items'),
   });
 
   const { data: tableOrdersData, isLoading: isTableOrdersLoading, refetch: refetchTableOrders } = useQuery({
-    queryKey: ['table-orders-history', tableOrdersModalTable?.id, tableOrdersDate],
+    queryKey: ['table-orders-history', tableOrdersModalTable?.id, tableDateFrom, tableDateTo],
     queryFn: async () => {
       if (!tableOrdersModalTable) return [];
-      const d = new Date(tableOrdersDate);
-      const start = new Date(new Date(d).setHours(0, 0, 0, 0)).toISOString();
-      const end = new Date(new Date(d).setHours(23, 59, 59, 999)).toISOString();
-      const res = await apiGet<any>(`/orders?tableId=${tableOrdersModalTable.id}&from=${start}&to=${end}&limit=100`);
+      const res = await apiGet<any>(`/orders?tableId=${tableOrdersModalTable.id}&from=${tableDateFrom}&to=${tableDateTo}&limit=300`);
       return res?.data?.orders || res?.orders || [];
     },
     enabled: Boolean(tableOrdersModalTable),
-    refetchInterval: 3000,
+    refetchInterval: 5000,
   });
   const tableOrdersHistory: any[] = tableOrdersData || [];
+
+  // Table summary metrics for the selected period
+  const tableHistoryRevenue = useMemo(() => {
+    return tableOrdersHistory
+      .filter((o: any) => ['PAID', 'COMPLETED'].includes(o.status))
+      .reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+  }, [tableOrdersHistory]);
 
   const activeOrderByTableId = (activeOrders || []).reduce((acc: Record<string, any>, ord: any) => {
     if (ord.tableId && !['CANCELLED', 'VOIDED', 'COMPLETED', 'PAID'].includes(ord.status)) {
@@ -312,13 +362,6 @@ export default function TablesPage() {
     }
     return acc;
   }, {});
-
-  const orders = (ordersData?.orders || []).filter((o) =>
-    !orderSearch ||
-    o.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) ||
-    o.customer?.name?.toLowerCase().includes(orderSearch.toLowerCase()) ||
-    o.table?.name?.toLowerCase().includes(orderSearch.toLowerCase())
-  );
 
   // Generate QR image when QR modal opens
   useEffect(() => {
@@ -1092,11 +1135,11 @@ export default function TablesPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      setTableOrdersPreset('today');
                       setTableOrdersModalTable(table);
-                      setTableOrdersDate(format(new Date(), 'yyyy-MM-dd'));
                     }}
                     className="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-black text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-primary/20"
-                    title={`View all orders for ${table.name} with calendar history`}
+                    title={`View orders history for ${table.name} (Today, 7d, 30d, 90d, 365d, Calendar)`}
                   >
                     <span>📋</span>
                     <span>Orders History</span>
@@ -1122,520 +1165,6 @@ export default function TablesPage() {
             <Utensils className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
             <h3 className="text-sm font-bold text-foreground">No Tables Created</h3>
             <p className="text-xs text-muted-foreground mt-1">Tap "Add Table" above to create dining tables.</p>
-          </div>
-        )}
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          SECTION 2: LIVE ORDERS & BILLING COMMAND CENTER (MERGED DIRECTLY BELOW)
-      ───────────────────────────────────────────────────────────────────────────── */}
-      <div className="space-y-4 pt-4 border-t-2 border-border/80">
-        {/* Orders Header & Search/Filter Controls */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-3xl bg-card border border-border shadow-sm">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-bold text-base">
-                📋
-              </div>
-              <div>
-                <h2 className="text-lg font-black tracking-tight text-foreground">Live Orders &amp; Billing Feed</h2>
-                <p className="text-xs text-muted-foreground">
-                  {orders.length} Orders Loaded · Live Socket Synchronization
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
-            {/* Search Input */}
-            <div className="relative flex-1 sm:w-64">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search order #, table, guest..."
-                value={orderSearch}
-                onChange={(e) => setOrderSearch(e.target.value)}
-                className="pl-8 h-9 rounded-xl text-xs bg-background"
-              />
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center border rounded-xl overflow-hidden bg-background p-0.5">
-              <button
-                type="button"
-                onClick={() => setOrderViewMode('grid')}
-                className={cn('p-1.5 rounded-lg transition-colors', orderViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-                title="Grid View"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderViewMode('table')}
-                className={cn('p-1.5 rounded-lg transition-colors', orderViewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-                title="Table View"
-              >
-                <List className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Order Status & Type Filters */}
-        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 no-scrollbar flex-wrap sm:flex-nowrap">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            <button
-              type="button"
-              onClick={() => setOrderStatusFilter(null)}
-              className={cn(
-                'px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
-                !orderStatusFilter ? 'bg-foreground text-background shadow-xs font-black' : 'bg-muted text-muted-foreground hover:text-foreground'
-              )}
-            >
-              All Statuses
-            </button>
-            {['CONFIRMED', 'SENT_TO_KITCHEN', 'PREPARING', 'READY', 'PAID', 'CANCELLED'].map((st) => {
-              const cfg = ORDER_STATUS_CONFIG[st];
-              const isSelected = orderStatusFilter === st;
-              return (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setOrderStatusFilter(isSelected ? null : st)}
-                  className={cn(
-                    'px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1',
-                    isSelected ? `${cfg.bg} ${cfg.text} ${cfg.border} font-black shadow-xs` : 'bg-card text-muted-foreground border-border hover:text-foreground'
-                  )}
-                >
-                  <span>{cfg.emoji}</span>
-                  <span>{cfg.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {['DINE_IN', 'TAKEAWAY', 'DELIVERY', 'QR_ORDER'].map((tp) => (
-              <button
-                key={tp}
-                type="button"
-                onClick={() => setOrderTypeFilter(orderTypeFilter === tp ? null : tp)}
-                className={cn(
-                  'px-2 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer border',
-                  orderTypeFilter === tp ? 'bg-primary/20 text-primary border-primary/40' : 'bg-muted/40 text-muted-foreground border-border'
-                )}
-              >
-                {tp.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Orders Listing Grid / Table */}
-        {orderViewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {orders.map((order) => {
-              const cfg = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.DRAFT;
-              const isCancelled = ['CANCELLED', 'VOIDED'].includes(order.status);
-
-              return (
-                <div
-                  key={order.id}
-                  onClick={() => setSelectedOrder(order)}
-                  className={cn(
-                    'flex flex-col justify-between p-4 rounded-3xl border-2 bg-card hover:border-primary/50 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md select-none',
-                    cfg.border
-                  )}
-                >
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-base text-foreground">
-                            #{order.orderNumber}
-                          </span>
-                          <Badge className="font-black text-[10px] rounded-lg">
-                            {order.table?.name ? `Table ${order.table.name}` : order.type}
-                          </Badge>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {format(new Date(order.createdAt), 'h:mm a · dd MMM')}
-                          {order.customer?.name && ` · ${order.customer.name}`}
-                        </p>
-                      </div>
-
-                      <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border', cfg.bg, cfg.text, cfg.border)}>
-                        <span>{cfg.emoji}</span>
-                        <span>{cfg.label}</span>
-                      </span>
-                    </div>
-
-                    {/* Dish Preview */}
-                    <div className="p-2.5 rounded-2xl bg-muted/20 border border-border/50 text-xs space-y-1">
-                      {(() => {
-                        const activeItems = (order.items || []).filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status));
-                        return (
-                          <>
-                            {activeItems.length > 0 ? (
-                              activeItems.slice(0, 3).map((it: any, idx: number) => (
-                                <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
-                                  <span className="truncate pr-2">
-                                    <strong className="text-foreground">{it.quantity}x</strong> {it.menuItem?.name || it.name || 'Dish'}
-                                  </span>
-                                  <span className="font-mono shrink-0">
-                                    {formatCurrency(it.totalPrice || (it.quantity * (it.unitPrice || it.variant?.price || 0)))}
-                                  </span>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-muted-foreground text-[11px]">{order._count?.items || 0} items</p>
-                            )}
-                            {activeItems.length > 3 && (
-                              <p className="text-[10px] text-muted-foreground italic font-medium">
-                                + {activeItems.length - 3} more items...
-                              </p>
-                            )}
-                          </>
-                        );
-                      })()}
-
-                      {/* KOT Round Progress */}
-                      {(() => {
-                        const kotProg = getOrderKotProgress(order);
-                        if (kotProg.total === 0) return null;
-                        return (
-                          <div className={cn(
-                            'mt-2 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px] font-bold',
-                            kotProg.allServed ? 'text-teal-400' : 'text-amber-400'
-                          )}>
-                            <span>🍳 Kitchen KOTs:</span>
-                            <span>{kotProg.served}/{kotProg.total} Served {kotProg.allServed ? '✅' : '⏳'}</span>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Footer & Quick Actions */}
-                  <div className="pt-3 mt-3 border-t border-border flex items-center justify-between gap-2">
-                    <div className="font-mono font-black text-sm text-foreground">
-                      {formatCurrency(order.total)}
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          speakOrder(order);
-                        }}
-                        className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted"
-                        title="Voice Readout"
-                      >
-                        <Volume2 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isCancelled}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePrintOrder(order, true);
-                        }}
-                        className={cn(
-                          'p-1.5 rounded-xl border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 text-xs font-bold',
-                          isCancelled && 'opacity-30 cursor-not-allowed hover:bg-transparent'
-                        )}
-                        title={isCancelled ? 'Printing disabled for cancelled order' : 'Print KOT'}
-                      >
-                        🍳
-                      </button>
-
-                      {(() => {
-                        const isServed = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
-                        return (
-                          <button
-                            type="button"
-                            disabled={isCancelled}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isServed) {
-                                handlePrintOrder(order, false);
-                              } else {
-                                setBillPreviewOrder(order);
-                              }
-                            }}
-                            className={cn(
-                              'p-1.5 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-bold',
-                              isCancelled && 'opacity-30 cursor-not-allowed hover:bg-transparent',
-                              !isServed && 'text-amber-500 border-amber-500/30'
-                            )}
-                            title={isCancelled ? 'Printing disabled for cancelled order' : isServed ? 'Print Bill' : 'Preview Bill (Food in Kitchen)'}
-                          >
-                            {isServed ? <Printer className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                        );
-                      })()}
-
-                      {(() => {
-                        const cancelCheck = checkCanCancel(order);
-                        if (!cancelCheck.canCancel && ['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
-                          return null;
-                        }
-                        return (
-                          <button
-                            type="button"
-                            disabled={!cancelCheck.canCancel}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!cancelCheck.canCancel) return;
-                              if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
-                                updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
-                              }
-                            }}
-                            className={cn(
-                              "p-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-bold transition-colors",
-                              !cancelCheck.canCancel && "opacity-30 cursor-not-allowed hover:bg-transparent"
-                            )}
-                            title={cancelCheck.canCancel ? "Cancel Entire Order" : cancelCheck.reason || "Cannot cancel order"}
-                          >
-                            ❌
-                          </button>
-                        );
-                      })()}
-
-                      {/* Action Button: Staff can only Send Kitchen or Mark Paid when all KOTs are served */}
-                      {(() => {
-                        if (isCancelled || order.status === 'PAID' || order.status === 'COMPLETED') return null;
-
-                        if (['DRAFT', 'CONFIRMED'].includes(order.status)) {
-                          return (
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAdvanceStatus(order, 'SENT_TO_KITCHEN');
-                              }}
-                              className="h-7 px-2.5 text-[10px] font-bold rounded-xl bg-primary text-primary-foreground ml-1"
-                            >
-                              {order.status === 'CONFIRMED' ? 'Verify & Send' : 'Send Kitchen'}
-                            </Button>
-                          );
-                        }
-
-                        if (['SENT_TO_KITCHEN', 'PREPARING', 'READY'].includes(order.status)) {
-                          const kotProg = getOrderKotProgress(order);
-                          return (
-                            <span
-                              title="Kitchen exclusive control: Line cooks must start cooking, finish, and mark SERVED on KDS."
-                              className="px-2 py-1 rounded-xl text-[10px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1 cursor-default select-none ml-1"
-                            >
-                              <span>👨‍🍳</span>
-                              <span>In Kitchen{kotProg.total > 0 ? ` (${kotProg.served}/${kotProg.total})` : ''}</span>
-                            </span>
-                          );
-                        }
-
-                        // For SERVED / BILLED / PARTIALLY_PAID — check if all KOTs (including running rounds) are served
-                        const payCheck = checkCanMarkPaid(order);
-                        return (
-                          <Button
-                            size="sm"
-                            disabled={!payCheck.canPay}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (payCheck.canPay) {
-                                handleMarkAsPaidAndBill(order);
-                              }
-                            }}
-                            title={payCheck.reason || 'Mark as Paid & Generate Bill'}
-                            className={cn(
-                              'h-7 px-2.5 text-[10px] font-bold rounded-xl ml-1 transition-all',
-                              payCheck.canPay
-                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                                : 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60'
-                            )}
-                          >
-                            {payCheck.canPay ? 'Mark Paid & Bill' : 'Wait KOTs'}
-                          </Button>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="border border-border rounded-3xl overflow-hidden bg-card shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-muted/40 text-muted-foreground uppercase text-[10px] font-bold border-b">
-                  <tr>
-                    <th className="p-3">Order #</th>
-                    <th className="p-3">Table / Type</th>
-                    <th className="p-3">Time</th>
-                    <th className="p-3">Items</th>
-                    <th className="p-3">Total</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {orders.map((order) => {
-                    const cfg = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.DRAFT;
-                    const isCancelled = ['CANCELLED', 'VOIDED'].includes(order.status);
-                    const isServed = ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(order.status);
-                    const kotProg = getOrderKotProgress(order);
-
-                    return (
-                      <tr
-                        key={order.id}
-                        onClick={() => setSelectedOrder(order)}
-                        className="hover:bg-muted/30 transition-colors cursor-pointer"
-                      >
-                        <td className="p-3 font-mono font-bold text-foreground">#{order.orderNumber}</td>
-                        <td className="p-3 font-bold">{order.table?.name ? `Table ${order.table.name}` : order.type}</td>
-                        <td className="p-3 text-muted-foreground">{format(new Date(order.createdAt), 'h:mm a')}</td>
-                        <td className="p-3">
-                          <div>
-                            <span>{(order.items || []).filter((it: any) => !['CANCELLED', 'VOIDED'].includes(it.status)).length || order._count?.items || 1} items</span>
-                            {kotProg.total > 0 && (
-                              <span className={cn('block text-[10px] font-bold', kotProg.allServed ? 'text-teal-400' : 'text-amber-400')}>
-                                🍳 {kotProg.served}/{kotProg.total} KOTs Served
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3 font-mono font-black text-primary">{formatCurrency(order.total)}</td>
-                        <td className="p-3">
-                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1', cfg.bg, cfg.text, cfg.border)}>
-                            <span>{cfg.emoji}</span>
-                            <span>{cfg.label}</span>
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              disabled={isCancelled}
-                              onClick={() => handlePrintOrder(order, true)}
-                              className={cn('p-1.5 rounded-lg border text-amber-500 hover:bg-amber-500/10', isCancelled && 'opacity-30 cursor-not-allowed')}
-                              title="Print KOT"
-                            >
-                              🍳
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isCancelled}
-                              onClick={() => {
-                                if (isServed) {
-                                  handlePrintOrder(order, false);
-                                } else {
-                                  setBillPreviewOrder(order);
-                                }
-                              }}
-                              className={cn(
-                                'p-1.5 rounded-lg border text-foreground hover:bg-muted',
-                                isCancelled && 'opacity-30 cursor-not-allowed',
-                                !isServed && 'text-amber-500 border-amber-500/30'
-                              )}
-                              title={isCancelled ? 'Printing disabled for cancelled order' : isServed ? 'Print Bill' : 'Preview Bill (Food in Kitchen)'}
-                            >
-                              {isServed ? <Printer className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-
-                            {(() => {
-                              const cancelCheck = checkCanCancel(order);
-                              if (!cancelCheck.canCancel && ['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
-                                return null;
-                              }
-                              return (
-                                <button
-                                  type="button"
-                                  disabled={!cancelCheck.canCancel}
-                                  onClick={() => {
-                                    if (!cancelCheck.canCancel) return;
-                                    if (confirm(`Are you sure you want to cancel Order #${order.orderNumber}?`)) {
-                                      updateStatus.mutate({ orderId: order.id, status: 'CANCELLED' });
-                                    }
-                                  }}
-                                  className={cn(
-                                    "p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors",
-                                    !cancelCheck.canCancel && "opacity-30 cursor-not-allowed hover:bg-transparent"
-                                  )}
-                                  title={cancelCheck.canCancel ? "Cancel Entire Order" : cancelCheck.reason || "Cannot cancel order"}
-                                >
-                                  ❌
-                                </button>
-                              );
-                            })()}
-
-                            {/* Action Button */}
-                            {(() => {
-                              if (isCancelled || order.status === 'PAID' || order.status === 'COMPLETED') return null;
-
-                              if (['DRAFT', 'CONFIRMED'].includes(order.status)) {
-                                return (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleAdvanceStatus(order, 'SENT_TO_KITCHEN')}
-                                    className="h-7 text-[10px] font-bold rounded-lg"
-                                  >
-                                    {order.status === 'CONFIRMED' ? 'Verify & Send' : 'Send Kitchen'}
-                                  </Button>
-                                );
-                              }
-
-                              if (['SENT_TO_KITCHEN', 'PREPARING', 'READY'].includes(order.status)) {
-                                return (
-                                  <span
-                                    title="Controlled by Kitchen Staff on KDS"
-                                    className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 select-none"
-                                  >
-                                    👨‍🍳 Kitchen
-                                  </span>
-                                );
-                              }
-
-                              const payCheck = checkCanMarkPaid(order);
-                              return (
-                                <Button
-                                  size="sm"
-                                  disabled={!payCheck.canPay}
-                                  onClick={() => {
-                                    if (payCheck.canPay) {
-                                      handleMarkAsPaidAndBill(order);
-                                    }
-                                  }}
-                                  title={payCheck.reason || 'Mark as Paid'}
-                                  className={cn(
-                                    'h-7 text-[10px] font-bold rounded-lg',
-                                    payCheck.canPay
-                                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                      : 'bg-muted text-muted-foreground opacity-60'
-                                  )}
-                                >
-                                  {payCheck.canPay ? 'Mark Paid' : 'Wait KOTs'}
-                                </Button>
-                              );
-                            })()}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {orders.length === 0 && !isOrdersLoading && (
-          <div className="rounded-3xl border-2 border-dashed border-border p-12 text-center">
-            <Receipt className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-            <h3 className="text-sm font-bold text-foreground">No Orders Found</h3>
-            <p className="text-xs text-muted-foreground mt-1">Orders created via POS or table QR scans will appear live here.</p>
           </div>
         )}
       </div>
@@ -2304,56 +1833,109 @@ export default function TablesPage() {
               </button>
             </div>
 
-            {/* Date Picker & Quick Selectors */}
-            <div className="p-3 rounded-2xl bg-muted/40 border border-border/80 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <span>📅</span> Date:
-                </label>
-                <input
-                  type="date"
-                  value={tableOrdersDate}
-                  onChange={(e) => setTableOrdersDate(e.target.value)}
-                  className="h-9 px-3 rounded-xl border border-border bg-background text-xs font-mono font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                />
+            {/* Date Range Presets & Custom Calendar */}
+            <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <CalendarRange className="w-4 h-4 text-primary" />
+                  <span>Timeframe Filter</span>
+                </span>
+                <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-lg border border-primary/20">
+                  {tableDateLabel}
+                </span>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setTableOrdersDate(format(new Date(), 'yyyy-MM-dd'))}
-                  className={cn(
-                    'px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer border',
-                    tableOrdersDate === format(new Date(), 'yyyy-MM-dd')
-                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                      : 'bg-background text-muted-foreground hover:text-foreground border-border'
-                  )}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const yest = new Date();
-                    yest.setDate(yest.getDate() - 1);
-                    setTableOrdersDate(format(yest, 'yyyy-MM-dd'));
-                  }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-background text-muted-foreground hover:text-foreground border border-border transition-colors cursor-pointer"
-                >
-                  Yesterday
-                </button>
+              {/* Preset Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' },
+                  { id: '7days', label: 'Last 7 Days' },
+                  { id: '30days', label: 'Last 30 Days' },
+                  { id: '90days', label: 'Last 90 Days' },
+                  { id: '365days', label: 'Last 365 Days' },
+                  { id: 'custom', label: '📅 Custom' },
+                ].map((p) => {
+                  const isActive = tableOrdersPreset === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setTableOrdersPreset(p.id as any)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border',
+                        isActive
+                          ? 'bg-primary text-primary-foreground border-primary shadow-xs font-black'
+                          : 'bg-background text-muted-foreground hover:text-foreground border-border'
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Pickers */}
+              {tableOrdersPreset === 'custom' && (
+                <div className="flex items-center gap-2 pt-1 border-t border-border/60">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-muted-foreground">From:</span>
+                    <input
+                      type="date"
+                      value={customTableStartDate}
+                      onChange={(e) => setCustomTableStartDate(e.target.value)}
+                      className="h-8 px-2.5 rounded-xl border border-border bg-background text-xs font-mono font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-muted-foreground">To:</span>
+                    <input
+                      type="date"
+                      value={customTableEndDate}
+                      onChange={(e) => setCustomTableEndDate(e.target.value)}
+                      className="h-8 px-2.5 rounded-xl border border-border bg-background text-xs font-mono font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Metrics Mini-Strip */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-2xl bg-card border border-border space-y-0.5">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Total Orders
+                </span>
+                <p className="text-xl font-bold font-mono text-foreground">
+                  {tableOrdersHistory.length}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-0.5">
+                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider block">
+                  Settled Revenue
+                </span>
+                <p className="text-xl font-bold font-mono text-emerald-400">
+                  {formatCurrency(tableHistoryRevenue)}
+                </p>
               </div>
             </div>
 
-            {/* Orders Feed for this Table & Date */}
+            {/* Orders Feed for this Table & Selected Timeframe */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                  Orders ({tableOrdersHistory.length})
+                  Orders Log ({tableOrdersHistory.length})
                 </span>
-                <span className="text-[11px] font-mono text-muted-foreground">
-                  {format(new Date(tableOrdersDate), 'dd MMMM yyyy')}
-                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refetchTableOrders()}
+                  className="h-7 px-2 text-xs font-bold text-muted-foreground hover:text-foreground gap-1"
+                >
+                  <RefreshCw className={cn('w-3 h-3', isTableOrdersLoading && 'animate-spin')} />
+                  <span>Refresh</span>
+                </Button>
               </div>
 
               {isTableOrdersLoading ? (
@@ -2366,7 +1948,7 @@ export default function TablesPage() {
                   <span className="text-2xl">🍽️</span>
                   <p className="text-sm font-bold text-foreground">No Orders Recorded</p>
                   <p className="text-xs text-muted-foreground">
-                    No dining or POS orders were placed at {tableOrdersModalTable.name} on this date.
+                    No dining or POS orders were placed at {tableOrdersModalTable.name} during {tableDateLabel}.
                   </p>
                 </div>
               ) : (
