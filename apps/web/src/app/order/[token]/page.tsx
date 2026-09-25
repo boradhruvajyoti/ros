@@ -1593,79 +1593,67 @@ function TableOrderContent() {
                             </div>
                           </div>
 
-                          {/* ── HALF / FULL PORTION VARIANT TOGGLE PILLS ────────────── */}
+                          {/* ── HALF / FULL PORTION UNIFIED TOGGLE BUTTON ────────────── */}
                           {hasMultipleVariants && (
-                            <div className="pt-1 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="pt-1.5 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                                 Portion:
                               </span>
-                              <div className="flex items-center gap-1 p-0.5 bg-muted/80 rounded-xl border border-border">
-                                {item.variants.map((v: any) => {
-                                  const isSelected = activeVariant?.id === v.id;
-                                  const vCartKey = getCartKey(item.id, v.id);
-                                  const vQty = cart[vCartKey]?.qty || 0;
+                              {(() => {
+                                const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
+                                return (
+                                  <div
+                                    className={cn(
+                                      "inline-flex items-center p-0.5 rounded-full border transition-all duration-200",
+                                      isVeg
+                                        ? "bg-emerald-500/10 border-emerald-500/30 dark:bg-emerald-950/40"
+                                        : "bg-rose-500/10 border-rose-500/30 dark:bg-rose-950/40"
+                                    )}
+                                  >
+                                    {item.variants.map((v: any) => {
+                                      const isSelected = activeVariant?.id === v.id;
+                                      const vCartKey = getCartKey(item.id, v.id);
+                                      const vQty = cart[vCartKey]?.qty || 0;
 
-                                  return (
-                                    <button
-                                      key={v.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedVariants((prev) => ({ ...prev, [item.id]: v.id }));
-                                      }}
-                                      className={cn(
-                                        "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 font-mono",
-                                        (() => {
-                                          const isVeg = item.foodType === 'VEG' || item.foodType === 'VEGAN';
-                                          const vNameLower = (v.name || '').toLowerCase();
-                                          const isHalf = vNameLower.includes('half') || vNameLower.includes('small') || vNameLower.includes('qtr') || vNameLower.includes('quarter');
-
-                                          if (isVeg) {
-                                            if (isHalf) {
-                                              // Light green for veg half
-                                              return isSelected
-                                                ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs font-black border border-emerald-400"
-                                                : "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25";
-                                            } else {
-                                              // Dark green for veg full
-                                              return isSelected
-                                                ? "bg-emerald-800 hover:bg-emerald-900 text-emerald-50 shadow-xs font-black border border-emerald-700"
-                                                : "text-emerald-900 dark:text-emerald-200 bg-emerald-800/15 hover:bg-emerald-800/25 border border-emerald-800/30";
-                                            }
-                                          } else {
-                                            if (isHalf) {
-                                              // Light red for non-veg half
-                                              return isSelected
-                                                ? "bg-rose-500 hover:bg-rose-600 text-white shadow-xs font-black border border-rose-400"
-                                                : "text-rose-700 dark:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25";
-                                            } else {
-                                              // Deep red for non-veg full
-                                              return isSelected
-                                                ? "bg-rose-900 hover:bg-rose-950 text-rose-50 shadow-xs font-black border border-rose-800"
-                                                : "text-rose-900 dark:text-rose-200 bg-rose-900/20 hover:bg-rose-900/30 border border-rose-900/35";
-                                            }
-                                          }
-                                        })()
-                                      )}
-                                    >
-                                      <span>{v.name}</span>
-                                      <span className={cn(
-                                        "text-[10px]",
-                                        isSelected ? "opacity-90 font-bold" : "opacity-75"
-                                      )}>
-                                        ({safeFormatCurrency(v.price)})
-                                      </span>
-                                      {vQty > 0 && (
-                                        <span className={cn(
-                                          "w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center ml-0.5 shadow-2xs",
-                                          isSelected ? "bg-white text-foreground" : "bg-foreground text-background"
-                                        )}>
-                                          {vQty}
-                                        </span>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                                      return (
+                                        <button
+                                          key={v.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedVariants((prev) => ({ ...prev, [item.id]: v.id }));
+                                          }}
+                                          className={cn(
+                                            "px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 font-mono",
+                                            isSelected
+                                              ? (isVeg
+                                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-black"
+                                                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-xs font-black")
+                                              : (isVeg
+                                                  ? "text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100"
+                                                  : "text-rose-700 dark:text-rose-300 hover:text-rose-900 dark:hover:text-rose-100")
+                                          )}
+                                        >
+                                          <span>{v.name}</span>
+                                          <span className={cn(
+                                            "text-[10px]",
+                                            isSelected ? "opacity-90 font-bold" : "opacity-70"
+                                          )}>
+                                            ({safeFormatCurrency(v.price)})
+                                          </span>
+                                          {vQty > 0 && (
+                                            <span className={cn(
+                                              "w-3.5 h-3.5 rounded-full text-[8px] font-black flex items-center justify-center ml-0.5 shadow-2xs",
+                                              isSelected ? "bg-white text-foreground" : "bg-foreground text-background"
+                                            )}>
+                                              {vQty}
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
                         </div>
