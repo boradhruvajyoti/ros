@@ -110,7 +110,7 @@ export default function PublicTableOrderPage() {
     return () => clearInterval(timerInterval);
   }, [sessionExpiresAt]);
 
-  // Live polling for table active orders & status updates
+  // Live polling for table active orders & status updates (2s fast sync)
   useEffect(() => {
     if (!token) return;
 
@@ -123,18 +123,17 @@ export default function PublicTableOrderPage() {
         const json = await res.json();
         if (json.data) {
           setTableData(json.data);
-          if (orderPlaced?.id) {
-            const updated = (json.data.activeOrders || []).find((o: any) => o.id === orderPlaced.id);
-            if (updated) setOrderPlaced(updated);
+          if (json.data.activeOrders && json.data.activeOrders.length > 0) {
+            setOrderPlaced(json.data.activeOrders[0]);
           }
         }
       } catch {
         // silent catch for background polling
       }
-    }, 3000);
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [token, guestSessionToken, urlSession, orderPlaced?.id]);
+  }, [token, guestSessionToken, urlSession]);
 
   const isSessionExpired = sessionExpiresAt ? Date.now() > sessionExpiresAt : false;
   const canOrder = Boolean(tableData?.canOrder && guestSessionToken && !isSessionExpired);
@@ -249,7 +248,7 @@ export default function PublicTableOrderPage() {
   }
 
   const { table = {}, restaurant = {}, categories = [], activeOrders = [] } = tableData || {};
-  const currentActiveOrder = orderPlaced || (activeOrders.length > 0 ? activeOrders[0] : null);
+  const currentActiveOrder = (activeOrders && activeOrders.length > 0) ? activeOrders[0] : orderPlaced;
 
   const allItems = categories.flatMap((c: any) => c.items || []);
   const filteredItems = selectedCategory === 'ALL'
@@ -353,11 +352,13 @@ export default function PublicTableOrderPage() {
               {/* Order Status Hero Card */}
               {(() => {
                 const status = currentActiveOrder.status;
-                const isReceived = status === 'DRAFT' || status === 'CONFIRMED';
+                const isDraft = status === 'DRAFT';
+                const isReceived = status === 'CONFIRMED' || isDraft;
                 const isCooking = ['SENT_TO_KITCHEN', 'PREPARING'].includes(status);
                 const isReady = status === 'READY';
                 const isServed = status === 'SERVED';
-                const isBilled = ['BILLED', 'PAID', 'COMPLETED'].includes(status);
+                const isBilled = status === 'BILLED';
+                const isPaid = ['PAID', 'COMPLETED'].includes(status);
                 const isCancelled = ['CANCELLED', 'VOIDED'].includes(status);
 
                 return (
@@ -375,21 +376,25 @@ export default function PublicTableOrderPage() {
                         <div className="flex items-center justify-center">
                           <div className={cn(
                             'w-16 h-16 rounded-3xl flex items-center justify-center text-3xl shadow-inner',
+                            isDraft ? 'bg-amber-500/15 text-amber-400 animate-pulse' :
                             isReceived ? 'bg-amber-500/15 text-amber-400 animate-pulse' :
                             isCooking ? 'bg-emerald-500/15 text-emerald-400 animate-pulse' :
                             isReady ? 'bg-emerald-500/20 text-emerald-300 animate-bounce' :
-                            isServed ? 'bg-teal-500/15 text-teal-400' : 'bg-primary/15 text-primary'
+                            isServed ? 'bg-teal-500/15 text-teal-400' :
+                            isPaid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-primary/15 text-primary'
                           )}>
-                            {isReceived ? '✨' : isCooking ? '👨‍🍳' : isReady ? '🛎️' : isServed ? '🍽️' : '🧾'}
+                            {isDraft ? '✍️' : isReceived ? '✨' : isCooking ? '👨‍🍳' : isReady ? '🛎️' : isServed ? '🍽️' : isPaid ? '✅' : '🧾'}
                           </div>
                         </div>
 
                         <div className="space-y-1">
                           <h2 className="text-lg font-black text-foreground">
-                            {isReceived ? 'Order Received & Queued' :
+                            {isDraft ? 'Updating Items (Draft)' :
+                             isReceived ? 'Order Received & Queued' :
                              isCooking ? 'Cooking in Kitchen!' :
                              isReady ? 'Food is Ready to Serve!' :
-                             isServed ? 'Dishes Served to Table' : 'Order Billed & Settle'}
+                             isServed ? 'Dishes Served to Table' :
+                             isPaid ? 'Payment Settled & Complete' : 'Order Billed & Settling'}
                           </h2>
                           <p className="text-xs font-bold text-emerald-400">Order #{currentActiveOrder.orderNumber}</p>
                         </div>
@@ -398,10 +403,10 @@ export default function PublicTableOrderPage() {
                         <div className="pt-2 pb-1">
                           <div className="grid grid-cols-4 gap-1 text-center">
                             {[
-                              { label: 'Received', done: true, active: isReceived },
-                              { label: 'Cooking', done: isCooking || isReady || isServed || isBilled, active: isCooking },
-                              { label: 'Ready', done: isReady || isServed || isBilled, active: isReady },
-                              { label: 'Served', done: isServed || isBilled, active: isServed },
+                              { label: 'Received', done: true, active: isReceived || isDraft },
+                              { label: 'Cooking', done: isCooking || isReady || isServed || isBilled || isPaid, active: isCooking },
+                              { label: 'Ready', done: isReady || isServed || isBilled || isPaid, active: isReady },
+                              { label: 'Served', done: isServed || isBilled || isPaid, active: isServed || isBilled || isPaid },
                             ].map((step, idx) => (
                               <div key={idx} className="space-y-1.5">
                                 <div className={cn(
@@ -422,11 +427,13 @@ export default function PublicTableOrderPage() {
                         </div>
 
                         <div className="p-3 rounded-2xl bg-muted/40 border border-border text-xs text-muted-foreground">
-                          {isReceived && 'Your order is safely received and ready to be accepted by the kitchen staff.'}
+                          {isDraft && 'Items are currently being updated or added by restaurant staff.'}
+                          {isReceived && !isDraft && 'Your order is safely received and ready to be accepted by the kitchen staff.'}
                           {isCooking && 'Chefs are currently preparing your fresh hot dishes at the kitchen stations.'}
                           {isReady && 'Your dishes are plated and our waitstaff is bringing them directly to your table.'}
                           {isServed && `Enjoy your meal at ${table?.name || 'your table'}! You can order more items whenever you wish.`}
                           {isBilled && 'Your dining bill has been prepared. Please settle with the staff.'}
+                          {isPaid && 'Thank you for dining with us! Have a wonderful day.'}
                         </div>
                       </>
                     )}
