@@ -3,6 +3,7 @@
   "globalEnv": [
     "NODE_ENV",
     "DATABASE_URL",
+    "DIRECT_URL",
     "REDIS_URL",
     "JWT_SECRET",
     "JWT_REFRESH_SECRET"
