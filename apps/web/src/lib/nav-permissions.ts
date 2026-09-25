@@ -20,11 +20,11 @@ export const ALL_RESTAURANT_NAV_SECTIONS: Array<
 > = [
   // Primary Operations
   { href: '/dashboard',     label: 'Dashboard',             icon: LayoutDashboard, permissions: ['reports:view'] },
+  { href: '/tables',        label: 'Tables',                icon: Grid3X3,         permissions: ['tables:view'] },
   { href: '/pos',           label: 'Point of Sale (POS)',   icon: ShoppingCart,    permissions: ['orders:create'] },
-  { href: '/tables',        label: 'Tables & Orders',       icon: Grid3X3,         permissions: ['tables:view'] },
+  { href: '/kitchen',       label: 'Kitchen Display (KDS)', icon: ChefHat,         permissions: ['kitchen:view'] },
   { href: '/order-history', label: 'Order History',          icon: ClipboardList,   permissions: ['payments:view'] },
   { href: '/reservations',  label: 'Reservations',           icon: Users,           permissions: ['reservations:view'] },
-  { href: '/kitchen',       label: 'Kitchen Display (KDS)', icon: ChefHat,         permissions: ['kitchen:view'] },
   { href: '/qr-order',      label: 'QR Ordering Setup',     icon: QrCode,          permissions: ['tables:create'] },
 
   // Inventory & Kitchen
@@ -221,10 +221,10 @@ export function getMobileBottomNavItems(
   const isFullAdmin = isTenantAdmin(user);
 
   const candidates: Array<{ href: string; label: string; icon: any; permissions: string[] }> = [
-    { href: '/pos',           label: 'POS',       icon: ShoppingCart, permissions: ['orders:create', 'payments:create'] },
-    { href: '/tables',        label: 'Tables',    icon: Grid3X3,      permissions: ['tables:view', 'tables:edit'] },
-    { href: '/kitchen',       label: 'Kitchen',   icon: ChefHat,      permissions: ['kitchen:view', 'kitchen:update'] },
-    { href: '/order-history', label: 'History',   icon: ClipboardList,permissions: ['orders:view', 'payments:view'] },
+    { href: '/tables',        label: 'Tables',    icon: Grid3X3,      permissions: ['tables:view'] },
+    { href: '/pos',           label: 'POS',       icon: ShoppingCart, permissions: ['orders:create'] },
+    { href: '/kitchen',       label: 'Kitchen',   icon: ChefHat,      permissions: ['kitchen:view'] },
+    { href: '/order-history', label: 'History',   icon: ClipboardList,permissions: ['payments:view'] },
     { href: '/menu',          label: 'Menu',      icon: BookOpen,     permissions: ['menu:view'] },
     { href: '/inventory',     label: 'Inventory', icon: Package,      permissions: ['inventory:view'] },
     { href: '/reservations',  label: 'Bookings',  icon: Users,        permissions: ['reservations:view'] },
@@ -243,8 +243,8 @@ export function getMobileBottomNavItems(
   if (isFullAdmin) {
     // Standard 4 items for restaurant owners/admins
     return [
-      { href: '/pos', label: 'POS', icon: ShoppingCart },
       { href: '/tables', label: 'Tables', icon: Grid3X3 },
+      { href: '/pos', label: 'POS', icon: ShoppingCart },
       { href: '/kitchen', label: 'Kitchen', icon: ChefHat },
       { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     ];

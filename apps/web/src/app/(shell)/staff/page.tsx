@@ -53,6 +53,14 @@ const FEATURE_MODULES = [
     permissions: ['reports:view'],
   },
   {
+    id: 'tables',
+    name: 'Tables',
+    icon: '🍽️',
+    description: 'Floor view, live table orders, KOT status advance, billing preview',
+    keyPermission: 'tables:view',
+    permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
+  },
+  {
     id: 'pos',
     name: 'Point of Sale (POS)',
     icon: '🛒',
@@ -61,12 +69,12 @@ const FEATURE_MODULES = [
     permissions: ['orders:create', 'orders:edit', 'payments:create', 'discount:apply', 'menu:view'],
   },
   {
-    id: 'tables',
-    name: 'Tables & Orders Command Center',
-    icon: '🍽️',
-    description: 'Floor view, live table orders, KOT status advance, billing preview',
-    keyPermission: 'tables:view',
-    permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
+    id: 'kitchen',
+    name: 'Kitchen Display System (KDS)',
+    icon: '👨‍🍳',
+    description: 'Live KOT tickets, accept orders, cooking bump, partial/full cancel',
+    keyPermission: 'kitchen:view',
+    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
   },
   {
     id: 'history',
@@ -83,14 +91,6 @@ const FEATURE_MODULES = [
     description: 'Book tables, manage calendar, guest arrivals',
     keyPermission: 'reservations:view',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
-  },
-  {
-    id: 'kitchen',
-    name: 'Kitchen Display System (KDS)',
-    icon: '👨‍🍳',
-    description: 'Live KOT tickets, accept orders, cooking bump, partial/full cancel',
-    keyPermission: 'kitchen:view',
-    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
   },
   {
     id: 'qr-order',
