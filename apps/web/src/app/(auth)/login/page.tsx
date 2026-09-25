@@ -27,6 +27,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { apiPost } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { connectSocket } from '@/lib/socket';
+import { getDefaultLandingRoute } from '@/lib/nav-permissions';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -70,15 +71,12 @@ export default function LoginPage() {
       connectSocket(result.accessToken);
       toast.success('Welcome back!', result.user.name);
 
-      const isPlatformSuperAdmin =
-        result.user?.email?.toLowerCase() === 'superadmin@ros.com' ||
-        result.user?.tenantId === 'tenant-platform';
+      const targetRoute = getDefaultLandingRoute(result.user, (...p: string[]) => {
+        const uPerms = result.user?.permissions || [];
+        return p.some((code) => uPerms.includes(code));
+      });
 
-      if (isPlatformSuperAdmin) {
-        router.push('/super-admin');
-      } else {
-        router.push('/dashboard');
-      }
+      router.push(targetRoute);
     } catch (err: any) {
       const message =
         err?.response?.data?.error?.message ||

@@ -18,84 +18,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
 
-// Navigation for Restaurant Tenants
-const restaurantNavItems = [
-  { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard,  permission: null },
-  { href: '/pos',           label: 'POS',            icon: ShoppingCart,     permission: 'orders:create' },
-  { href: '/tables',        label: 'Tables & Orders', icon: Grid3X3,         permission: 'tables:view' },
-  { href: '/order-history', label: 'Order History',  icon: ClipboardList,    permission: 'orders:view' },
-  { href: '/reservations',  label: 'Reservations',   icon: CalendarDays,     permission: 'reservations:view' },
-  { href: '/kitchen',       label: 'Kitchen Display', icon: ChefHat,          permission: 'kitchen:view' },
-  { href: '/qr-order',      label: 'QR Ordering',   icon: QrCode,           permission: null },
-  { type: 'divider', label: 'INVENTORY & KITCHEN' },
-  { href: '/menu',          label: 'Menu',           icon: BookOpen,         permission: 'menu:view' },
-  { href: '/inventory',     label: 'Inventory',      icon: Package,          permission: 'inventory:view' },
-  { href: '/production',    label: 'Recipe Yields',  icon: Flame,            permission: 'inventory:view' },
-  { href: '/procurement',   label: 'Procurement',    icon: Truck,            permission: 'procurement:view' },
-  { href: '/transfers',     label: 'Stock Transfers', icon: ArrowLeftRight,  permission: 'inventory:view' },
-  { type: 'divider', label: 'GROWTH & REVENUE' },
-  { href: '/ai-insights',   label: 'AI Insights',    icon: Sparkles,         permission: null },
-  { href: '/marketing',     label: 'Marketing & Promos', icon: Tag,          permission: 'reports:view' },
-  { href: '/gift-cards',    label: 'Gift Cards',     icon: Gift,             permission: 'customers:view' },
-  { href: '/integrations',  label: 'Aggregators Hub', icon: Radio,          permission: 'settings:view' },
-  { href: '/feedback',      label: 'Guest Feedback',  icon: Star,           permission: 'customers:view' },
-  { type: 'divider', label: 'PEOPLE & FINANCE' },
-  { href: '/customers',     label: 'Customers CRM',  icon: Users,            permission: 'customers:view' },
-  { href: '/staff',         label: 'Staff & HR',     icon: UserCheck,        permission: 'staff:view' },
-  { href: '/expenses',      label: 'Expenses',       icon: Wallet,           permission: 'expenses:view' },
-  { href: '/reports',       label: 'Reports & P&L',  icon: BarChart3,        permission: 'reports:view' },
-  { type: 'divider', label: 'NEXT-GEN & OPERATIONS' },
-  { href: '/kiosk',         label: 'Touch Kiosk',    icon: Smartphone,       permission: null },
-  { href: '/drive-thru',    label: 'Drive-Thru SOS', icon: Car,              permission: 'orders:view' },
-  { href: '/ai-expediter',  label: 'AI Expediter',   icon: Eye,              permission: 'kitchen:view' },
-  { href: '/iot-sensors',   label: 'IoT HACCP Probes', icon: Activity,       permission: 'settings:view' },
-  { href: '/franchise',     label: 'Franchise HQ',   icon: Building2,        permission: null },
-  { type: 'divider', label: 'ADMINISTRATION' },
-  { href: '/settings',      label: 'Settings',       icon: Settings,         permission: 'settings:view' },
-  { href: '/hardware',      label: 'Hardware & Printers', icon: Printer,     permission: 'settings:view' },
-  { href: '/audit-vault',   label: 'Audit Vault',    icon: ShieldAlert,      permission: 'settings:view' },
-];
-
-// Dedicated Navigation for Waiters
-const waiterNavItems = [
-  { type: 'divider', label: 'WAITER SERVICE' },
-  { href: '/tables',        label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
-  { href: '/pos',           label: '🛒 Take Order (POS)', icon: ShoppingCart, permission: null },
-  { href: '/order-history', label: '📜 Order History', icon: ClipboardList, permission: null },
-  { href: '/kitchen',       label: '🛎️ Kitchen Queue', icon: ChefHat, permission: null },
-];
-
-// Dedicated Navigation for Kitchen Cooks
-const kitchenNavItems = [
-  { type: 'divider', label: 'KITCHEN OPS' },
-  { href: '/kitchen',   label: '👨‍🍳 Kitchen Display (KDS)', icon: ChefHat, permission: null },
-  { href: '/inventory', label: '📦 Stock & Ingredients', icon: Package, permission: null },
-  { href: '/tables',    label: '📋 Tables & Orders', icon: Grid3X3, permission: null },
-];
-
-// Dedicated Navigation for Cashiers
-const cashierNavItems = [
-  { type: 'divider', label: 'FAST BILLING & CASH' },
-  { href: '/pos',           label: '💳 Fast Billing (POS)', icon: ShoppingCart, permission: null },
-  { href: '/tables',        label: '🍽️ Tables & Orders', icon: Grid3X3, permission: null },
-  { href: '/order-history', label: '📜 Order History', icon: ClipboardList, permission: null },
-  { href: '/expenses',      label: '💰 Cash & Expenses', icon: Wallet, permission: null },
-];
-
-// Dedicated Navigation for Platform Super-Admin
-const platformSuperAdminNavItems = [
-  { type: 'divider', label: 'PLATFORM SAAS CONTROL' },
-  { href: '/super-admin',   label: 'Platform Overview', icon: Globe,          permission: null },
-  { href: '/super-admin?tab=tenants', label: 'Tenant Directory', icon: Building2, permission: null },
-  { href: '/super-admin?tab=plans',   label: 'SaaS Plans & Tiers', icon: CreditCard, permission: null },
-  { href: '/super-admin?tab=system',  label: 'System & Infra', icon: Server,     permission: null },
-  { type: 'divider', label: 'SECURITY & OBSERVABILITY' },
-  { href: '/audit-vault',   label: 'Global Audit Logs', icon: ShieldAlert,    permission: null },
-  { href: '/hardware',      label: 'Global Edge Hardware', icon: Activity,    permission: null },
-  { href: '/settings',      label: 'Platform Policies', icon: Settings,       permission: null },
-];
-
 import { useUIStore } from '@/stores/ui.store';
+import { getFilteredSidebarItems, isPlatformAdmin } from '@/lib/nav-permissions';
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -106,15 +30,7 @@ export function AppSidebar() {
 
   const currentTab = searchParams ? searchParams.get('tab') : null;
 
-  // Check if current user is the Platform Super-Administrator (strictly superadmin@ros.com or tenant-platform)
-  const isPlatformSuperAdmin =
-    user?.email?.toLowerCase() === 'superadmin@ros.com' ||
-    user?.tenantId === 'tenant-platform';
-
-  const isOwnerOrAdmin = user?.roles?.some((r) => ['OWNER', 'ADMINISTRATOR', 'GENERAL_MANAGER', 'BRANCH_MANAGER'].includes(r));
-  const isWaiterOnly = !isOwnerOrAdmin && user?.roles?.includes('WAITER');
-  const isKitchenOnly = !isOwnerOrAdmin && user?.roles?.some((r) => ['CHEF', 'KITCHEN_STAFF'].includes(r));
-  const isCashierOnly = !isOwnerOrAdmin && user?.roles?.includes('CASHIER');
+  const isPlatformSuperAdmin = isPlatformAdmin(user);
 
   const { data: platformDetails } = useQuery({
     queryKey: ['superadmin-platform-details'],
@@ -155,16 +71,7 @@ export function AppSidebar() {
     if (parsed?.tagline) tenantTagline = parsed.tagline;
   } catch {}
 
-  let navItems = restaurantNavItems;
-  if (isPlatformSuperAdmin) {
-    navItems = platformSuperAdminNavItems;
-  } else if (isWaiterOnly) {
-    navItems = waiterNavItems;
-  } else if (isKitchenOnly) {
-    navItems = kitchenNavItems;
-  } else if (isCashierOnly) {
-    navItems = cashierNavItems;
-  }
+  const navItems = getFilteredSidebarItems(user, hasAnyPermission);
 
   const renderNavLinks = (isMobile = false) => (
     <nav className="flex-1 overflow-y-auto py-3 no-scrollbar space-y-1">
