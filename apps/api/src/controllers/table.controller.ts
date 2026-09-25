@@ -322,7 +322,7 @@ export class TableController {
         phone: table.branch.phone,
       },
       categories,
-      activeOrders,
+      activeOrders: canOrder ? activeOrders : [],
     });
   }
 

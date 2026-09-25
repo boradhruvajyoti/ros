@@ -332,9 +332,9 @@ function TableOrderContent() {
 
   // Derive active order BEFORE early returns so hooks below can reference it safely
   const { table = {}, restaurant = {}, categories = [], activeOrders = [] } = tableData || {};
-  const currentActiveOrder = (activeOrders && activeOrders.length > 0)
+  const currentActiveOrder = (canOrder && activeOrders && activeOrders.length > 0)
     ? activeOrders[0]
-    : (orderPlaced && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(orderPlaced.status))
+    : (canOrder && orderPlaced && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(orderPlaced.status))
       ? orderPlaced
       : null;
 
@@ -503,7 +503,8 @@ function TableOrderContent() {
     ? allItems
     : (Array.isArray(categories) ? (categories.find((c: any) => c.id === selectedCategory)?.items || []) : []);
 
-  const hasRunningOrder = !!currentActiveOrder && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status);
+  const hasRunningOrder = Boolean(canOrder && currentActiveOrder && !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(currentActiveOrder.status));
+  const activeTab = canOrder ? viewTab : 'MENU';
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-36 max-w-lg mx-auto shadow-2xl border-x border-border relative">
@@ -538,7 +539,7 @@ function TableOrderContent() {
               <p className="text-xs text-white/95 font-medium leading-snug">
                 {statusFlash.message}
               </p>
-              {viewTab !== 'LIVE_STATUS' && (
+              {canOrder && activeTab !== 'LIVE_STATUS' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -612,47 +613,49 @@ function TableOrderContent() {
           </div>
         )}
 
-        {/* Tab Navigation: Menu vs Live Order Status */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
-          <button
-            type="button"
-            onClick={() => setViewTab('MENU')}
-            className={cn(
-              'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5',
-              viewTab === 'MENU'
-                ? 'bg-primary text-primary-foreground shadow-md'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <UtensilsCrossed className="w-3.5 h-3.5" />
-            <span>Browse Menu</span>
-          </button>
+        {/* Tab Navigation: Enabled when ordering session is active; hidden in view-only mode */}
+        {canOrder && (
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
+            <button
+              type="button"
+              onClick={() => setViewTab('MENU')}
+              className={cn(
+                'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5',
+                activeTab === 'MENU'
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5" />
+              <span>Browse Menu</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setViewTab('LIVE_STATUS')}
-            className={cn(
-              'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 relative',
-              viewTab === 'LIVE_STATUS'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : hasRunningOrder
-                ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <ChefHat className="w-3.5 h-3.5" />
-            <span>Live Order Status</span>
-            {hasRunningOrder && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute right-2.5 top-2.5" />
-            )}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setViewTab('LIVE_STATUS')}
+              className={cn(
+                'py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 relative',
+                activeTab === 'LIVE_STATUS'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : hasRunningOrder
+                  ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <ChefHat className="w-3.5 h-3.5" />
+              <span>Live Order Status</span>
+              {hasRunningOrder && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute right-2.5 top-2.5" />
+              )}
+            </button>
+          </div>
+        )}
       </header>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          TAB 1: LIVE KITCHEN DISPLAY & ORDER TRACKER
+          TAB 1: LIVE KITCHEN DISPLAY & ORDER TRACKER (Session only)
       ───────────────────────────────────────────────────────────────────────────── */}
-      {viewTab === 'LIVE_STATUS' ? (
+      {activeTab === 'LIVE_STATUS' ? (
         <div className="p-4 space-y-5 animate-fade-in">
           {currentActiveOrder ? (
             <div className="space-y-4">
