@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
+import { printHtmlInSameTab } from '@/lib/print-utils';
 
 // Self-contained currency formatter
 function formatCurrency(amount: any): string {
@@ -216,11 +217,6 @@ export default function OrderHistoryPage() {
   // Handle Tax Invoice Receipt Printing
   const handlePrintOrderBill = (order: any) => {
     if (!order) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Please allow popups to download and print the receipt.');
-      return;
-    }
 
     const itemsList = (order.items || []).filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status));
     const itemsHtml = itemsList.map((i: any) => {
@@ -239,7 +235,7 @@ export default function OrderHistoryPage() {
       `;
     }).join('');
 
-    printWindow.document.write(`
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -336,19 +332,14 @@ export default function OrderHistoryPage() {
           </div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    `;
+
+    printHtmlInSameTab(htmlContent);
   };
 
   // Handle Kitchen Order Ticket (KOT) Printing
   const handlePrintKot = (order: any) => {
     if (!order) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
 
     const isHalfOrFull = (name?: string) => {
       if (!name) return false;
@@ -392,7 +383,7 @@ export default function OrderHistoryPage() {
       });
     }).join('');
 
-    printWindow.document.write(`
+    const htmlContent = `
       <html>
         <head>
           <title>KOT - Order #${order.orderNumber}</title>
@@ -428,12 +419,9 @@ export default function OrderHistoryPage() {
           <p class="center bold">--- END OF KOT ---</p>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    `;
+
+    printHtmlInSameTab(htmlContent);
   };
 
   return (

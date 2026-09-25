@@ -25,6 +25,7 @@ import {
   announcePaymentReceived,
   speakVoice,
 } from '@/lib/voice-announcer';
+import { printHtmlInSameTab } from '@/lib/print-utils';
 import QRCode from 'qrcode';
 import { formatCurrency } from '@ros/utils';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -459,10 +460,7 @@ export default function TablesPage() {
       return;
     }
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
+    const htmlContent = `
       <html>
         <head>
           <title>${isKot ? 'KOT' : 'POS Bill'} - #${order.orderNumber}</title>
@@ -607,13 +605,9 @@ export default function TablesPage() {
           `}
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+    `;
+
+    printHtmlInSameTab(htmlContent);
   };
 
   const speakOrder = (order: Order) => {
@@ -822,9 +816,7 @@ export default function TablesPage() {
   };
 
   const handlePrintStandee = (table: Table, qrDataUrl: string) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(`
+    const htmlContent = `
       <html>
         <head>
           <title>Table Standee - ${table.name}</title>
@@ -854,20 +846,12 @@ export default function TablesPage() {
           </div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 300);
+    `;
+    printHtmlInSameTab(htmlContent);
   };
 
   const handlePrintAllStandees = async () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
     const cardsHtml = await Promise.all(
       tables.map(async (t) => {
         const url = `${origin}/order/${t.qrCodeToken || t.id}`;
@@ -888,7 +872,7 @@ export default function TablesPage() {
       })
     );
 
-    printWindow.document.write(`
+    const htmlContent = `
       <html>
         <head>
           <title>All Table QR Standees Sheet</title>
@@ -907,13 +891,9 @@ export default function TablesPage() {
           <div class="grid">${cardsHtml.join('')}</div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 400);
+    `;
+
+    printHtmlInSameTab(htmlContent);
   };
 
   const statusCounts = Object.entries(TABLE_STATUS_META).reduce((acc, [key]) => {
