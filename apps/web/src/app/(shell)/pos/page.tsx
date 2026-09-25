@@ -18,11 +18,11 @@ import { apiGet, apiPost, apiPatch, apiPut } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { onRosEvent } from '@/lib/socket';
 import {
-  announceNewOrder,
-  announceOrderAccepted,
-  announceOrderReady,
-  announcePaymentReceived,
-} from '@/lib/voice-announcer';
+  playNewOrderSound,
+  playOrderAcceptedSound,
+  playOrderReadySound,
+  playPaymentReceivedSound,
+} from '@/lib/order-sound';
 
 function getClientId(): string {
   if (typeof window !== 'undefined' && window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -248,12 +248,7 @@ export default function POSPage() {
 
       if (t === 'KOT_CREATED') {
         if (payload?.items?.length) {
-          announceNewOrder({
-            items: payload.items,
-            tableName: payload.tableName || payload.table?.name,
-            kotNumber: payload.kotNumber,
-            orderType: payload.orderType,
-          });
+          playNewOrderSound();
         }
         if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
           setCart([]);
@@ -261,17 +256,17 @@ export default function POSPage() {
         }
       } else if (t === 'KOT_STATUS_CHANGED') {
         if (payload?.status === 'ACCEPTED') {
-          announceOrderAccepted(payload.kotNumber || payload.id);
+          playOrderAcceptedSound();
         } else if (payload?.status === 'READY') {
-          announceOrderReady(payload.kotNumber || payload.id);
+          playOrderReadySound();
         }
       } else if (t === 'ORDER_STATUS_CHANGED') {
         if (payload?.status === 'ACCEPTED' || payload?.status === 'CONFIRMED') {
-          announceOrderAccepted(payload.kotNumber || payload.orderNumber || payload.id);
+          playOrderAcceptedSound();
         } else if (payload?.status === 'READY' || payload?.status === 'READY_FOR_PICKUP') {
-          announceOrderReady(payload.kotNumber || payload.orderNumber || payload.id);
+          playOrderReadySound();
         } else if (payload?.status === 'PAID' || payload?.status === 'COMPLETED') {
-          announcePaymentReceived(payload.total || payload.amount, tenant?.name);
+          playPaymentReceivedSound();
         }
 
         if (['SENT_TO_KITCHEN', 'PREPARING', 'COOKING', 'READY', 'SERVED'].includes(payload.status)) {
@@ -294,7 +289,7 @@ export default function POSPage() {
           }
         }
       } else if (t === 'PAYMENT_COMPLETED') {
-        announcePaymentReceived(payload?.amount, tenant?.name);
+        playPaymentReceivedSound();
         if (payload.orderId === orderParam || (payload.tableId && payload.tableId === selectedTable)) {
           setCart([]);
           setNotes('');
@@ -672,17 +667,8 @@ export default function POSPage() {
       });
     },
     onSuccess: (order: any) => {
-      // Announce new order with dishes, variants, quantity and table
-      announceNewOrder({
-        items: cart.map((c) => ({
-          name: c.name,
-          quantity: c.quantity,
-          variant: c.variantName ? { name: c.variantName } : undefined,
-        })),
-        tableName: selectedTableName || (tables as any[])?.find((t: any) => t.id === selectedTable)?.name,
-        orderType,
-        kotNumber: order?.orderNumber,
-      });
+      // Play sound notification for sending KOT to kitchen
+      playNewOrderSound();
 
       toast.success('KOT Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} sent — table stays open for more rounds.`);
       // Clear cart and notes but KEEP the table selected so staff can add another running KOT
@@ -780,8 +766,7 @@ export default function POSPage() {
         });
       } catch {}
 
-      // Voice announcement for payment
-      announcePaymentReceived(total, tenant?.name);
+      playPaymentReceivedSound();
 
       toast.success('Order Settled & Paid! 💰', `Order #${order.orderNumber} successfully paid via ${method}`);
       setCart([]);

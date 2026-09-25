@@ -19,12 +19,11 @@ import { apiGet, apiPost, apiPatch, apiPut, apiDelete } from '@/lib/api';
 import { onRosEvent } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 import {
-  announceNewOrder,
-  announceOrderAccepted,
-  announceOrderReady,
-  announcePaymentReceived,
-  speakVoice,
-} from '@/lib/voice-announcer';
+  playNewOrderSound,
+  playOrderAcceptedSound,
+  playOrderReadySound,
+  playPaymentReceivedSound,
+} from '@/lib/order-sound';
 import { printHtmlInSameTab } from '@/lib/print-utils';
 import QRCode from 'qrcode';
 import { formatCurrency } from '@ros/utils';
@@ -335,31 +334,24 @@ export default function TablesPage() {
       const t = event.type as string;
       const payload = (event as any).payload;
 
-      if (t === 'KOT_CREATED') {
-        if (payload?.items?.length) {
-          announceNewOrder({
-            items: payload.items,
-            tableName: payload.tableName || payload.table?.name,
-            kotNumber: payload.kotNumber,
-            orderType: payload.orderType,
-          });
-        }
+      if (t === 'KOT_CREATED' || t === 'ORDER_CREATED' || t === 'QR_ORDER_PENDING') {
+        playNewOrderSound();
       } else if (t === 'KOT_STATUS_CHANGED') {
         if (payload?.status === 'ACCEPTED') {
-          announceOrderAccepted(payload.kotNumber || payload.id);
+          playOrderAcceptedSound();
         } else if (payload?.status === 'READY') {
-          announceOrderReady(payload.kotNumber || payload.id);
+          playOrderReadySound();
         }
       } else if (t === 'ORDER_STATUS_CHANGED') {
         if (payload?.status === 'ACCEPTED' || payload?.status === 'CONFIRMED') {
-          announceOrderAccepted(payload.kotNumber || payload.orderNumber || payload.id);
+          playOrderAcceptedSound();
         } else if (payload?.status === 'READY' || payload?.status === 'READY_FOR_PICKUP') {
-          announceOrderReady(payload.kotNumber || payload.orderNumber || payload.id);
+          playOrderReadySound();
         } else if (payload?.status === 'PAID' || payload?.status === 'COMPLETED') {
-          announcePaymentReceived(payload.total || payload.amount, tenant?.name);
+          playPaymentReceivedSound();
         }
       } else if (t === 'PAYMENT_COMPLETED') {
-        announcePaymentReceived(payload?.amount, tenant?.name);
+        playPaymentReceivedSound();
       }
 
       if (
@@ -612,18 +604,13 @@ export default function TablesPage() {
 
   const speakOrder = (order: Order) => {
     if (order.status === 'PAID' || order.status === 'COMPLETED') {
-      announcePaymentReceived(order.total, tenant?.name);
+      playPaymentReceivedSound();
     } else if (order.status === 'READY') {
-      announceOrderReady((order as any).kotNumber || order.orderNumber || order.id);
+      playOrderReadySound();
     } else if (order.status === 'ACCEPTED' || order.status === 'CONFIRMED') {
-      announceOrderAccepted((order as any).kotNumber || order.orderNumber || order.id);
+      playOrderAcceptedSound();
     } else {
-      announceNewOrder({
-        items: order.items || [],
-        tableName: order.table?.name,
-        orderType: order.type,
-        kotNumber: order.orderNumber,
-      });
+      playNewOrderSound();
     }
   };
 
@@ -694,7 +681,7 @@ export default function TablesPage() {
       );
       return;
     }
-    announcePaymentReceived(order.total, tenant?.name);
+    playPaymentReceivedSound();
     updateStatus.mutate(
       { orderId: order.id, status: 'PAID' },
       {
@@ -718,11 +705,11 @@ export default function TablesPage() {
     }
 
     if (targetStatus === 'ACCEPTED' || targetStatus === 'CONFIRMED') {
-      announceOrderAccepted(order.kotNumber || order.orderNumber || order.id);
+      playOrderAcceptedSound();
     } else if (targetStatus === 'READY' || targetStatus === 'READY_FOR_PICKUP') {
-      announceOrderReady(order.kotNumber || order.orderNumber || order.id);
+      playOrderReadySound();
     } else if (targetStatus === 'PAID' || targetStatus === 'COMPLETED') {
-      announcePaymentReceived(order.total, tenant?.name);
+      playPaymentReceivedSound();
     }
 
     updateStatus.mutate({ orderId: order.id, status: targetStatus });

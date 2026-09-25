@@ -15,10 +15,10 @@ import { apiGet, apiPatch } from '@/lib/api';
 import { onRosEvent } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 import {
-  announceNewOrder,
-  announceOrderAccepted,
-  announceOrderReady,
-} from '@/lib/voice-announcer';
+  playNewOrderSound,
+  playOrderAcceptedSound,
+  playOrderReadySound,
+} from '@/lib/order-sound';
 
 interface KotItem {
   id: string;
@@ -56,21 +56,7 @@ const STATUS_FLOW: Record<string, string> = {
 };
 
 function playKitchenChime() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
-    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.6);
-  } catch {}
+  playNewOrderSound();
 }
 
 function KotCard({
@@ -327,28 +313,39 @@ export default function KitchenPage() {
     queryFn: () => apiGet('/kitchen/stations'),
   });
 
-  // Real-time WebSocket event listener with audio chime and human voice announcement
+  // Track known KOT IDs to play sound if new KOT arrives via poll or socket
+  const knownKotIdsRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef(true);
+
+  useEffect(() => {
+    if (kots && kots.length > 0) {
+      if (isInitialLoadRef.current) {
+        knownKotIdsRef.current = new Set(kots.map((k) => k.id));
+        isInitialLoadRef.current = false;
+      } else {
+        const hasNewKot = kots.some((k) => !knownKotIdsRef.current.has(k.id) && k.status === 'NEW');
+        if (hasNewKot && soundEnabled) {
+          playNewOrderSound();
+        }
+        knownKotIdsRef.current = new Set(kots.map((k) => k.id));
+      }
+    }
+  }, [kots, soundEnabled]);
+
+  // Real-time WebSocket event listener with audio chimes
   useEffect(() => {
     const off = onRosEvent((event) => {
       const t = event.type as string;
       const payload = (event as any).payload || {};
 
-      if (['KOT_CREATED', 'KOT_STATUS_CHANGED', 'KOT_ITEM_STATUS_CHANGED', 'ORDER_STATUS_CHANGED', 'ORDER_CANCELLED', 'TABLE_STATUS_CHANGED'].includes(t)) {
-        if (t === 'KOT_CREATED' && soundEnabled) {
-          playKitchenChime();
-          if (payload?.items?.length) {
-            announceNewOrder({
-              items: payload.items,
-              tableName: payload.tableName || payload.table?.name,
-              kotNumber: payload.kotNumber,
-              orderType: payload.orderType,
-            });
-          }
+      if (['KOT_CREATED', 'ORDER_CREATED', 'KOT_ADDED', 'KOT_STATUS_CHANGED', 'KOT_ITEM_STATUS_CHANGED', 'ORDER_STATUS_CHANGED', 'ORDER_CANCELLED', 'TABLE_STATUS_CHANGED'].includes(t)) {
+        if (['KOT_CREATED', 'ORDER_CREATED', 'KOT_ADDED'].includes(t) && soundEnabled) {
+          playNewOrderSound();
         } else if (t === 'KOT_STATUS_CHANGED' && soundEnabled) {
           if (payload?.status === 'ACCEPTED') {
-            announceOrderAccepted(payload.kotNumber || payload.id);
+            playOrderAcceptedSound();
           } else if (payload?.status === 'READY') {
-            announceOrderReady(payload.kotNumber || payload.id);
+            playOrderReadySound();
           }
         }
         queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
@@ -515,9 +512,9 @@ export default function KitchenPage() {
                     kot={kot}
                     onUpdate={(kotId, status) => {
                       if (status === 'ACCEPTED') {
-                        announceOrderAccepted(kot.kotNumber);
+                        playOrderAcceptedSound();
                       } else if (status === 'READY') {
-                        announceOrderReady(kot.kotNumber);
+                        playOrderReadySound();
                       }
                       updateKot.mutate({ kotId, status });
                     }}
