@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Plus, Minus, Trash2, User, TableIcon,
@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPost, apiPatch } from '@/lib/api';
+import { useSearchParams } from 'next/navigation';
+import { apiGet, apiPost, apiPatch, apiPut } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 function getClientId(): string {
@@ -124,6 +125,9 @@ type OrderType = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
 
 export default function POSPage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const tableParam = searchParams.get('table');
+  const orderParam = searchParams.get('orderId');
 
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -163,6 +167,11 @@ export default function POSPage() {
     },
   });
 
+  const { data: activeOrders = [] } = useQuery<any[]>({
+    queryKey: ['active-orders'],
+    queryFn: () => apiGet<any[]>('/orders/active'),
+  });
+
   const { data: tenant } = useQuery({
     queryKey: ['current-tenant'],
     queryFn: () => apiGet<any>('/tenants/current'),
@@ -175,6 +184,43 @@ export default function POSPage() {
   const tables = useMemo(() => {
     return Array.isArray(rawTables) ? rawTables : [];
   }, [rawTables]);
+
+  // Pre-select table and populate cart from active order if table is specified in URL
+  useEffect(() => {
+    if (!tableParam || tables.length === 0) return;
+    const targetTable = tables.find((t: any) => t.id === tableParam);
+    if (targetTable) {
+      setSelectedTable(targetTable.id);
+      setSelectedTableName(targetTable.name);
+      setOrderType('DINE_IN');
+
+      const activeOrder = orderParam
+        ? (activeOrders || []).find((o: any) => o.id === orderParam)
+        : (activeOrders || []).find((o: any) => o.tableId === targetTable.id);
+
+      if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
+        setCart(
+          activeOrder.items.map((it: any) => ({
+            key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
+            menuItemId: it.menuItemId || it.menuItem?.id,
+            name: it.menuItem?.name || it.name || 'Dish',
+            variantId: it.variantId || it.variant?.id,
+            variantName: it.variant?.name,
+            unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
+            quantity: Number(it.quantity || 1),
+            foodType: it.menuItem?.foodType || 'VEG',
+            notes: it.notes || '',
+            modifiers: it.modifiers?.map((m: any) => ({
+              id: m.modifierId || m.id,
+              name: m.name,
+              price: Number(m.price || 0),
+            })) || [],
+          }))
+        );
+        if (activeOrder.notes) setNotes(activeOrder.notes);
+      }
+    }
+  }, [tableParam, orderParam, tables, activeOrders]);
 
   const taxRate = useMemo(() => {
     try {
@@ -280,8 +326,27 @@ export default function POSPage() {
 
   // ── Order Mutation ───────────────────────────────────────────────────────
   const createOrderMutation = useMutation({
-    mutationFn: (extraPayload?: any) =>
-      apiPost('/orders', {
+    mutationFn: async (extraPayload?: any) => {
+      const activeOrder = orderParam
+        ? (activeOrders || []).find((o: any) => o.id === orderParam)
+        : (activeOrders || []).find((o: any) => o.tableId === selectedTable);
+
+      if (activeOrder && ['DRAFT', 'CONFIRMED'].includes(activeOrder.status)) {
+        return apiPut(`/orders/${activeOrder.id}/items`, {
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            notes: c.notes || undefined,
+            modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+          })),
+          sendToKitchen: true,
+          notes: notes || undefined,
+        });
+      }
+
+      return apiPost('/orders', {
         type: orderType,
         status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
@@ -296,7 +361,8 @@ export default function POSPage() {
           modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
         })),
         ...extraPayload,
-      }),
+      });
+    },
     onSuccess: (order: any) => {
       toast.success('Order Sent to Kitchen! 🔔', `Order #${order?.orderNumber || 'KOT'} placed successfully`);
       setCart([]);
@@ -340,22 +406,41 @@ export default function POSPage() {
     }
 
     try {
-      // 1. Create order
-      const order = await apiPost<any>('/orders', {
-        type: orderType,
-        status: 'SENT_TO_KITCHEN',
-        tableId: selectedTable || undefined,
-        notes: notes || undefined,
-        clientId: getClientId(),
-        items: cart.map((c) => ({
-          menuItemId: c.menuItemId,
-          variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
-          quantity: c.quantity,
-          unitPrice: c.unitPrice,
-          notes: c.notes || undefined,
-          modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
-        })),
-      });
+      let order: any;
+      const activeOrder = orderParam
+        ? (activeOrders || []).find((o: any) => o.id === orderParam)
+        : (activeOrders || []).find((o: any) => o.tableId === selectedTable);
+
+      if (activeOrder && ['DRAFT', 'CONFIRMED'].includes(activeOrder.status)) {
+        order = await apiPut<any>(`/orders/${activeOrder.id}/items`, {
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            notes: c.notes || undefined,
+            modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+          })),
+          sendToKitchen: true,
+          notes: notes || undefined,
+        });
+      } else {
+        order = await apiPost<any>('/orders', {
+          type: orderType,
+          status: 'SENT_TO_KITCHEN',
+          tableId: selectedTable || undefined,
+          notes: notes || undefined,
+          clientId: getClientId(),
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId?.startsWith('v-') ? undefined : c.variantId,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            notes: c.notes || undefined,
+            modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
+          })),
+        });
+      }
 
       // 2. Add payment
       await apiPost(`/orders/${order.id}/payments`, {
@@ -658,6 +743,30 @@ export default function POSPage() {
                           } else {
                             setSelectedTable(t.id);
                             setSelectedTableName(t.name);
+                            if (cart.length === 0) {
+                              const activeOrder = (activeOrders || []).find((o: any) => o.tableId === t.id);
+                              if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
+                                setCart(
+                                  activeOrder.items.map((it: any) => ({
+                                    key: `${it.menuItemId || it.menuItem?.id}-${it.variantId || 'std'}-${it.id || Math.random()}`,
+                                    menuItemId: it.menuItemId || it.menuItem?.id,
+                                    name: it.menuItem?.name || it.name || 'Dish',
+                                    variantId: it.variantId || it.variant?.id,
+                                    variantName: it.variant?.name,
+                                    unitPrice: Number(it.unitPrice || it.variant?.price || it.menuItem?.basePrice || 0),
+                                    quantity: Number(it.quantity || 1),
+                                    foodType: it.menuItem?.foodType || 'VEG',
+                                    notes: it.notes || '',
+                                    modifiers: it.modifiers?.map((m: any) => ({
+                                      id: m.modifierId || m.id,
+                                      name: m.name,
+                                      price: Number(m.price || 0),
+                                    })) || [],
+                                  }))
+                                );
+                                if (activeOrder.notes) setNotes(activeOrder.notes);
+                              }
+                            }
                           }
                         }}
                         className={cn(

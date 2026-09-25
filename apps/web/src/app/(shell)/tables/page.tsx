@@ -155,7 +155,6 @@ export default function TablesPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | any | null>(null);
   const [verifyingOrder, setVerifyingOrder] = useState<Order | any | null>(null);
   const [editableItems, setEditableItems] = useState<any[]>([]);
-  const [selectedAddDishId, setSelectedAddDishId] = useState<string>('');
 
   // ── Data Queries ────────────────────────────────────────────────────────────
   const { data: tenant } = useQuery({
@@ -219,7 +218,6 @@ export default function TablesPage() {
           notes: it.notes || '',
         }))
       );
-      setSelectedAddDishId('');
     }
   }, [verifyingOrder]);
 
@@ -1503,56 +1501,25 @@ export default function TablesPage() {
               </div>
             </div>
 
-            {/* Add New Dish to Order */}
-            <div className="space-y-1.5 pt-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Add Dish to this Order:
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={selectedAddDishId}
-                  onChange={(e) => setSelectedAddDishId(e.target.value)}
-                  className="flex-1 h-10 px-3 rounded-xl border bg-background text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">-- Select a dish from menu --</option>
-                  {menuItems.map((mi: any) => (
-                    <option key={mi.id} value={mi.id}>
-                      {mi.name} ({formatCurrency(mi.basePrice || mi.price || 0)})
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    if (!selectedAddDishId) return;
-                    const item = menuItems.find((m: any) => m.id === selectedAddDishId);
-                    if (!item) return;
-                    const existingIndex = editableItems.findIndex((it) => (it.menuItemId || it.id) === item.id && !it.variantId);
-                    if (existingIndex >= 0) {
-                      setEditableItems((prev) =>
-                        prev.map((it, idx) => (idx === existingIndex ? { ...it, quantity: (it.quantity || 1) + 1 } : it))
-                      );
-                    } else {
-                      setEditableItems((prev) => [
-                        ...prev,
-                        {
-                          menuItemId: item.id,
-                          name: item.name,
-                          unitPrice: Number(item.basePrice || item.price || 0),
-                          quantity: 1,
-                          notes: '',
-                        },
-                      ]);
-                    }
-                    setSelectedAddDishId('');
-                  }}
-                  disabled={!selectedAddDishId}
-                  className="h-10 px-4 text-xs font-bold rounded-xl shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add
-                </Button>
-              </div>
+            {/* Add More Dishes via POS */}
+            <div className="pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const tableId = verifyingOrder.tableId || verifyingOrder.table?.id;
+                  setVerifyingOrder(null);
+                  if (tableId) {
+                    router.push(`/pos?table=${tableId}&orderId=${verifyingOrder.id}`);
+                  } else {
+                    router.push(`/pos?orderId=${verifyingOrder.id}`);
+                  }
+                }}
+                className="w-full h-11 border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary font-bold text-xs rounded-2xl gap-2 shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                + Add More Dishes in POS
+              </Button>
             </div>
 
             {/* Order Summary Calculations */}
