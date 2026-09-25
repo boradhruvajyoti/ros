@@ -7,7 +7,7 @@ import {
   ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
-  Volume2, ChevronLeft
+  Volume2, ChevronLeft, ChevronDown, ChevronUp, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -145,6 +145,8 @@ export default function POSPage() {
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
   const [mobileTab, setMobileTab] = useState<'menu' | 'cart'>('menu');
+  const [showMobileCategories, setShowMobileCategories] = useState(false);
+  const [isMobileCartDrawerOpen, setIsMobileCartDrawerOpen] = useState(false);
   const loadedOrderIdRef = useRef<string | null>(null);
 
   // Helper to map backend order items into POS CartItem interface
@@ -500,6 +502,10 @@ export default function POSPage() {
     return sections;
   }, [categories, mainCategories, selectedCategory, search, foodTypeFilter, explodeItemVariants]);
 
+  const selectedCategoryObj = useMemo(() => {
+    return mainCategories.find((c) => c.id === selectedCategory) || null;
+  }, [mainCategories, selectedCategory]);
+
   const subtotal = useMemo(() => {
     return cart.reduce((s, i) => s + (Number(i.unitPrice) * (i.quantity || 1)), 0);
   }, [cart]);
@@ -762,13 +768,13 @@ export default function POSPage() {
         mobileTab === 'menu' ? 'flex' : 'hidden lg:flex'
       )}>
         {/* Top Header: Order Mode, Search & Filters */}
-        <div className="p-3.5 border-b border-border space-y-3 bg-card/60 backdrop-blur shrink-0">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            {/* 3 Giant Touch Order Type Buttons */}
-            <div className="flex items-center gap-1.5 p-1 bg-muted/80 rounded-2xl border border-border">
+        <div className="p-3 sm:p-3.5 border-b border-border space-y-2.5 sm:space-y-3 bg-card/60 backdrop-blur shrink-0">
+          <div className="flex items-center justify-between gap-2.5 flex-wrap">
+            {/* 3 Touch Order Type Buttons */}
+            <div className="flex items-center gap-1 p-1 bg-muted/80 rounded-2xl border border-border">
               {[
-                { id: 'DINE_IN', label: '🍽️ Dine-In Table', color: 'bg-emerald-600 text-white' },
-                { id: 'TAKEAWAY', label: '🛍️ Takeaway / Parcel', color: 'bg-indigo-600 text-white' },
+                { id: 'DINE_IN', label: '🍽️ Dine-In', color: 'bg-emerald-600 text-white' },
+                { id: 'TAKEAWAY', label: '🛍️ Takeaway', color: 'bg-indigo-600 text-white' },
                 { id: 'DELIVERY', label: '🛵 Delivery', color: 'bg-purple-600 text-white' },
               ].map((t) => (
                 <button
@@ -776,7 +782,7 @@ export default function POSPage() {
                   type="button"
                   onClick={() => setOrderType(t.id as any)}
                   className={cn(
-                    'px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm',
+                    'px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm',
                     orderType === t.id
                       ? `${t.color} scale-100 shadow-md`
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -788,14 +794,14 @@ export default function POSPage() {
             </div>
 
             {/* Quick Search Bar */}
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <div className="relative flex-1 min-w-[170px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search dish (e.g. Chicken, Biryani)..."
+                placeholder="Search dish (e.g. Chicken, Paneer)..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 pr-8 h-10 rounded-2xl bg-muted/60 border-border text-xs font-bold focus:bg-background transition-colors"
+                className="pl-9 pr-8 h-9 sm:h-10 rounded-2xl bg-muted/60 border-border text-xs font-bold focus:bg-background transition-colors"
               />
               {search && (
                 <button
@@ -808,8 +814,8 @@ export default function POSPage() {
               )}
             </div>
 
-            {/* Veg / Non-Veg Quick Filters */}
-            <div className="flex items-center gap-1.5">
+            {/* Veg / Non-Veg Quick Filters (Hidden on Mobile Web View) */}
+            <div className="hidden md:flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setFoodTypeFilter('ALL')}
@@ -849,8 +855,36 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Large Visual Category Buttons (MAIN CATEGORIES ONLY) */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-1">
+          {/* ── Mobile Vertical Categories Collapsed Trigger Button (Mobile Web View) ── */}
+          <div className="flex md:hidden items-center justify-between gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setShowMobileCategories(true)}
+              className="flex-1 flex items-center justify-between px-3.5 py-2 rounded-2xl bg-card border border-border/90 hover:border-primary/50 text-xs font-black shadow-xs cursor-pointer active:scale-98"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base">{selectedCategoryObj?.icon || CATEGORY_ICONS[selectedCategoryObj?.name || ''] || '📂'}</span>
+                <span className="truncate">{selectedCategoryObj ? selectedCategoryObj.name : 'All Categories'}</span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-xl shrink-0 font-mono">
+                <span>Categories</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </div>
+            </button>
+            {selectedCategory && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(null)}
+                className="px-2.5 py-2 rounded-2xl bg-muted/80 text-muted-foreground hover:text-foreground text-xs font-bold border border-border shrink-0 cursor-pointer"
+                title="Reset to All Categories"
+              >
+                ✕ Reset
+              </button>
+            )}
+          </div>
+
+          {/* ── Large Visual Category Horizontal Buttons (Desktop / Tablet Only) ── */}
+          <div className="hidden md:flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-0.5">
             <button
               type="button"
               onClick={() => setSelectedCategory(null)}
@@ -888,16 +922,16 @@ export default function POSPage() {
         </div>
 
         {/* Big Food Grid (Touch-friendly 1-Tap Add) — Grouped Subcategory-wise with Separate Variant Items */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-5 pb-24 lg:pb-4">
           {isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5">
               {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="h-32 rounded-2xl bg-muted/60 animate-pulse border border-border" />
+                <div key={i} className="h-28 sm:h-32 rounded-2xl bg-muted/60 animate-pulse border border-border" />
               ))}
             </div>
           ) : processedSections.length > 0 ? (
             processedSections.map((sec) => (
-              <div key={sec.id} className="space-y-4">
+              <div key={sec.id} className="space-y-3.5">
                 {/* Main Category Header (Displayed when viewing All Categories) */}
                 {!selectedCategory && (
                   <div className="flex items-center justify-between pb-1.5 border-b border-border/80 pt-1">
@@ -914,7 +948,7 @@ export default function POSPage() {
                 )}
 
                 {/* Subcategories under this Main Category */}
-                <div className="space-y-5">
+                <div className="space-y-4">
                   {sec.subcategories.map((sub) => {
                     const showSubHeader = sec.subcategories.length > 1 || sub.name !== sec.name;
 
@@ -932,7 +966,7 @@ export default function POSPage() {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
                           {sub.items.map((card) => {
                             const inCart = cart.filter((c) => c.menuItemId === card.menuItemId && c.variantId === card.variantId).reduce((s, c) => s + c.quantity, 0);
                             const isVeg = card.foodType === 'VEG' || card.foodType === 'VEGAN';
@@ -945,7 +979,7 @@ export default function POSPage() {
                                 type="button"
                                 onClick={() => addToCart(card.itemRef, card.variantRef)}
                                 className={cn(
-                                  'text-left relative p-3.5 rounded-2xl border transition-all duration-150 shadow-xs cursor-pointer flex flex-col justify-between min-h-[110px] group active:scale-95',
+                                  'text-left relative p-3 sm:p-3.5 rounded-2xl border transition-all duration-150 shadow-xs cursor-pointer flex flex-col justify-between min-h-[105px] sm:min-h-[110px] group active:scale-95',
                                   inCart > 0
                                     ? 'border-primary bg-primary/10 shadow-md shadow-primary/15'
                                     : 'border-border bg-card hover:border-primary/50 hover:bg-muted/30'
@@ -956,15 +990,15 @@ export default function POSPage() {
                                   {/* Veg / Non-Veg Indicator + Portion Badge */}
                                   <div className="flex items-center gap-1.5">
                                     <div className={cn(
-                                      'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
+                                      'w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border-2 flex items-center justify-center shrink-0',
                                       isVeg ? 'border-emerald-500' : 'border-red-500'
                                     )}>
-                                      <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
+                                      <div className={cn('w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
                                     </div>
 
                                     {card.variantName && (
                                       <span className={cn(
-                                        "px-2 py-0.5 rounded-md text-[10px] font-black font-mono border",
+                                        "px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black font-mono border",
                                         isVeg
                                           ? (isHalf
                                               ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
@@ -980,23 +1014,23 @@ export default function POSPage() {
 
                                   {/* Quantity in Cart Badge */}
                                   {inCart > 0 ? (
-                                    <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-black shadow animate-in zoom-in-75 duration-100">
+                                    <div className="px-1.5 sm:px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] sm:text-xs font-black shadow animate-in zoom-in-75 duration-100">
                                       {inCart} Added
                                     </div>
                                   ) : (
-                                    <div className="w-6 h-6 rounded-full bg-muted/80 border border-border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                      <Plus className="w-3.5 h-3.5" />
+                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-muted/80 border border-border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                      <Plus className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
                                     </div>
                                   )}
                                 </div>
 
                                 {/* Food Title & Price */}
-                                <div className="mt-2.5">
-                                  <p className="font-bold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                                <div className="mt-2">
+                                  <p className="font-bold text-xs sm:text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
                                     {card.displayName}
                                   </p>
-                                  <div className="flex items-baseline justify-between mt-2 pt-1 border-t border-border/40">
-                                    <span className="text-sm font-black text-emerald-400 font-mono">
+                                  <div className="flex items-baseline justify-between mt-1.5 pt-1 border-t border-border/40">
+                                    <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono">
                                       ₹{card.price.toFixed(0)}
                                     </span>
                                   </div>
@@ -1015,59 +1049,339 @@ export default function POSPage() {
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <Utensils className="w-12 h-12 mb-3 opacity-30" />
               <p className="text-sm font-bold">No dishes found</p>
-              <p className="text-xs text-muted-foreground">Try clearing the search or selecting "All Food".</p>
+              <p className="text-xs text-muted-foreground">Try clearing the search or choosing a different category.</p>
             </div>
           )}
         </div>
 
-        {/* ── Floating Mobile Cart Pill when on Menu view ── */}
-        {cart.length > 0 && mobileTab === 'menu' && (
-          <div className="lg:hidden fixed bottom-18 left-3 right-3 z-30 animate-in slide-in-from-bottom-4 duration-200">
+        {/* ── Mobile Floating Bottom Itemised Tray Bar (QR Menu style) ── */}
+        {cart.length > 0 && (
+          <div className="lg:hidden fixed bottom-16 left-3 right-3 z-30 animate-in slide-in-from-bottom-4 duration-200">
             <button
               type="button"
-              onClick={() => setMobileTab('cart')}
-              className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-amber-500 text-primary-foreground font-black px-4 flex items-center justify-between shadow-2xl shadow-primary/30 border border-white/20 active:scale-98 cursor-pointer"
+              onClick={() => setIsMobileCartDrawerOpen(true)}
+              className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary via-amber-500 to-emerald-600 text-primary-foreground font-black px-4 flex items-center justify-between shadow-2xl shadow-primary/30 border border-white/20 active:scale-98 cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-black/25 flex items-center justify-center font-mono text-sm shadow-inner">
+                <div className="w-8 h-8 rounded-xl bg-black/30 flex items-center justify-center font-mono text-sm font-black shadow-inner">
                   {totalItemsCount}
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-black leading-tight">View Order Ticket ➔</p>
-                  <p className="text-[10px] opacity-85 font-medium">{selectedTableName ? `Table: ${selectedTableName}` : orderType.replace('_', ' ')}</p>
+                  <p className="text-xs font-black leading-tight flex items-center gap-1">
+                    <span>View Order Cart</span>
+                    <ChevronUp className="w-3.5 h-3.5 animate-bounce" />
+                  </p>
+                  <p className="text-[10px] opacity-90 font-medium">
+                    {selectedTableName ? `Table: ${selectedTableName}` : orderType.replace('_', ' ')}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 font-mono text-sm font-black bg-black/20 px-3 py-1.5 rounded-xl">
+              <div className="flex items-center gap-2 font-mono text-xs sm:text-sm font-black bg-black/25 px-3 py-1.5 rounded-xl">
                 <span>₹{total.toFixed(0)}</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </button>
+          </div>
+        )}
+
+        {/* ── Mobile Vertical Categories Modal Sheet ── */}
+        {showMobileCategories && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-0 animate-in fade-in duration-150">
+            <div className="w-full bg-card border-t border-border rounded-t-3xl p-4 shadow-2xl space-y-3 max-h-[82vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+              <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30 mx-auto" />
+              <div className="flex items-center justify-between pb-2 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center text-sm font-bold">
+                    📂
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-foreground">Menu Categories</h3>
+                    <p className="text-[10px] text-muted-foreground">{mainCategories.length} Categories Available</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMobileCategories(false)}
+                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    setShowMobileCategories(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between p-3 rounded-2xl text-xs font-black border transition-all cursor-pointer",
+                    !selectedCategory
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-muted/40 border-border/80 text-foreground hover:bg-muted"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">✨</span>
+                    <span>All Categories (View All)</span>
+                  </div>
+                  {!selectedCategory && <Check className="w-4 h-4" />}
+                </button>
+
+                {mainCategories.map((c) => {
+                  const icon = c.icon || CATEGORY_ICONS[c.name] || '🍽️';
+                  const isSelected = selectedCategory === c.id;
+                  const sec = processedSections.find((s) => s.id === c.id);
+                  const count = sec ? sec.totalItems : (c.items?.length || 0);
+
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(c.id);
+                        setShowMobileCategories(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3 rounded-2xl text-xs font-black border transition-all cursor-pointer",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-card border-border/80 text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-base">{icon}</span>
+                        <span>{c.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-[10px] font-mono px-2 py-0.5 rounded-full",
+                          isSelected ? "bg-black/20 text-white" : "bg-muted text-muted-foreground"
+                        )}>
+                          {count} dishes
+                        </span>
+                        {isSelected && <Check className="w-4 h-4" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Mobile Itemised Bottom Tray Sheet (QR Menu style sliding tray) ── */}
+        {isMobileCartDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="w-full bg-card border-t border-border rounded-t-3xl shadow-2xl max-h-[88vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+              {/* Drag bar and header */}
+              <div className="p-3.5 border-b border-border space-y-2 bg-muted/40 shrink-0">
+                <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30 mx-auto" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-primary/20 text-primary flex items-center justify-center font-bold">
+                      <ShoppingCart className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-sm text-foreground">Order Ticket ({totalItemsCount} items)</h3>
+                      <p className="text-[10px] text-muted-foreground font-semibold">
+                        {selectedTableName ? `Table: ${selectedTableName}` : orderType.replace('_', ' ')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {cart.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setCart([])}
+                        className="px-2 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileCartDrawerOpen(false)}
+                      className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table Selector inside Mobile Cart */}
+                {orderType === 'DINE_IN' && (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                      <span>Select Table:</span>
+                      {selectedTable && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTable(null);
+                            setSelectedTableName(null);
+                            setCart([]);
+                            setNotes('');
+                          }}
+                          className="text-[10px] text-destructive cursor-pointer"
+                        >
+                          ✕ Clear Table
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                      {tables.map((t: any) => {
+                        const isSelected = selectedTable === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedTable(null);
+                                setSelectedTableName(null);
+                              } else {
+                                setSelectedTable(t.id);
+                                setSelectedTableName(t.name);
+                              }
+                            }}
+                            className={cn(
+                              "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border shrink-0 cursor-pointer transition-all",
+                              isSelected
+                                ? "bg-emerald-600 text-white border-emerald-500 shadow-xs font-black"
+                                : "bg-background border-border text-foreground hover:bg-muted"
+                            )}
+                          >
+                            <span>{t.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Itemised list */}
+              <div className="flex-1 overflow-y-auto p-3.5 space-y-2">
+                {cart.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground space-y-2">
+                    <div className="text-3xl">🛒</div>
+                    <p className="text-xs font-bold">Your cart is empty</p>
+                    <Button size="sm" onClick={() => setIsMobileCartDrawerOpen(false)} className="rounded-xl text-xs">
+                      Browse Menu Dishes
+                    </Button>
+                  </div>
+                ) : (
+                  cart.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between p-2.5 rounded-2xl bg-background border border-border shadow-xs"
+                    >
+                      <div className="flex-1 min-w-0 mr-2">
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn(
+                            'w-2 h-2 rounded-full shrink-0',
+                            item.foodType === 'VEG' || item.foodType === 'VEGAN' ? 'bg-emerald-500' : 'bg-red-500'
+                          )} />
+                          <p className="text-xs font-bold text-foreground truncate">{item.name}</p>
+                        </div>
+                        <p className="text-xs font-black font-mono text-emerald-400 mt-0.5">
+                          ₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}{' '}
+                          <span className="text-[10px] text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl border border-border shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => updateQty(item.key, -1)}
+                          className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-foreground hover:bg-red-500/20 hover:text-red-400 font-bold active:scale-90 cursor-pointer"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-5 text-center text-xs font-black font-mono text-foreground">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQty(item.key, 1)}
+                          className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold active:scale-90 cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Bill & Giant Actions */}
+              {cart.length > 0 && (
+                <div className="p-3.5 border-t border-border bg-muted/30 space-y-2.5 shrink-0">
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal:</span>
+                      <span className="font-mono font-bold text-foreground">₹{subtotal.toFixed(2)}</span>
+                    </div>
+                    {tax > 0 && taxRate > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>GST ({taxRate}%):</span>
+                        <span className="font-mono font-bold text-foreground">₹{tax.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-baseline pt-1 border-t border-border font-black text-sm">
+                      <span className="text-muted-foreground uppercase tracking-wider text-xs">Total Payable:</span>
+                      <span className="text-xl font-mono text-emerald-400">₹{total.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Button
+                      size="lg"
+                      loading={createOrderMutation.isPending}
+                      onClick={() => {
+                        handlePlaceOrder();
+                        setIsMobileCartDrawerOpen(false);
+                      }}
+                      className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-1.5 shadow-md shadow-emerald-600/30 cursor-pointer"
+                    >
+                      <Receipt className="w-4 h-4" />
+                      <span>Send KOT</span>
+                    </Button>
+
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() => {
+                        setIsMobileCartDrawerOpen(false);
+                        setCashTendered(total);
+                        setShowFastPayModal(true);
+                      }}
+                      className="h-12 rounded-2xl border-2 border-primary/60 bg-primary/10 hover:bg-primary/20 text-primary font-black text-xs gap-1.5 cursor-pointer"
+                    >
+                      <Banknote className="w-4 h-4" />
+                      <span>Fast Pay</span>
+                    </Button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileCartDrawerOpen(false)}
+                    className="w-full text-center text-xs font-bold text-muted-foreground hover:text-foreground py-1 cursor-pointer"
+                  >
+                    ← Add More Dishes from Menu
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          RIGHT PANEL: TOUCH-FRIENDLY ORDER CART & FAST BILLING
+          RIGHT PANEL: TOUCH-FRIENDLY ORDER CART & FAST BILLING (DESKTOP ONLY)
       ───────────────────────────────────────────────────────────────────────────── */}
-      <div className={cn(
-        "flex-col w-full lg:w-[380px] xl:w-[410px] shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border h-full overflow-hidden",
-        mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'
-      )}>
-        {/* Mobile Header: Back to Menu button */}
-        <div className="lg:hidden p-2.5 bg-muted/70 border-b border-border flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setMobileTab('menu')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border text-xs font-bold text-foreground cursor-pointer shadow-xs active:scale-95 hover:bg-muted"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>← Back to Dishes (Add More)</span>
-          </button>
-          <span className="text-xs font-black font-mono text-emerald-400">
-            ₹{total.toFixed(0)}
-          </span>
-        </div>
-
+      <div className="hidden lg:flex flex-col w-[380px] xl:w-[410px] shrink-0 bg-card border-l border-border h-full overflow-hidden">
         {/* Cart Header */}
         <div className="p-4 border-b border-border bg-muted/30 shrink-0 space-y-3">
           <div className="flex items-center justify-between">
