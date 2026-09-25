@@ -430,7 +430,10 @@ export default function TablesPage() {
         }
       }
     },
-    onError: () => toast.error('Update Failed', 'Could not update order status'),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Could not update order status';
+      toast.error('Update Failed', msg);
+    },
   });
 
   const handleMarkAsPaidAndBill = (order: any) => {

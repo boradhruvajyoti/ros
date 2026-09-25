@@ -374,6 +374,7 @@ export class OrderService {
   async updateStatus(orderId: string, dto: UpdateOrderStatusDto): Promise<any> {
     const order = await prisma.order.findFirst({
       where: { id: orderId, tenantId: this.tenantId },
+      include: { payments: { where: { status: 'COMPLETED' } } },
     });
 
     if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
@@ -381,7 +382,7 @@ export class OrderService {
     const currentStatus = order.status as OrderStatus;
     const allowedNext = ORDER_STATE_TRANSITIONS[currentStatus];
 
-    if (!allowedNext.includes(dto.status)) {
+    if (!allowedNext || !allowedNext.includes(dto.status)) {
       throw new AppError(
         ErrorCodes.INVALID_STATE_TRANSITION,
         `Cannot transition from ${currentStatus} to ${dto.status}`,
@@ -406,18 +407,43 @@ export class OrderService {
     if (dto.status === 'COMPLETED') updateData.completedAt = new Date();
     if (dto.status === 'CANCELLED') { updateData.cancelledAt = new Date(); updateData.cancellationReason = dto.reason; }
     if (dto.status === 'BILLED')    updateData.billedAt = new Date();
+    if (dto.status === 'PAID') {
+      if (!order.billedAt) updateData.billedAt = new Date();
+      updateData.paidAmount = order.total;
+    }
 
     const targetBranchId = order.branchId || this.branchId;
 
     const updated = await prisma.$transaction(async (tx) => {
+      // If marked as PAID and balance is due, record a CASH payment entry
+      if (dto.status === 'PAID') {
+        const alreadyPaid = (order.payments || []).reduce((s, p) => Number(s) + Number(p.amount), 0);
+        const total = Number(order.total);
+        const remaining = total - alreadyPaid;
+        if (remaining > 0) {
+          await tx.payment.create({
+            data: {
+              id: generateULID(),
+              orderId,
+              tenantId: this.tenantId,
+              branchId: targetBranchId,
+              method: 'CASH',
+              amount: remaining,
+              status: 'COMPLETED',
+              createdBy: dto.userId,
+            },
+          });
+        }
+      }
+
       const u = await tx.order.update({
         where: { id: orderId },
         data: updateData,
         include: this.orderInclude(),
       });
 
-      // Release table when order is completed/voided/cancelled
-      if (['COMPLETED', 'VOIDED', 'CANCELLED'].includes(dto.status) && order.tableId) {
+      // Release table when order is paid/completed/voided/cancelled
+      if (['PAID', 'COMPLETED', 'VOIDED', 'CANCELLED'].includes(dto.status) && order.tableId) {
         await tx.restaurantTable.update({
           where: { id: order.tableId },
           data: { status: 'CLEANING' },

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet, apiPost, apiPatch } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 function getClientId(): string {
@@ -365,11 +365,11 @@ export default function POSPage() {
 
       // 3. Mark as PAID/COMPLETED
       try {
-        await apiPost(`/orders/${order.id}/status`, {
+        await apiPatch(`/orders/${order.id}/status`, {
           status: 'BILLED',
           reason: `Fast Touch POS Checkout (${method})`,
         });
-        await apiPost(`/orders/${order.id}/status`, {
+        await apiPatch(`/orders/${order.id}/status`, {
           status: 'PAID',
           reason: `Settled via ${method}`,
         });
