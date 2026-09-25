@@ -583,18 +583,37 @@ export class OrderService {
       );
     }
 
-    // Guard: Prevent cancellation once any KOT has been accepted / started in kitchen
+    // Guard: Prevent cancellation once any KOT has started cooking or been accepted in kitchen
     if (dto.status === 'CANCELLED' || dto.status === 'VOIDED') {
-      const activeAcceptedKots = await prisma.orderKot.findMany({
-        where: {
-          orderId,
-          status: { notIn: ['NEW', 'CANCELLED'] },
-        },
-      });
-      if (activeAcceptedKots.length > 0) {
+      if (['PREPARING', 'COOKING', 'READY', 'SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(currentStatus)) {
         throw new AppError(
           ErrorCodes.VALIDATION_ERROR,
-          'Cannot cancel order after the KOT has been accepted in the kitchen. Kitchen staff must handle item cancellations on the Kitchen Display System (KDS).',
+          'Cannot cancel order because dishes are currently In Cooking or served. Item cancellations must be done by kitchen staff on KDS.',
+          400
+        );
+      }
+
+      const activeKots = await prisma.orderKot.findMany({
+        where: {
+          orderId,
+          status: { not: 'CANCELLED' },
+        },
+      });
+
+      const inCookingKot = activeKots.find((k) => ['PREPARING', 'COOKING'].includes(k.status));
+      if (inCookingKot) {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'Cannot cancel order because KOT is In Cooking in the kitchen. Kitchen staff must handle cancellations on KDS.',
+          400
+        );
+      }
+
+      const nonNewKot = activeKots.find((k) => !['NEW', 'CANCELLED'].includes(k.status));
+      if (nonNewKot) {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'Cannot cancel order after KOT has been accepted in the kitchen. Item cancellations must be done by kitchen staff on KDS.',
           400
         );
       }
@@ -1067,6 +1086,12 @@ export class OrderService {
             include: {
               menuItem: { select: { id: true, name: true, foodType: true } },
               variant: { select: { id: true, name: true, price: true } },
+            },
+          },
+          kots: {
+            include: {
+              items: true,
+              kitchenStation: { select: { id: true, name: true } },
             },
           },
           _count: { select: { items: true } },

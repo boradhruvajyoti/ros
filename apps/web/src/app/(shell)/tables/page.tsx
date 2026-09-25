@@ -174,15 +174,31 @@ function checkCanCancel(order: any): { canCancel: boolean; reason?: string } {
   if (!order || ['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status)) {
     return { canCancel: false, reason: 'Order is already completed or cancelled' };
   }
-  // Once any KOT is kitchen-accepted (past NEW/CANCELLED), order cannot be cancelled from order feed/tables
+  // If order itself is in cooking/prepared/served/billed states
+  if (['PREPARING', 'COOKING', 'READY', 'SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(order.status)) {
+    return {
+      canCancel: false,
+      reason: 'Order is in cooking/preparation and can no longer be cancelled from the order feed. Item adjustments must be handled by kitchen staff on KDS.',
+    };
+  }
+
+  // Once any KOT in kitchen display status is In Cooking (PREPARING / COOKING) or accepted / ready / served
   const kots: any[] = order?.kots || [];
+  const inCookingKot = kots.some((k) => ['PREPARING', 'COOKING'].includes(k.status));
+  if (inCookingKot) {
+    return {
+      canCancel: false,
+      reason: 'Order cannot be cancelled because KOT is In Cooking in the kitchen.',
+    };
+  }
+
   const kitchenAcceptedKot = kots.some(
     (k) => !['NEW', 'CANCELLED'].includes(k.status)
   );
   if (kitchenAcceptedKot) {
     return {
       canCancel: false,
-      reason: 'Order cannot be cancelled after KOT is accepted in kitchen. Item cancellations must be done by kitchen staff on KDS.',
+      reason: 'Order cannot be cancelled after KOT is accepted in the kitchen. Item cancellations must be done by kitchen staff on KDS.',
     };
   }
   return { canCancel: true };
