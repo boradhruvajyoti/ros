@@ -5,7 +5,8 @@ import { useParams, useSearchParams } from 'next/navigation';
 import {
   UtensilsCrossed, Plus, Minus, ShoppingBag,
   ChefHat, MapPin, AlertCircle, ArrowRight,
-  ShieldCheck, Lock, Eye, X, Ban
+  ShieldCheck, Lock, Eye, X, Ban,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -102,6 +103,7 @@ function TableOrderContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [cart, setCart] = useState<{ [itemId: string]: { item: any; variant: any; qty: number } }>({});
   const [guestNotes, setGuestNotes] = useState('');
+  const [isCartExpanded, setIsCartExpanded] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<any | null>(null);
   const [viewTab, setViewTab] = useState<'MENU' | 'LIVE_STATUS'>('MENU');
@@ -304,6 +306,7 @@ function TableOrderContent() {
       }
       setCart({});
       setGuestNotes('');
+      setIsCartExpanded(false);
       setViewTab('LIVE_STATUS');
     } catch (err: any) {
       alert(err.message || 'Failed to send order to kitchen');
@@ -1165,122 +1168,181 @@ function TableOrderContent() {
         </main>
       )}
 
-      {/* Floating Bottom Cart Bar (With itemized title, qty, and price list) */}
+      {/* Floating Bottom Cart Bar (Collapsed by default, expandable to view itemized list) */}
       {canOrder && cartList.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-4 bg-card/95 backdrop-blur-xl border-t border-border shadow-2xl z-40 space-y-3 animate-in slide-in-from-bottom-4 duration-200">
-          {/* Cart Header */}
-          <div className="flex items-center justify-between pb-2 border-b border-border/60">
-            <span className="font-black text-xs text-foreground flex items-center gap-1.5 uppercase tracking-wider">
-              <ShoppingBag className="w-4 h-4 text-primary" />
-              <span>Selected Dishes ({cartList.reduce((acc, c) => acc + c.qty, 0)})</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setCart({});
-                setGuestNotes('');
-              }}
-              className="text-[11px] font-bold text-muted-foreground hover:text-rose-500 transition-colors cursor-pointer"
-            >
-              Clear Cart
-            </button>
-          </div>
-
-          {/* Itemized List of Selected Items with Title, Quantity Controls & Price */}
-          <div className="max-h-48 overflow-y-auto divide-y divide-border/50 pr-1 space-y-1">
-            {cartList.map((entry) => {
-              const { item, variant, qty } = entry;
-              const unitPrice = variant?.price || item.variants?.[0]?.price || 150;
-              const lineTotal = unitPrice * qty;
-              const foodType = item.foodType || 'VEG';
-
-              return (
-                <div
-                  key={item.id}
-                  className="py-2 flex items-center justify-between gap-2 text-xs"
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
-                    <span className="text-[10px] shrink-0">
-                      {foodType === 'NON_VEG' ? '🔴' : '🟢'}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-foreground truncate">
-                        {item.name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground font-mono">
-                        {variant?.name ? `${variant.name} • ` : ''}
-                        {safeFormatCurrency(unitPrice)} each
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Quantity Stepper & Line Price */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-xl p-0.5">
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.id)}
-                        className="w-6 h-6 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-xs cursor-pointer hover:bg-muted"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-xs font-black text-primary px-1 font-mono">{qty}</span>
-                      <button
-                        type="button"
-                        onClick={() => addToCart(item)}
-                        className="w-6 h-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs cursor-pointer hover:bg-primary/90"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    <span className="font-mono font-black text-xs text-foreground min-w-[55px] text-right">
-                      {safeFormatCurrency(lineTotal)}
-                    </span>
-                  </div>
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-3.5 bg-card/95 backdrop-blur-xl border-t border-border shadow-2xl z-40 space-y-3 animate-in slide-in-from-bottom-3 duration-200">
+          {!isCartExpanded ? (
+            /* Collapsed State View */
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsCartExpanded(true)}
+                className="flex items-center gap-2.5 text-left flex-1 min-w-0 cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 relative group-hover:bg-primary/20 transition-colors">
+                  <ShoppingBag className="w-5 h-5" />
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary text-primary-foreground text-[10px] font-black rounded-full flex items-center justify-center shadow-md font-mono">
+                    {cartList.reduce((acc, c) => acc + c.qty, 0)}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-sm font-mono text-foreground">
+                      {safeFormatCurrency(total)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      ({cartList.reduce((acc, c) => acc + c.qty, 0)} {cartList.reduce((acc, c) => acc + c.qty, 0) === 1 ? 'item' : 'items'})
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-primary flex items-center gap-0.5 group-hover:underline">
+                    View order details <ChevronUp className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </button>
 
-          {/* Special Instructions Note */}
-          <input
-            type="text"
-            placeholder="Special instructions (e.g. less spicy, no onions)..."
-            value={guestNotes}
-            onChange={(e) => setGuestNotes(e.target.value)}
-            className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-
-          {/* Subtotal / GST & Total Amount */}
-          <div className="pt-2 border-t border-border/80 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                Total ({cartList.reduce((acc, c) => acc + c.qty, 0)} items)
-              </span>
-              {taxRate > 0 && gst > 0 && (
-                <span className="text-[10px] text-muted-foreground font-mono block">
-                  Incl. GST ({taxRate}%): {safeFormatCurrency(gst)}
-                </span>
-              )}
+              <Button
+                onClick={async () => {
+                  await handlePlaceOrder();
+                  setViewTab('LIVE_STATUS');
+                }}
+                disabled={isSubmitting}
+                className="h-11 px-4 rounded-xl font-black text-xs gap-1.5 shadow-md shadow-primary/20 cursor-pointer shrink-0"
+              >
+                <UtensilsCrossed className="w-3.5 h-3.5" />
+                {isSubmitting ? 'Sending...' : 'Send to Kitchen'}
+              </Button>
             </div>
-            <span className="font-black text-lg font-mono text-primary">
-              {safeFormatCurrency(total)}
-            </span>
-          </div>
+          ) : (
+            /* Expanded State View */
+            <>
+              {/* Cart Header */}
+              <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-xs text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                    <ShoppingBag className="w-4 h-4 text-primary" />
+                    <span>Selected Dishes ({cartList.reduce((acc, c) => acc + c.qty, 0)})</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCart({});
+                      setGuestNotes('');
+                      setIsCartExpanded(false);
+                    }}
+                    className="text-[11px] font-bold text-muted-foreground hover:text-rose-500 transition-colors cursor-pointer"
+                  >
+                    Clear Cart
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCartExpanded(false)}
+                    className="flex items-center gap-0.5 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    <span>Hide</span>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
 
-          {/* Place Order Button */}
-          <Button
-            onClick={async () => {
-              await handlePlaceOrder();
-              setViewTab('LIVE_STATUS');
-            }}
-            disabled={isSubmitting}
-            className="w-full h-12 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer"
-          >
-            <UtensilsCrossed className="w-4 h-4" />
-            {isSubmitting ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}
-          </Button>
+              {/* Itemized List of Selected Items with Title, Quantity Controls & Price */}
+              <div className="max-h-48 overflow-y-auto divide-y divide-border/50 pr-1 space-y-1">
+                {cartList.map((entry) => {
+                  const { item, variant, qty } = entry;
+                  const unitPrice = variant?.price || item.variants?.[0]?.price || 150;
+                  const lineTotal = unitPrice * qty;
+                  const foodType = item.foodType || 'VEG';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="py-2 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                        <span className="text-[10px] shrink-0">
+                          {foodType === 'NON_VEG' ? '🔴' : '🟢'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-foreground truncate">
+                            {item.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-mono">
+                            {variant?.name ? `${variant.name} • ` : ''}
+                            {safeFormatCurrency(unitPrice)} each
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quantity Stepper & Line Price */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-xl p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-6 h-6 rounded-lg bg-background flex items-center justify-center text-primary font-bold text-xs cursor-pointer hover:bg-muted"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black text-primary px-1 font-mono">{qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(item)}
+                            className="w-6 h-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs cursor-pointer hover:bg-primary/90"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        <span className="font-mono font-black text-xs text-foreground min-w-[55px] text-right">
+                          {safeFormatCurrency(lineTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Special Instructions Note */}
+              <input
+                type="text"
+                placeholder="Special instructions (e.g. less spicy, no onions)..."
+                value={guestNotes}
+                onChange={(e) => setGuestNotes(e.target.value)}
+                className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+
+              {/* Subtotal / GST & Total Amount */}
+              <div className="pt-2 border-t border-border/80 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Total ({cartList.reduce((acc, c) => acc + c.qty, 0)} items)
+                  </span>
+                  {taxRate > 0 && gst > 0 && (
+                    <span className="text-[10px] text-muted-foreground font-mono block">
+                      Incl. GST ({taxRate}%): {safeFormatCurrency(gst)}
+                    </span>
+                  )}
+                </div>
+                <span className="font-black text-lg font-mono text-primary">
+                  {safeFormatCurrency(total)}
+                </span>
+              </div>
+
+              {/* Place Order Button */}
+              <Button
+                onClick={async () => {
+                  await handlePlaceOrder();
+                  setViewTab('LIVE_STATUS');
+                }}
+                disabled={isSubmitting}
+                className="w-full h-12 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer"
+              >
+                <UtensilsCrossed className="w-4 h-4" />
+                {isSubmitting ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>
