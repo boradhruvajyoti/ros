@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   TrendingUp, ShoppingBag, Receipt, Users, UtensilsCrossed,
   ChefHat, AlertTriangle, ArrowRight, Plus, Eye,
-  Volume2, RefreshCw, Layers, DollarSign, Store
+  RefreshCw, Layers, DollarSign, Store
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,18 +69,6 @@ export default function DashboardPage() {
     refetchInterval: 15000,
   });
 
-  const speakSummary = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const revenue = summary?.totalRevenue || 0;
-      const orders = summary?.totalOrders || 0;
-      const tables = summary?.activeTables || 0;
-      const text = `Restaurant Summary. Today's total sales are ${revenue} rupees across ${orders} orders. There are ${tables} active tables.`;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
   const handleRefresh = () => {
     refetchSummary();
     refetchSales();
@@ -101,14 +89,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={speakSummary}
-            className="gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold"
-          >
-            <Volume2 className="w-4 h-4 text-primary" /> Read Aloud
-          </Button>
           <Button
             variant="outline"
             size="sm"

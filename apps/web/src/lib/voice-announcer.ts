@@ -1,174 +1,84 @@
 // =============================================================================
-// Voice Announcer — Text-To-Speech (TTS) Human Voice Notifications
+// Restaurant Order Notification Sound Dispatcher
+// Replaces previous Text-To-Speech with pleasant restaurant chimes & bells
 // =============================================================================
 
-let activeUtterances: SpeechSynthesisUtterance[] = [];
-let audioUnlocked = false;
+import {
+  playNewOrderSound,
+  playOrderAcceptedSound,
+  playOrderReadySound,
+  playPaymentReceivedSound,
+  playChimeSound,
+} from './order-sound';
 
-// Audio unlock on user gesture
-if (typeof window !== 'undefined') {
-  const unlockAudio = () => {
-    if (audioUnlocked) return;
-    audioUnlocked = true;
-    try {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume();
-      }
-    } catch {}
-    window.removeEventListener('click', unlockAudio);
-    window.removeEventListener('touchstart', unlockAudio);
-    window.removeEventListener('keydown', unlockAudio);
-  };
-
-  window.addEventListener('click', unlockAudio, { passive: true });
-  window.addEventListener('touchstart', unlockAudio, { passive: true });
-  window.addEventListener('keydown', unlockAudio, { passive: true });
-}
+export {
+  playNewOrderSound,
+  playOrderAcceptedSound,
+  playOrderReadySound,
+  playPaymentReceivedSound,
+  playChimeSound,
+};
 
 /**
- * Format item title matching the exact POS menu styling for spoken audio
+ * Format item title helper (kept for text formatting compatibility if needed)
  */
 export function formatSpeechItemTitle(item: any): string {
   if (!item) return 'Dish Item';
-  let base = '';
-  let vName = '';
-
   if (typeof item === 'object') {
-    base = item.menuItem?.name || item.name || item.title || 'Dish Item';
-    vName = item.variant?.name || item.variantName || '';
-  } else {
-    base = String(item);
-  }
-
-  if (!vName) return base;
-  const lower = vName.toLowerCase().trim();
-  if (
-    lower === 'regular' ||
-    lower === 'regular portion' ||
-    lower === 'standard' ||
-    lower === 'default' ||
-    lower === 'single' ||
-    lower === 'normal' ||
-    lower === 'standard portion' ||
-    lower === 'portion' ||
-    lower.includes('regular portion')
-  ) {
-    return base;
-  }
-  return `${base} ${vName}`;
-}
-
-/**
- * Speak any text with a human-like voice
- */
-export function speakVoice(text: string): void {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    return;
-  }
-
-  try {
-    // Cancel any previous hung speech
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.resume();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    // Select the best natural-sounding voice available
-    const voices = window.speechSynthesis.getVoices();
-    if (voices && voices.length > 0) {
-      const preferredVoice =
-        voices.find((v) => v.lang === 'en-IN' && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Neural'))) ||
-        voices.find((v) => v.lang === 'en-IN') ||
-        voices.find((v) => (v.lang === 'en-US' || v.lang === 'en-GB') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel'))) ||
-        voices.find((v) => v.lang.startsWith('en')) ||
-        voices[0];
-
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
+    const base = item.menuItem?.name || item.name || item.title || 'Dish Item';
+    const vName = item.variant?.name || item.variantName || '';
+    if (!vName) return base;
+    const lower = vName.toLowerCase().trim();
+    if (
+      lower === 'regular' ||
+      lower === 'regular portion' ||
+      lower === 'standard' ||
+      lower === 'default' ||
+      lower === 'single' ||
+      lower === 'normal' ||
+      lower === 'standard portion' ||
+      lower === 'portion' ||
+      lower.includes('regular portion')
+    ) {
+      return base;
     }
-
-    // Keep reference in activeUtterances so Chromium garbage collector doesn't stop it mid-sentence
-    activeUtterances.push(utterance);
-    utterance.onend = () => {
-      activeUtterances = activeUtterances.filter((u) => u !== utterance);
-    };
-    utterance.onerror = () => {
-      activeUtterances = activeUtterances.filter((u) => u !== utterance);
-    };
-
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('Voice Announcer Error:', err);
+    return `${base} ${vName}`;
   }
+  return String(item);
 }
 
 /**
- * After sending KOT: "New Order received : {Read the items, their variants and quantity and table number}"
+ * Empty voice stub — SpeechSynthesis is completely decommissioned
  */
-export function announceNewOrder(params: {
-  items: Array<any>;
-  tableName?: string | number | null;
-  tableNumber?: string | number | null;
-  orderType?: string;
-  kotNumber?: string | number;
-}): void {
-  const { items = [], tableName, tableNumber, orderType } = params;
-
-  // Format dishes: "2 Paneer Butter Masala Full, 1 Butter Naan"
-  const itemDescriptions = items
-    .filter((it) => it && (it.menuItem?.name || it.name || it.title || typeof it === 'string'))
-    .map((it) => {
-      const qty = Number(it.quantity || 1);
-      const title = formatSpeechItemTitle(it);
-      return `${qty} ${title}`;
-    });
-
-  const dishesText = itemDescriptions.length > 0
-    ? itemDescriptions.join(', ')
-    : 'New Dishes';
-
-  let locationText = '';
-  const tbl = tableName || tableNumber;
-  if (tbl) {
-    locationText = ` for Table ${tbl}`;
-  } else if (orderType) {
-    const formattedType = orderType.replace(/_/g, ' ').toLowerCase();
-    locationText = ` for ${formattedType}`;
-  }
-
-  const message = `New Order received : ${dishesText}${locationText}`;
-  speakVoice(message);
+export function speakVoice(_text: string): void {
+  // TTS has been completely scrapped in favor of restaurant audio chimes
+  playNewOrderSound();
 }
 
 /**
- * On accepting order: "Order for {KOT Number} Accepted"
+ * 🔔 Trigger restaurant chime on new order / KOT received
  */
-export function announceOrderAccepted(kotNumber: string | number): void {
-  const cleanKot = String(kotNumber || '').replace(/^#/, '');
-  const message = `Order for ${cleanKot.toUpperCase().startsWith('KOT') ? cleanKot : `KOT ${cleanKot}`} Accepted`;
-  speakVoice(message);
+export function announceNewOrder(_params?: any): void {
+  playNewOrderSound();
 }
 
 /**
- * On Ready to serve: "Order {KOT Number} is ready to be served"
+ * 👨‍🍳 Trigger affirmative chime on order acceptance
  */
-export function announceOrderReady(kotNumber: string | number): void {
-  const cleanKot = String(kotNumber || '').replace(/^#/, '');
-  const message = `Order ${cleanKot.toUpperCase().startsWith('KOT') ? cleanKot : `KOT ${cleanKot}`} is ready to be served`;
-  speakVoice(message);
+export function announceOrderAccepted(_kotNumber?: string | number): void {
+  playOrderAcceptedSound();
 }
 
 /**
- * On marking as paid: "Payment of Rs {Order amount} is received. Thank you for choosing {Name of the restaurant}"
+ * 🛎️ Trigger service bell on order ready to serve
  */
-export function announcePaymentReceived(amount: number | string, restaurantName?: string): void {
-  const num = Number(amount || 0);
-  const formattedAmt = isNaN(num) ? String(amount || '0') : num % 1 === 0 ? num.toFixed(0) : num.toFixed(2);
-  const name = restaurantName?.trim() || 'our restaurant';
-  const message = `Payment of Rs ${formattedAmt} is received. Thank you for choosing ${name}`;
-  speakVoice(message);
+export function announceOrderReady(_kotNumber?: string | number): void {
+  playOrderReadySound();
+}
+
+/**
+ * 💳 Trigger cash/payment success chime on payment mark/receipt
+ */
+export function announcePaymentReceived(_amount?: number | string, _restaurantName?: string): void {
+  playPaymentReceivedSound();
 }
