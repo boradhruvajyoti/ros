@@ -562,15 +562,15 @@ export class OrderService {
         include: this.orderInclude(),
       });
 
-      // Release table when order is paid/completed/voided/cancelled
+      // Release table when order is paid/completed/voided/cancelled -> make AVAILABLE directly
       if (['PAID', 'COMPLETED', 'VOIDED', 'CANCELLED'].includes(dto.status) && order.tableId) {
         await tx.restaurantTable.update({
           where: { id: order.tableId },
-          data: { status: 'CLEANING' },
+          data: { status: 'AVAILABLE' },
         });
         emitToRoom(this.tenantId, targetBranchId, {
           type: 'TABLE_STATUS_CHANGED',
-          payload: { tableId: order.tableId, status: 'CLEANING' },
+          payload: { tableId: order.tableId, status: 'AVAILABLE' },
         });
       }
 

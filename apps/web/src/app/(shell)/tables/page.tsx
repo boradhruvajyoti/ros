@@ -1766,18 +1766,33 @@ export default function TablesPage() {
 
               {editingTable && (
                 <div>
-                  <label className="text-xs font-bold text-foreground">Current Status</label>
-                  <select
-                    value={tableStatusInput}
-                    onChange={(e) => setTableStatusInput(e.target.value as any)}
-                    className="w-full mt-1.5 h-11 px-3 rounded-xl border border-border bg-background text-xs font-bold text-foreground focus:outline-none"
-                  >
-                    <option value="AVAILABLE">🟢 Available / Free</option>
-                    <option value="OCCUPIED">🔴 Dining / Occupied</option>
-                    <option value="RESERVED">🔵 Reserved</option>
-                    <option value="CLEANING">🟡 Needs Cleaning</option>
-                    <option value="BLOCKED">⚪ Blocked / Out of Service</option>
-                  </select>
+                  <label className="text-xs font-bold text-foreground mb-2 block">Table Status</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { value: 'AVAILABLE', label: '🟢 Available', bg: 'hover:bg-emerald-500/10 hover:border-emerald-500/50', active: 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold shadow-xs' },
+                      { value: 'OCCUPIED', label: '🔴 Occupied', bg: 'hover:bg-rose-500/10 hover:border-rose-500/50', active: 'bg-rose-500/20 border-rose-500 text-rose-400 font-bold shadow-xs' },
+                      { value: 'RESERVED', label: '🔵 Reserved', bg: 'hover:bg-blue-500/10 hover:border-blue-500/50', active: 'bg-blue-500/20 border-blue-500 text-blue-400 font-bold shadow-xs' },
+                      { value: 'CLEANING', label: '🟡 Cleaning', bg: 'hover:bg-amber-500/10 hover:border-amber-500/50', active: 'bg-amber-500/20 border-amber-500 text-amber-400 font-bold shadow-xs' },
+                      { value: 'BLOCKED', label: '⚪ Blocked', bg: 'hover:bg-zinc-500/10 hover:border-zinc-500/50', active: 'bg-zinc-500/20 border-zinc-500 text-zinc-300 font-bold shadow-xs' },
+                    ].map((st) => (
+                      <button
+                        key={st.value}
+                        type="button"
+                        onClick={() => setTableStatusInput(st.value as any)}
+                        className={cn(
+                          'px-3 py-2.5 rounded-xl border text-xs font-medium text-left transition-all flex items-center justify-between cursor-pointer',
+                          tableStatusInput === st.value
+                            ? st.active
+                            : cn('border-border bg-card/60 text-muted-foreground', st.bg)
+                        )}
+                      >
+                        <span>{st.label}</span>
+                        {tableStatusInput === st.value && (
+                          <Check className="w-3.5 h-3.5 text-foreground shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 

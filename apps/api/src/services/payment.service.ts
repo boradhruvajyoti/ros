@@ -104,6 +104,18 @@ export class PaymentService {
         }
       }
 
+      // Release table to AVAILABLE directly when order is fully paid
+      if (overpaid && order.tableId) {
+        await tx.restaurantTable.update({
+          where: { id: order.tableId },
+          data: { status: 'AVAILABLE' },
+        });
+        emitToRoom(this.tenantId, this.branchId, {
+          type: 'TABLE_STATUS_CHANGED',
+          payload: { tableId: order.tableId, status: 'AVAILABLE' },
+        });
+      }
+
       emitToRoom(this.tenantId, this.branchId, {
         type: 'PAYMENT_COMPLETED',
         payload: { orderId, amount: dto.amount, method: dto.method },
