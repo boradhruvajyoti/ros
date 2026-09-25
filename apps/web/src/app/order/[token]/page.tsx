@@ -900,16 +900,16 @@ function TableOrderContent() {
         </div>
       )}
 
-      {/* ── Compact Fixed Header (Reduced height, Restaurant on Left, Logo at Center) ── */}
-      <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-3.5 py-2.5 shadow-sm space-y-2">
+      {/* ── Compact Fixed Header (Reduced height, Restaurant on Left, Logo at Center, Table on Right) ── */}
+      <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-3 py-2 shadow-xs space-y-1.5">
         {/* Top Row: Restaurant on Left | Logo Center | Table Badge Right */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Left: Restaurant Name & Branch */}
+        <div className="flex items-center justify-between gap-1.5">
+          {/* Left: Restaurant Name & Outlet (Reduced font size to fit neatly) */}
           <div className="flex-1 min-w-0 pr-1">
-            <h1 className="text-sm sm:text-base font-black text-foreground truncate leading-tight">
+            <h1 className="text-xs sm:text-sm font-black text-foreground truncate leading-tight">
               {restaurant?.name || 'Dining Restaurant'}
             </h1>
-            <p className="text-[10px] text-muted-foreground truncate leading-none mt-0.5">
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate leading-none mt-0.5">
               {restaurant?.branchName || 'Dine-In Menu'}
             </p>
           </div>
@@ -917,7 +917,7 @@ function TableOrderContent() {
           {/* Center: Restaurant Logo */}
           <div className="shrink-0 flex items-center justify-center px-1">
             {restaurant?.logoUrl ? (
-              <div className="w-8 h-8 rounded-full border-2 border-primary/40 p-0.5 bg-card shadow-xs overflow-hidden">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-primary/30 p-0.5 bg-card shadow-2xs overflow-hidden">
                 <img
                   src={restaurant.logoUrl}
                   alt={restaurant.name || 'Restaurant Logo'}
@@ -925,7 +925,7 @@ function TableOrderContent() {
                 />
               </div>
             ) : (
-              <div className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center text-sm font-black border border-primary/30 shadow-xs">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center text-xs font-black border border-primary/30 shadow-2xs">
                 🍴
               </div>
             )}
@@ -933,9 +933,9 @@ function TableOrderContent() {
 
           {/* Right: Quick Table Pill */}
           <div className="flex-1 min-w-0 flex justify-end pl-1">
-            <div className="px-2.5 py-1 rounded-xl bg-primary text-primary-foreground font-black text-xs shadow-xs flex items-center gap-1 shrink-0 font-mono">
-              <span>🍽️</span>
-              <span>{table?.name || 'Table'}</span>
+            <div className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl bg-primary text-primary-foreground font-black text-[11px] sm:text-xs shadow-xs flex items-center gap-1 shrink-0 font-mono">
+              <span className="text-[10px]">🍽️</span>
+              <span className="truncate">{table?.name || 'Table'}</span>
             </div>
           </div>
         </div>
