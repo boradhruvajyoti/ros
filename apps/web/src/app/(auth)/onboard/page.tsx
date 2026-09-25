@@ -169,7 +169,7 @@ export default function OnboardingPage() {
     Array.from({ length: 10 }, (_, i) => {
       const num = i + 1;
       return {
-        name: `T-${num < 10 ? '0' + num : num}`,
+        name: num < 10 ? '0' + num : `${num}`,
         capacity: num % 4 === 0 ? 6 : num % 3 === 0 ? 2 : 4,
         shape: num % 4 === 0 ? 'RECTANGLE' : num % 3 === 0 ? 'CIRCLE' : 'SQUARE',
       };
@@ -186,7 +186,7 @@ export default function OnboardingPage() {
         for (let i = prev.length; i < newCount; i++) {
           const num = i + 1;
           updated.push({
-            name: `T-${num < 10 ? '0' + num : num}`,
+            name: num < 10 ? '0' + num : `${num}`,
             capacity: tableCapacity,
             shape: num % 4 === 0 ? 'RECTANGLE' : num % 3 === 0 ? 'CIRCLE' : 'SQUARE',
           });

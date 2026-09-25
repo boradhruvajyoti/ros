@@ -1012,20 +1012,24 @@ export default function TablesPage() {
                   meta.border
                 )}
               >
-                {/* Header: Name + Capacity + Quick Icons */}
-                <div className="flex items-start justify-between">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-black text-foreground group-hover:text-primary transition-colors">
+                {/* Header: Giant Bold Table Number + Status Badge + Capacity + Quick Icons */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-card border-2 border-border/80 shadow-xs flex items-center justify-center shrink-0 group-hover:border-primary/50 group-hover:bg-primary/5 transition-all">
+                      <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-mono group-hover:text-primary transition-colors">
                         {table.name}
-                      </h3>
-                      <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border', meta.bg, meta.text, meta.border)}>
-                        {meta.shortLabel}
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
-                      <Users className="w-3 h-3" /> {table.capacity} Seats
-                    </p>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border inline-block w-fit', meta.bg, meta.text, meta.border)}>
+                          {meta.shortLabel}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" /> {table.capacity} Seats
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -1035,7 +1039,7 @@ export default function TablesPage() {
                       className="p-1.5 rounded-xl text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                       title="View & Print Table QR Standee"
                     >
-                      <QrCode className="w-3.5 h-3.5" />
+                      <QrCode className="w-4 h-4" />
                     </button>
 
                     <button
@@ -1044,7 +1048,7 @@ export default function TablesPage() {
                       className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
                       title="Edit Table Configuration"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      <Edit3 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1782,7 +1786,7 @@ export default function TablesPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Table 05, VIP 1"
+                  placeholder="e.g. 01, 02, VIP 1"
                   value={tableNameInput}
                   onChange={(e) => setTableNameInput(e.target.value)}
                   className="w-full mt-1.5 h-11 px-3.5 rounded-xl border border-border bg-background text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
