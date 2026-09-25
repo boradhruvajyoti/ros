@@ -253,14 +253,17 @@ export class TableController {
       },
       include: {
         items: {
+          where: { status: { notIn: ['VOIDED', 'CANCELLED'] } },
           include: {
-            menuItem: { select: { name: true, foodType: true, imageUrl: true } },
-            variant: { select: { name: true, price: true } },
+            menuItem: { select: { id: true, name: true, foodType: true, imageUrl: true } },
+            variant: { select: { id: true, name: true, price: true } },
+            modifiers: true,
           },
         },
         kots: {
           include: {
-            kitchenStation: { select: { name: true } },
+            kitchenStation: { select: { id: true, name: true } },
+            items: true,
           },
         },
       },

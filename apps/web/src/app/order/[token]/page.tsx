@@ -106,6 +106,9 @@ export default function PublicTableOrderPage() {
       })
       .then((data) => {
         setTableData(data.data);
+        if (data.data?.activeOrders && data.data.activeOrders.length > 0) {
+          setOrderPlaced(data.data.activeOrders[0]);
+        }
         if (data.data?.guestSessionToken) {
           setGuestSessionToken(data.data.guestSessionToken);
         }
@@ -135,6 +138,9 @@ export default function PublicTableOrderPage() {
       .then((data) => {
         if (!isMounted) return;
         setTableData(data.data);
+        if (data.data?.activeOrders && data.data.activeOrders.length > 0) {
+          setOrderPlaced(data.data.activeOrders[0]);
+        }
         if (data.data?.guestSessionToken) {
           setGuestSessionToken(data.data.guestSessionToken);
         }
@@ -184,6 +190,8 @@ export default function PublicTableOrderPage() {
           setTableData(json.data);
           if (json.data.activeOrders && json.data.activeOrders.length > 0) {
             setOrderPlaced(json.data.activeOrders[0]);
+          } else {
+            setOrderPlaced(null);
           }
         }
       } catch {
