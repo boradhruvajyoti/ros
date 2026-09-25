@@ -14,78 +14,91 @@ export const FEATURE_MODULES = [
     id: 'pos',
     name: 'Point of Sale (POS)',
     description: 'Touch order billing, table orders, cart modifiers, fast pay',
-    permissions: ['orders:create', 'orders:view', 'orders:edit', 'payments:create', 'payments:view', 'menu:view', 'tables:view', 'tables:edit', 'discount:apply'],
+    keyPermission: 'orders:create',
+    permissions: ['orders:create', 'orders:edit', 'payments:create', 'discount:apply', 'menu:view'],
   },
   {
     id: 'tables',
     name: 'Tables & Orders Command Center',
     description: 'Floor view, live table orders, KOT status advance, billing preview',
-    permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'orders:create', 'menu:view', 'kitchen:view', 'payments:create', 'payments:view'],
+    keyPermission: 'tables:view',
+    permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
   },
   {
     id: 'kitchen',
     name: 'Kitchen Display System (KDS)',
     description: 'Live KOT tickets, accept orders, food ready bump action',
-    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'orders:edit', 'menu:view'],
+    keyPermission: 'kitchen:view',
+    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
   },
   {
     id: 'history',
     name: 'Order History & Invoices',
     description: 'View previous orders, reprint receipts, audit customer bills',
-    permissions: ['orders:view', 'payments:view', 'menu:view'],
+    keyPermission: 'payments:view',
+    permissions: ['orders:view', 'payments:view'],
   },
   {
     id: 'reservations',
     name: 'Table Reservations',
     description: 'Book tables, manage calendar, guest arrivals',
+    keyPermission: 'reservations:view',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
   },
   {
     id: 'menu',
     name: 'Menu & Category Management',
     description: 'Create dishes, prices, half/full variants, modifier groups',
+    keyPermission: 'menu:create',
     permissions: ['menu:view', 'menu:create', 'menu:edit', 'menu:delete'],
   },
   {
     id: 'inventory',
     name: 'Inventory & Recipe Yields',
     description: 'Track ingredient stocks, production recipes, stock transfers',
+    keyPermission: 'inventory:view',
     permissions: ['inventory:view', 'inventory:adjust', 'inventory:count', 'inventory:transfer'],
   },
   {
     id: 'procurement',
     name: 'Procurement & Vendors',
     description: 'Purchase orders, supplier goods receipt notes',
+    keyPermission: 'procurement:view',
     permissions: ['procurement:view', 'procurement:create', 'procurement:receive'],
   },
   {
     id: 'customers',
     name: 'Customers CRM & Loyalty',
     description: 'Guest contacts, visit frequency, loyalty points',
+    keyPermission: 'customers:view',
     permissions: ['customers:view', 'customers:create', 'customers:edit', 'loyalty:view'],
   },
   {
     id: 'expenses',
     name: 'Expenses & Financials',
     description: 'Daily operational expenses, payouts, cash out logs',
+    keyPermission: 'expenses:view',
     permissions: ['expenses:view', 'expenses:create', 'expenses:approve'],
   },
   {
     id: 'reports',
     name: 'Reports & P&L Analytics',
     description: 'Sales summaries, tax reports, item performance',
+    keyPermission: 'reports:view',
     permissions: ['reports:view', 'reports:export'],
   },
   {
     id: 'staff',
     name: 'Staff & Team HR',
     description: 'Employee roster, attendance check-ins, staff accounts',
+    keyPermission: 'staff:view',
     permissions: ['staff:view', 'staff:create', 'staff:edit', 'attendance:view', 'attendance:manage'],
   },
   {
     id: 'settings',
     name: 'Restaurant Settings & Hardware',
     description: 'Tax configurations, thermal printer settings, general preferences',
+    keyPermission: 'settings:view',
     permissions: ['settings:view', 'settings:edit'],
   },
 ];
@@ -350,33 +363,41 @@ export class StaffController {
 
           // Handle role & permissions update
           if (data.permissions !== undefined || data.roleName !== undefined) {
-            const roleName = (data.roleName || data.designation || employee.designation || 'STAFF')
+            const cleanBaseName = (data.roleName || data.designation || employee.designation || 'STAFF')
               .toUpperCase()
-              .replace(/\s+/g, '_');
+              .replace(/[^A-Z0-9]/g, '_');
+            const uniqueRoleName = `${cleanBaseName}_${employee.id.slice(-6).toUpperCase()}`;
 
-            // Find or create role
-            let role = await prisma.role.findFirst({
-              where: { tenantId, name: roleName },
+            // Check if user currently has an existing branch role
+            const existingUbr = await prisma.userBranchRole.findFirst({
+              where: { userId: user.id, branchId },
+              include: { role: true },
             });
 
-            if (!role) {
-              role = await prisma.role.create({
-                data: {
-                  tenantId,
-                  name: roleName,
-                  description: `${data.designation || roleName} User Role`,
-                },
+            let role: any = existingUbr?.role;
+            if (!role || role.name === 'OWNER' || role.name === 'SUPER_ADMIN' || role.name === 'ADMINISTRATOR') {
+              const foundRole = await prisma.role.findFirst({
+                where: { tenantId, name: uniqueRoleName },
               });
+              if (!foundRole) {
+                role = await prisma.role.create({
+                  data: {
+                    tenantId,
+                    name: uniqueRoleName,
+                    description: `${data.designation || cleanBaseName} Staff Role`,
+                  },
+                });
+              } else {
+                role = foundRole;
+              }
             }
 
-            // If permissions array is provided, sync permissions for this role
-            if (data.permissions) {
-              // Delete current permissions on this role
+            // If permissions array is provided, sync permissions for this isolated role
+            if (data.permissions && Array.isArray(data.permissions)) {
               await prisma.rolePermission.deleteMany({
                 where: { roleId: role.id },
               });
 
-              // Add selected permissions
               for (const code of data.permissions) {
                 let perm = await prisma.permission.findUnique({ where: { code } });
                 if (!perm) {
@@ -398,7 +419,7 @@ export class StaffController {
               }
             }
 
-            // Ensure UserBranchRole points to this role
+            // Ensure UserBranchRole points to this isolated role
             await prisma.userBranchRole.deleteMany({
               where: { userId: user.id, branchId },
             });
@@ -426,25 +447,30 @@ export class StaffController {
         }
 
         const passwordHash = await bcrypt.hash(data.password.trim(), 10);
-        const roleName = (data.roleName || data.designation || employee.designation || 'STAFF')
+        const cleanBaseName = (data.roleName || data.designation || employee.designation || 'STAFF')
           .toUpperCase()
-          .replace(/\s+/g, '_');
+          .replace(/[^A-Z0-9]/g, '_');
+        const uniqueRoleName = `${cleanBaseName}_${employee.id.slice(-6).toUpperCase()}`;
 
         let role = await prisma.role.findFirst({
-          where: { tenantId, name: roleName },
+          where: { tenantId, name: uniqueRoleName },
         });
 
         if (!role) {
           role = await prisma.role.create({
             data: {
               tenantId,
-              name: roleName,
-              description: `${data.designation || roleName} User Role`,
+              name: uniqueRoleName,
+              description: `${data.designation || cleanBaseName} Staff Role`,
             },
           });
         }
 
         if (data.permissions && data.permissions.length > 0) {
+          await prisma.rolePermission.deleteMany({
+            where: { roleId: role.id },
+          });
+
           for (const code of data.permissions) {
             let perm = await prisma.permission.findUnique({ where: { code } });
             if (!perm) {
@@ -457,18 +483,11 @@ export class StaffController {
               });
             }
 
-            await prisma.rolePermission.upsert({
-              where: {
-                roleId_permissionId: {
-                  roleId: role.id,
-                  permissionId: perm.id,
-                },
-              },
-              create: {
+            await prisma.rolePermission.create({
+              data: {
                 roleId: role.id,
                 permissionId: perm.id,
               },
-              update: {},
             });
           }
         }

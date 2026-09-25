@@ -48,34 +48,39 @@ const FEATURE_MODULES = [
     name: 'Point of Sale (POS)',
     icon: '🛒',
     description: 'Touch order billing, table orders, cart modifiers, fast pay',
-    permissions: ['orders:create', 'orders:view', 'orders:edit', 'payments:create', 'payments:view', 'menu:view', 'tables:view', 'tables:edit', 'discount:apply'],
+    keyPermission: 'orders:create',
+    permissions: ['orders:create', 'orders:edit', 'payments:create', 'discount:apply', 'menu:view'],
   },
   {
     id: 'tables',
     name: 'Tables & Orders Command Center',
     icon: '🍽️',
     description: 'Floor view, live table orders, KOT status advance, billing preview',
-    permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'orders:create', 'menu:view', 'kitchen:view', 'payments:create', 'payments:view'],
+    keyPermission: 'tables:view',
+    permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
   },
   {
     id: 'kitchen',
     name: 'Kitchen Display System (KDS)',
     icon: '👨‍🍳',
     description: 'Live KOT tickets, accept orders, food ready bump action',
-    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'orders:edit', 'menu:view'],
+    keyPermission: 'kitchen:view',
+    permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
   },
   {
     id: 'history',
     name: 'Order History & Invoices',
     icon: '📜',
     description: 'View previous orders, reprint receipts, audit customer bills',
-    permissions: ['orders:view', 'payments:view', 'menu:view'],
+    keyPermission: 'payments:view',
+    permissions: ['orders:view', 'payments:view'],
   },
   {
     id: 'reservations',
     name: 'Table Reservations',
     icon: '📅',
     description: 'Book tables, manage calendar, guest arrivals',
+    keyPermission: 'reservations:view',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
   },
   {
@@ -83,6 +88,7 @@ const FEATURE_MODULES = [
     name: 'Menu & Category Management',
     icon: '📖',
     description: 'Create dishes, prices, half/full variants, modifier groups',
+    keyPermission: 'menu:create',
     permissions: ['menu:view', 'menu:create', 'menu:edit', 'menu:delete'],
   },
   {
@@ -90,6 +96,7 @@ const FEATURE_MODULES = [
     name: 'Inventory & Recipe Yields',
     icon: '📦',
     description: 'Track ingredient stocks, production recipes, stock transfers',
+    keyPermission: 'inventory:view',
     permissions: ['inventory:view', 'inventory:adjust', 'inventory:count', 'inventory:transfer'],
   },
   {
@@ -97,6 +104,7 @@ const FEATURE_MODULES = [
     name: 'Procurement & Vendors',
     icon: '🚚',
     description: 'Purchase orders, supplier goods receipt notes',
+    keyPermission: 'procurement:view',
     permissions: ['procurement:view', 'procurement:create', 'procurement:receive'],
   },
   {
@@ -104,6 +112,7 @@ const FEATURE_MODULES = [
     name: 'Customers CRM & Loyalty',
     icon: '👥',
     description: 'Guest contacts, visit frequency, loyalty points',
+    keyPermission: 'customers:view',
     permissions: ['customers:view', 'customers:create', 'customers:edit', 'loyalty:view'],
   },
   {
@@ -111,6 +120,7 @@ const FEATURE_MODULES = [
     name: 'Expenses & Financials',
     icon: '💰',
     description: 'Daily operational expenses, payouts, cash out logs',
+    keyPermission: 'expenses:view',
     permissions: ['expenses:view', 'expenses:create', 'expenses:approve'],
   },
   {
@@ -118,6 +128,7 @@ const FEATURE_MODULES = [
     name: 'Reports & P&L Analytics',
     icon: '📊',
     description: 'Sales summaries, tax reports, item performance',
+    keyPermission: 'reports:view',
     permissions: ['reports:view', 'reports:export'],
   },
   {
@@ -125,6 +136,7 @@ const FEATURE_MODULES = [
     name: 'Staff & Team HR',
     icon: '👤',
     description: 'Employee roster, attendance check-ins, staff accounts',
+    keyPermission: 'staff:view',
     permissions: ['staff:view', 'staff:create', 'staff:edit', 'attendance:view', 'attendance:manage'],
   },
   {
@@ -132,6 +144,7 @@ const FEATURE_MODULES = [
     name: 'Restaurant Settings & Hardware',
     icon: '⚙️',
     description: 'Tax configurations, thermal printer settings, general preferences',
+    keyPermission: 'settings:view',
     permissions: ['settings:view', 'settings:edit'],
   },
 ];
@@ -145,12 +158,12 @@ const ROLE_PRESETS = [
   {
     id: 'CHEF',
     name: '👨‍🍳 Kitchen Chef / Line Cook',
-    modules: ['kitchen', 'inventory', 'tables'],
+    modules: ['kitchen', 'inventory'],
   },
   {
     id: 'CASHIER',
     name: '💳 Cashier / Front Counter',
-    modules: ['pos', 'tables', 'history', 'expenses'],
+    modules: ['pos', 'history', 'expenses'],
   },
   {
     id: 'MANAGER',
@@ -311,20 +324,23 @@ export default function StaffPage() {
     setEditUserPassword('');
     setEditShowPassword(false);
 
-    // Compute which feature modules are active for this employee
-    const userPerms = emp.user?.permissions || [];
+    // Compute which feature modules are active for this employee using exact keyPermission
+    const userPerms = new Set(emp.user?.permissions || []);
     let matched: string[] = [];
-    if (userPerms.length > 0) {
-      matched = FEATURE_MODULES.filter((m) =>
-        m.permissions.some((p) => userPerms.includes(p))
-      ).map((m) => m.id);
+    if (userPerms.size > 0) {
+      matched = FEATURE_MODULES.filter((m) => userPerms.has(m.keyPermission)).map((m) => m.id);
     } else {
-      matched = ['pos', 'tables', 'history'];
+      matched = [];
     }
     setEditSelectedModules(matched);
 
     const roleName = emp.user?.roles?.[0] || 'CUSTOM';
-    const foundPreset = ROLE_PRESETS.find((p) => p.id === roleName);
+    const foundPreset = ROLE_PRESETS.find(
+      (p) =>
+        (p.id === roleName || p.name.includes(roleName)) &&
+        p.modules.length === matched.length &&
+        p.modules.every((mId) => matched.includes(mId))
+    );
     setEditSelectedRolePreset(foundPreset ? foundPreset.id : 'CUSTOM');
   };
 
