@@ -53,6 +53,7 @@ export default function MenuPage() {
   const [editingDish, setEditingDish] = useState<MenuItem | null>(null);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Quick subcategory creation in Dish Modal
   const [isQuickAddCategoryOpen, setIsQuickAddCategoryOpen] = useState(false);
@@ -93,15 +94,27 @@ export default function MenuPage() {
     cleanedUp: boolean;
   } | null>(null);
 
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  // Tenant Query for Branding / PDF Export
-  const { data: tenant } = useQuery<any>({
-    queryKey: ['tenants', 'current'],
-    queryFn: () => apiGet<any>('/tenants/current'),
-  });
+  const handleExportMenuPdf = async () => {
+    setIsExportingPdf(true);
+    toast.info('Generating Menu PDF 📄', 'Crafting your restaurant-grade menu design. Download will start shortly...');
+    try {
+      await apiDownloadFile('/menu/export-pdf', 'Restaurant_Menu.pdf');
+      toast.success('Menu Downloaded! 🎉', 'Your menu PDF was exported successfully with zero server storage.');
+    } catch (err: any) {
+      toast.error('Export Failed', err?.response?.data?.error?.message || err?.message || 'Could not export menu PDF.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   // Queries
+  const { data: currentTenant } = useQuery<any>({
+    queryKey: ['current-tenant'],
+    queryFn: () => apiGet('/tenants/current'),
+  });
+
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery<MenuCategory[]>({
     queryKey: ['menu', 'categories'],
     queryFn: () => apiGet<MenuCategory[]>('/menu/categories'),
@@ -1606,25 +1619,11 @@ DESSERTS & DRINKS
         </div>
       )}
 
-      {/* Menu PDF Export Template Picker Modal */}
+      {/* Menu Export PDF Style Selection Modal */}
       <MenuExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        tenantName={tenant?.name}
-        tenantLogoUrl={tenant?.logoUrl}
-        tagline={
-          tenant?.settings
-            ? typeof tenant.settings === 'string'
-              ? (() => {
-                  try {
-                    return JSON.parse(tenant.settings)?.tagline;
-                  } catch {
-                    return undefined;
-                  }
-                })()
-              : tenant.settings?.tagline
-            : undefined
-        }
+        restaurantName={currentTenant?.name}
       />
     </div>
   );

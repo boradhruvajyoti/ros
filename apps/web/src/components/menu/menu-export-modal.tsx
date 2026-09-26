@@ -1,607 +1,445 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
-  X,
   FileDown,
-  Sparkles,
+  X,
   Check,
+  Sparkles,
   Palette,
-  Eye,
-  Layout,
-  Crown,
+  Loader2,
+  Utensils,
+  Wine,
   Coffee,
   Flame,
-  Wine,
-  Leaf,
-  Layers,
-  Loader2,
+  Globe,
+  Feather,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { apiGet, apiDownloadFile } from '@/lib/api';
+import { apiDownloadFile } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-export interface MenuTemplateThemeConfig {
-  pageBg: string;
-  cardBg: string;
-  cardBorderColor: string;
-  frameColor: string;
-  innerFrameColor?: string;
-  logoBorderColor: string;
-  logoBgColor: string;
-  textPrimary: string;
-  textSecondary: string;
-  textAccent: string;
-  dividerColor: string;
-  headerBannerStyle: string;
-  fontFamilyHeader: string;
-  fontFamilyBody: string;
-  fontFamilyItalic: string;
-  foodTypeColors: {
-    veg: string;
-    nonVeg: string;
-    egg: string;
-    vegan: string;
-  };
-}
-
-export interface MenuTemplate {
+export interface MenuTemplateOption {
   id: string;
   name: string;
   subtitle: string;
-  category: 'dark' | 'light' | 'vintage' | 'luxury' | 'modern';
-  layoutStyle: 'centered' | 'classic-boxed' | 'ornate-vintage' | 'modern-minimal' | 'two-column-look';
-  badge: string;
-  themeConfig: MenuTemplateThemeConfig;
-  previewColors: {
-    bg: string;
-    card: string;
-    text: string;
-    accent: string;
-    border: string;
-  };
+  category: 'dark' | 'light' | 'tasting' | 'vintage';
+  bgColor: string;
+  textColor: string;
+  accentColor: string;
+  borderColor: string;
+  fontStyle: string;
+  layoutDescription: string;
+  tag: string;
+  icon: React.ReactNode;
 }
 
-// Fallback initial templates in case API is loading
-const FALLBACK_TEMPLATES: MenuTemplate[] = [
+export const MENU_TEMPLATES: MenuTemplateOption[] = [
   {
-    id: 'charcoal-noir',
-    name: 'Charcoal Noir',
-    subtitle: 'Deep charcoal background with pure white typography & amber accents',
+    id: 'reverie',
+    name: 'The Reverie',
+    subtitle: 'Modern Minimalist Ivory Tasting',
+    category: 'light',
+    bgColor: '#f6f4ee',
+    textColor: '#1c1917',
+    accentColor: '#556b2f',
+    borderColor: '#d6d3c9',
+    fontStyle: 'Serif / Minimalist Sans',
+    layoutDescription: 'Single column numbered courses (01–05), olive botanical accents, clean spacing.',
+    tag: 'Tasting Menu',
+    icon: <Feather className="w-4 h-4 text-emerald-700" />,
+  },
+  {
+    id: 'lumiere',
+    name: 'Café Lumière',
+    subtitle: 'Midnight & Gold Parisian Brasserie',
     category: 'dark',
-    layoutStyle: 'centered',
-    badge: 'Popular',
-    previewColors: { bg: '#121214', card: '#1c1c21', text: '#ffffff', accent: '#f59e0b', border: '#ffffff' },
-    themeConfig: {
-      pageBg: '#121214',
-      cardBg: '#1c1c21',
-      cardBorderColor: '#ffffff',
-      frameColor: '#27272a',
-      innerFrameColor: '#18181b',
-      logoBorderColor: '#ffffff',
-      logoBgColor: '#18181b',
-      textPrimary: '#ffffff',
-      textSecondary: '#94a3b8',
-      textAccent: '#f59e0b',
-      dividerColor: '#27272a',
-      headerBannerStyle: 'outlined-card',
-      fontFamilyHeader: 'Helvetica-Bold',
-      fontFamilyBody: 'Helvetica',
-      fontFamilyItalic: 'Helvetica-Oblique',
-      foodTypeColors: { veg: '#22c55e', nonVeg: '#ef4444', egg: '#f59e0b', vegan: '#10b981' },
-    },
+    bgColor: '#0f0f12',
+    textColor: '#ffffff',
+    accentColor: '#eab308',
+    borderColor: '#eab308',
+    fontStyle: 'French Brasserie / Fleur-de-lis',
+    layoutDescription: 'Dual column Entrées/Plats with gold double borders, bottom boxed Desserts section.',
+    tag: 'Parisian Luxe',
+    icon: <Sparkles className="w-4 h-4 text-yellow-500" />,
   },
   {
-    id: 'midnight-gold',
-    name: 'Midnight Velvet & 24K Gold',
-    subtitle: 'Opulent navy dusk with warm champagne gold borders & accents',
-    category: 'luxury',
-    layoutStyle: 'centered',
-    badge: 'Luxury',
-    previewColors: { bg: '#0a0e1a', card: '#12182b', text: '#fbf7ee', accent: '#dfb15b', border: '#dfb15b' },
-    themeConfig: {
-      pageBg: '#0a0e1a',
-      cardBg: '#12182b',
-      cardBorderColor: '#dfb15b',
-      frameColor: '#dfb15b',
-      innerFrameColor: '#253257',
-      logoBorderColor: '#dfb15b',
-      logoBgColor: '#12182b',
-      textPrimary: '#fbf7ee',
-      textSecondary: '#cbd5e1',
-      textAccent: '#dfb15b',
-      dividerColor: '#1e293b',
-      headerBannerStyle: 'outlined-card',
-      fontFamilyHeader: 'Helvetica-Bold',
-      fontFamilyBody: 'Helvetica',
-      fontFamilyItalic: 'Helvetica-Oblique',
-      foodTypeColors: { veg: '#34d399', nonVeg: '#f87171', egg: '#fbbf24', vegan: '#2dd4bf' },
-    },
+    id: 'omakase',
+    name: 'Omakase Tokyo',
+    subtitle: 'Japanese Rice Paper & Vermillion Seal',
+    category: 'light',
+    bgColor: '#f5f0e6',
+    textColor: '#18181b',
+    accentColor: '#dc2626',
+    borderColor: '#dc2626',
+    fontStyle: 'Japanese Minimalist / Hanko Seal',
+    layoutDescription: 'Vertical Kanji accents, vermillion seal stamp, numbered courses with plus notes.',
+    tag: 'Japanese Zen',
+    icon: <Globe className="w-4 h-4 text-red-500" />,
   },
   {
-    id: 'royal-emerald',
-    name: 'Royal Emerald Bistro',
-    subtitle: 'Deep forest botanical green with crisp pearl & mint accents',
-    category: 'dark',
-    layoutStyle: 'centered',
-    badge: 'Bistro',
-    previewColors: { bg: '#0c2419', card: '#133928', text: '#f0fdf4', accent: '#34d399', border: '#34d399' },
-    themeConfig: {
-      pageBg: '#0c2419',
-      cardBg: '#133928',
-      cardBorderColor: '#34d399',
-      frameColor: '#1b4d36',
-      innerFrameColor: '#0a1d14',
-      logoBorderColor: '#ffffff',
-      logoBgColor: '#133928',
-      textPrimary: '#f0fdf4',
-      textSecondary: '#a7f3d0',
-      textAccent: '#fbbf24',
-      dividerColor: '#194933',
-      headerBannerStyle: 'outlined-card',
-      fontFamilyHeader: 'Helvetica-Bold',
-      fontFamilyBody: 'Helvetica',
-      fontFamilyItalic: 'Helvetica-Oblique',
-      foodTypeColors: { veg: '#4ade80', nonVeg: '#f87171', egg: '#fde047', vegan: '#2dd4bf' },
-    },
-  },
-  {
-    id: 'burgundy-vintage',
-    name: 'Bordeaux & Grand Reserve',
-    subtitle: 'Deep vintage wine burgundy with warm cream typography & classic serif',
+    id: 'bellini',
+    name: 'Trattoria Bellini',
+    subtitle: 'Rustic Tuscan Wine & Cream Parchment',
     category: 'vintage',
-    layoutStyle: 'ornate-vintage',
-    badge: 'Vintage',
-    previewColors: { bg: '#250a14', card: '#381220', text: '#fef3c7', accent: '#f59e0b', border: '#e2b755' },
-    themeConfig: {
-      pageBg: '#250a14',
-      cardBg: '#381220',
-      cardBorderColor: '#e2b755',
-      frameColor: '#e2b755',
-      innerFrameColor: '#4f1a2e',
-      logoBorderColor: '#e2b755',
-      logoBgColor: '#381220',
-      textPrimary: '#fef3c7',
-      textSecondary: '#fde68a',
-      textAccent: '#e2b755',
-      dividerColor: '#4f1a2e',
-      headerBannerStyle: 'vintage-ornate',
-      fontFamilyHeader: 'Times-Bold',
-      fontFamilyBody: 'Times-Roman',
-      fontFamilyItalic: 'Times-Italic',
-      foodTypeColors: { veg: '#86efac', nonVeg: '#fca5a5', egg: '#fde047', vegan: '#5eead4' },
-    },
+    bgColor: '#fdfbf7',
+    textColor: '#1c1917',
+    accentColor: '#881337',
+    borderColor: '#881337',
+    fontStyle: 'Tuscan Serif / Italian Vines',
+    layoutDescription: '2x2 Quadrant Grid: Antipasti, Pasta, Secondi, Dolci with rich burgundy headings.',
+    tag: 'Italian Classic',
+    icon: <Utensils className="w-4 h-4 text-rose-800" />,
+  },
+  {
+    id: 'azure',
+    name: 'Azure',
+    subtitle: 'Mediterranean Coastal Cyan & Sky',
+    category: 'light',
+    bgColor: '#eaf3fa',
+    textColor: '#0f172a',
+    accentColor: '#0369a1',
+    borderColor: '#0284c7',
+    fontStyle: 'Coastal Sans / Oceanic Clean',
+    layoutDescription: 'Numbered section bars (01 Mezze, 02 Sea, 03 Land, 04 To Share) with Aegean divider lines.',
+    tag: 'Mediterranean',
+    icon: <Globe className="w-4 h-4 text-sky-500" />,
+  },
+  {
+    id: 'hudson',
+    name: 'The Hudson',
+    subtitle: 'Chalkboard Charcoal & Steakhouse Grill',
+    category: 'dark',
+    bgColor: '#121214',
+    textColor: '#ffffff',
+    accentColor: '#f59e0b',
+    borderColor: '#ffffff',
+    fontStyle: 'Industrial Bold Condensed / Slate',
+    layoutDescription: 'Charcoal black background, centered white-ring logo, bold white underline category bars.',
+    tag: 'Bar & Grill',
+    icon: <Flame className="w-4 h-4 text-amber-500" />,
+  },
+  {
+    id: 'arima',
+    name: 'Arima',
+    subtitle: 'Basque Raw Limestone & Stone Tasting',
+    category: 'tasting',
+    bgColor: '#dedede',
+    textColor: '#111827',
+    accentColor: '#4b5563',
+    borderColor: '#9ca3af',
+    fontStyle: 'Modern Architectural High-Contrast Serif',
+    layoutDescription: 'Cool architectural grey limestone, wide-spaced course numbers (Txikiteo 01, Itsaso 02).',
+    tag: 'Basque Modern',
+    icon: <Utensils className="w-4 h-4 text-zinc-700" />,
+  },
+  {
+    id: 'garden',
+    name: 'The Garden',
+    subtitle: 'Vintage Botanical Kraft Bistro',
+    category: 'vintage',
+    bgColor: '#f6eedb',
+    textColor: '#292524',
+    accentColor: '#78716c',
+    borderColor: '#292524',
+    fontStyle: 'Antique Botanical / Floral Flourish',
+    layoutDescription: 'Vintage kraft paper with hand-drawn leaf corner motifs, 2-column balanced bistro menu.',
+    tag: 'Organic Bistro',
+    icon: <Feather className="w-4 h-4 text-stone-700" />,
+  },
+  {
+    id: 'kori',
+    name: 'Kōri',
+    subtitle: 'Obsidian & Imperial Gold Asian Fusion',
+    category: 'dark',
+    bgColor: '#09090b',
+    textColor: '#ffffff',
+    accentColor: '#fbbf24',
+    borderColor: '#fbbf24',
+    fontStyle: 'Obsidian Gold / Kanji Seal',
+    layoutDescription: 'Deep pitch-black obsidian backdrop, imperial gold category rules, white dish titles.',
+    tag: 'Asian Fusion',
+    icon: <Sparkles className="w-4 h-4 text-amber-400" />,
+  },
+  {
+    id: 'grand_cafe',
+    name: 'Grand Café 1928',
+    subtitle: 'Art Deco Parisian Vintage & Sepia',
+    category: 'vintage',
+    bgColor: '#f8f2e4',
+    textColor: '#451a03',
+    accentColor: '#78350f',
+    borderColor: '#451a03',
+    fontStyle: '1928 Art Deco / Geometric Double Frame',
+    layoutDescription: 'Aged French café parchment, geometric art deco border, classic centered French course layout.',
+    tag: 'Art Deco 1928',
+    icon: <Coffee className="w-4 h-4 text-amber-900" />,
+  },
+  {
+    id: 'vino_dolci',
+    name: 'Vino & Dolci',
+    subtitle: 'Terracotta Wine & Warm Burgundy',
+    category: 'dark',
+    bgColor: '#5c1a15',
+    textColor: '#fffbeb',
+    accentColor: '#fed7aa',
+    borderColor: '#fed7aa',
+    fontStyle: 'Italian Vineyard Serif / Peach Gold',
+    layoutDescription: 'Deep rustic terracotta wine background, peach-gold headers, glass/bottle dual pricing format.',
+    tag: 'Wine & Desserts',
+    icon: <Wine className="w-4 h-4 text-rose-300" />,
+  },
+  {
+    id: 'daily',
+    name: 'The Daily',
+    subtitle: 'Swiss Modern Editorial Newspaper Grid',
+    category: 'light',
+    bgColor: '#ffffff',
+    textColor: '#000000',
+    accentColor: '#000000',
+    borderColor: '#000000',
+    fontStyle: 'Swiss Editorial / 2px Heavy Black Grid',
+    layoutDescription: 'High-contrast newspaper masthead, 4 distinct quadrant boxes (Bakery, All Day, Coffee, Sweets).',
+    tag: 'Editorial Grid',
+    icon: <Coffee className="w-4 h-4 text-black" />,
   },
 ];
 
 interface MenuExportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tenantName?: string;
-  tenantLogoUrl?: string | null;
-  tagline?: string;
+  restaurantName?: string;
 }
 
-export function MenuExportModal({
-  isOpen,
-  onClose,
-  tenantName = 'The Grand Pavilion',
-  tenantLogoUrl,
-  tagline = 'Fine Dining & Gastronomy',
-}: MenuExportModalProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('charcoal-noir');
-  const [isExporting, setIsExporting] = useState(false);
-
-  // Fetch all 20+ templates from backend
-  const { data: templatesData, isLoading } = useQuery<{ count: number; templates: MenuTemplate[] }>({
-    queryKey: ['menu', 'templates'],
-    queryFn: () => apiGet<{ count: number; templates: MenuTemplate[] }>('/menu/templates'),
-    enabled: isOpen,
-    staleTime: 1000 * 60 * 60, // 1 hour cache
-  });
-
-  const templates = templatesData?.templates || FALLBACK_TEMPLATES;
-  const currentTemplate = templates.find((t) => t.id === selectedTemplateId) || templates[0];
-  const theme = currentTemplate.themeConfig;
-
-  // Filter categories
-  const categories = [
-    { id: 'all', label: 'All Styles', count: templates.length },
-    { id: 'dark', label: 'Dark & Noir', count: templates.filter((t) => t.category === 'dark').length },
-    { id: 'luxury', label: 'Luxury & Gold', count: templates.filter((t) => t.category === 'luxury').length },
-    { id: 'light', label: 'Light & Clean', count: templates.filter((t) => t.category === 'light').length },
-    { id: 'vintage', label: 'Vintage & Heritage', count: templates.filter((t) => t.category === 'vintage').length },
-    { id: 'modern', label: 'Modern & Vibrant', count: templates.filter((t) => t.category === 'modern').length },
-  ];
-
-  const filteredTemplates = templates.filter((t) => {
-    if (selectedCategory === 'all') return true;
-    return t.category === selectedCategory;
-  });
-
-  const handleDownloadPdf = async () => {
-    setIsExporting(true);
-    toast.info('Crafting PDF 📄', `Exporting with "${currentTemplate.name}" template (300 DPI A4)...`);
-
-    try {
-      const cleanName = tenantName.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `${cleanName}_Menu_${currentTemplate.id}.pdf`;
-      await apiDownloadFile(`/menu/export-pdf?templateId=${currentTemplate.id}`, filename);
-      toast.success('Menu Downloaded! 🎉', `Your menu in "${currentTemplate.name}" style is ready.`);
-      onClose();
-    } catch (err: any) {
-      toast.error('Export Failed', err?.message || 'Could not export menu PDF.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
+export function MenuExportModal({ isOpen, onClose, restaurantName }: MenuExportModalProps) {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('hudson');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   if (!isOpen) return null;
 
+  const filteredTemplates = MENU_TEMPLATES.filter((tpl) => {
+    if (filterCategory === 'all') return true;
+    return tpl.category === filterCategory;
+  });
+
+  const selectedTemplate = MENU_TEMPLATES.find((t) => t.id === selectedTemplateId) || MENU_TEMPLATES[0];
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    toast.info(
+      'Exporting Menu PDF 📄',
+      `Generating "${selectedTemplate.name}" template in 300 DPI A4 vector quality...`
+    );
+
+    try {
+      const fileName = `${(restaurantName || 'Restaurant').replace(/[^a-zA-Z0-9_-]/g, '_')}_Menu_${selectedTemplate.id}.pdf`;
+      await apiDownloadFile(`/menu/export-pdf?template=${selectedTemplate.id}`, fileName);
+      toast.success(
+        'Download Complete! 🎉',
+        `Exported "${selectedTemplate.name}" menu PDF directly to your device with zero server storage.`
+      );
+      onClose();
+    } catch (err: any) {
+      toast.error('Export Error', err?.response?.data?.error?.message || err?.message || 'Could not export menu PDF.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div
-        className="bg-card text-card-foreground border border-border/70 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden relative"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+      <div className="bg-card border border-border/80 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 bg-muted/20">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-              <Palette className="w-5 h-5" />
+        <div className="p-5 sm:px-8 border-b border-border/70 flex items-center justify-between bg-muted/20">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                <Palette className="w-5 h-5" />
+              </span>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">
+                Export Restaurant Menu PDF
+              </h2>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-foreground">Choose Menu PDF Template</h2>
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold">
-                  {templates.length} Styles Available
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Select your preferred theme, typography &amp; background layout. Ready to print in 300 DPI A4.
-              </p>
-            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Choose from 12 styles matching your restaurant ambiance · 300 DPI A4 Vector Print Ready · Zero Server Retention
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+            className="p-2 rounded-full hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body: Split Layout */}
-        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0">
-          {/* Left Column: Template Filter & Selector List (7 cols) */}
-          <div className="lg:col-span-7 flex flex-col border-r border-border/60 min-h-0">
-            {/* Category Filter Tabs */}
-            <div className="p-3 border-b border-border/50 bg-background/50 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5',
-                    selectedCategory === cat.id
-                      ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
-                      : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground border border-border/60'
-                  )}
-                >
-                  <span>{cat.label}</span>
-                  <span className="text-[10px] opacity-75">({cat.count})</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Templates Grid List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 custom-scrollbar">
-              {isLoading && (
-                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" /> Loading templates...
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {filteredTemplates.map((template) => {
-                  const isSelected = selectedTemplateId === template.id;
-                  const p = template.previewColors;
-
-                  return (
-                    <div
-                      key={template.id}
-                      onClick={() => setSelectedTemplateId(template.id)}
-                      className={cn(
-                        'p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-3 text-left relative group',
-                        isSelected
-                          ? 'border-primary ring-2 ring-primary/40 bg-primary/[0.04] shadow-md'
-                          : 'border-border/70 bg-card hover:border-border hover:bg-muted/30'
-                      )}
-                    >
-                      {/* Top: Name & Badges */}
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                            {template.name}
-                          </span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 bg-muted/60 text-muted-foreground border-border">
-                            {template.badge}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1 leading-snug">
-                          {template.subtitle}
-                        </p>
-                      </div>
-
-                      {/* Bottom: Color Palette Swatches & Selection Status */}
-                      <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                        {/* Swatches */}
-                        <div className="flex items-center gap-1.5" title="Color palette preview">
-                          <span
-                            className="w-4 h-4 rounded-full border border-black/20 shadow-xs"
-                            style={{ backgroundColor: p.bg }}
-                          />
-                          <span
-                            className="w-4 h-4 rounded-full border border-black/20 shadow-xs"
-                            style={{ backgroundColor: p.card }}
-                          />
-                          <span
-                            className="w-4 h-4 rounded-full border border-black/20 shadow-xs"
-                            style={{ backgroundColor: p.accent }}
-                          />
-                          <span
-                            className="w-4 h-4 rounded-full border border-black/20 shadow-xs"
-                            style={{ backgroundColor: p.border }}
-                          />
-                        </div>
-
-                        {/* Selected Indicator */}
-                        <div className="flex items-center gap-1">
-                          {isSelected ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary">
-                              <Check className="w-3.5 h-3.5" /> Selected
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground group-hover:text-foreground opacity-60">
-                              Click to select
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Interactive Live Demo Preview (5 cols) */}
-          <div className="lg:col-span-5 flex flex-col bg-muted/10 p-4 sm:p-5 overflow-y-auto min-h-0 custom-scrollbar">
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                <Eye className="w-4 h-4 text-primary" /> Live Menu Design Preview
-              </div>
-              <Badge variant="outline" className="text-[10px] bg-background/80">
-                A4 Vector Sharp
-              </Badge>
-            </div>
-
-            {/* Rendered Live Menu Simulation Card */}
-            <div
-              className="flex-1 rounded-xl p-5 shadow-2xl transition-all duration-300 relative flex flex-col justify-between overflow-hidden"
-              style={{
-                backgroundColor: theme.pageBg,
-                border: `2px solid ${theme.frameColor}`,
-                color: theme.textPrimary,
-                fontFamily: theme.fontFamilyBody.includes('Times') ? 'serif' : 'sans-serif',
-              }}
-            >
-              {/* Inner Decorative Line */}
-              <div
-                className="absolute inset-1.5 pointer-events-none rounded-lg border opacity-60"
-                style={{ borderColor: theme.innerFrameColor || theme.dividerColor }}
-              />
-
-              {/* Menu Header Simulation */}
-              <div className="relative z-10 text-center space-y-2">
-                {/* Centered Restaurant Logo with White/Gold Outline */}
-                <div className="flex justify-center">
-                  <div
-                    className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow-md overflow-hidden relative"
-                    style={{
-                      backgroundColor: theme.logoBgColor || theme.cardBg,
-                      border: `2.5px solid ${theme.logoBorderColor}`,
-                      color: theme.textPrimary,
-                    }}
-                  >
-                    {tenantLogoUrl ? (
-                      <img
-                        src={tenantLogoUrl}
-                        alt="Logo"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span>{(tenantName || 'R').trim().charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Restaurant Name */}
-                <h3
-                  className="text-base font-extrabold tracking-wider uppercase leading-tight"
-                  style={{
-                    color: theme.textPrimary,
-                    fontFamily: theme.fontFamilyHeader.includes('Times') ? 'serif' : 'sans-serif',
-                  }}
-                >
-                  {tenantName}
-                </h3>
-
-                {/* Tagline */}
-                {tagline && (
-                  <p
-                    className="text-[10px] italic tracking-wide -mt-1"
-                    style={{ color: theme.textAccent }}
-                  >
-                    {tagline}
-                  </p>
+        {/* Filter Pills */}
+        <div className="px-5 sm:px-8 py-3 border-b border-border/40 bg-muted/10 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { id: 'all', label: 'All 12 Styles' },
+              { id: 'dark', label: '🌙 Dark & Obsidian' },
+              { id: 'light', label: '☀️ Light & Ivory' },
+              { id: 'vintage', label: '📜 Vintage & Tuscan' },
+              { id: 'tasting', label: '✨ Tasting & Minimalist' },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setFilterCategory(cat.id)}
+                className={cn(
+                  'px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border',
+                  filterCategory === cat.id
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm font-bold'
+                    : 'bg-card/80 border-border text-muted-foreground hover:text-foreground hover:bg-accent'
                 )}
-
-                {/* Title Banner */}
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <div className="h-[1px] flex-1" style={{ backgroundColor: theme.dividerColor }} />
-                  <span
-                    className="text-[9px] font-bold tracking-widest uppercase px-1"
-                    style={{ color: theme.textPrimary }}
-                  >
-                    À LA CARTE MENU
-                  </span>
-                  <div className="h-[1px] flex-1" style={{ backgroundColor: theme.dividerColor }} />
-                </div>
-              </div>
-
-              {/* Demo Menu Content */}
-              <div className="relative z-10 space-y-3 my-3">
-                {/* Category Header Bar */}
-                <div
-                  className="px-3 py-1.5 rounded-md flex items-center justify-between text-xs font-bold uppercase tracking-wider"
-                  style={{
-                    backgroundColor: theme.cardBg,
-                    border: `1px solid ${theme.cardBorderColor}`,
-                    color:
-                      theme.headerBannerStyle === 'solid-card' && theme.cardBg === '#000000' && theme.pageBg === '#ffffff'
-                        ? '#ffffff'
-                        : theme.textPrimary,
-                  }}
-                >
-                  <span>Chef's Signature Dishes</span>
-                  <span className="text-[10px]" style={{ color: theme.textAccent }}>
-                    3 DISHES
-                  </span>
-                </div>
-
-                {/* Demo Dishes */}
-                <div className="space-y-2 text-xs">
-                  {/* Item 1: Truffle Risotto */}
-                  <div className="space-y-0.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <span
-                          className="w-2.5 h-2.5 rounded-xs border flex items-center justify-center shrink-0"
-                          style={{ borderColor: theme.foodTypeColors.veg }}
-                        >
-                          <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: theme.foodTypeColors.veg }}
-                          />
-                        </span>
-                        <span style={{ color: theme.textPrimary }}>Signature Truffle Risotto</span>
-                      </div>
-                      <span className="font-bold font-mono text-xs" style={{ color: theme.textPrimary }}>
-                        ₹ 520.00
-                      </span>
-                    </div>
-                    <p className="text-[10px] pl-4 italic leading-tight" style={{ color: theme.textSecondary }}>
-                      Arborio rice, porcini dust, aged parmesan, black truffle oil
-                    </p>
-                    <div className="h-[0.5px] w-full pt-1" style={{ borderBottom: `0.5px solid ${theme.dividerColor}` }} />
-                  </div>
-
-                  {/* Item 2: Charred Angus Ribeye Steak */}
-                  <div className="space-y-0.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <span
-                          className="w-2.5 h-2.5 rounded-xs border flex items-center justify-center shrink-0"
-                          style={{ borderColor: theme.foodTypeColors.nonVeg }}
-                        >
-                          <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: theme.foodTypeColors.nonVeg }}
-                          />
-                        </span>
-                        <span style={{ color: theme.textPrimary }}>Charred Angus Ribeye</span>
-                        <span className="text-[8px] font-bold text-orange-400 bg-orange-400/10 px-1 py-0.2 rounded">
-                          🌶️ SPICY
-                        </span>
-                      </div>
-                      <span className="font-bold font-mono text-[10px]" style={{ color: theme.textPrimary }}>
-                        Half: ₹650 | Full: ₹1180
-                      </span>
-                    </div>
-                    <p className="text-[10px] pl-4 italic leading-tight" style={{ color: theme.textSecondary }}>
-                      Rosemary garlic butter, smoked pepper glaze, charred asparagus
-                    </p>
-                    <div className="h-[0.5px] w-full pt-1" style={{ borderBottom: `0.5px solid ${theme.dividerColor}` }} />
-                  </div>
-
-                  {/* Item 3: Golden Saffron Kulfi */}
-                  <div className="space-y-0.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <span
-                          className="w-2.5 h-2.5 rounded-xs border flex items-center justify-center shrink-0"
-                          style={{ borderColor: theme.foodTypeColors.egg }}
-                        >
-                          <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: theme.foodTypeColors.egg }}
-                          />
-                        </span>
-                        <span style={{ color: theme.textPrimary }}>Saffron Pistachio Kulfi</span>
-                      </div>
-                      <span className="font-bold font-mono text-xs" style={{ color: theme.textPrimary }}>
-                        ₹ 240.00
-                      </span>
-                    </div>
-                    <p className="text-[10px] pl-4 italic leading-tight" style={{ color: theme.textSecondary }}>
-                      Slow-churned rabri, Kashmiri saffron, crushed roasted nuts
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Simulation */}
-              <div
-                className="relative z-10 pt-2 flex items-center justify-between text-[9px]"
-                style={{
-                  borderTop: `0.5px solid ${theme.dividerColor}`,
-                  color: theme.textSecondary,
-                }}
               >
-                <span>All items freshly prepared to order.</span>
-                <span className="font-bold" style={{ color: theme.textPrimary }}>
-                  PAGE 1 OF 3
-                </span>
-              </div>
-            </div>
+                {cat.label}
+              </button>
+            ))}
           </div>
+
+          <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
+            Showing {filteredTemplates.length} templates
+          </span>
         </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border/60 bg-muted/20 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Selected Style:</span>
-            <span className="text-xs font-bold text-foreground">{currentTemplate.name}</span>
-            <Badge variant="outline" className="text-[10px] capitalize">
-              {currentTemplate.category}
-            </Badge>
+        {/* Templates Grid (Scrollable) */}
+        <div className="p-5 sm:px-8 overflow-y-auto flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredTemplates.map((template) => {
+            const isSelected = selectedTemplateId === template.id;
+
+            return (
+              <div
+                key={template.id}
+                onClick={() => setSelectedTemplateId(template.id)}
+                className={cn(
+                  'group relative rounded-2xl border-2 p-3.5 flex flex-col justify-between cursor-pointer transition-all duration-200 overflow-hidden',
+                  isSelected
+                    ? 'border-primary ring-2 ring-primary/30 shadow-lg scale-[1.02] bg-primary/[0.02]'
+                    : 'border-border/80 hover:border-border hover:shadow-md bg-card/60'
+                )}
+              >
+                {/* Mini Preview Box */}
+                <div
+                  className="w-full h-36 rounded-xl border p-2.5 flex flex-col justify-between relative shadow-inner overflow-hidden"
+                  style={{
+                    backgroundColor: template.bgColor,
+                    borderColor: template.borderColor,
+                  }}
+                >
+                  {/* Top mini header */}
+                  <div className="flex items-center justify-between">
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border"
+                      style={{
+                        backgroundColor: template.bgColor,
+                        color: template.textColor,
+                        borderColor: template.borderColor,
+                      }}
+                    >
+                      {template.name.charAt(0)}
+                    </div>
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-wider"
+                      style={{ color: template.accentColor }}
+                    >
+                      {template.tag}
+                    </span>
+                  </div>
+
+                  {/* Center sample title */}
+                  <div className="text-center my-auto">
+                    <div
+                      className="text-xs font-bold tracking-wider uppercase truncate px-1"
+                      style={{ color: template.textColor }}
+                    >
+                      {template.name}
+                    </div>
+                    <div
+                      className="text-[9px] truncate px-1 opacity-80"
+                      style={{ color: template.accentColor }}
+                    >
+                      {template.subtitle}
+                    </div>
+                  </div>
+
+                  {/* Bottom mock items lines */}
+                  <div className="space-y-1 opacity-70">
+                    <div
+                      className="h-1 rounded-full w-full"
+                      style={{ backgroundColor: template.accentColor }}
+                    />
+                    <div className="flex justify-between items-center text-[8px] font-mono" style={{ color: template.textColor }}>
+                      <span>Course Dish</span>
+                      <span>₹250</span>
+                    </div>
+                  </div>
+
+                  {/* Selection Badge */}
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-1 rounded-full shadow-md animate-in zoom-in">
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Template Info Details */}
+                <div className="mt-3 space-y-1.5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-1">
+                      <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                        {template.icon}
+                        {template.name}
+                      </h4>
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                        {template.tag}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                      {template.layoutDescription}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span className="truncate max-w-[150px] font-medium">{template.fontStyle}</span>
+                    <span
+                      className="w-3.5 h-3.5 rounded-full border border-border shadow-xs shrink-0"
+                      style={{ backgroundColor: template.bgColor }}
+                      title={`Background: ${template.bgColor}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Modal Footer Controls */}
+        <div className="p-4 sm:px-8 border-t border-border/70 bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Selected Style:</span>
+            <span className="font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 flex items-center gap-1.5">
+              {selectedTemplate.icon}
+              {selectedTemplate.name} ({selectedTemplate.tag})
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={onClose} disabled={isExporting}>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isDownloading}
+              className="flex-1 sm:flex-none cursor-pointer"
+            >
               Cancel
             </Button>
             <Button
-              size="sm"
-              onClick={handleDownloadPdf}
-              disabled={isExporting}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 font-semibold shadow-md px-5"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="flex-1 sm:flex-none gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md px-6 cursor-pointer"
             >
-              {isExporting ? (
+              {isDownloading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Generating PDF...
@@ -609,7 +447,7 @@ export function MenuExportModal({
               ) : (
                 <>
                   <FileDown className="w-4 h-4" />
-                  Export Menu ({currentTemplate.name})
+                  Download Menu PDF (A4)
                 </>
               )}
             </Button>
