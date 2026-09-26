@@ -501,13 +501,20 @@ export class MenuController {
       },
     });
 
+    let currency = '₹';
+    try {
+      const parsed = typeof tenant?.settings === 'string' ? JSON.parse(tenant.settings) : (tenant?.settings || {});
+      if (parsed?.currency) currency = parsed.currency;
+    } catch {}
+
     const pdfData: MenuPdfData = {
       tenantName: tenant?.name || 'Restaurant Menu',
       tagline: tagline || 'Fine Dining & Hospitality',
+      logoUrl: tenant?.logoUrl || null,
       branchName: tenant?.branches?.[0]?.name,
       branchAddress: tenant?.branches?.[0]?.address || undefined,
       branchPhone: tenant?.branches?.[0]?.phone || undefined,
-      currency: 'Rs.',
+      currency,
       categories: categories.map((c) => ({
         id: c.id,
         name: c.name,
