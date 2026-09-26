@@ -366,16 +366,60 @@ export class AuthController {
   }
 
   static async disconnectTelegram(req: Request, res: Response): Promise<void> {
-    await prisma.user.update({
-      where: { id: req.user!.sub },
-      data: {
-        telegramChatId: null,
-        telegramUsername: null,
+    const userId = req.user!.sub;
+
+    // Fetch user details first to know chat ID, username, phone
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        telegramChatId: true,
+        telegramUsername: true,
       },
     });
 
+    const previousChatId = user?.telegramChatId;
+    const previousUsername = user?.telegramUsername?.toLowerCase();
+    const previousPhone = user?.phone?.replace(/\D/g, '');
+
+    // Completely clear all Telegram data from database
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        telegramChatId: null,
+        telegramUsername: null,
+        telegramNotifications: null,
+      },
+    });
+
+    // Purge all Telegram sessions & mappings from Redis/cache
+    await cacheDel(`tg_otp:${userId}`);
+    await cacheDel(`tg_chat_user:${userId}`);
+
+    if (previousUsername) {
+      await cacheDel(`tg_chat_username:${previousUsername}`);
+      await cacheDel(`tg_username_to_user:${previousUsername}`);
+    }
+
+    if (previousPhone) {
+      await cacheDel(`tg_chat_phone:${previousPhone}`);
+      await cacheDel(`tg_phone_to_user:${previousPhone.slice(-10)}`);
+    }
+
+    // Send parting confirmation message via Telegram if chat was active
+    if (previousChatId) {
+      try {
+        await TelegramService.sendMessage(
+          previousChatId,
+          `🔌 <b>ROS Restaurant OS — Telegram Disconnected</b>\n\nYour Telegram connection for <b>${user?.email}</b> has been completely removed.\nAll notification subscriptions and linked credentials have been cleared from the database.`
+        );
+      } catch {}
+    }
+
     sendSuccess(res, {
-      message: 'Telegram account disconnected.',
+      message: 'Telegram connection and all associated credentials completely deleted from database.',
     });
   }
 }

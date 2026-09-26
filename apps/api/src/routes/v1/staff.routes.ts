@@ -25,7 +25,8 @@ router.put('/employees/:id', requirePermission('staff:edit'), asyncHandler(Staff
 router.patch('/employees/:id', requirePermission('staff:edit'), asyncHandler(StaffController.updateEmployee));
 router.put('/:id', requirePermission('staff:edit'), asyncHandler(StaffController.updateEmployee));
 router.patch('/:id', requirePermission('staff:edit'), asyncHandler(StaffController.updateEmployee));
-router.delete('/employees/:id', requirePermission('staff:edit'), asyncHandler(StaffController.deleteEmployee));
-router.delete('/:id', requirePermission('staff:edit'), asyncHandler(StaffController.deleteEmployee));
+router.delete('/employees/:id/telegram', requirePermission('staff:edit'), asyncHandler(StaffController.disconnectStaffTelegram));
+router.delete('/employees/:id',          requirePermission('staff:edit'), asyncHandler(StaffController.deleteEmployee));
+router.delete('/:id',                    requirePermission('staff:edit'), asyncHandler(StaffController.deleteEmployee));
 
 export default router;

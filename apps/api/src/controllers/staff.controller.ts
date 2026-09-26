@@ -8,6 +8,7 @@ import { prisma } from '../lib/prisma';
 import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { ErrorCodes } from '@ros/shared-types';
 import { TelegramService } from '../services/telegram.service';
+import { cacheDel } from '../lib/redis';
 import { z } from 'zod';
 
 export const FEATURE_MODULES = [
@@ -878,5 +879,61 @@ export class StaffController {
       take: 100,
     });
     sendSuccess(res, records);
+  }
+
+  static async disconnectStaffTelegram(req: Request, res: Response) {
+    const { id } = req.params;
+    const tenantId = req.user!.tid;
+
+    const employee = await prisma.employee.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!employee) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Staff member not found', 404);
+    }
+
+    if (employee.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: employee.userId },
+      });
+      const previousChatId = user?.telegramChatId;
+      const previousUsername = user?.telegramUsername?.toLowerCase();
+      const previousPhone = user?.phone?.replace(/\D/g, '');
+
+      await prisma.user.update({
+        where: { id: employee.userId },
+        data: {
+          telegramChatId: null,
+          telegramUsername: null,
+          telegramNotifications: null,
+        },
+      });
+
+      // Purge cache
+      await cacheDel(`tg_otp:${employee.userId}`);
+      await cacheDel(`tg_chat_user:${employee.userId}`);
+      if (previousUsername) {
+        await cacheDel(`tg_chat_username:${previousUsername}`);
+        await cacheDel(`tg_username_to_user:${previousUsername}`);
+      }
+      if (previousPhone) {
+        await cacheDel(`tg_chat_phone:${previousPhone}`);
+        await cacheDel(`tg_phone_to_user:${previousPhone.slice(-10)}`);
+      }
+
+      if (previousChatId) {
+        try {
+          await TelegramService.sendMessage(
+            previousChatId,
+            `🔌 <b>ROS Restaurant OS — Telegram Disconnected</b>\n\nYour Telegram connection for <b>${employee.name}</b> has been disconnected by the Restaurant Admin.\nAll notification subscriptions and linked credentials have been cleared from the database.`
+          );
+        } catch {}
+      }
+    }
+
+    sendSuccess(res, {
+      message: 'Staff Telegram connection and all associated credentials completely deleted from database.',
+    });
   }
 }
