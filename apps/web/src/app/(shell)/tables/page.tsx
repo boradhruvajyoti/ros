@@ -1191,7 +1191,7 @@ export default function TablesPage() {
                           title={cancelCheck.canCancel ? 'Cancel Order' : cancelCheck.reason || 'Cannot cancel'}
                         >
                           <span className="shrink-0 text-xs">❌</span>
-                          <span className="truncate">Void</span>
+                          <span className="truncate">Cancel</span>
                         </button>
                       </div>
                     )}

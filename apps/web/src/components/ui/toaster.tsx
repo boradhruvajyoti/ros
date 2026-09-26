@@ -5,10 +5,10 @@ import { ToastProvider, ToastViewport, Toast, ToastTitle, ToastDescription, Toas
 import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
 
 const icons = {
-  default:     <Info className="h-4 w-4" />,
-  destructive: <XCircle className="h-4 w-4" />,
-  success:     <CheckCircle className="h-4 w-4" />,
-  warning:     <AlertTriangle className="h-4 w-4" />,
+  default:     <Info className="h-5 w-5 text-sky-400 shrink-0" />,
+  destructive: <XCircle className="h-5 w-5 text-rose-400 shrink-0" />,
+  success:     <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0" />,
+  warning:     <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />,
 };
 
 export function Toaster() {

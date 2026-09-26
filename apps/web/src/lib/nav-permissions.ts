@@ -140,9 +140,13 @@ export function getDefaultLandingRoute(
 ): string {
   if (!user) return '/login';
   if (isPlatformAdmin(user)) return '/super-admin';
-  if (isTenantAdmin(user)) return '/dashboard';
 
-  // Priority order for staff roles based on granted permissions
+  // If user has tables access (or is tenant admin who has access to all restaurant operations including tables), bring them directly to Tables tab
+  if (hasAnyPermission('tables:view', 'tables:edit') || isTenantAdmin(user)) {
+    return '/tables';
+  }
+
+  // Priority order for remaining staff roles based on granted permissions
   if (hasAnyPermission('orders:create')) return '/pos';
   if (hasAnyPermission('tables:view', 'tables:edit')) return '/tables';
   if (hasAnyPermission('kitchen:view', 'kitchen:update')) return '/kitchen';
