@@ -746,27 +746,58 @@ class OrderItemModifier {
 class OrderKot {
   final String id;
   final String kotNumber;
-  final String status; // NEW|ACCEPTED|PREPARING|READY|SERVED
+  final String orderId;
+  final String status; // NEW|ACCEPTED|PREPARING|READY|SERVED|CANCELLED
   final String? kitchenStationId;
+  final String? stationName;
+  final String? stationColor;
+  final String orderNumber;
+  final String orderType;
+  final String? tableName;
+  final String? orderNotes;
+  final int ageMinutes;
   final List<OrderKotItem> items;
 
   const OrderKot({
     required this.id,
     required this.kotNumber,
+    this.orderId = '',
     required this.status,
     this.kitchenStationId,
+    this.stationName,
+    this.stationColor,
+    this.orderNumber = '',
+    this.orderType = 'DINE_IN',
+    this.tableName,
+    this.orderNotes,
+    this.ageMinutes = 0,
     this.items = const [],
   });
 
-  factory OrderKot.fromJson(Map<String, dynamic> json) => OrderKot(
-    id: json['id'] as String? ?? '',
-    kotNumber: json['kotNumber'] as String? ?? 'KOT',
-    status: json['status'] as String? ?? 'NEW',
-    kitchenStationId: json['kitchenStationId'] as String?,
-    items: (json['items'] as List<dynamic>?)
-        ?.map((e) => OrderKotItem.fromJson(e as Map<String, dynamic>))
-        .toList() ?? [],
-  );
+  factory OrderKot.fromJson(Map<String, dynamic> json) {
+    final order = json['order'] as Map<String, dynamic>?;
+    final table = order?['table'] as Map<String, dynamic>?;
+    final station = json['kitchenStation'] as Map<String, dynamic>?;
+
+    return OrderKot(
+      id: json['id'] as String? ?? '',
+      kotNumber: json['kotNumber']?.toString() ?? 'KOT',
+      orderId: json['orderId'] as String? ?? order?['id'] as String? ?? '',
+      status: json['status'] as String? ?? 'NEW',
+      kitchenStationId: json['kitchenStationId'] as String? ?? station?['id'] as String?,
+      stationName: station?['name'] as String?,
+      stationColor: station?['displayColor'] as String?,
+      orderNumber: order?['orderNumber'] as String? ?? '',
+      orderType: order?['type'] as String? ?? 'DINE_IN',
+      tableName: table?['name'] as String?,
+      orderNotes: order?['notes'] as String?,
+      ageMinutes: parseInt(json['ageMinutes'], 0),
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => OrderKotItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
 }
 
 class OrderKotItem {
@@ -775,6 +806,8 @@ class OrderKotItem {
   final String? menuItemName;
   final String? variantName;
   final int quantity;
+  final String? notes;
+  final List<String> modifiers;
 
   const OrderKotItem({
     required this.id,
@@ -782,15 +815,31 @@ class OrderKotItem {
     this.menuItemName,
     this.variantName,
     required this.quantity,
+    this.notes,
+    this.modifiers = const [],
   });
 
-  factory OrderKotItem.fromJson(Map<String, dynamic> json) => OrderKotItem(
-    id: json['id'] as String? ?? '',
-    status: json['status'] as String? ?? 'NEW',
-    menuItemName: json['orderItem']?['menuItem']?['name'] as String? ?? json['menuItem']?['name'] as String?,
-    variantName: json['orderItem']?['variant']?['name'] as String? ?? json['variant']?['name'] as String?,
-    quantity: parseInt(json['orderItem']?['quantity'] ?? json['quantity'], 1),
-  );
+  factory OrderKotItem.fromJson(Map<String, dynamic> json) {
+    final orderItem = json['orderItem'] as Map<String, dynamic>?;
+    final menuItem = orderItem?['menuItem'] as Map<String, dynamic>? ?? json['menuItem'] as Map<String, dynamic>?;
+    final variant = orderItem?['variant'] as Map<String, dynamic>? ?? json['variant'] as Map<String, dynamic>?;
+    final rawModifiers = orderItem?['modifiers'] as List<dynamic>?;
+    final modList = rawModifiers
+            ?.map((m) => m is Map ? (m['name']?.toString() ?? '') : m.toString())
+            .where((s) => s.isNotEmpty)
+            .toList() ??
+        [];
+
+    return OrderKotItem(
+      id: json['id'] as String? ?? '',
+      status: json['status'] as String? ?? 'PENDING',
+      menuItemName: menuItem?['name'] as String?,
+      variantName: variant?['name'] as String?,
+      quantity: parseInt(orderItem?['quantity'] ?? json['quantity'], 1),
+      notes: orderItem?['notes'] as String? ?? json['notes'] as String?,
+      modifiers: modList,
+    );
+  }
 }
 
 // ── Payments ─────────────────────────────────────────────────────────────────
