@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../pos/pos_screen.dart';
 
 class TablesScreen extends ConsumerStatefulWidget {
   const TablesScreen({super.key});
@@ -24,28 +23,6 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
 
   @override
   bool get wantKeepAlive => true;
-
-  Color _statusColor(String status) {
-    return switch (status) {
-      'AVAILABLE' => RosTheme.statusAvailable,
-      'OCCUPIED' => RosTheme.statusOccupied,
-      'RESERVED' => RosTheme.statusReserved,
-      'CLEANING' => RosTheme.statusCleaning,
-      'BLOCKED' => RosTheme.textMuted,
-      _ => RosTheme.textMuted,
-    };
-  }
-
-  IconData _statusIcon(String status) {
-    return switch (status) {
-      'AVAILABLE' => Icons.check_circle_outline_rounded,
-      'OCCUPIED' => Icons.people_rounded,
-      'RESERVED' => Icons.event_available_rounded,
-      'CLEANING' => Icons.cleaning_services_rounded,
-      'BLOCKED' => Icons.block_rounded,
-      _ => Icons.circle_outlined,
-    };
-  }
 
   @override
   Widget build(BuildContext context) {

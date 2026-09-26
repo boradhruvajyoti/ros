@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/api/api_client.dart';
 
 class TableDetailScreen extends ConsumerStatefulWidget {
   final String tableId;

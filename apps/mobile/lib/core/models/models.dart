@@ -499,9 +499,9 @@ class RestaurantTable {
   });
 
   factory RestaurantTable.fromJson(Map<String, dynamic> json) => RestaurantTable(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    capacity: json['capacity'] as int? ?? 4,
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? 'Table',
+    capacity: (json['capacity'] as num?)?.toInt() ?? 4,
     shape: json['shape'] as String? ?? 'RECTANGLE',
     status: json['status'] as String? ?? 'AVAILABLE',
     floorId: json['floorId'] as String?,
@@ -510,7 +510,9 @@ class RestaurantTable {
     posY: (json['posY'] as num?)?.toDouble() ?? 0.0,
     activeOrder: json['activeOrder'] != null
         ? Order.fromJson(json['activeOrder'] as Map<String, dynamic>)
-        : null,
+        : (json['orders'] is List && (json['orders'] as List).isNotEmpty
+            ? Order.fromJson((json['orders'] as List).first as Map<String, dynamic>)
+            : null),
   );
 }
 
@@ -528,9 +530,9 @@ class Floor {
   });
 
   factory Floor.fromJson(Map<String, dynamic> json) => Floor(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    sortOrder: json['sortOrder'] as int? ?? 0,
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? 'Floor',
+    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
     tables: (json['tables'] as List<dynamic>?)
         ?.map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>))
         .toList() ?? [],
@@ -581,8 +583,8 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> json) => Order(
-    id: json['id'] as String,
-    orderNumber: json['orderNumber'] as String,
+    id: json['id'] as String? ?? '',
+    orderNumber: json['orderNumber'] as String? ?? 'ORD',
     type: json['type'] as String? ?? 'DINE_IN',
     status: json['status'] as String? ?? 'DRAFT',
     tableId: json['tableId'] as String?,
@@ -605,8 +607,8 @@ class Order {
     kots: (json['kots'] as List<dynamic>?)
         ?.map((e) => OrderKot.fromJson(e as Map<String, dynamic>))
         .toList() ?? [],
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    updatedAt: DateTime.parse(json['updatedAt'] as String),
+    createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+    updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
   );
 
   double get balanceDue => total - paidAmount;
@@ -641,13 +643,13 @@ class OrderItem {
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
-    id: json['id'] as String,
-    menuItemId: json['menuItemId'] as String,
+    id: json['id'] as String? ?? '',
+    menuItemId: json['menuItemId'] as String? ?? '',
     variantId: json['variantId'] as String?,
-    menuItemName: json['menuItem']?['name'] as String?,
+    menuItemName: json['menuItem']?['name'] as String? ?? json['name'] as String?,
     variantName: json['variant']?['name'] as String?,
-    quantity: json['quantity'] as int? ?? 1,
-    unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0.0,
+    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+    unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? (json['price'] as num?)?.toDouble() ?? 0.0,
     lineTotal: (json['lineTotal'] as num?)?.toDouble() ?? 0.0,
     status: json['status'] as String? ?? 'PENDING',
     notes: json['notes'] as String?,
@@ -670,8 +672,8 @@ class OrderItemModifier {
 
   factory OrderItemModifier.fromJson(Map<String, dynamic> json) =>
       OrderItemModifier(
-        id: json['id'] as String,
-        name: json['name'] as String,
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
         price: (json['price'] as num?)?.toDouble() ?? 0.0,
       );
 }
@@ -692,8 +694,8 @@ class OrderKot {
   });
 
   factory OrderKot.fromJson(Map<String, dynamic> json) => OrderKot(
-    id: json['id'] as String,
-    kotNumber: json['kotNumber'] as String,
+    id: json['id'] as String? ?? '',
+    kotNumber: json['kotNumber'] as String? ?? 'KOT',
     status: json['status'] as String? ?? 'NEW',
     kitchenStationId: json['kitchenStationId'] as String?,
     items: (json['items'] as List<dynamic>?)
@@ -718,11 +720,11 @@ class OrderKotItem {
   });
 
   factory OrderKotItem.fromJson(Map<String, dynamic> json) => OrderKotItem(
-    id: json['id'] as String,
+    id: json['id'] as String? ?? '',
     status: json['status'] as String? ?? 'NEW',
-    menuItemName: json['orderItem']?['menuItem']?['name'] as String?,
-    variantName: json['orderItem']?['variant']?['name'] as String?,
-    quantity: json['orderItem']?['quantity'] as int? ?? 1,
+    menuItemName: json['orderItem']?['menuItem']?['name'] as String? ?? json['menuItem']?['name'] as String?,
+    variantName: json['orderItem']?['variant']?['name'] as String? ?? json['variant']?['name'] as String?,
+    quantity: (json['orderItem']?['quantity'] as num?)?.toInt() ?? (json['quantity'] as num?)?.toInt() ?? 1,
   );
 }
 
@@ -748,13 +750,13 @@ class Payment {
   });
 
   factory Payment.fromJson(Map<String, dynamic> json) => Payment(
-    id: json['id'] as String,
-    orderId: json['orderId'] as String,
-    method: json['method'] as String,
-    amount: (json['amount'] as num).toDouble(),
+    id: json['id'] as String? ?? '',
+    orderId: json['orderId'] as String? ?? '',
+    method: json['method'] as String? ?? 'CASH',
+    amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
     referenceNumber: json['referenceNumber'] as String?,
     status: json['status'] as String? ?? 'COMPLETED',
-    createdAt: DateTime.parse(json['createdAt'] as String),
+    createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
   );
 }
 
@@ -784,15 +786,15 @@ class Customer {
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    phone: json['phone'] as String,
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? 'Guest',
+    phone: json['phone'] as String? ?? '',
     email: json['email'] as String?,
-    loyaltyPoints: json['loyaltyPoints'] as int? ?? 0,
+    loyaltyPoints: (json['loyaltyPoints'] as num?)?.toInt() ?? 0,
     totalSpent: (json['totalSpent'] as num?)?.toDouble() ?? 0.0,
-    visitCount: json['visitCount'] as int? ?? 0,
+    visitCount: (json['visitCount'] as num?)?.toInt() ?? 0,
     isActive: json['isActive'] as bool? ?? true,
-    createdAt: DateTime.parse(json['createdAt'] as String),
+    createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
   );
 }
 
@@ -818,17 +820,17 @@ class StaffMember {
   });
 
   factory StaffMember.fromJson(Map<String, dynamic> json) => StaffMember(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    email: json['email'] as String,
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? 'Staff',
+    email: json['email'] as String? ?? '',
     phone: json['phone'] as String?,
     roles: (json['branchRoles'] as List<dynamic>?)
         ?.map((e) => e['role']?['name'] as String? ?? '')
         .where((r) => r.isNotEmpty)
-        .toList() ?? [],
+        .toList() ?? (json['roles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
     isActive: json['isActive'] as bool? ?? true,
     lastLoginAt: json['lastLoginAt'] != null
-        ? DateTime.parse(json['lastLoginAt'] as String)
+        ? DateTime.tryParse(json['lastLoginAt'].toString())
         : null,
   );
 }
@@ -857,8 +859,8 @@ class InventoryItem {
   });
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) => InventoryItem(
-    id: json['id'] as String,
-    name: json['name'] as String,
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
     unit: json['unit'] as String? ?? 'kg',
     currentStock: (json['currentStock'] as num?)?.toDouble() ?? 0.0,
     minStock: (json['minStock'] as num?)?.toDouble() ?? 0.0,
@@ -900,17 +902,17 @@ class Reservation {
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) => Reservation(
-    id: json['id'] as String,
-    customerName: json['customerName'] as String,
-    customerPhone: json['customerPhone'] as String,
-    partySize: json['partySize'] as int,
-    date: DateTime.parse(json['date'] as String),
-    timeSlot: json['timeSlot'] as String,
+    id: json['id'] as String? ?? '',
+    customerName: json['customerName'] as String? ?? json['guestName'] as String? ?? 'Guest',
+    customerPhone: json['customerPhone'] as String? ?? json['guestPhone'] as String? ?? '',
+    partySize: (json['partySize'] as num?)?.toInt() ?? 2,
+    date: DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
+    timeSlot: json['timeSlot'] as String? ?? '19:00',
     occasion: json['occasion'] as String?,
     status: json['status'] as String? ?? 'PENDING',
     tableId: json['tableId'] as String?,
     specialRequests: json['specialRequests'] as String?,
-    createdAt: DateTime.parse(json['createdAt'] as String),
+    createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
   );
 }
 
@@ -938,10 +940,10 @@ class DashboardSummary {
   factory DashboardSummary.fromJson(Map<String, dynamic> json) =>
       DashboardSummary(
         todayRevenue: (json['todayRevenue'] as num?)?.toDouble() ?? 0.0,
-        todayOrders: json['todayOrders'] as int? ?? 0,
-        activeOrders: json['activeOrders'] as int? ?? 0,
-        availableTables: json['availableTables'] as int? ?? 0,
-        occupiedTables: json['occupiedTables'] as int? ?? 0,
+        todayOrders: (json['todayOrders'] as num?)?.toInt() ?? 0,
+        activeOrders: (json['activeOrders'] as num?)?.toInt() ?? 0,
+        availableTables: (json['availableTables'] as num?)?.toInt() ?? 0,
+        occupiedTables: (json['occupiedTables'] as num?)?.toInt() ?? 0,
         avgOrderValue: (json['avgOrderValue'] as num?)?.toDouble() ?? 0.0,
         revenueChart: (json['revenueChart'] as List<dynamic>?)
             ?.map((e) => RevenuePoint.fromJson(e as Map<String, dynamic>))

@@ -192,22 +192,45 @@ final socketProvider = Provider<io.Socket?>((ref) {
 
 final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<List<dynamic>>('/menu/pos');
-  return data.map((e) => MenuCategory.fromJson(e as Map<String, dynamic>)).toList();
+  try {
+    final categoriesData = await api.get<dynamic>('/menu/categories');
+    final itemsData = await api.get<dynamic>('/menu/items');
+    final catList = categoriesData is List ? categoriesData : [];
+    final itemList = itemsData is List ? itemsData : [];
+    final allItems = itemList.map((e) => MenuItem.fromJson(e as Map<String, dynamic>)).toList();
+
+    return catList.map((e) {
+      final catJson = Map<String, dynamic>.from(e as Map<String, dynamic>);
+      final catId = catJson['id'] as String? ?? '';
+      final catItems = allItems.where((item) => item.categoryId == catId).toList();
+      return MenuCategory(
+        id: catId,
+        name: catJson['name'] as String? ?? '',
+        imageUrl: catJson['imageUrl'] as String?,
+        sortOrder: (catJson['sortOrder'] as num?)?.toInt() ?? 0,
+        isActive: catJson['isActive'] as bool? ?? true,
+        items: catItems,
+      );
+    }).toList();
+  } catch (e) {
+    return [];
+  }
 });
 
 final menuCategoriesProvider = FutureProvider<List<MenuCategory>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<List<dynamic>>('/menu/categories');
-  return data.map((e) => MenuCategory.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/menu/categories');
+  final list = data is List ? data : [];
+  return list.map((e) => MenuCategory.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 final menuItemsProvider = FutureProvider.family<List<MenuItem>, String?>(
   (ref, categoryId) async {
     final api = ref.watch(apiClientProvider);
     final params = categoryId != null ? {'categoryId': categoryId} : null;
-    final data = await api.get<List<dynamic>>('/menu/items', queryParameters: params);
-    return data.map((e) => MenuItem.fromJson(e as Map<String, dynamic>)).toList();
+    final data = await api.get<dynamic>('/menu/items', queryParameters: params);
+    final list = data is List ? data : [];
+    return list.map((e) => MenuItem.fromJson(e as Map<String, dynamic>)).toList();
   },
 );
 
@@ -215,29 +238,36 @@ final menuItemsProvider = FutureProvider.family<List<MenuItem>, String?>(
 
 final tablesProvider = FutureProvider<List<RestaurantTable>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<Map<String, dynamic>>('/tables');
-  final tables = data['tables'] as List<dynamic>? ?? [];
-  return tables.map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/tables');
+  final list = data is List
+      ? data
+      : (data is Map && data['tables'] is List ? data['tables'] as List : []);
+  return list.map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 final floorsProvider = FutureProvider<List<Floor>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<List<dynamic>>('/tables/floors');
-  return data.map((e) => Floor.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/tables/floors');
+  final list = data is List ? data : [];
+  return list.map((e) => Floor.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 // ── Orders Providers ──────────────────────────────────────────────────────────
 
 final activeOrdersProvider = FutureProvider<List<Order>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<List<dynamic>>('/orders/active');
-  return data.map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/orders/active');
+  final list = data is List ? data : [];
+  return list.map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 final orderHistoryProvider = FutureProvider.family<Map<String, dynamic>, Map<String, dynamic>>(
   (ref, params) async {
     final api = ref.watch(apiClientProvider);
-    return api.get<Map<String, dynamic>>('/orders', queryParameters: params);
+    final data = await api.get<dynamic>('/orders', queryParameters: params);
+    if (data is Map<String, dynamic>) return data;
+    if (data is List) return {'orders': data, 'total': data.length};
+    return {'orders': [], 'total': 0};
   },
 );
 
@@ -245,22 +275,28 @@ final orderHistoryProvider = FutureProvider.family<Map<String, dynamic>, Map<Str
 
 final kitchenKotsProvider = FutureProvider<List<OrderKot>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<List<dynamic>>('/kitchen/kots');
-  return data.map((e) => OrderKot.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/kitchen/kots');
+  final list = data is List ? data : (data is Map && data['kots'] is List ? data['kots'] as List : []);
+  return list.map((e) => OrderKot.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 final kitchenStationsProvider = FutureProvider<List<KitchenStation>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<List<dynamic>>('/kitchen/stations');
-  return data.map((e) => KitchenStation.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/kitchen/stations');
+  final list = data is List ? data : [];
+  return list.map((e) => KitchenStation.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 // ── Customers Provider ────────────────────────────────────────────────────────
 
-final customersProvider = FutureProvider.family<Map<String, dynamic>, Map<String, dynamic>>(
+final customersProvider = FutureProvider.family<List<Customer>, Map<String, dynamic>>(
   (ref, params) async {
     final api = ref.watch(apiClientProvider);
-    return api.get<Map<String, dynamic>>('/customers', queryParameters: params);
+    final data = await api.get<dynamic>('/customers', queryParameters: params);
+    final list = data is List
+        ? data
+        : (data is Map && data['customers'] is List ? data['customers'] as List : []);
+    return list.map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
   },
 );
 
@@ -268,18 +304,26 @@ final customersProvider = FutureProvider.family<Map<String, dynamic>, Map<String
 
 final staffProvider = FutureProvider<List<StaffMember>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<Map<String, dynamic>>('/staff/members');
-  final members = data['users'] as List<dynamic>? ?? data['members'] as List<dynamic>? ?? [];
-  return members.map((e) => StaffMember.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/staff/employees');
+  final list = data is List
+      ? data
+      : (data is Map && (data['users'] is List || data['members'] is List)
+          ? (data['users'] ?? data['members']) as List
+          : []);
+  return list.map((e) => StaffMember.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 // ── Inventory Provider ────────────────────────────────────────────────────────
 
 final inventoryProvider = FutureProvider<List<InventoryItem>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get<Map<String, dynamic>>('/inventory/items');
-  final items = data['items'] as List<dynamic>? ?? [];
-  return items.map((e) => InventoryItem.fromJson(e as Map<String, dynamic>)).toList();
+  final data = await api.get<dynamic>('/inventory/ingredients');
+  final list = data is List
+      ? data
+      : (data is Map && (data['items'] is List || data['ingredients'] is List)
+          ? (data['items'] ?? data['ingredients']) as List
+          : []);
+  return list.map((e) => InventoryItem.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 // ── Reservations Provider ─────────────────────────────────────────────────────
@@ -287,9 +331,11 @@ final inventoryProvider = FutureProvider<List<InventoryItem>>((ref) async {
 final reservationsProvider = FutureProvider.family<List<Reservation>, Map<String, dynamic>>(
   (ref, params) async {
     final api = ref.watch(apiClientProvider);
-    final data = await api.get<Map<String, dynamic>>('/reservations', queryParameters: params);
-    final items = data['reservations'] as List<dynamic>? ?? [];
-    return items.map((e) => Reservation.fromJson(e as Map<String, dynamic>)).toList();
+    final data = await api.get<dynamic>('/reservations', queryParameters: params);
+    final list = data is List
+        ? data
+        : (data is Map && data['reservations'] is List ? data['reservations'] as List : []);
+    return list.map((e) => Reservation.fromJson(e as Map<String, dynamic>)).toList();
   },
 );
 
@@ -297,7 +343,27 @@ final reservationsProvider = FutureProvider.family<List<Reservation>, Map<String
 
 final dashboardProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  return api.get<Map<String, dynamic>>('/reports/dashboard');
+  try {
+    final summary = await api.get<dynamic>('/reports/summary');
+    if (summary is Map<String, dynamic>) {
+      final totalRevenue = (summary['totalRevenue'] as num?)?.toDouble() ?? 0.0;
+      final totalOrders = (summary['totalOrders'] as num?)?.toInt() ?? 0;
+      final activeTables = (summary['activeTables'] as num?)?.toInt() ?? 0;
+      return {
+        'todayRevenue': totalRevenue,
+        'todayOrders': totalOrders,
+        'activeOrders': activeTables,
+        'avgOrderValue': totalOrders > 0 ? (totalRevenue / totalOrders) : 0.0,
+        ...summary,
+      };
+    }
+  } catch (_) {}
+  return {
+    'todayRevenue': 0.0,
+    'todayOrders': 0,
+    'activeOrders': 0,
+    'avgOrderValue': 0.0,
+  };
 });
 
 // ── POS Cart State ────────────────────────────────────────────────────────────

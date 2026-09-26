@@ -124,7 +124,7 @@ class ApiClient {
     T Function(dynamic)? fromJson,
   }) async {
     final res = await _dio.get(path, queryParameters: queryParameters);
-    final data = res.data['data'];
+    final data = res.data is Map ? (res.data['data'] ?? res.data) : res.data;
     return fromJson != null ? fromJson(data) : data as T;
   }
 
@@ -134,7 +134,7 @@ class ApiClient {
     T Function(dynamic)? fromJson,
   }) async {
     final res = await _dio.post(path, data: data);
-    final resData = res.data['data'];
+    final resData = res.data is Map ? (res.data['data'] ?? res.data) : res.data;
     return fromJson != null ? fromJson(resData) : resData as T;
   }
 
@@ -144,7 +144,7 @@ class ApiClient {
     T Function(dynamic)? fromJson,
   }) async {
     final res = await _dio.patch(path, data: data);
-    final resData = res.data['data'];
+    final resData = res.data is Map ? (res.data['data'] ?? res.data) : res.data;
     return fromJson != null ? fromJson(resData) : resData as T;
   }
 
@@ -154,7 +154,7 @@ class ApiClient {
     T Function(dynamic)? fromJson,
   }) async {
     final res = await _dio.put(path, data: data);
-    final resData = res.data['data'];
+    final resData = res.data is Map ? (res.data['data'] ?? res.data) : res.data;
     return fromJson != null ? fromJson(resData) : resData as T;
   }
 
