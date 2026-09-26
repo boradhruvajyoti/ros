@@ -64,7 +64,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     ref.listen(authProvider, (prev, next) {
       if (next.isAuthenticated) {
-        context.go('/tables');
+        final isPlatformAdmin = next.user?.isPlatformAdmin ?? false;
+        context.go(isPlatformAdmin ? '/super-admin' : '/tables');
       }
     });
 
@@ -167,7 +168,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                     fontSize: 14,
                                   ),
                                 ),
-                                const SizedBox(height: 28),
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: const Color(0xFF6366F1).withOpacity(0.5)),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  icon: const Icon(Icons.hub_rounded, size: 14, color: Color(0xFF818CF8)),
+                                  label: const Text(
+                                    'Autofill Platform Super Admin',
+                                    style: TextStyle(fontSize: 11, color: Color(0xFF818CF8)),
+                                  ),
+                                  onPressed: () {
+                                    _emailController.text = 'superadmin@ros.com';
+                                    _passwordController.text = 'Admin@1234';
+                                  },
+                                ),
+                                const SizedBox(height: 20),
 
                                 // Email
                                 TextFormField(

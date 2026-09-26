@@ -23,6 +23,8 @@ import '../../features/customers/customers_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../utils/shell.dart';
 
+import '../../features/superadmin/superadmin_screen.dart';
+
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
@@ -31,9 +33,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated;
       final goingToLogin = state.matchedLocation == '/login';
+      final isPlatformAdmin = authState.user?.isPlatformAdmin ?? false;
 
       if (!isLoggedIn && !goingToLogin) return '/login';
-      if (isLoggedIn && goingToLogin) return '/tables';
+      if (isLoggedIn && goingToLogin) {
+        return isPlatformAdmin ? '/super-admin' : '/tables';
+      }
+      if (isLoggedIn && isPlatformAdmin && 
+          !state.matchedLocation.startsWith('/super-admin') && 
+          !state.matchedLocation.startsWith('/settings')) {
+        return '/super-admin';
+      }
       return null;
     },
     routes: [
@@ -47,6 +57,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
+          GoRoute(
+            path: '/super-admin',
+            builder: (context, state) => const SuperAdminScreen(),
+          ),
           GoRoute(
             path: '/dashboard',
             builder: (context, state) => const DashboardScreen(),

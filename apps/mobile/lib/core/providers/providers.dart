@@ -417,3 +417,23 @@ class CartNotifier extends StateNotifier<CartState> {
 final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
   return CartNotifier();
 });
+
+// ── Super Admin Providers ───────────────────────────────────────────────────
+
+final superAdminOverviewProvider = FutureProvider<SuperAdminOverview>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  final data = await api.get<Map<String, dynamic>>('/super-admin/overview');
+  return SuperAdminOverview.fromJson(data);
+});
+
+final superAdminTenantsProvider = FutureProvider<List<TenantSummary>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  final data = await api.get<List<dynamic>>('/super-admin/tenants');
+  return data.map((e) => TenantSummary.fromJson(e as Map<String, dynamic>)).toList();
+});
+
+final saasPlansProvider = FutureProvider<List<SaasPlanItem>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  final data = await api.get<List<dynamic>>('/super-admin/plans');
+  return data.map((e) => SaasPlanItem.fromJson(e as Map<String, dynamic>)).toList();
+});

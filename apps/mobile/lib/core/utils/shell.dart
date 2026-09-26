@@ -1,5 +1,5 @@
 // =============================================================================
-// App Shell — Bottom navigation + side drawer
+// App Shell — Dynamic Role-Based Navigation & Drawer
 // =============================================================================
 
 import 'package:flutter/material.dart';
@@ -7,12 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../providers/providers.dart';
+import '../models/models.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
-  static const List<_NavItem> _navItems = [
+  static const List<_NavItem> _restaurantBottomNav = [
     _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
     _NavItem(path: '/pos', label: 'POS', icon: Icons.point_of_sale_rounded),
     _NavItem(path: '/kitchen', label: 'Kitchen', icon: Icons.restaurant_rounded),
@@ -20,14 +21,22 @@ class AppShell extends ConsumerWidget {
     _NavItem(path: '/menu', label: 'More', icon: Icons.menu_rounded),
   ];
 
+  static const List<_NavItem> _superAdminBottomNav = [
+    _NavItem(path: '/super-admin', label: 'Platform Control', icon: Icons.hub_rounded),
+    _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
     final user = ref.watch(authProvider).user;
+    final isSuperAdmin = user?.isPlatformAdmin ?? false;
 
-    int selectedIndex = 3; // Dashboard default
-    for (var i = 0; i < _navItems.length; i++) {
-      if (location.startsWith(_navItems[i].path)) {
+    final navItems = isSuperAdmin ? _superAdminBottomNav : _restaurantBottomNav;
+
+    int selectedIndex = 0;
+    for (var i = 0; i < navItems.length; i++) {
+      if (location.startsWith(navItems[i].path)) {
         selectedIndex = i;
         break;
       }
@@ -38,18 +47,18 @@ class AppShell extends ConsumerWidget {
         children: [
           // Desktop-style side rail for larger screens
           if (MediaQuery.of(context).size.width > 800)
-            _buildSideRail(context, ref, location, user),
+            _buildSideRail(context, ref, location, user, isSuperAdmin),
           Expanded(child: child),
         ],
       ),
       bottomNavigationBar: MediaQuery.of(context).size.width <= 800
-          ? _buildBottomNav(context, selectedIndex)
+          ? _buildBottomNav(context, selectedIndex, navItems)
           : null,
-      endDrawer: _buildDrawer(context, ref, user),
+      endDrawer: _buildDrawer(context, ref, user, isSuperAdmin),
     );
   }
 
-  Widget _buildBottomNav(BuildContext context, int selectedIndex) {
+  Widget _buildBottomNav(BuildContext context, int selectedIndex, List<_NavItem> items) {
     return Container(
       decoration: const BoxDecoration(
         border: Border(
@@ -57,9 +66,9 @@ class AppShell extends ConsumerWidget {
         ),
       ),
       child: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (i) => context.go(_navItems[i].path),
-        destinations: _navItems.map((item) => NavigationDestination(
+        selectedIndex: selectedIndex.clamp(0, items.length - 1),
+        onDestinationSelected: (i) => context.go(items[i].path),
+        destinations: items.map((item) => NavigationDestination(
           icon: Icon(item.icon),
           label: item.label,
         )).toList(),
@@ -67,9 +76,11 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  Widget _buildSideRail(BuildContext context, WidgetRef ref, String location, user) {
+  Widget _buildSideRail(BuildContext context, WidgetRef ref, String location, AuthUser? user, bool isSuperAdmin) {
+    final sections = isSuperAdmin ? _superAdminNavSections : _restaurantNavSections;
+
     return Container(
-      width: 220,
+      width: 230,
       decoration: const BoxDecoration(
         color: RosTheme.bgCard,
         border: Border(right: BorderSide(color: RosTheme.bgBorder)),
@@ -85,17 +96,35 @@ class AppShell extends ConsumerWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    gradient: RosTheme.primaryGradient,
+                    gradient: isSuperAdmin
+                        ? const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)])
+                        : RosTheme.primaryGradient,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.restaurant, color: Colors.white, size: 20),
+                  child: Icon(
+                    isSuperAdmin ? Icons.hub_rounded : Icons.restaurant,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 10),
-                const Text('ROS', style: TextStyle(
-                  color: RosTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                )),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('ROS', style: TextStyle(
+                      color: RosTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    )),
+                    Text(
+                      isSuperAdmin ? 'Platform HQ' : (user?.tenantName ?? 'Restaurant OS'),
+                      style: const TextStyle(
+                        color: RosTheme.textMuted,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -103,7 +132,7 @@ class AppShell extends ConsumerWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              children: _allNavSections.map((section) {
+              children: sections.map((section) {
                 if (section is _SectionDivider) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
@@ -148,7 +177,7 @@ class AppShell extends ConsumerWidget {
               }).toList(),
             ),
           ),
-          // User avatar at bottom
+          // User profile at bottom
           Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
@@ -184,7 +213,7 @@ class AppShell extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        user?.roles.firstOrNull ?? 'Staff',
+                        isSuperAdmin ? 'Super Admin' : (user?.roles.firstOrNull ?? 'Owner'),
                         style: const TextStyle(
                           color: RosTheme.textMuted,
                           fontSize: 10,
@@ -201,39 +230,50 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  Widget _buildDrawer(BuildContext context, WidgetRef ref, user) {
+  Widget _buildDrawer(BuildContext context, WidgetRef ref, AuthUser? user, bool isSuperAdmin) {
+    final sections = isSuperAdmin ? _superAdminNavSections : _restaurantNavSections;
+
     return Drawer(
       backgroundColor: RosTheme.bgCard,
       child: Column(
         children: [
           DrawerHeader(
-            decoration: const BoxDecoration(
-              gradient: RosTheme.primaryGradient,
+            decoration: BoxDecoration(
+              gradient: isSuperAdmin
+                  ? const LinearGradient(colors: [Color(0xFF1E1B4B), Color(0xFF4338CA)])
+                  : RosTheme.primaryGradient,
             ),
             child: Row(
               children: [
-                const Icon(Icons.restaurant, color: Colors.white, size: 28),
+                Icon(
+                  isSuperAdmin ? Icons.hub_rounded : Icons.restaurant,
+                  color: Colors.white,
+                  size: 28,
+                ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'ROS',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        isSuperAdmin ? 'Platform Control' : 'ROS Mobile',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    Text(
-                      user?.name ?? '',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
+                      Text(
+                        user?.name ?? user?.email ?? '',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -241,7 +281,7 @@ class AppShell extends ConsumerWidget {
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
-              children: _allNavSections.map((section) {
+              children: sections.map((section) {
                 if (section is _SectionDivider) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -298,7 +338,7 @@ class _SectionDivider {
   const _SectionDivider(this.label);
 }
 
-const List<Object> _allNavSections = [
+const List<Object> _restaurantNavSections = [
   _SectionDivider('OPERATIONS'),
   _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
   _NavItem(path: '/pos', label: 'Point of Sale', icon: Icons.point_of_sale_rounded),
@@ -314,5 +354,12 @@ const List<Object> _allNavSections = [
   _NavItem(path: '/reports', label: 'Reports', icon: Icons.bar_chart_rounded),
   _SectionDivider('SYSTEM'),
   _NavItem(path: '/dashboard', label: 'Dashboard', icon: Icons.home_rounded),
+  _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
+];
+
+const List<Object> _superAdminNavSections = [
+  _SectionDivider('PLATFORM SAAS CONTROL'),
+  _NavItem(path: '/super-admin', label: 'Platform Control', icon: Icons.hub_rounded),
+  _SectionDivider('CONFIGURATION'),
   _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
 ];

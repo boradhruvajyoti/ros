@@ -10,6 +10,7 @@ class AuthUser {
   final String email;
   final String? phone;
   final String tenantId;
+  final String? tenantName;
   final String branchId;
   final List<String> roles;
   final List<String> permissions;
@@ -20,20 +21,25 @@ class AuthUser {
     required this.email,
     this.phone,
     required this.tenantId,
+    this.tenantName,
     required this.branchId,
     this.roles = const [],
     this.permissions = const [],
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
-    // Derive branchId from branchRoles
-    String branchId = 'default-branch';
+    // Derive branchId
+    String branchId = json['activeBranchId'] as String? ?? json['branchId'] as String? ?? 'default-branch';
     if (json['branchRoles'] != null && (json['branchRoles'] as List).isNotEmpty) {
       branchId = (json['branchRoles'] as List).first['branchId'] as String? ?? branchId;
     }
-    if (json['branchId'] != null) branchId = json['branchId'] as String;
 
     final roles = <String>[];
+    if (json['roles'] != null) {
+      for (final r in json['roles'] as List) {
+        if (r is String && !roles.contains(r)) roles.add(r);
+      }
+    }
     if (json['branchRoles'] != null) {
       for (final br in json['branchRoles'] as List) {
         final roleName = br['role']?['name'] as String?;
@@ -41,17 +47,23 @@ class AuthUser {
       }
     }
 
+    final perms = <String>[];
+    if (json['permissions'] != null) {
+      for (final p in json['permissions'] as List) {
+        if (p is String && !perms.contains(p)) perms.add(p);
+      }
+    }
+
     return AuthUser(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String,
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'User',
+      email: json['email'] as String? ?? '',
       phone: json['phone'] as String?,
       tenantId: json['tenantId'] as String? ?? 'tenant-default',
+      tenantName: json['tenantName'] as String?,
       branchId: branchId,
       roles: roles,
-      permissions: (json['permissions'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList() ?? [],
+      permissions: perms,
     );
   }
 
@@ -61,6 +73,7 @@ class AuthUser {
     'email': email,
     'phone': phone,
     'tenantId': tenantId,
+    'tenantName': tenantName,
     'branchId': branchId,
     'roles': roles,
     'permissions': permissions,
@@ -68,10 +81,11 @@ class AuthUser {
 
   bool get isPlatformAdmin =>
       email.toLowerCase() == 'superadmin@ros.com' ||
-      tenantId == 'tenant-platform';
+      tenantId == 'tenant-platform' ||
+      roles.contains('SUPER_ADMIN');
 
   bool get isTenantAdmin =>
-      isPlatformAdmin || roles.contains('OWNER');
+      isPlatformAdmin || roles.contains('OWNER') || roles.contains('ADMIN');
 
   bool hasPermission(String permission) {
     if (isPlatformAdmin || isTenantAdmin) return true;
@@ -81,6 +95,139 @@ class AuthUser {
   bool hasAnyPermission(List<String> perms) {
     if (isPlatformAdmin || isTenantAdmin) return true;
     return perms.any(permissions.contains);
+  }
+}
+
+// ── Platform Super Admin Models ──────────────────────────────────────────────
+
+class TenantSummary {
+  final String id;
+  final String name;
+  final String slug;
+  final String plan;
+  final String status;
+  final String? logoUrl;
+  final int branchesCount;
+  final int usersCount;
+  final int ordersCount;
+  final int tablesCount;
+  final DateTime createdAt;
+
+  const TenantSummary({
+    required this.id,
+    required this.name,
+    required this.slug,
+    required this.plan,
+    required this.status,
+    this.logoUrl,
+    required this.branchesCount,
+    required this.usersCount,
+    required this.ordersCount,
+    this.tablesCount = 0,
+    required this.createdAt,
+  });
+
+  factory TenantSummary.fromJson(Map<String, dynamic> json) {
+    return TenantSummary(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'Restaurant',
+      slug: json['slug'] as String? ?? '',
+      plan: json['plan'] as String? ?? 'starter',
+      status: json['status'] as String? ?? 'ACTIVE',
+      logoUrl: json['logoUrl'] as String?,
+      branchesCount: (json['branchesCount'] as num?)?.toInt() ?? 1,
+      usersCount: (json['usersCount'] as num?)?.toInt() ?? 0,
+      ordersCount: (json['ordersCount'] as num?)?.toInt() ?? 0,
+      tablesCount: (json['tablesCount'] as num?)?.toInt() ?? 0,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+class SuperAdminOverview {
+  final int totalTenants;
+  final int activeTenants;
+  final double monthlyRecurringRevenue;
+  final int totalOrdersProcessed;
+  final String systemUptime;
+  final int databaseLatencyMs;
+  final List<TenantSummary> tenants;
+
+  const SuperAdminOverview({
+    required this.totalTenants,
+    required this.activeTenants,
+    required this.monthlyRecurringRevenue,
+    required this.totalOrdersProcessed,
+    required this.systemUptime,
+    required this.databaseLatencyMs,
+    required this.tenants,
+  });
+
+  factory SuperAdminOverview.fromJson(Map<String, dynamic> json) {
+    return SuperAdminOverview(
+      totalTenants: (json['totalTenants'] as num?)?.toInt() ?? 0,
+      activeTenants: (json['activeTenants'] as num?)?.toInt() ?? 0,
+      monthlyRecurringRevenue: (json['monthlyRecurringRevenue'] as num?)?.toDouble() ?? 0.0,
+      totalOrdersProcessed: (json['totalOrdersProcessed'] as num?)?.toInt() ?? 0,
+      systemUptime: json['systemUptime'] as String? ?? '99.9%',
+      databaseLatencyMs: (json['databaseLatencyMs'] as num?)?.toInt() ?? 15,
+      tenants: (json['tenants'] as List<dynamic>?)
+          ?.map((e) => TenantSummary.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+    );
+  }
+}
+
+class SaasPlanItem {
+  final String id;
+  final String name;
+  final String code;
+  final double price;
+  final String currency;
+  final String interval;
+  final String description;
+  final List<String> features;
+  final int maxBranches;
+  final int maxUsers;
+  final int maxOrdersPerMonth;
+  final String? badge;
+  final bool isPopular;
+  final bool isActive;
+
+  const SaasPlanItem({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.price,
+    required this.currency,
+    required this.interval,
+    required this.description,
+    required this.features,
+    required this.maxBranches,
+    required this.maxUsers,
+    required this.maxOrdersPerMonth,
+    this.badge,
+    this.isPopular = false,
+    this.isActive = true,
+  });
+
+  factory SaasPlanItem.fromJson(Map<String, dynamic> json) {
+    return SaasPlanItem(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      code: json['code'] as String? ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'] as String? ?? 'INR',
+      interval: json['interval'] as String? ?? 'month',
+      description: json['description'] as String? ?? '',
+      features: (json['features'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      maxBranches: (json['maxBranches'] as num?)?.toInt() ?? 1,
+      maxUsers: (json['maxUsers'] as num?)?.toInt() ?? 5,
+      maxOrdersPerMonth: (json['maxOrdersPerMonth'] as num?)?.toInt() ?? 1000,
+      badge: json['badge'] as String?,
+      isPopular: json['isPopular'] as bool? ?? false,
+      isActive: json['isActive'] as bool? ?? true,
+    );
   }
 }
 
