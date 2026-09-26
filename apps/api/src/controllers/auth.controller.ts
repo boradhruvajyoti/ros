@@ -16,6 +16,7 @@ import {
   onboardRestaurantSchema,
 } from '../validators/auth.schema';
 import { prisma } from '../lib/prisma';
+import { cacheGet, cacheSet, cacheDel } from '../lib/redis';
 import { TelegramService } from '../services/telegram.service';
 
 const REFRESH_COOKIE = 'ros_rt';
@@ -204,7 +205,7 @@ export class AuthController {
     });
   }
 
-  static async updateTelegramConnection(req: Request, res: Response): Promise<void> {
+  static async requestTelegramOtp(req: Request, res: Response): Promise<void> {
     const { chatId, username } = req.body;
     if (!chatId) {
       throw new AppError('VALIDATION_ERROR', 'Telegram Chat ID is required', 400);
@@ -213,11 +214,74 @@ export class AuthController {
     const cleanChatId = String(chatId).trim();
     const cleanUsername = username ? String(username).trim().replace(/^@/, '') : undefined;
 
+    // Check if bot token is configured
+    const botInfo = await TelegramService.getBotInfo();
+    if (!botInfo) {
+      throw new AppError('CONFIG_ERROR', 'Telegram Bot is not configured by the Platform Superadmin yet. Please configure the bot token first.', 400);
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store in cache with 5 minutes (300 seconds) expiration
+    const cacheKey = `tg_otp:${req.user!.sub}`;
+    await cacheSet(cacheKey, {
+      otp,
+      chatId: cleanChatId,
+      username: cleanUsername,
+      requestedAt: new Date().toISOString(),
+    }, 300);
+
+    // Send OTP to the Telegram Chat ID
+    try {
+      const sendResult = await TelegramService.sendMessage(
+        cleanChatId,
+        `🔐 <b>ROS Restaurant OS — Telegram Verification Code</b>\n\nYour 6-digit verification code is:\n\n👉 <code>${otp}</code> 👈\n\n⏱️ <i>This code expires in 5 minutes. Enter this code in your Restaurant User Profile to verify and link your Telegram account.</i>`
+      );
+
+      if (!sendResult.success) {
+        throw new Error(sendResult.error || 'Failed to dispatch Telegram message');
+      }
+    } catch (err: any) {
+      await cacheDel(cacheKey);
+      throw new AppError(
+        'TELEGRAM_SEND_FAILED',
+        `Could not deliver OTP to Telegram Chat ID "${cleanChatId}". Please ensure you have opened the bot (@${botInfo.username || 'your bot'}) in Telegram and clicked START before requesting the OTP code. (${err.message || 'Error'})`,
+        400
+      );
+    }
+
+    sendSuccess(res, {
+      message: `A 6-digit verification code was sent to your Telegram chat. Please check Telegram and enter the OTP.`,
+      expiresInSeconds: 300,
+      chatId: cleanChatId,
+    });
+  }
+
+  static async verifyTelegramOtp(req: Request, res: Response): Promise<void> {
+    const { otp } = req.body;
+    if (!otp) {
+      throw new AppError('VALIDATION_ERROR', 'Verification code (OTP) is required', 400);
+    }
+
+    const cleanOtp = String(otp).trim();
+    const cacheKey = `tg_otp:${req.user!.sub}`;
+    const stored = await cacheGet<{ otp: string; chatId: string; username?: string }>(cacheKey);
+
+    if (!stored || !stored.otp) {
+      throw new AppError('INVALID_OTP', 'The verification code has expired or was not requested. Please request a new OTP code.', 400);
+    }
+
+    if (stored.otp !== cleanOtp) {
+      throw new AppError('INVALID_OTP', 'Invalid verification code. Please check your Telegram message and enter the correct 6-digit code.', 400);
+    }
+
+    // OTP matched! Update user record in database
     const updated = await prisma.user.update({
       where: { id: req.user!.sub },
       data: {
-        telegramChatId: cleanChatId,
-        ...(cleanUsername !== undefined ? { telegramUsername: cleanUsername } : {}),
+        telegramChatId: stored.chatId,
+        ...(stored.username !== undefined ? { telegramUsername: stored.username } : {}),
       },
       select: {
         id: true,
@@ -226,18 +290,26 @@ export class AuthController {
       },
     });
 
-    // Send a welcome message via Telegram
+    // Clean up OTP from cache
+    await cacheDel(cacheKey);
+
+    // Send confirmation message to the user on Telegram
     try {
       await TelegramService.sendMessage(
-        cleanChatId,
-        `👋 <b>Welcome to ROS Restaurant OS Notifications!</b>\n\n✅ Your Telegram account has been linked to <b>${req.user!.email}</b>.\nYou will now receive live operational alerts based on your assigned role.`
+        stored.chatId,
+        `🎉 <b>Telegram Linked Successfully!</b>\n\n✅ Your Telegram account is now authenticated and linked to <b>${req.user!.email}</b>.\nYou will now receive live operational notifications (Orders, KOTs, Food Ready, Bills & Reports) on this chat.`
       );
     } catch {}
 
     sendSuccess(res, {
-      message: 'Telegram account connected successfully! A test confirmation message was sent.',
+      message: 'Telegram account verified and connected successfully!',
       user: updated,
     });
+  }
+
+  static async updateTelegramConnection(req: Request, res: Response): Promise<void> {
+    // Keep legacy direct update as fallback if needed or redirect to OTP
+    return this.requestTelegramOtp(req, res);
   }
 
   static async disconnectTelegram(req: Request, res: Response): Promise<void> {

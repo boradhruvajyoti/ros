@@ -21,8 +21,10 @@ router.get('/me',            auth(), asyncHandler(AuthController.me));
 router.patch('/me/password', auth(), asyncHandler(AuthController.changePassword));
 router.post('/switch-branch', auth(), asyncHandler(AuthController.switchBranch));
 router.post('/switch-tenant', auth(), asyncHandler(AuthController.switchTenant));
-router.get('/me/telegram',    auth(), asyncHandler(AuthController.getTelegramStatus));
-router.post('/me/telegram',   auth(), asyncHandler(AuthController.updateTelegramConnection));
-router.delete('/me/telegram', auth(), asyncHandler(AuthController.disconnectTelegram));
+router.get('/me/telegram',              auth(), asyncHandler(AuthController.getTelegramStatus));
+router.post('/me/telegram/request-otp',  auth(), asyncHandler(AuthController.requestTelegramOtp));
+router.post('/me/telegram/verify-otp',   auth(), asyncHandler(AuthController.verifyTelegramOtp));
+router.post('/me/telegram',              auth(), asyncHandler(AuthController.updateTelegramConnection));
+router.delete('/me/telegram',            auth(), asyncHandler(AuthController.disconnectTelegram));
 
 export default router;

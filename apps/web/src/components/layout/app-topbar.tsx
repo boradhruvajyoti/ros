@@ -27,6 +27,8 @@ export function AppTopbar() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [telegramChatIdInput, setTelegramChatIdInput] = useState('');
   const [telegramUsernameInput, setTelegramUsernameInput] = useState('');
+  const [telegramOtpInput, setTelegramOtpInput] = useState('');
+  const [otpStep, setOtpStep] = useState<'INPUT' | 'OTP'>('INPUT');
   const [isEditingTelegram, setIsEditingTelegram] = useState(false);
 
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN');
@@ -63,16 +65,31 @@ export function AppTopbar() {
     staleTime: 1000 * 30,
   });
 
-  const connectTelegramMutation = useMutation({
+  const requestOtpMutation = useMutation({
     mutationFn: (payload: { chatId: string; username?: string }) =>
-      apiPost('/auth/me/telegram', payload),
+      apiPost('/auth/me/telegram/request-otp', payload),
     onSuccess: (data: any) => {
-      toast.success('Telegram Connected! 🚀', data?.message || 'You will now receive live role-based operational notifications.');
+      toast.info('OTP Sent! 📩', data?.message || 'Check your Telegram for the 6-digit verification code.');
+      setOtpStep('OTP');
+      setTelegramOtpInput('');
+    },
+    onError: (err: any) => {
+      toast.error('Could Not Send OTP', err?.response?.data?.error?.message || err?.message || 'Failed to dispatch Telegram verification code.');
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: (payload: { otp: string }) =>
+      apiPost('/auth/me/telegram/verify-otp', payload),
+    onSuccess: (data: any) => {
+      toast.success('Telegram Connected! 🚀', data?.message || 'Your Telegram account is now verified and active.');
       setIsEditingTelegram(false);
+      setOtpStep('INPUT');
+      setTelegramOtpInput('');
       queryClient.invalidateQueries({ queryKey: ['my-telegram-status'] });
     },
     onError: (err: any) => {
-      toast.error('Connection Failed', err?.response?.data?.error?.message || 'Could not link Telegram account.');
+      toast.error('Verification Failed', err?.response?.data?.error?.message || err?.message || 'Invalid or expired OTP code.');
     },
   });
 
@@ -82,6 +99,8 @@ export function AppTopbar() {
       toast.info('Telegram Disconnected', 'Operational notifications have been stopped.');
       setTelegramChatIdInput('');
       setTelegramUsernameInput('');
+      setTelegramOtpInput('');
+      setOtpStep('INPUT');
       setIsEditingTelegram(false);
       queryClient.invalidateQueries({ queryKey: ['my-telegram-status'] });
     },
@@ -278,7 +297,10 @@ export function AppTopbar() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setIsEditingTelegram(true)}
+                          onClick={() => {
+                            setIsEditingTelegram(true);
+                            setOtpStep('INPUT');
+                          }}
                           className="h-7 text-[11px] rounded-lg border-border hover:bg-muted flex-1 cursor-pointer"
                         >
                           Change ID
@@ -294,7 +316,69 @@ export function AppTopbar() {
                         </Button>
                       </div>
                     </div>
+                  ) : otpStep === 'OTP' ? (
+                    /* ── STEP 2: OTP VERIFICATION ── */
+                    <div className="space-y-2.5">
+                      <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/30 text-[11px] text-sky-200">
+                        <p className="font-bold">📩 Verification Code Sent</p>
+                        <p className="text-[10px] opacity-80 mt-0.5">
+                          A 6-digit code has been sent to Chat ID <span className="font-mono font-bold text-white">{telegramChatIdInput}</span>.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          Enter 6-Digit OTP
+                        </label>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            maxLength={6}
+                            placeholder="123456"
+                            value={telegramOtpInput}
+                            onChange={(e) => setTelegramOtpInput(e.target.value.replace(/\D/g, ''))}
+                            className="flex-1 px-3 py-1.5 text-center text-sm font-mono tracking-widest font-black rounded-xl bg-background border border-border focus:ring-2 focus:ring-sky-500"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            disabled={telegramOtpInput.length < 6 || verifyOtpMutation.isPending}
+                            loading={verifyOtpMutation.isPending}
+                            onClick={() => {
+                              verifyOtpMutation.mutate({ otp: telegramOtpInput.trim() });
+                            }}
+                            className="h-8 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
+                          >
+                            <Check className="w-3 h-3 mr-1" /> Verify
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+                          <button
+                            type="button"
+                            disabled={requestOtpMutation.isPending}
+                            onClick={() => {
+                              requestOtpMutation.mutate({
+                                chatId: telegramChatIdInput.trim(),
+                                username: telegramUsernameInput.trim() || undefined,
+                              });
+                            }}
+                            className="text-sky-400 hover:underline cursor-pointer font-semibold disabled:opacity-50"
+                          >
+                            Resend Code
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOtpStep('INPUT')}
+                            className="hover:underline cursor-pointer"
+                          >
+                            Change Chat ID
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   ) : (
+                    /* ── STEP 1: CHAT ID INPUT & REQUEST OTP ── */
                     <div className="space-y-2">
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         Connect your Telegram to receive instant real-time kitchen, order, and billing updates.
@@ -307,7 +391,7 @@ export function AppTopbar() {
                           rel="noreferrer"
                           className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-bold underline decoration-sky-400/40"
                         >
-                          <span>1. Open @{telegramStatus.botUsername} in Telegram</span>
+                          <span>1. Open @{telegramStatus.botUsername} in Telegram & tap Start</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
@@ -326,17 +410,17 @@ export function AppTopbar() {
                           />
                           <Button
                             size="sm"
-                            disabled={!telegramChatIdInput.trim() || connectTelegramMutation.isPending}
-                            loading={connectTelegramMutation.isPending}
+                            disabled={!telegramChatIdInput.trim() || requestOtpMutation.isPending}
+                            loading={requestOtpMutation.isPending}
                             onClick={() => {
-                              connectTelegramMutation.mutate({
+                              requestOtpMutation.mutate({
                                 chatId: telegramChatIdInput.trim(),
                                 username: telegramUsernameInput.trim() || undefined,
                               });
                             }}
                             className="h-8 px-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white cursor-pointer"
                           >
-                            <Link2 className="w-3 h-3 mr-1" /> Connect
+                            <Shield className="w-3 h-3 mr-1" /> Get OTP
                           </Button>
                         </div>
                         {isEditingTelegram && (
