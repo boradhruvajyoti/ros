@@ -95,6 +95,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _ref.invalidate(superAdminOverviewProvider);
     _ref.invalidate(superAdminTenantsProvider);
     _ref.invalidate(saasPlansProvider);
+    _ref.invalidate(telegramStatusProvider);
   }
 
   Future<void> login(String email, String password, {String? branchId}) async {
@@ -636,4 +637,9 @@ final saasPlansProvider = FutureProvider<List<SaasPlanItem>>((ref) async {
   final api = ref.watch(apiClientProvider);
   final data = await api.get<List<dynamic>>('/super-admin/plans');
   return data.map((e) => SaasPlanItem.fromJson(e as Map<String, dynamic>)).toList();
+});
+
+final telegramStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.get<Map<String, dynamic>>('/auth/me/telegram');
 });

@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/providers/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/api/api_client.dart';
+import '../auth/telegram_connection_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -94,7 +95,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 8),
           _SectionHeader('Account'),
           _SettingsTile(Icons.lock_rounded, 'Change Password', null, onTap: () => _showChangePassword()),
-          _SettingsTile(Icons.notifications_rounded, 'Notifications', 'Telegram & push alerts', onTap: () {}),
+          _SettingsTile(Icons.notifications_rounded, 'Telegram Alerts & Notifications', 'Connect bot for live KOT & bills', onTap: () => TelegramConnectionSheet.show(context)),
           _SettingsTile(Icons.logout_rounded, 'Sign Out', null, color: RosTheme.danger, onTap: () => _logout()),
 
           const SizedBox(height: 20),

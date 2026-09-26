@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
+import '../../features/auth/telegram_connection_sheet.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
@@ -307,7 +308,72 @@ class AppShell extends ConsumerWidget {
               valueColor: RosTheme.secondary,
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+
+            // Telegram Alerts & Bot Connection Button
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(ctx);
+                TelegramConnectionSheet.show(context);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF229ED9).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF229ED9).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF229ED9).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.send_rounded,
+                        color: Color(0xFF229ED9),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Telegram Alerts & Bot',
+                            style: TextStyle(
+                              color: RosTheme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Connect account for live KOT & bills',
+                            style: TextStyle(
+                              color: RosTheme.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: Color(0xFF229ED9),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
             // Action buttons
             SizedBox(
               width: double.infinity,

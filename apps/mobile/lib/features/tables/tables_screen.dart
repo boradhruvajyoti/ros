@@ -1,8 +1,9 @@
 // =============================================================================
-// Tables Screen — Floor plan view with real-time status
+// Tables Screen — Floor plan view with real-time status & Table Selection for New Order
 // =============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/providers.dart';
@@ -23,6 +24,19 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
 
   @override
   bool get wantKeepAlive => true;
+
+  void _triggerTableSelection() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: RosTheme.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => const _TableSelectionSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,8 +87,8 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                     const Icon(Icons.wifi_off_rounded,
                         color: RosTheme.textMuted, size: 48),
                     const SizedBox(height: 16),
-                    Text('Failed to load tables',
-                        style: const TextStyle(color: RosTheme.textSecondary)),
+                    const Text('Failed to load tables',
+                        style: TextStyle(color: RosTheme.textSecondary)),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => ref.invalidate(tablesProvider),
@@ -88,7 +102,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/pos'),
+        onPressed: _triggerTableSelection,
         icon: const Icon(Icons.add_shopping_cart_rounded),
         label: const Text('New Order'),
       ),
@@ -135,7 +149,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
               label: Text(s == 'ALL' ? 'All' : s.replaceAll('_', ' ')),
               selected: selected,
               onSelected: (_) => setState(() => _filterStatus = s),
-              selectedColor: RosTheme.primary.withOpacity(0.15),
+              selectedColor: RosTheme.primary.withValues(alpha: 0.15),
               checkmarkColor: RosTheme.primary,
               labelStyle: TextStyle(
                 color: selected ? RosTheme.primary : RosTheme.textSecondary,
@@ -143,7 +157,9 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
               side: BorderSide(
-                color: selected ? RosTheme.primary.withOpacity(0.5) : RosTheme.bgBorder,
+                color: selected
+                    ? RosTheme.primary.withValues(alpha: 0.5)
+                    : RosTheme.bgBorder,
               ),
             ),
           );
@@ -160,14 +176,14 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
     }).toList();
 
     if (filtered.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.grid_view_rounded,
+            Icon(Icons.grid_view_rounded,
                 color: RosTheme.textMuted, size: 48),
-            const SizedBox(height: 12),
-            const Text('No tables found',
+            SizedBox(height: 12),
+            Text('No tables found',
                 style: TextStyle(color: RosTheme.textSecondary)),
           ],
         ),
@@ -201,6 +217,8 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
     );
   }
 }
+
+// ── Floor Filter Chip ─────────────────────────────────────────────────────────
 
 class _FloorChip extends StatelessWidget {
   final String label;
@@ -237,6 +255,8 @@ class _FloorChip extends StatelessWidget {
     );
   }
 }
+
+// ── Top Summary Bar ───────────────────────────────────────────────────────────
 
 class _SummaryBar extends StatelessWidget {
   final int available;
@@ -291,6 +311,8 @@ class _StatChip extends StatelessWidget {
   }
 }
 
+// ── Table Card ───────────────────────────────────────────────────────────────
+
 class _TableCard extends StatelessWidget {
   final RestaurantTable table;
   final VoidCallback onTap;
@@ -315,12 +337,12 @@ class _TableCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: table.status == 'OCCUPIED'
-                ? _color.withOpacity(0.5)
+                ? _color.withValues(alpha: 0.5)
                 : RosTheme.bgBorder,
             width: table.status == 'OCCUPIED' ? 1.5 : 1,
           ),
           boxShadow: table.status == 'OCCUPIED'
-              ? [BoxShadow(color: _color.withOpacity(0.1), blurRadius: 12)]
+              ? [BoxShadow(color: _color.withValues(alpha: 0.1), blurRadius: 12)]
               : null,
         ),
         padding: const EdgeInsets.all(14),
@@ -333,7 +355,7 @@ class _TableCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _color.withOpacity(0.1),
+                    color: _color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -375,7 +397,7 @@ class _TableCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: _color.withOpacity(0.1),
+                color: _color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -399,6 +421,373 @@ class _TableCard extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Interactive Table Selection Sheet for New Order ──────────────────────────
+
+class _TableSelectionSheet extends ConsumerStatefulWidget {
+  const _TableSelectionSheet();
+
+  @override
+  ConsumerState<_TableSelectionSheet> createState() => _TableSelectionSheetState();
+}
+
+class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
+  String? _selectedFloorId;
+  String _searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final tablesAsync = ref.watch(tablesProvider);
+    final floorsAsync = ref.watch(floorsProvider);
+    final viewInsets = MediaQuery.of(context).viewInsets;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, viewInsets.bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: RosTheme.textMuted.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select Table for Order',
+                    style: TextStyle(
+                      color: RosTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Choose a table or start a quick takeaway',
+                    style: TextStyle(
+                      color: RosTheme.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: RosTheme.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // ── Option A: Direct Takeaway / Delivery (No Table Assigned) ──
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              ref.read(cartProvider.notifier).setTable(null);
+              ref.read(cartProvider.notifier).setOrderType('TAKEAWAY');
+              Navigator.pop(context);
+              context.go('/pos');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: RosTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: RosTheme.primary.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.takeout_dining_rounded, color: Colors.white, size: 22),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Direct Takeaway / Delivery',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 1),
+                        Text(
+                          'Quick counter order without dining table',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Search Field
+          TextField(
+            onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+            style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Search tables (e.g. T-1, Rooftop, VIP)...',
+              hintStyle: const TextStyle(color: RosTheme.textMuted, fontSize: 12),
+              filled: true,
+              fillColor: RosTheme.bgElevated,
+              prefixIcon: const Icon(Icons.search_rounded,
+                  color: RosTheme.textMuted, size: 18),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: RosTheme.bgBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: RosTheme.bgBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: RosTheme.primary),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Floor filter tabs
+          floorsAsync.when(
+            data: (floors) {
+              if (floors.isEmpty) return const SizedBox.shrink();
+              return Container(
+                height: 38,
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildFloorFilterPill('All Floors', _selectedFloorId == null,
+                        () => setState(() => _selectedFloorId = null)),
+                    ...floors.map((f) => _buildFloorFilterPill(
+                          f.name,
+                          _selectedFloorId == f.id,
+                          () => setState(() => _selectedFloorId = f.id),
+                        )),
+                  ],
+                ),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+
+          // ── Tables List Grid ──
+          Expanded(
+            child: tablesAsync.when(
+              data: (tables) {
+                var filtered = tables.where((t) {
+                  if (_selectedFloorId != null && t.floorId != _selectedFloorId) {
+                    return false;
+                  }
+                  if (_searchQuery.isNotEmpty &&
+                      !t.name.toLowerCase().contains(_searchQuery)) {
+                    return false;
+                  }
+                  return true;
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'No matching tables found',
+                        style: TextStyle(color: RosTheme.textMuted, fontSize: 13),
+                      ),
+                    ),
+                  );
+                }
+
+                return GridView.builder(
+                  padding: const EdgeInsets.only(top: 4, bottom: 12),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 1.6,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) {
+                    final table = filtered[i];
+                    final isAvailable = table.status == 'AVAILABLE';
+                    final isOccupied = table.status == 'OCCUPIED';
+
+                    Color statusColor = RosTheme.statusAvailable;
+                    if (isOccupied) statusColor = RosTheme.statusOccupied;
+                    if (table.status == 'RESERVED') {
+                      statusColor = RosTheme.statusReserved;
+                    }
+                    if (table.status == 'CLEANING') {
+                      statusColor = RosTheme.statusCleaning;
+                    }
+
+                    return GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        ref.read(cartProvider.notifier).setTable(table.id);
+                        ref.read(cartProvider.notifier).setOrderType('DINE_IN');
+                        Navigator.pop(context);
+                        context.go('/pos');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: RosTheme.bgElevated,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isAvailable
+                                ? RosTheme.statusAvailable.withValues(alpha: 0.4)
+                                : isOccupied
+                                    ? RosTheme.statusOccupied.withValues(alpha: 0.4)
+                                    : RosTheme.bgBorder,
+                            width: (isAvailable || isOccupied) ? 1.2 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    table.name,
+                                    style: const TextStyle(
+                                      color: RosTheme.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    table.status.replaceAll('_', ' '),
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.people_outline_rounded,
+                                        size: 13, color: RosTheme.textMuted),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${table.capacity} seats',
+                                      style: const TextStyle(
+                                        color: RosTheme.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Icon(Icons.arrow_forward_ios_rounded,
+                                    size: 11, color: RosTheme.primary),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: RosTheme.primary),
+              ),
+              error: (err, _) => Center(
+                child: Text('Error loading tables: $err',
+                    style: const TextStyle(color: RosTheme.danger, fontSize: 12)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloorFilterPill(String label, bool selected, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? RosTheme.primary : RosTheme.bgElevated,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? RosTheme.primary : RosTheme.bgBorder,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : RosTheme.textSecondary,
+              fontSize: 11.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
         ),
       ),
     );
