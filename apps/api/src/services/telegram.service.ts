@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
+import { cacheGet, cacheSet, cacheDel } from '../lib/redis';
 
 export const TELEGRAM_NOTIFICATION_META = [
   {
@@ -289,6 +290,102 @@ export class TelegramService {
     } catch (err: any) {
       logger.error(`sendNotificationToTenant error: ${err.message}`);
       return 0;
+    }
+  }
+
+  /**
+   * Process incoming Telegram webhook updates (messages, /start <token>, shared contact)
+   */
+  static async handleTelegramUpdate(update: any): Promise<void> {
+    try {
+      const message = update?.message || update?.channel_post;
+      if (!message) return;
+
+      const chatId = String(message.chat?.id || '');
+      const username = message.from?.username || '';
+      const text = String(message.text || '').trim();
+      const contact = message.contact;
+
+      if (!chatId) return;
+
+      // Case 1: Deep Link /start link_<userId>
+      if (text.startsWith('/start link_')) {
+        const userId = text.replace('/start link_', '').trim();
+        if (userId) {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, email: true, name: true, phone: true },
+          });
+
+          if (user) {
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            await cacheSet(`tg_otp:${user.id}`, {
+              otp,
+              chatId,
+              username,
+              phone: user.phone,
+              requestedAt: new Date().toISOString(),
+            }, 300);
+
+            // Also cache phone to chatId mapping
+            if (user.phone) {
+              const cleanPhone = user.phone.replace(/\D/g, '');
+              await cacheSet(`tg_chat_phone:${cleanPhone}`, chatId, 86400 * 30);
+            }
+
+            await this.sendMessage(
+              chatId,
+              `🔐 <b>ROS Restaurant OS — Telegram Verification</b>\n\nHello <b>${user.name}</b> (${user.email})!\n\nYour 6-digit verification code is:\n\n👉 <code>${otp}</code> 👈\n\n⏱️ <i>This code expires in 5 minutes. Enter this code in your Restaurant User Profile to connect your account.</i>`
+            );
+            return;
+          }
+        }
+      }
+
+      // Case 2: Contact Shared (Phone number)
+      if (contact?.phone_number) {
+        const cleanPhone = contact.phone_number.replace(/\D/g, '');
+        await cacheSet(`tg_chat_phone:${cleanPhone}`, chatId, 86400 * 30);
+
+        // Find user by phone in database
+        const matchingUsers = await prisma.user.findMany({
+          where: {
+            isActive: true,
+            phone: { contains: cleanPhone.slice(-10) },
+          },
+          take: 5,
+        });
+
+        if (matchingUsers.length > 0) {
+          const user = matchingUsers[0];
+          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          await cacheSet(`tg_otp:${user.id}`, {
+            otp,
+            chatId,
+            username,
+            phone: cleanPhone,
+            requestedAt: new Date().toISOString(),
+          }, 300);
+
+          await this.sendMessage(
+            chatId,
+            `🔐 <b>ROS Restaurant OS — Verification Code</b>\n\nHello <b>${user.name}</b>!\nYour verification code is: <code>${otp}</code>\n\n⏱️ <i>Enter this code on your Restaurant Portal to link your account.</i>`
+          );
+          return;
+        }
+      }
+
+      // Case 3: Default Greeting / Help
+      if (text.startsWith('/start') || text === 'hi' || text === 'hello') {
+        await this.sendMessage(
+          chatId,
+          `👋 <b>Welcome to ROS Restaurant Operating System Bot!</b>\n\n` +
+          `Your Telegram Chat ID is: <code>${chatId}</code>\n\n` +
+          `To connect your account, go to your <b>Restaurant User Profile</b>, enter your <b>Telegram Number / Chat ID</b>, and input the verification OTP.`
+        );
+      }
+    } catch (err: any) {
+      logger.error(`handleTelegramUpdate error: ${err.message}`);
     }
   }
 }

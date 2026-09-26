@@ -206,55 +206,74 @@ export class AuthController {
   }
 
   static async requestTelegramOtp(req: Request, res: Response): Promise<void> {
-    const { chatId, username } = req.body;
-    if (!chatId) {
-      throw new AppError('VALIDATION_ERROR', 'Telegram Chat ID is required', 400);
+    const { phone, chatId, username } = req.body;
+
+    if (!phone && !chatId) {
+      throw new AppError('VALIDATION_ERROR', 'Please enter your Telegram phone number or Chat ID', 400);
     }
 
-    const cleanChatId = String(chatId).trim();
+    const cleanPhone = phone ? String(phone).trim().replace(/[^\d+]/g, '') : undefined;
+    const cleanChatId = chatId ? String(chatId).trim() : undefined;
     const cleanUsername = username ? String(username).trim().replace(/^@/, '') : undefined;
 
-    // Check if bot token is configured
+    // Check if bot is configured
     const botInfo = await TelegramService.getBotInfo();
     if (!botInfo) {
       throw new AppError('CONFIG_ERROR', 'Telegram Bot is not configured by the Platform Superadmin yet. Please configure the bot token first.', 400);
     }
 
-    // Generate 6-digit OTP
+    // Generate 6-digit numeric OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Store in cache with 5 minutes (300 seconds) expiration
+    // Check if we have a known Chat ID for this phone number
+    let targetChatId = cleanChatId;
+    if (!targetChatId && cleanPhone) {
+      const digitsOnly = cleanPhone.replace(/\D/g, '');
+      const cachedChatId = await cacheGet<string>(`tg_chat_phone:${digitsOnly}`);
+      if (cachedChatId) {
+        targetChatId = cachedChatId;
+      }
+    }
+
+    // Store in cache for 5 minutes (300 seconds)
     const cacheKey = `tg_otp:${req.user!.sub}`;
     await cacheSet(cacheKey, {
       otp,
-      chatId: cleanChatId,
+      phone: cleanPhone,
+      chatId: targetChatId || null,
       username: cleanUsername,
       requestedAt: new Date().toISOString(),
     }, 300);
 
-    // Send OTP to the Telegram Chat ID
-    try {
-      const sendResult = await TelegramService.sendMessage(
-        cleanChatId,
-        `🔐 <b>ROS Restaurant OS — Telegram Verification Code</b>\n\nYour 6-digit verification code is:\n\n👉 <code>${otp}</code> 👈\n\n⏱️ <i>This code expires in 5 minutes. Enter this code in your Restaurant User Profile to verify and link your Telegram account.</i>`
-      );
-
-      if (!sendResult.success) {
-        throw new Error(sendResult.error || 'Failed to dispatch Telegram message');
-      }
-    } catch (err: any) {
-      await cacheDel(cacheKey);
-      throw new AppError(
-        'TELEGRAM_SEND_FAILED',
-        `Could not deliver OTP to Telegram Chat ID "${cleanChatId}". Please ensure you have opened the bot (@${botInfo.username || 'your bot'}) in Telegram and clicked START before requesting the OTP code. (${err.message || 'Error'})`,
-        400
-      );
+    if (cleanPhone) {
+      const last10 = cleanPhone.replace(/\D/g, '').slice(-10);
+      await cacheSet(`tg_phone_to_user:${last10}`, req.user!.sub, 300);
     }
 
+    let directSent = false;
+    if (targetChatId) {
+      try {
+        const sendResult = await TelegramService.sendMessage(
+          targetChatId,
+          `🔐 <b>ROS Restaurant OS — Telegram Verification Code</b>\n\nYour 6-digit verification code is:\n\n👉 <code>${otp}</code> 👈\n\n⏱️ <i>This code expires in 5 minutes. Enter this code in your Restaurant User Profile to connect your account.</i>`
+        );
+        if (sendResult.success) {
+          directSent = true;
+        }
+      } catch {}
+    }
+
+    const botUsername = botInfo.username || process.env.TELEGRAM_BOT_USERNAME || '';
+    const deepLink = `https://t.me/${botUsername}?start=link_${req.user!.sub}`;
+
     sendSuccess(res, {
-      message: `A 6-digit verification code was sent to your Telegram chat. Please check Telegram and enter the OTP.`,
+      message: directSent
+        ? `A 6-digit verification code has been sent directly to your Telegram chat!`
+        : `Verification code generated! Please tap "Open Telegram Bot" to view your 6-digit code.`,
+      directSent,
+      botUsername,
+      deepLink,
       expiresInSeconds: 300,
-      chatId: cleanChatId,
     });
   }
 
@@ -266,7 +285,7 @@ export class AuthController {
 
     const cleanOtp = String(otp).trim();
     const cacheKey = `tg_otp:${req.user!.sub}`;
-    const stored = await cacheGet<{ otp: string; chatId: string; username?: string }>(cacheKey);
+    const stored = await cacheGet<{ otp: string; chatId?: string | null; username?: string; phone?: string }>(cacheKey);
 
     if (!stored || !stored.otp) {
       throw new AppError('INVALID_OTP', 'The verification code has expired or was not requested. Please request a new OTP code.', 400);
@@ -276,30 +295,41 @@ export class AuthController {
       throw new AppError('INVALID_OTP', 'Invalid verification code. Please check your Telegram message and enter the correct 6-digit code.', 400);
     }
 
+    // Determine final chat ID
+    let finalChatId = stored.chatId;
+    if (!finalChatId && stored.phone) {
+      const digits = stored.phone.replace(/\D/g, '');
+      finalChatId = (await cacheGet<string>(`tg_chat_phone:${digits}`)) || null;
+    }
+
     // OTP matched! Update user record in database
     const updated = await prisma.user.update({
       where: { id: req.user!.sub },
       data: {
-        telegramChatId: stored.chatId,
+        telegramChatId: finalChatId || undefined,
+        ...(stored.phone ? { phone: stored.phone } : {}),
         ...(stored.username !== undefined ? { telegramUsername: stored.username } : {}),
       },
       select: {
         id: true,
         telegramChatId: true,
         telegramUsername: true,
+        phone: true,
       },
     });
 
     // Clean up OTP from cache
     await cacheDel(cacheKey);
 
-    // Send confirmation message to the user on Telegram
-    try {
-      await TelegramService.sendMessage(
-        stored.chatId,
-        `🎉 <b>Telegram Linked Successfully!</b>\n\n✅ Your Telegram account is now authenticated and linked to <b>${req.user!.email}</b>.\nYou will now receive live operational notifications (Orders, KOTs, Food Ready, Bills & Reports) on this chat.`
-      );
-    } catch {}
+    // Send confirmation message to the user on Telegram if chatId is known
+    if (finalChatId) {
+      try {
+        await TelegramService.sendMessage(
+          finalChatId,
+          `🎉 <b>Telegram Linked Successfully!</b>\n\n✅ Your Telegram account is now authenticated and linked to <b>${req.user!.email}</b>.\nYou will now receive live operational notifications (Orders, KOTs, Food Ready, Bills & Reports) on this chat.`
+        );
+      } catch {}
+    }
 
     sendSuccess(res, {
       message: 'Telegram account verified and connected successfully!',
@@ -307,8 +337,12 @@ export class AuthController {
     });
   }
 
+  static async telegramWebhook(req: Request, res: Response): Promise<void> {
+    await TelegramService.handleTelegramUpdate(req.body);
+    res.json({ ok: true });
+  }
+
   static async updateTelegramConnection(req: Request, res: Response): Promise<void> {
-    // Keep legacy direct update as fallback if needed or redirect to OTP
     return this.requestTelegramOtp(req, res);
   }
 

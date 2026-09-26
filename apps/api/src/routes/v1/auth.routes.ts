@@ -26,5 +26,6 @@ router.post('/me/telegram/request-otp',  auth(), asyncHandler(AuthController.req
 router.post('/me/telegram/verify-otp',   auth(), asyncHandler(AuthController.verifyTelegramOtp));
 router.post('/me/telegram',              auth(), asyncHandler(AuthController.updateTelegramConnection));
 router.delete('/me/telegram',            auth(), asyncHandler(AuthController.disconnectTelegram));
+router.post('/telegram/webhook',         asyncHandler(AuthController.telegramWebhook));
 
 export default router;

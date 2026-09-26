@@ -25,11 +25,13 @@ export function AppTopbar() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [telegramPhoneInput, setTelegramPhoneInput] = useState('');
   const [telegramChatIdInput, setTelegramChatIdInput] = useState('');
   const [telegramUsernameInput, setTelegramUsernameInput] = useState('');
   const [telegramOtpInput, setTelegramOtpInput] = useState('');
   const [otpStep, setOtpStep] = useState<'INPUT' | 'OTP'>('INPUT');
   const [isEditingTelegram, setIsEditingTelegram] = useState(false);
+  const [otpDeepLink, setOtpDeepLink] = useState<string | null>(null);
 
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN');
   const isPlatformSuperAdmin =
@@ -66,12 +68,13 @@ export function AppTopbar() {
   });
 
   const requestOtpMutation = useMutation({
-    mutationFn: (payload: { chatId: string; username?: string }) =>
-      apiPost('/auth/me/telegram/request-otp', payload),
+    mutationFn: (payload: { phone?: string; chatId?: string; username?: string }) =>
+      apiPost<any>('/auth/me/telegram/request-otp', payload),
     onSuccess: (data: any) => {
       toast.info('OTP Sent! 📩', data?.message || 'Check your Telegram for the 6-digit verification code.');
       setOtpStep('OTP');
       setTelegramOtpInput('');
+      if (data?.deepLink) setOtpDeepLink(data.deepLink);
     },
     onError: (err: any) => {
       toast.error('Could Not Send OTP', err?.response?.data?.error?.message || err?.message || 'Failed to dispatch Telegram verification code.');
@@ -86,6 +89,7 @@ export function AppTopbar() {
       setIsEditingTelegram(false);
       setOtpStep('INPUT');
       setTelegramOtpInput('');
+      setOtpDeepLink(null);
       queryClient.invalidateQueries({ queryKey: ['my-telegram-status'] });
     },
     onError: (err: any) => {
@@ -97,10 +101,12 @@ export function AppTopbar() {
     mutationFn: () => apiDelete('/auth/me/telegram'),
     onSuccess: () => {
       toast.info('Telegram Disconnected', 'Operational notifications have been stopped.');
+      setTelegramPhoneInput('');
       setTelegramChatIdInput('');
       setTelegramUsernameInput('');
       setTelegramOtpInput('');
       setOtpStep('INPUT');
+      setOtpDeepLink(null);
       setIsEditingTelegram(false);
       queryClient.invalidateQueries({ queryKey: ['my-telegram-status'] });
     },
@@ -212,6 +218,7 @@ export function AppTopbar() {
             type="button"
             onClick={() => {
               setShowProfileMenu(!showProfileMenu);
+              if (user?.phone) setTelegramPhoneInput(user.phone);
               if (telegramStatus?.chatId) {
                 setTelegramChatIdInput(telegramStatus.chatId);
                 setTelegramUsernameInput(telegramStatus.username || '');
@@ -280,8 +287,10 @@ export function AppTopbar() {
                     <div className="space-y-2 text-xs">
                       <div className="p-2 rounded-xl bg-background/80 border border-border/60 flex items-center justify-between">
                         <div>
-                          <p className="text-[10px] text-muted-foreground font-semibold">Telegram Chat ID</p>
-                          <p className="font-mono font-bold text-foreground text-xs">{telegramStatus.chatId}</p>
+                          <p className="text-[10px] text-muted-foreground font-semibold">Telegram Status</p>
+                          <p className="font-mono font-bold text-foreground text-xs">
+                            {user?.phone ? user.phone : (telegramStatus.chatId ? `ID: ${telegramStatus.chatId}` : 'Connected')}
+                          </p>
                         </div>
                         {telegramStatus.username && (
                           <div className="text-right">
@@ -300,10 +309,11 @@ export function AppTopbar() {
                           onClick={() => {
                             setIsEditingTelegram(true);
                             setOtpStep('INPUT');
+                            setTelegramPhoneInput(user?.phone || '');
                           }}
                           className="h-7 text-[11px] rounded-lg border-border hover:bg-muted flex-1 cursor-pointer"
                         >
-                          Change ID
+                          Change Number
                         </Button>
                         <Button
                           variant="destructive"
@@ -319,16 +329,29 @@ export function AppTopbar() {
                   ) : otpStep === 'OTP' ? (
                     /* ── STEP 2: OTP VERIFICATION ── */
                     <div className="space-y-2.5">
-                      <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/30 text-[11px] text-sky-200">
-                        <p className="font-bold">📩 Verification Code Sent</p>
-                        <p className="text-[10px] opacity-80 mt-0.5">
-                          A 6-digit code has been sent to Chat ID <span className="font-mono font-bold text-white">{telegramChatIdInput}</span>.
+                      <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-[11px] text-sky-200 space-y-1">
+                        <p className="font-bold flex items-center gap-1.5 text-sky-400">
+                          <MessageSquare className="w-3.5 h-3.5" /> Verification Code Sent!
                         </p>
+                        <p className="text-[10px] opacity-80">
+                          We sent a 6-digit OTP to your Telegram account for <span className="font-bold text-white">{telegramPhoneInput || telegramChatIdInput}</span>.
+                        </p>
+                        {otpDeepLink && (
+                          <a
+                            href={otpDeepLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-300 hover:text-white underline decoration-sky-400 pt-0.5"
+                          >
+                            <span>👉 Tap to Open Bot & View Code</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                          Enter 6-Digit OTP
+                          Enter 6-Digit Verification OTP
                         </label>
                         <div className="flex gap-1.5">
                           <input
@@ -349,7 +372,7 @@ export function AppTopbar() {
                             }}
                             className="h-8 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
                           >
-                            <Check className="w-3 h-3 mr-1" /> Verify
+                            <Check className="w-3 h-3 mr-1" /> Verify & Connect
                           </Button>
                         </div>
 
@@ -359,7 +382,8 @@ export function AppTopbar() {
                             disabled={requestOtpMutation.isPending}
                             onClick={() => {
                               requestOtpMutation.mutate({
-                                chatId: telegramChatIdInput.trim(),
+                                phone: telegramPhoneInput.trim() || undefined,
+                                chatId: telegramChatIdInput.trim() || undefined,
                                 username: telegramUsernameInput.trim() || undefined,
                               });
                             }}
@@ -372,57 +396,60 @@ export function AppTopbar() {
                             onClick={() => setOtpStep('INPUT')}
                             className="hover:underline cursor-pointer"
                           >
-                            Change Chat ID
+                            Change Number
                           </button>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    /* ── STEP 1: CHAT ID INPUT & REQUEST OTP ── */
+                    /* ── STEP 1: ENTER TELEGRAM NUMBER & SEND OTP ── */
                     <div className="space-y-2">
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Connect your Telegram to receive instant real-time kitchen, order, and billing updates.
+                        Enter your Telegram registered mobile number to receive live kitchen, order, and billing updates.
                       </p>
-
-                      {telegramStatus?.botUsername && (
-                        <a
-                          href={`https://t.me/${telegramStatus.botUsername}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-bold underline decoration-sky-400/40"
-                        >
-                          <span>1. Open @{telegramStatus.botUsername} in Telegram & tap Start</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
 
                       <div className="space-y-1.5 pt-1">
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                          2. Enter Your Telegram Chat ID
+                          Telegram Mobile Number
                         </label>
                         <div className="flex gap-1.5">
                           <input
-                            type="text"
-                            placeholder="e.g. 987654321"
-                            value={telegramChatIdInput}
-                            onChange={(e) => setTelegramChatIdInput(e.target.value)}
+                            type="tel"
+                            placeholder="e.g. +91 98765 43210"
+                            value={telegramPhoneInput}
+                            onChange={(e) => setTelegramPhoneInput(e.target.value)}
                             className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-background border border-border focus:ring-1 focus:ring-sky-500 font-mono"
                           />
                           <Button
                             size="sm"
-                            disabled={!telegramChatIdInput.trim() || requestOtpMutation.isPending}
+                            disabled={!telegramPhoneInput.trim() || requestOtpMutation.isPending}
                             loading={requestOtpMutation.isPending}
                             onClick={() => {
                               requestOtpMutation.mutate({
-                                chatId: telegramChatIdInput.trim(),
+                                phone: telegramPhoneInput.trim(),
                                 username: telegramUsernameInput.trim() || undefined,
                               });
                             }}
                             className="h-8 px-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white cursor-pointer"
                           >
-                            <Shield className="w-3 h-3 mr-1" /> Get OTP
+                            <Shield className="w-3 h-3 mr-1" /> Send OTP
                           </Button>
                         </div>
+
+                        {telegramStatus?.botUsername && (
+                          <div className="pt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span>Bot: @{telegramStatus.botUsername}</span>
+                            <a
+                              href={`https://t.me/${telegramStatus.botUsername}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-400 hover:underline font-bold inline-flex items-center gap-0.5"
+                            >
+                              Open Bot <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          </div>
+                        )}
+
                         {isEditingTelegram && (
                           <button
                             type="button"

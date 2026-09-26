@@ -10,6 +10,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   tenantId: string;
   branchId: string;
   roles?: string[];
@@ -57,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
           id: user.id,
           name: user.name,
           email: user.email,
+          phone: (user as any).phone || undefined,
           tenantId: user.tenantId || 'tenant-default',
           branchId: user.branchId || 'branch-default',
           roles,
