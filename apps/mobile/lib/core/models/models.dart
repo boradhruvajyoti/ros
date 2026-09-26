@@ -707,21 +707,28 @@ class OrderItem {
     this.modifiers = const [],
   });
 
-  factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
-    id: json['id'] as String? ?? '',
-    menuItemId: json['menuItemId'] as String? ?? '',
-    variantId: json['variantId'] as String?,
-    menuItemName: json['menuItem']?['name'] as String? ?? json['name'] as String?,
-    variantName: json['variant']?['name'] as String?,
-    quantity: parseInt(json['quantity'], 1),
-    unitPrice: parseDouble(json['unitPrice'] ?? json['price'], 0.0),
-    lineTotal: parseDouble(json['lineTotal'], 0.0),
-    status: json['status'] as String? ?? 'PENDING',
-    notes: json['notes'] as String?,
-    modifiers: (json['modifiers'] as List<dynamic>?)
-        ?.map((e) => OrderItemModifier.fromJson(e as Map<String, dynamic>))
-        .toList() ?? [],
-  );
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
+    final qty = parseInt(json['quantity'], 1);
+    final price = parseDouble(json['unitPrice'] ?? json['price'], 0.0);
+    final rawLineTotal = parseDouble(json['lineTotal'] ?? json['totalPrice'], 0.0);
+    final lineTotal = rawLineTotal > 0 ? rawLineTotal : (qty * price);
+
+    return OrderItem(
+      id: json['id'] as String? ?? '',
+      menuItemId: json['menuItemId'] as String? ?? '',
+      variantId: json['variantId'] as String?,
+      menuItemName: json['menuItem']?['name'] as String? ?? json['name'] as String?,
+      variantName: json['variant']?['name'] as String?,
+      quantity: qty,
+      unitPrice: price,
+      lineTotal: lineTotal,
+      status: json['status'] as String? ?? 'PENDING',
+      notes: json['notes'] as String?,
+      modifiers: (json['modifiers'] as List<dynamic>?)
+          ?.map((e) => OrderItemModifier.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+    );
+  }
 }
 
 class OrderItemModifier {
