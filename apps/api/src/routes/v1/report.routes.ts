@@ -13,6 +13,7 @@ const router = Router();
 router.use(auth());
 
 router.get('/summary', requirePermission('reports:view'), asyncHandler(ReportController.getSummary));
+router.get('/financial-analytics', requirePermission('reports:view'), asyncHandler(ReportController.getFinancialAnalytics));
 router.get('/daily-summary', requirePermission('reports:view'), asyncHandler(ReportController.getSummary));
 router.get('/sales', requirePermission('reports:view'), asyncHandler(ReportController.getSalesReport));
 router.get('/payments', requirePermission('reports:view'), asyncHandler(ReportController.getPaymentReport));
