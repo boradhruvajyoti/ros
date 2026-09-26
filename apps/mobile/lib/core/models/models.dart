@@ -1,0 +1,883 @@
+// =============================================================================
+// Core Data Models — matching backend Prisma schema exactly
+// =============================================================================
+
+// ── Auth / User ──────────────────────────────────────────────────────────────
+
+class AuthUser {
+  final String id;
+  final String name;
+  final String email;
+  final String? phone;
+  final String tenantId;
+  final String branchId;
+  final List<String> roles;
+  final List<String> permissions;
+
+  const AuthUser({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.phone,
+    required this.tenantId,
+    required this.branchId,
+    this.roles = const [],
+    this.permissions = const [],
+  });
+
+  factory AuthUser.fromJson(Map<String, dynamic> json) {
+    // Derive branchId from branchRoles
+    String branchId = 'default-branch';
+    if (json['branchRoles'] != null && (json['branchRoles'] as List).isNotEmpty) {
+      branchId = (json['branchRoles'] as List).first['branchId'] as String? ?? branchId;
+    }
+    if (json['branchId'] != null) branchId = json['branchId'] as String;
+
+    final roles = <String>[];
+    if (json['branchRoles'] != null) {
+      for (final br in json['branchRoles'] as List) {
+        final roleName = br['role']?['name'] as String?;
+        if (roleName != null && !roles.contains(roleName)) roles.add(roleName);
+      }
+    }
+
+    return AuthUser(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String,
+      phone: json['phone'] as String?,
+      tenantId: json['tenantId'] as String? ?? 'tenant-default',
+      branchId: branchId,
+      roles: roles,
+      permissions: (json['permissions'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ?? [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'email': email,
+    'phone': phone,
+    'tenantId': tenantId,
+    'branchId': branchId,
+    'roles': roles,
+    'permissions': permissions,
+  };
+
+  bool get isPlatformAdmin =>
+      email.toLowerCase() == 'superadmin@ros.com' ||
+      tenantId == 'tenant-platform';
+
+  bool get isTenantAdmin =>
+      isPlatformAdmin || roles.contains('OWNER');
+
+  bool hasPermission(String permission) {
+    if (isPlatformAdmin || isTenantAdmin) return true;
+    return permissions.contains(permission);
+  }
+
+  bool hasAnyPermission(List<String> perms) {
+    if (isPlatformAdmin || isTenantAdmin) return true;
+    return perms.any(permissions.contains);
+  }
+}
+
+// ── Tenant / Branch ──────────────────────────────────────────────────────────
+
+class Tenant {
+  final String id;
+  final String name;
+  final String slug;
+  final String? logoUrl;
+  final String plan;
+  final String status;
+  final Map<String, dynamic>? settings;
+
+  const Tenant({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.logoUrl,
+    required this.plan,
+    required this.status,
+    this.settings,
+  });
+
+  factory Tenant.fromJson(Map<String, dynamic> json) => Tenant(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    slug: json['slug'] as String,
+    logoUrl: json['logoUrl'] as String?,
+    plan: json['plan'] as String? ?? 'starter',
+    status: json['status'] as String? ?? 'ACTIVE',
+    settings: json['settings'] != null
+        ? (json['settings'] is String
+            ? {} // parse later if needed
+            : json['settings'] as Map<String, dynamic>)
+        : null,
+  );
+}
+
+class Branch {
+  final String id;
+  final String tenantId;
+  final String name;
+  final String? address;
+  final String? phone;
+  final String? email;
+  final bool isActive;
+
+  const Branch({
+    required this.id,
+    required this.tenantId,
+    required this.name,
+    this.address,
+    this.phone,
+    this.email,
+    required this.isActive,
+  });
+
+  factory Branch.fromJson(Map<String, dynamic> json) => Branch(
+    id: json['id'] as String,
+    tenantId: json['tenantId'] as String,
+    name: json['name'] as String,
+    address: json['address'] as String?,
+    phone: json['phone'] as String?,
+    email: json['email'] as String?,
+    isActive: json['isActive'] as bool? ?? true,
+  );
+}
+
+// ── Menu ─────────────────────────────────────────────────────────────────────
+
+class MenuCategory {
+  final String id;
+  final String name;
+  final String? imageUrl;
+  final int sortOrder;
+  final bool isActive;
+  final List<MenuItem> items;
+
+  const MenuCategory({
+    required this.id,
+    required this.name,
+    this.imageUrl,
+    required this.sortOrder,
+    required this.isActive,
+    this.items = const [],
+  });
+
+  factory MenuCategory.fromJson(Map<String, dynamic> json) => MenuCategory(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    imageUrl: json['imageUrl'] as String?,
+    sortOrder: json['sortOrder'] as int? ?? 0,
+    isActive: json['isActive'] as bool? ?? true,
+    items: (json['items'] as List<dynamic>?)
+        ?.map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+  );
+}
+
+class MenuItem {
+  final String id;
+  final String categoryId;
+  final String name;
+  final String? description;
+  final String? imageUrl;
+  final String foodType; // VEG|NON_VEG|EGG|VEGAN
+  final String spiceLevel;
+  final bool isAvailable;
+  final bool isActive;
+  final int sortOrder;
+  final List<MenuItemVariant> variants;
+  final List<ModifierGroupLink> modifierGroups;
+  final String? kitchenStationId;
+
+  const MenuItem({
+    required this.id,
+    required this.categoryId,
+    required this.name,
+    this.description,
+    this.imageUrl,
+    required this.foodType,
+    required this.spiceLevel,
+    required this.isAvailable,
+    required this.isActive,
+    required this.sortOrder,
+    this.variants = const [],
+    this.modifierGroups = const [],
+    this.kitchenStationId,
+  });
+
+  factory MenuItem.fromJson(Map<String, dynamic> json) => MenuItem(
+    id: json['id'] as String,
+    categoryId: json['categoryId'] as String,
+    name: json['name'] as String,
+    description: json['description'] as String?,
+    imageUrl: json['imageUrl'] as String?,
+    foodType: json['foodType'] as String? ?? 'VEG',
+    spiceLevel: json['spiceLevel'] as String? ?? 'NONE',
+    isAvailable: json['isAvailable'] as bool? ?? true,
+    isActive: json['isActive'] as bool? ?? true,
+    sortOrder: json['sortOrder'] as int? ?? 0,
+    variants: (json['variants'] as List<dynamic>?)
+        ?.map((e) => MenuItemVariant.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+    modifierGroups: (json['modifierGroups'] as List<dynamic>?)
+        ?.map((e) => ModifierGroupLink.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+    kitchenStationId: json['kitchenStationId'] as String?,
+  );
+
+  double get basePrice => variants.isNotEmpty ? variants.first.price : 0.0;
+}
+
+class MenuItemVariant {
+  final String id;
+  final String name;
+  final double price;
+  final double cost;
+  final bool isActive;
+  final int sortOrder;
+
+  const MenuItemVariant({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.cost,
+    required this.isActive,
+    required this.sortOrder,
+  });
+
+  factory MenuItemVariant.fromJson(Map<String, dynamic> json) => MenuItemVariant(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    price: (json['price'] as num).toDouble(),
+    cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
+    isActive: json['isActive'] as bool? ?? true,
+    sortOrder: json['sortOrder'] as int? ?? 0,
+  );
+}
+
+class ModifierGroupLink {
+  final ModifierGroup modifierGroup;
+
+  const ModifierGroupLink({required this.modifierGroup});
+
+  factory ModifierGroupLink.fromJson(Map<String, dynamic> json) => ModifierGroupLink(
+    modifierGroup: ModifierGroup.fromJson(
+      json['modifierGroup'] as Map<String, dynamic>,
+    ),
+  );
+}
+
+class ModifierGroup {
+  final String id;
+  final String name;
+  final int minSelections;
+  final int maxSelections;
+  final bool isRequired;
+  final List<Modifier> modifiers;
+
+  const ModifierGroup({
+    required this.id,
+    required this.name,
+    required this.minSelections,
+    required this.maxSelections,
+    required this.isRequired,
+    this.modifiers = const [],
+  });
+
+  factory ModifierGroup.fromJson(Map<String, dynamic> json) => ModifierGroup(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    minSelections: json['minSelections'] as int? ?? 0,
+    maxSelections: json['maxSelections'] as int? ?? 1,
+    isRequired: json['isRequired'] as bool? ?? false,
+    modifiers: (json['modifiers'] as List<dynamic>?)
+        ?.map((e) => Modifier.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+  );
+}
+
+class Modifier {
+  final String id;
+  final String name;
+  final double price;
+  final int sortOrder;
+
+  const Modifier({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.sortOrder,
+  });
+
+  factory Modifier.fromJson(Map<String, dynamic> json) => Modifier(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    price: (json['price'] as num?)?.toDouble() ?? 0.0,
+    sortOrder: json['sortOrder'] as int? ?? 0,
+  );
+}
+
+// ── Tables ───────────────────────────────────────────────────────────────────
+
+class RestaurantTable {
+  final String id;
+  final String name;
+  final int capacity;
+  final String shape;
+  final String status; // AVAILABLE|RESERVED|OCCUPIED|CLEANING|BLOCKED
+  final String? floorId;
+  final String? sectionId;
+  final double posX;
+  final double posY;
+  final Order? activeOrder;
+
+  const RestaurantTable({
+    required this.id,
+    required this.name,
+    required this.capacity,
+    required this.shape,
+    required this.status,
+    this.floorId,
+    this.sectionId,
+    required this.posX,
+    required this.posY,
+    this.activeOrder,
+  });
+
+  factory RestaurantTable.fromJson(Map<String, dynamic> json) => RestaurantTable(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    capacity: json['capacity'] as int? ?? 4,
+    shape: json['shape'] as String? ?? 'RECTANGLE',
+    status: json['status'] as String? ?? 'AVAILABLE',
+    floorId: json['floorId'] as String?,
+    sectionId: json['sectionId'] as String?,
+    posX: (json['posX'] as num?)?.toDouble() ?? 0.0,
+    posY: (json['posY'] as num?)?.toDouble() ?? 0.0,
+    activeOrder: json['activeOrder'] != null
+        ? Order.fromJson(json['activeOrder'] as Map<String, dynamic>)
+        : null,
+  );
+}
+
+class Floor {
+  final String id;
+  final String name;
+  final int sortOrder;
+  final List<RestaurantTable> tables;
+
+  const Floor({
+    required this.id,
+    required this.name,
+    required this.sortOrder,
+    this.tables = const [],
+  });
+
+  factory Floor.fromJson(Map<String, dynamic> json) => Floor(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    sortOrder: json['sortOrder'] as int? ?? 0,
+    tables: (json['tables'] as List<dynamic>?)
+        ?.map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+  );
+}
+
+// ── Orders ───────────────────────────────────────────────────────────────────
+
+class Order {
+  final String id;
+  final String orderNumber;
+  final String type; // DINE_IN|TAKEAWAY|PICKUP|DELIVERY|etc
+  final String status;
+  final String? tableId;
+  final RestaurantTable? table;
+  final String? customerId;
+  final double subtotal;
+  final double discountAmount;
+  final double taxAmount;
+  final double total;
+  final double paidAmount;
+  final String? notes;
+  final List<OrderItem> items;
+  final List<Payment> payments;
+  final List<OrderKot> kots;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const Order({
+    required this.id,
+    required this.orderNumber,
+    required this.type,
+    required this.status,
+    this.tableId,
+    this.table,
+    this.customerId,
+    required this.subtotal,
+    required this.discountAmount,
+    required this.taxAmount,
+    required this.total,
+    required this.paidAmount,
+    this.notes,
+    this.items = const [],
+    this.payments = const [],
+    this.kots = const [],
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory Order.fromJson(Map<String, dynamic> json) => Order(
+    id: json['id'] as String,
+    orderNumber: json['orderNumber'] as String,
+    type: json['type'] as String? ?? 'DINE_IN',
+    status: json['status'] as String? ?? 'DRAFT',
+    tableId: json['tableId'] as String?,
+    table: json['table'] != null
+        ? RestaurantTable.fromJson(json['table'] as Map<String, dynamic>)
+        : null,
+    customerId: json['customerId'] as String?,
+    subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+    discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
+    taxAmount: (json['taxAmount'] as num?)?.toDouble() ?? 0.0,
+    total: (json['total'] as num?)?.toDouble() ?? 0.0,
+    paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
+    notes: json['notes'] as String?,
+    items: (json['items'] as List<dynamic>?)
+        ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+    payments: (json['payments'] as List<dynamic>?)
+        ?.map((e) => Payment.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+    kots: (json['kots'] as List<dynamic>?)
+        ?.map((e) => OrderKot.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    updatedAt: DateTime.parse(json['updatedAt'] as String),
+  );
+
+  double get balanceDue => total - paidAmount;
+  bool get isFullyPaid => paidAmount >= total;
+}
+
+class OrderItem {
+  final String id;
+  final String menuItemId;
+  final String? variantId;
+  final String? menuItemName;
+  final String? variantName;
+  final int quantity;
+  final double unitPrice;
+  final double lineTotal;
+  final String status;
+  final String? notes;
+  final List<OrderItemModifier> modifiers;
+
+  const OrderItem({
+    required this.id,
+    required this.menuItemId,
+    this.variantId,
+    this.menuItemName,
+    this.variantName,
+    required this.quantity,
+    required this.unitPrice,
+    required this.lineTotal,
+    required this.status,
+    this.notes,
+    this.modifiers = const [],
+  });
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
+    id: json['id'] as String,
+    menuItemId: json['menuItemId'] as String,
+    variantId: json['variantId'] as String?,
+    menuItemName: json['menuItem']?['name'] as String?,
+    variantName: json['variant']?['name'] as String?,
+    quantity: json['quantity'] as int? ?? 1,
+    unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0.0,
+    lineTotal: (json['lineTotal'] as num?)?.toDouble() ?? 0.0,
+    status: json['status'] as String? ?? 'PENDING',
+    notes: json['notes'] as String?,
+    modifiers: (json['modifiers'] as List<dynamic>?)
+        ?.map((e) => OrderItemModifier.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+  );
+}
+
+class OrderItemModifier {
+  final String id;
+  final String name;
+  final double price;
+
+  const OrderItemModifier({
+    required this.id,
+    required this.name,
+    required this.price,
+  });
+
+  factory OrderItemModifier.fromJson(Map<String, dynamic> json) =>
+      OrderItemModifier(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+class OrderKot {
+  final String id;
+  final String kotNumber;
+  final String status; // NEW|ACCEPTED|PREPARING|READY|SERVED
+  final String? kitchenStationId;
+  final List<OrderKotItem> items;
+
+  const OrderKot({
+    required this.id,
+    required this.kotNumber,
+    required this.status,
+    this.kitchenStationId,
+    this.items = const [],
+  });
+
+  factory OrderKot.fromJson(Map<String, dynamic> json) => OrderKot(
+    id: json['id'] as String,
+    kotNumber: json['kotNumber'] as String,
+    status: json['status'] as String? ?? 'NEW',
+    kitchenStationId: json['kitchenStationId'] as String?,
+    items: (json['items'] as List<dynamic>?)
+        ?.map((e) => OrderKotItem.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+  );
+}
+
+class OrderKotItem {
+  final String id;
+  final String status;
+  final String? menuItemName;
+  final String? variantName;
+  final int quantity;
+
+  const OrderKotItem({
+    required this.id,
+    required this.status,
+    this.menuItemName,
+    this.variantName,
+    required this.quantity,
+  });
+
+  factory OrderKotItem.fromJson(Map<String, dynamic> json) => OrderKotItem(
+    id: json['id'] as String,
+    status: json['status'] as String? ?? 'NEW',
+    menuItemName: json['orderItem']?['menuItem']?['name'] as String?,
+    variantName: json['orderItem']?['variant']?['name'] as String?,
+    quantity: json['orderItem']?['quantity'] as int? ?? 1,
+  );
+}
+
+// ── Payments ─────────────────────────────────────────────────────────────────
+
+class Payment {
+  final String id;
+  final String orderId;
+  final String method; // CASH|UPI|CARD|etc
+  final double amount;
+  final String? referenceNumber;
+  final String status;
+  final DateTime createdAt;
+
+  const Payment({
+    required this.id,
+    required this.orderId,
+    required this.method,
+    required this.amount,
+    this.referenceNumber,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory Payment.fromJson(Map<String, dynamic> json) => Payment(
+    id: json['id'] as String,
+    orderId: json['orderId'] as String,
+    method: json['method'] as String,
+    amount: (json['amount'] as num).toDouble(),
+    referenceNumber: json['referenceNumber'] as String?,
+    status: json['status'] as String? ?? 'COMPLETED',
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
+}
+
+// ── Customers ────────────────────────────────────────────────────────────────
+
+class Customer {
+  final String id;
+  final String name;
+  final String phone;
+  final String? email;
+  final int loyaltyPoints;
+  final double totalSpent;
+  final int visitCount;
+  final bool isActive;
+  final DateTime createdAt;
+
+  const Customer({
+    required this.id,
+    required this.name,
+    required this.phone,
+    this.email,
+    required this.loyaltyPoints,
+    required this.totalSpent,
+    required this.visitCount,
+    required this.isActive,
+    required this.createdAt,
+  });
+
+  factory Customer.fromJson(Map<String, dynamic> json) => Customer(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    phone: json['phone'] as String,
+    email: json['email'] as String?,
+    loyaltyPoints: json['loyaltyPoints'] as int? ?? 0,
+    totalSpent: (json['totalSpent'] as num?)?.toDouble() ?? 0.0,
+    visitCount: json['visitCount'] as int? ?? 0,
+    isActive: json['isActive'] as bool? ?? true,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
+}
+
+// ── Staff ────────────────────────────────────────────────────────────────────
+
+class StaffMember {
+  final String id;
+  final String name;
+  final String email;
+  final String? phone;
+  final List<String> roles;
+  final bool isActive;
+  final DateTime? lastLoginAt;
+
+  const StaffMember({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.phone,
+    required this.roles,
+    required this.isActive,
+    this.lastLoginAt,
+  });
+
+  factory StaffMember.fromJson(Map<String, dynamic> json) => StaffMember(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    email: json['email'] as String,
+    phone: json['phone'] as String?,
+    roles: (json['branchRoles'] as List<dynamic>?)
+        ?.map((e) => e['role']?['name'] as String? ?? '')
+        .where((r) => r.isNotEmpty)
+        .toList() ?? [],
+    isActive: json['isActive'] as bool? ?? true,
+    lastLoginAt: json['lastLoginAt'] != null
+        ? DateTime.parse(json['lastLoginAt'] as String)
+        : null,
+  );
+}
+
+// ── Inventory ────────────────────────────────────────────────────────────────
+
+class InventoryItem {
+  final String id;
+  final String name;
+  final String unit;
+  final double currentStock;
+  final double minStock;
+  final double? maxStock;
+  final String? category;
+  final double? costPerUnit;
+
+  const InventoryItem({
+    required this.id,
+    required this.name,
+    required this.unit,
+    required this.currentStock,
+    required this.minStock,
+    this.maxStock,
+    this.category,
+    this.costPerUnit,
+  });
+
+  factory InventoryItem.fromJson(Map<String, dynamic> json) => InventoryItem(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    unit: json['unit'] as String? ?? 'kg',
+    currentStock: (json['currentStock'] as num?)?.toDouble() ?? 0.0,
+    minStock: (json['minStock'] as num?)?.toDouble() ?? 0.0,
+    maxStock: (json['maxStock'] as num?)?.toDouble(),
+    category: json['category'] as String?,
+    costPerUnit: (json['costPerUnit'] as num?)?.toDouble(),
+  );
+
+  bool get isLowStock => currentStock <= minStock;
+}
+
+// ── Reservations ─────────────────────────────────────────────────────────────
+
+class Reservation {
+  final String id;
+  final String customerName;
+  final String customerPhone;
+  final int partySize;
+  final DateTime date;
+  final String timeSlot;
+  final String? occasion;
+  final String status;
+  final String? tableId;
+  final String? specialRequests;
+  final DateTime createdAt;
+
+  const Reservation({
+    required this.id,
+    required this.customerName,
+    required this.customerPhone,
+    required this.partySize,
+    required this.date,
+    required this.timeSlot,
+    this.occasion,
+    required this.status,
+    this.tableId,
+    this.specialRequests,
+    required this.createdAt,
+  });
+
+  factory Reservation.fromJson(Map<String, dynamic> json) => Reservation(
+    id: json['id'] as String,
+    customerName: json['customerName'] as String,
+    customerPhone: json['customerPhone'] as String,
+    partySize: json['partySize'] as int,
+    date: DateTime.parse(json['date'] as String),
+    timeSlot: json['timeSlot'] as String,
+    occasion: json['occasion'] as String?,
+    status: json['status'] as String? ?? 'PENDING',
+    tableId: json['tableId'] as String?,
+    specialRequests: json['specialRequests'] as String?,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
+}
+
+// ── Dashboard Summary ────────────────────────────────────────────────────────
+
+class DashboardSummary {
+  final double todayRevenue;
+  final int todayOrders;
+  final int activeOrders;
+  final int availableTables;
+  final int occupiedTables;
+  final double avgOrderValue;
+  final List<RevenuePoint> revenueChart;
+
+  const DashboardSummary({
+    required this.todayRevenue,
+    required this.todayOrders,
+    required this.activeOrders,
+    required this.availableTables,
+    required this.occupiedTables,
+    required this.avgOrderValue,
+    this.revenueChart = const [],
+  });
+
+  factory DashboardSummary.fromJson(Map<String, dynamic> json) =>
+      DashboardSummary(
+        todayRevenue: (json['todayRevenue'] as num?)?.toDouble() ?? 0.0,
+        todayOrders: json['todayOrders'] as int? ?? 0,
+        activeOrders: json['activeOrders'] as int? ?? 0,
+        availableTables: json['availableTables'] as int? ?? 0,
+        occupiedTables: json['occupiedTables'] as int? ?? 0,
+        avgOrderValue: (json['avgOrderValue'] as num?)?.toDouble() ?? 0.0,
+        revenueChart: (json['revenueChart'] as List<dynamic>?)
+            ?.map((e) => RevenuePoint.fromJson(e as Map<String, dynamic>))
+            .toList() ?? [],
+      );
+}
+
+class RevenuePoint {
+  final String label;
+  final double amount;
+
+  const RevenuePoint({required this.label, required this.amount});
+
+  factory RevenuePoint.fromJson(Map<String, dynamic> json) => RevenuePoint(
+    label: json['label'] as String,
+    amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+  );
+}
+
+// ── POS Cart ─────────────────────────────────────────────────────────────────
+
+class CartItem {
+  final String menuItemId;
+  final String menuItemName;
+  final String? variantId;
+  final String variantName;
+  final double unitPrice;
+  final int quantity;
+  final String? notes;
+  final List<Modifier> selectedModifiers;
+
+  const CartItem({
+    required this.menuItemId,
+    required this.menuItemName,
+    this.variantId,
+    required this.variantName,
+    required this.unitPrice,
+    required this.quantity,
+    this.notes,
+    this.selectedModifiers = const [],
+  });
+
+  double get modifierTotal =>
+      selectedModifiers.fold(0.0, (sum, m) => sum + m.price);
+
+  double get lineTotal => (unitPrice + modifierTotal) * quantity;
+
+  CartItem copyWith({
+    int? quantity,
+    String? notes,
+    List<Modifier>? selectedModifiers,
+  }) =>
+      CartItem(
+        menuItemId: menuItemId,
+        menuItemName: menuItemName,
+        variantId: variantId,
+        variantName: variantName,
+        unitPrice: unitPrice,
+        quantity: quantity ?? this.quantity,
+        notes: notes ?? this.notes,
+        selectedModifiers: selectedModifiers ?? this.selectedModifiers,
+      );
+}
+
+// ── Kitchen KOT ──────────────────────────────────────────────────────────────
+
+class KitchenStation {
+  final String id;
+  final String name;
+  final String displayColor;
+  final bool isActive;
+
+  const KitchenStation({
+    required this.id,
+    required this.name,
+    required this.displayColor,
+    required this.isActive,
+  });
+
+  factory KitchenStation.fromJson(Map<String, dynamic> json) => KitchenStation(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    displayColor: json['displayColor'] as String? ?? '#3B82F6',
+    isActive: json['isActive'] as bool? ?? true,
+  );
+}
