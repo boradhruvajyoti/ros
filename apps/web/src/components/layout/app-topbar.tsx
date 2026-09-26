@@ -257,13 +257,13 @@ export function AppTopbar() {
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary/20 border border-primary/35 flex items-center justify-center font-bold text-xs text-primary shadow-xs">
               {user?.name?.charAt(0) || 'U'}
             </div>
-            <div className="hidden sm:flex flex-col items-start text-left">
-              <span className="text-xs font-bold text-foreground leading-tight">{user?.name || 'Staff User'}</span>
-              <span className="text-[10px] text-muted-foreground capitalize leading-none">
+            <div className="hidden sm:flex flex-col items-start text-left min-w-0 max-w-[120px] md:max-w-[160px]">
+              <span className="text-xs font-bold text-foreground leading-tight truncate w-full">{user?.name || 'Staff User'}</span>
+              <span className="text-[10px] text-muted-foreground capitalize leading-none truncate w-full">
                 {user?.roles?.[0]?.toLowerCase().replace('_', ' ') || 'Staff Member'}
               </span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden sm:block ml-0.5" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden sm:block ml-0.5 shrink-0" />
           </button>
 
           {/* Clean Profile Dropdown Panel */}
@@ -273,7 +273,7 @@ export function AppTopbar() {
                 className="fixed inset-0 z-40"
                 onClick={() => setShowProfileMenu(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-border bg-popover/95 backdrop-blur-2xl p-4 shadow-2xl space-y-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-foreground">
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-4.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover/95 backdrop-blur-2xl p-4 shadow-2xl space-y-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-foreground">
                 {/* User Info Header */}
                 <div className="flex items-center gap-3 pb-3 border-b border-border/70">
                   <div className="w-10 h-10 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center font-black text-sm text-primary shrink-0">
@@ -308,17 +308,17 @@ export function AppTopbar() {
 
                   {telegramStatus?.isConnected && !isEditingTelegram ? (
                     <div className="space-y-2 text-xs">
-                      <div className="p-2 rounded-xl bg-background/80 border border-border/60 flex items-center justify-between">
-                        <div>
+                      <div className="p-2 rounded-xl bg-background/80 border border-border/60 flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
                           <p className="text-[10px] text-muted-foreground font-semibold">Telegram Status</p>
-                          <p className="font-mono font-bold text-foreground text-xs">
+                          <p className="font-mono font-bold text-foreground text-xs truncate">
                             {user?.phone ? user.phone : (telegramStatus.chatId ? `ID: ${telegramStatus.chatId}` : 'Connected')}
                           </p>
                         </div>
                         {telegramStatus.username && (
-                          <div className="text-right">
+                          <div className="text-right min-w-0 max-w-[50%]">
                             <p className="text-[10px] text-muted-foreground font-semibold">Handle</p>
-                            <p className="font-mono font-bold text-sky-400 text-xs">@{telegramStatus.username}</p>
+                            <p className="font-mono font-bold text-sky-400 text-xs truncate">@{telegramStatus.username}</p>
                           </div>
                         )}
                       </div>
@@ -356,8 +356,8 @@ export function AppTopbar() {
                         <p className="font-bold flex items-center gap-1.5 text-sky-400">
                           <MessageSquare className="w-3.5 h-3.5" /> Verification Code Sent!
                         </p>
-                        <p className="text-[10px] opacity-80">
-                          We sent a 6-digit OTP to your Telegram account for <span className="font-bold text-white">{telegramPhoneInput || telegramChatIdInput}</span>.
+                        <p className="text-[10px] opacity-80 break-words">
+                          We sent a 6-digit OTP to your Telegram account for <span className="font-bold text-white break-all">{telegramPhoneInput || (telegramUsernameInput ? `@${telegramUsernameInput.replace(/^@/, '')}` : '') || telegramChatIdInput}</span>.
                         </p>
                         {otpDeepLink && (
                           <a
@@ -518,13 +518,13 @@ export function AppTopbar() {
                       )}
 
                       {telegramStatus?.botUsername && (
-                        <div className="pt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-                          <span>Bot: @{telegramStatus.botUsername}</span>
+                        <div className="pt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground min-w-0">
+                          <span className="truncate">Bot: @{telegramStatus.botUsername}</span>
                           <a
                             href={`https://t.me/${telegramStatus.botUsername}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-sky-400 hover:underline font-bold inline-flex items-center gap-0.5"
+                            className="text-sky-400 hover:underline font-bold inline-flex items-center gap-0.5 shrink-0"
                           >
                             Open Bot <ExternalLink className="w-2.5 h-2.5" />
                           </a>

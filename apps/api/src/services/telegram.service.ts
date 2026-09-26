@@ -509,19 +509,30 @@ export class TelegramService {
           });
 
           if (user) {
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            const existing = await cacheGet<any>(`tg_otp:${user.id}`);
+            const otp = existing?.otp || Math.floor(100000 + Math.random() * 900000).toString();
+
             await cacheSet(`tg_otp:${user.id}`, {
+              ...existing,
               otp,
               chatId,
-              username: cleanUsername || undefined,
-              phone: user.phone,
-              requestedAt: new Date().toISOString(),
+              username: cleanUsername || existing?.username || undefined,
+              phone: user.phone || existing?.phone,
+              requestedAt: existing?.requestedAt || new Date().toISOString(),
+              sentDirectly: true,
             }, 300);
 
             // Cache mapping
             await cacheSet(`tg_chat_user:${user.id}`, chatId, 86400 * 30);
             if (cleanUsername) {
               await cacheSet(`tg_chat_username:${cleanUsername}`, chatId, 86400 * 30);
+            }
+            if (user.phone) {
+              const digits = user.phone.replace(/\D/g, '');
+              await cacheSet(`tg_chat_phone:${digits}`, chatId, 86400 * 30);
+              if (digits.length >= 10) {
+                await cacheSet(`tg_chat_phone:${digits.slice(-10)}`, chatId, 86400 * 30);
+              }
             }
 
             await this.sendMessage(
@@ -537,19 +548,33 @@ export class TelegramService {
       if (cleanUsername) {
         const pendingUserId = await cacheGet<string>(`tg_username_to_user:${cleanUsername}`);
         if (pendingUserId) {
+          // Immediately consume the trigger so subsequent messages do not re-send
+          await cacheDel(`tg_username_to_user:${cleanUsername}`);
+
           const user = await prisma.user.findUnique({
             where: { id: pendingUserId },
             select: { id: true, email: true, name: true },
           });
 
           if (user) {
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            const existing = await cacheGet<any>(`tg_otp:${user.id}`);
+            // If already sent directly to this chat, do not duplicate
+            if (existing?.sentDirectly && existing?.chatId === chatId) {
+              return;
+            }
+
+            const otp = existing?.otp || Math.floor(100000 + Math.random() * 900000).toString();
             await cacheSet(`tg_otp:${user.id}`, {
+              ...existing,
               otp,
               chatId,
               username: cleanUsername,
-              requestedAt: new Date().toISOString(),
+              requestedAt: existing?.requestedAt || new Date().toISOString(),
+              sentDirectly: true,
             }, 300);
+
+            await cacheSet(`tg_chat_user:${user.id}`, chatId, 86400 * 30);
+            await cacheSet(`tg_chat_username:${cleanUsername}`, chatId, 86400 * 30);
 
             await this.sendMessage(
               chatId,
@@ -564,26 +589,45 @@ export class TelegramService {
       if (contact?.phone_number) {
         const cleanPhone = contact.phone_number.replace(/\D/g, '');
         await cacheSet(`tg_chat_phone:${cleanPhone}`, chatId, 86400 * 30);
+        if (cleanPhone.length >= 10) {
+          await cacheSet(`tg_chat_phone:${cleanPhone.slice(-10)}`, chatId, 86400 * 30);
+        }
+
+        const last10 = cleanPhone.slice(-10);
+        const pendingUserId = await cacheGet<string>(`tg_phone_to_user:${last10}`);
+        if (pendingUserId) {
+          await cacheDel(`tg_phone_to_user:${last10}`);
+        }
 
         // Find user by phone in database
         const matchingUsers = await prisma.user.findMany({
           where: {
             isActive: true,
-            phone: { contains: cleanPhone.slice(-10) },
+            phone: { contains: last10 },
           },
           take: 5,
         });
 
         if (matchingUsers.length > 0) {
           const user = matchingUsers[0];
-          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          const existing = await cacheGet<any>(`tg_otp:${user.id}`);
+          // If already sent directly to this chat, do not duplicate
+          if (existing?.sentDirectly && existing?.chatId === chatId) {
+            return;
+          }
+
+          const otp = existing?.otp || Math.floor(100000 + Math.random() * 900000).toString();
           await cacheSet(`tg_otp:${user.id}`, {
+            ...existing,
             otp,
             chatId,
-            username: cleanUsername || undefined,
+            username: cleanUsername || existing?.username || undefined,
             phone: cleanPhone,
-            requestedAt: new Date().toISOString(),
+            requestedAt: existing?.requestedAt || new Date().toISOString(),
+            sentDirectly: true,
           }, 300);
+
+          await cacheSet(`tg_chat_user:${user.id}`, chatId, 86400 * 30);
 
           await this.sendMessage(
             chatId,

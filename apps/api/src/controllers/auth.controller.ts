@@ -222,8 +222,18 @@ export class AuthController {
       throw new AppError('CONFIG_ERROR', 'Telegram Bot is not configured by the Platform Superadmin yet. Please configure the bot token first.', 400);
     }
 
-    // Generate 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Check if unexpired OTP already exists in cache to prevent generating conflicting OTPs
+    const cacheKey = `tg_otp:${req.user!.sub}`;
+    const existingOtpData = await cacheGet<{
+      otp: string;
+      phone?: string;
+      chatId?: string | null;
+      username?: string;
+      requestedAt?: string;
+      sentDirectly?: boolean;
+    }>(cacheKey);
+
+    const otp = existingOtpData?.otp || Math.floor(100000 + Math.random() * 900000).toString();
 
     // Check if we have a known Chat ID for this username, phone number, or user ID
     let targetChatId = cleanChatId;
@@ -236,31 +246,17 @@ export class AuthController {
     if (!targetChatId && cleanPhone) {
       const digitsOnly = cleanPhone.replace(/\D/g, '');
       const cachedChatId = await cacheGet<string>(`tg_chat_phone:${digitsOnly}`);
-      if (cachedChatId) targetChatId = cachedChatId;
+      if (cachedChatId) {
+        targetChatId = cachedChatId;
+      } else if (digitsOnly.length >= 10) {
+        const cached10 = await cacheGet<string>(`tg_chat_phone:${digitsOnly.slice(-10)}`);
+        if (cached10) targetChatId = cached10;
+      }
     }
 
     if (!targetChatId) {
       const cachedChatId = await cacheGet<string>(`tg_chat_user:${req.user!.sub}`);
       if (cachedChatId) targetChatId = cachedChatId;
-    }
-
-    // Store in cache for 5 minutes (300 seconds)
-    const cacheKey = `tg_otp:${req.user!.sub}`;
-    await cacheSet(cacheKey, {
-      otp,
-      phone: cleanPhone,
-      chatId: targetChatId || null,
-      username: cleanUsername,
-      requestedAt: new Date().toISOString(),
-    }, 300);
-
-    if (cleanUsername) {
-      await cacheSet(`tg_username_to_user:${cleanUsername}`, req.user!.sub, 300);
-    }
-
-    if (cleanPhone) {
-      const last10 = cleanPhone.replace(/\D/g, '').slice(-10);
-      await cacheSet(`tg_phone_to_user:${last10}`, req.user!.sub, 300);
     }
 
     let directSent = false;
@@ -274,6 +270,25 @@ export class AuthController {
           directSent = true;
         }
       } catch {}
+    }
+
+    // Store in cache for 5 minutes (300 seconds)
+    await cacheSet(cacheKey, {
+      otp,
+      phone: cleanPhone,
+      chatId: targetChatId || null,
+      username: cleanUsername,
+      requestedAt: new Date().toISOString(),
+      sentDirectly: directSent,
+    }, 300);
+
+    if (cleanUsername) {
+      await cacheSet(`tg_username_to_user:${cleanUsername}`, req.user!.sub, 300);
+    }
+
+    if (cleanPhone) {
+      const last10 = cleanPhone.replace(/\D/g, '').slice(-10);
+      await cacheSet(`tg_phone_to_user:${last10}`, req.user!.sub, 300);
     }
 
     const botUsername = botInfo.username || process.env.TELEGRAM_BOT_USERNAME || '';
