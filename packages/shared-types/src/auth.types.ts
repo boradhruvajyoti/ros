@@ -68,6 +68,7 @@ export type Permission =
 export interface JwtPayload {
   sub: string;        // user id
   email?: string;     // user email
+  name?: string;      // user full name
   tid: string;        // tenant id
   bid: string;        // active branch id
   roles: string[];

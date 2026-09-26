@@ -230,16 +230,28 @@ export class KitchenController {
         },
       });
 
-      // Format item breakdown for notification
+      // Format item breakdown with prices for notification
+      let kotCancelledTotal = 0;
       const kotCancelledItems = existingKot.items && existingKot.items.length > 0
-        ? existingKot.items.map((i) => `  • <b>${i.orderItem?.quantity || 1}x</b> ${i.orderItem?.menuItem?.name || 'Dish'}${i.orderItem?.variant?.name ? ` (${i.orderItem.variant.name})` : ''}`).join('\n')
+        ? existingKot.items.map((i) => {
+            const qty = i.orderItem?.quantity || 1;
+            const unitPrice = Number(i.orderItem?.unitPrice || 0);
+            const lineTotal = unitPrice * qty;
+            kotCancelledTotal += lineTotal;
+            const dishName = `${qty}x ${i.orderItem?.menuItem?.name || 'Dish'}${i.orderItem?.variant?.name ? ` (${i.orderItem.variant.name})` : ''}`;
+            return unitPrice > 0
+              ? `  • <b>${dishName}</b> — ₹${unitPrice.toLocaleString('en-IN')} × ${qty} = <b>₹${lineTotal.toLocaleString('en-IN')}</b>`
+              : `  • <b>${dishName}</b>`;
+          }).join('\n')
         : '  • All items in KOT';
+
+      const userName = await TelegramService.getUserName(req.user, 'Chef');
 
       // Dispatch Telegram Notification (ORDER_CANCELLED_KITCHEN)
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'ORDER_CANCELLED_KITCHEN',
-        `🚫 <b>KOT Cancelled in Kitchen Display</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Takeaway'}\n• <b>Cancelled Items:</b>\n${kotCancelledItems}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Kitchen'}\n• <b>Reason:</b> ${reason || 'Cancelled by kitchen staff'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
+        `🚫 <b>KOT Cancelled in Kitchen Display</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Takeaway'}\n• <b>Cancelled Items:</b>\n${kotCancelledItems}${kotCancelledTotal > 0 ? `\n• <b>Total Cancelled Value:</b> <b>₹${kotCancelledTotal.toLocaleString('en-IN')}</b>` : ''}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Kitchen'}\n• <b>Reason:</b> ${reason || 'Cancelled by kitchen staff'}\n• <b>Cancelled By:</b> ${userName}`
       ).catch((e) => console.error('[Telegram Cancel KOT Trigger Error]:', e));
 
       sendSuccess(res, kot);
@@ -322,23 +334,24 @@ export class KitchenController {
     }
 
     // Dispatch Telegram Notifications based on status
+    const staffName = await TelegramService.getUserName(req.user, 'Chef');
     if (status === 'ACCEPTED') {
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'KOT_ACCEPTED',
-        `👨‍🍳 <b>KDS Order Accepted!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter / Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Main Kitchen'}\n• <b>Accepted By:</b> ${req.user!.email || 'Chef'}`
+        `👨‍🍳 <b>KDS Order Accepted!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter / Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Main Kitchen'}\n• <b>Accepted By:</b> ${staffName}`
       ).catch((e) => console.error('[Telegram KOT Accepted Trigger Error]:', e));
     } else if (status === 'READY') {
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'FOOD_READY',
-        `🔔 <b>Food is Ready to Serve!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter / Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Pass Counter'}`
+        `🔔 <b>Food is Ready to Serve!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter / Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Pass Counter'}\n• <b>Prepared By:</b> ${staffName}`
       ).catch((e) => console.error('[Telegram Food Ready Trigger Error]:', e));
     } else if (status === 'SERVED') {
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'FOOD_SERVED',
-        `🥗 <b>Food Served to Table!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter'}`
+        `🥗 <b>Food Served to Table!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter'}\n• <b>Served By:</b> ${staffName}`
       ).catch((e) => console.error('[Telegram Food Served Trigger Error]:', e));
     }
 
@@ -513,12 +526,17 @@ export class KitchenController {
       });
 
       // Dispatch Telegram Notification (ORDER_CANCELLED_KITCHEN)
-      const cancelledItemTitle = `${existingItem.orderItem?.quantity || 1}x ${existingItem.orderItem?.menuItem?.name || 'Item'}${existingItem.orderItem?.variant?.name ? ` (${existingItem.orderItem.variant.name})` : ''}`;
+      const qty = existingItem.orderItem?.quantity || 1;
+      const unitPrice = Number(existingItem.orderItem?.unitPrice || 0);
+      const lineTotal = unitPrice * qty;
+      const cancelledItemTitle = `${qty}x ${existingItem.orderItem?.menuItem?.name || 'Item'}${existingItem.orderItem?.variant?.name ? ` (${existingItem.orderItem.variant.name})` : ''}`;
+      const priceSuffix = unitPrice > 0 ? ` — ₹${unitPrice.toLocaleString('en-IN')} × ${qty} = <b>₹${lineTotal.toLocaleString('en-IN')}</b>` : '';
+      const userName = await TelegramService.getUserName(req.user, 'Chef');
 
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'ORDER_CANCELLED_KITCHEN',
-        `🚫 <b>Item Cancelled on Kitchen Display</b>\n\n• <b>Order #:</b> #${existingItem.kot.order.orderNumber}\n• <b>Table:</b> ${existingItem.kot.order.table?.name || 'Counter / Takeaway'}\n• <b>KOT #:</b> #${existingItem.kot.kotNumber}\n• <b>Cancelled Item:</b> <b>${cancelledItemTitle}</b>\n• <b>Reason:</b> ${reason || 'Cancelled in kitchen'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
+        `🚫 <b>Item Cancelled on Kitchen Display</b>\n\n• <b>Order #:</b> #${existingItem.kot.order.orderNumber}\n• <b>Table:</b> ${existingItem.kot.order.table?.name || 'Counter / Takeaway'}\n• <b>KOT #:</b> #${existingItem.kot.kotNumber}\n• <b>Cancelled Item:</b> <b>${cancelledItemTitle}</b>${priceSuffix}${lineTotal > 0 ? `\n• <b>Cancelled Value:</b> <b>₹${lineTotal.toLocaleString('en-IN')}</b>` : ''}\n• <b>Reason:</b> ${reason || 'Cancelled in kitchen'}\n• <b>Cancelled By:</b> ${userName}`
       ).catch((e) => console.error('[Telegram Cancel KOT Item Trigger Error]:', e));
 
       sendSuccess(res, updatedKotItem);

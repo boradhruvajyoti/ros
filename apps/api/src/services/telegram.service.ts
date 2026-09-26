@@ -102,6 +102,31 @@ export const TELEGRAM_NOTIFICATION_META = [
 ];
 
 export class TelegramService {
+  /** Helper to get full name of user for notifications */
+  static async getUserName(userOrReqOrId?: any, fallback = 'Staff'): Promise<string> {
+    if (!userOrReqOrId) return fallback;
+    if (typeof userOrReqOrId === 'string') {
+      try {
+        const u = await prisma.user.findUnique({ where: { id: userOrReqOrId }, select: { name: true } });
+        if (u?.name) return u.name;
+      } catch {}
+      return fallback;
+    }
+    const reqUser = userOrReqOrId.user || userOrReqOrId;
+    if (reqUser?.name) return reqUser.name;
+    if (reqUser?.sub || reqUser?.id) {
+      try {
+        const u = await prisma.user.findUnique({ where: { id: reqUser.sub || reqUser.id }, select: { name: true } });
+        if (u?.name) return u.name;
+      } catch {}
+    }
+    if (reqUser?.email) {
+      const prefix = reqUser.email.split('@')[0];
+      return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    }
+    return fallback;
+  }
+
   /** Get current bot token from environment */
   static getBotToken(): string {
     return process.env.TELEGRAM_BOT_TOKEN?.trim() || '';

@@ -792,10 +792,14 @@ export class OrderService {
       stationGroups.get(stationId)!.push(item);
     });
 
-    const orderData = await tx.order.findUnique({
+    const orderData = await (tx as any).order.findUnique({
       where: { id: orderId },
-      select: { orderNumber: true, type: true, table: { select: { name: true } } },
+      include: {
+        table: { select: { name: true } },
+      },
     });
+
+    const senderName = orderData?.createdBy ? await TelegramService.getUserName(orderData.createdBy) : 'Staff';
 
     for (const [stationId, items] of stationGroups) {
       const kotNumber = await this.getNextSequence('KOT', targetBranchId);
@@ -823,6 +827,12 @@ export class OrderService {
         data: { status: 'SENT' },
       });
 
+      let stationName = 'Main Kitchen';
+      if (stationId) {
+        const st = await tx.kitchenStation.findUnique({ where: { id: stationId }, select: { name: true } });
+        if (st?.name) stationName = st.name;
+      }
+
       // Emit KOT created event to station room
       const kotSummary = {
         id: kot.id,
@@ -832,7 +842,7 @@ export class OrderService {
         orderType: orderData?.type || 'DINE_IN',
         tableName: orderData?.table?.name || '',
         stationId: stationId || 'default',
-        stationName: stationId || 'Kitchen',
+        stationName,
         status: 'NEW' as any,
         priority: 0,
         itemCount: items.length,
@@ -852,11 +862,19 @@ export class OrderService {
       emitToRoom(this.tenantId, targetBranchId, { type: 'KOT_CREATED', payload: kotSummary });
 
       // Dispatch Telegram Bot Notification (KOT_SENT)
-      const kotItemsList = items.map((i) => `• ${i.quantity}x ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''}`).join('\n');
+      let kotTotal = 0;
+      const kotItemsList = items.map((i) => {
+        const unitPrice = Number(i.unitPrice || 0);
+        const lineTotal = unitPrice * i.quantity;
+        kotTotal += lineTotal;
+        const priceSuffix = unitPrice > 0 ? ` — ₹${unitPrice.toLocaleString('en-IN')} × ${i.quantity} = <b>₹${lineTotal.toLocaleString('en-IN')}</b>` : '';
+        return `  • <b>${i.quantity}x</b> ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''}${priceSuffix}`;
+      }).join('\n');
+
       TelegramService.sendNotificationToTenant(
         this.tenantId,
         'KOT_SENT',
-        `🍳 <b>KOT Sent to Kitchen!</b>\n\n• <b>KOT #:</b> #${kotSummary.kotNumber}\n• <b>Order #:</b> #${kotSummary.orderNumber}\n• <b>Table:</b> ${kotSummary.tableName || 'Counter / Takeaway'}\n• <b>Station:</b> ${kotSummary.stationName || 'Main Kitchen'}\n• <b>Items (${items.length}):</b>\n${kotItemsList}`
+        `🍳 <b>KOT Sent to Kitchen!</b>\n\n• <b>KOT #:</b> #${kotSummary.kotNumber}\n• <b>Order #:</b> #${kotSummary.orderNumber}\n• <b>Table:</b> ${kotSummary.tableName || 'Counter / Takeaway'}\n• <b>Station:</b> ${stationName}\n• <b>Items (${items.length}):</b>\n${kotItemsList}\n• <b>KOT Total:</b> <b>₹${kotTotal.toLocaleString('en-IN')}</b>\n• <b>Sent By:</b> ${senderName}`
       ).catch((e) => console.error('[Telegram KOT Sent Alert Error]:', e));
     }
   }

@@ -506,11 +506,13 @@ export class StaffController {
     });
 
     // Notify Superadmin / Staff on Telegram
-    TelegramService.sendNotificationToTenant(
-      tenantId,
-      'STAFF_MODIFIED',
-      `👤 <b>Staff Member Added</b>\n\n• <b>Name:</b> ${data.name}\n• <b>Designation:</b> ${data.designation}\n• <b>Department:</b> ${data.department}\n• <b>Email:</b> ${data.email || 'None'}\n• <b>Added By:</b> ${req.user?.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        tenantId,
+        'STAFF_MODIFIED',
+        `👤 <b>Staff Member Added</b>\n\n• <b>Name:</b> ${data.name}\n• <b>Designation:</b> ${data.designation}\n• <b>Department:</b> ${data.department}\n• <b>Email:</b> ${data.email || 'None'}\n• <b>Added By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
+    });
 
     sendSuccess(res, employee, 201);
   }
@@ -762,11 +764,13 @@ export class StaffController {
     });
 
     // Notify Superadmin / Staff on Telegram
-    TelegramService.sendNotificationToTenant(
-      tenantId,
-      'STAFF_MODIFIED',
-      `👤 <b>Staff Member Updated</b>\n\n• <b>Name:</b> ${updatedEmployee.name}\n• <b>Designation:</b> ${updatedEmployee.designation}\n• <b>Department:</b> ${updatedEmployee.department}\n• <b>Updated By:</b> ${req.user?.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        tenantId,
+        'STAFF_MODIFIED',
+        `👤 <b>Staff Member Updated</b>\n\n• <b>Name:</b> ${updatedEmployee.name}\n• <b>Designation:</b> ${updatedEmployee.designation}\n• <b>Department:</b> ${updatedEmployee.department}\n• <b>Updated By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
+    });
 
     sendSuccess(res, updatedEmployee);
   }
@@ -802,11 +806,13 @@ export class StaffController {
     await prisma.employee.delete({ where: { id } });
 
     // Notify Superadmin on Telegram
-    TelegramService.sendNotificationToTenant(
-      tenantId,
-      'STAFF_MODIFIED',
-      `👤 <b>Staff Member Removed</b>\n\n• <b>Name:</b> ${employee.name}\n• <b>Designation:</b> ${employee.designation}\n• <b>Department:</b> ${employee.department}\n• <b>Removed By:</b> ${req.user?.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        tenantId,
+        'STAFF_MODIFIED',
+        `👤 <b>Staff Member Removed</b>\n\n• <b>Name:</b> ${employee.name}\n• <b>Designation:</b> ${employee.designation}\n• <b>Department:</b> ${employee.department}\n• <b>Removed By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
+    });
 
     sendSuccess(res, { message: 'Staff member removed successfully' });
   }

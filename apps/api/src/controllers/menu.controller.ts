@@ -159,11 +159,13 @@ export class MenuController {
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
 
     // Dispatch Telegram Bot Notification (MENU_MODIFIED)
-    TelegramService.sendNotificationToTenant(
-      req.user!.tid,
-      'MENU_MODIFIED',
-      `🍽️ <b>New Menu Dish Added!</b>\n\n• <b>Name:</b> ${item.name}\n• <b>Type:</b> ${item.foodType}\n• <b>Base Price:</b> ₹${variants[0]?.price || 0}\n• <b>Added By:</b> ${req.user!.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'MENU_MODIFIED',
+        `🍽️ <b>New Menu Dish Added!</b>\n\n• <b>Name:</b> ${item.name}\n• <b>Type:</b> ${item.foodType}\n• <b>Base Price:</b> ₹${variants[0]?.price || 0}\n• <b>Added By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    });
 
     sendSuccess(res, item, 201);
   }
@@ -194,11 +196,13 @@ export class MenuController {
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
 
     // Dispatch Telegram Bot Notification (MENU_MODIFIED)
-    TelegramService.sendNotificationToTenant(
-      req.user!.tid,
-      'MENU_MODIFIED',
-      `🍽️ <b>Menu Dish Updated</b>\n\n• <b>Name:</b> ${item.name}\n• <b>Status:</b> ${item.isActive ? 'Active' : 'Archived'}\n• <b>Updated By:</b> ${req.user!.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'MENU_MODIFIED',
+        `🍽️ <b>Menu Dish Updated</b>\n\n• <b>Name:</b> ${item.name}\n• <b>Status:</b> ${item.isActive ? 'Active' : 'Archived'}\n• <b>Updated By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    });
 
     sendSuccess(res, item);
   }
@@ -212,11 +216,13 @@ export class MenuController {
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
 
     // Dispatch Telegram Bot Notification (MENU_MODIFIED)
-    TelegramService.sendNotificationToTenant(
-      req.user!.tid,
-      'MENU_MODIFIED',
-      `🍽️ <b>Menu Dish Deleted</b>\n\n• <b>Name:</b> ${item?.name || req.params.id}\n• <b>Deleted By:</b> ${req.user!.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'MENU_MODIFIED',
+        `🍽️ <b>Menu Dish Deleted</b>\n\n• <b>Name:</b> ${item?.name || req.params.id}\n• <b>Deleted By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    });
 
     sendSuccess(res, { message: 'Item deleted from active menu' });
   }
@@ -232,11 +238,13 @@ export class MenuController {
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
 
-    TelegramService.sendNotificationToTenant(
-      req.user!.tid,
-      'MENU_MODIFIED',
-      `🍽️ <b>Batch Menu Items Removed</b>\n\n• <b>Total Removed:</b> ${result.count} items\n• <b>Action By:</b> ${req.user!.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'MENU_MODIFIED',
+        `🍽️ <b>Batch Menu Items Removed</b>\n\n• <b>Total Removed:</b> ${result.count} items\n• <b>Action By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    });
 
     sendSuccess(res, { count: result.count, message: `${result.count} items deleted from active menu.` });
   }
@@ -250,11 +258,13 @@ export class MenuController {
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
 
-    TelegramService.sendNotificationToTenant(
-      req.user!.tid,
-      'MENU_MODIFIED',
-      `🍽️ <b>Menu Availability Changed</b>\n\n• <b>Item:</b> ${item?.name || 'Dish'}\n• <b>Availability:</b> ${isAvailable ? '✅ In Stock' : '❌ Out of Stock (86ed)'}\n• <b>By:</b> ${req.user!.email || 'Admin'}`
-    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Admin').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'MENU_MODIFIED',
+        `🍽️ <b>Menu Availability Changed</b>\n\n• <b>Item:</b> ${item?.name || 'Dish'}\n• <b>Availability:</b> ${isAvailable ? '✅ In Stock' : '❌ Out of Stock (86ed)'}\n• <b>By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+    });
 
     sendSuccess(res, { isAvailable });
   }

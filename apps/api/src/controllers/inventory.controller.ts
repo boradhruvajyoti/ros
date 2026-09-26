@@ -84,11 +84,13 @@ export class InventoryController {
     });
 
     // Dispatch Telegram Bot Notification (INVENTORY_MODIFIED)
-    TelegramService.sendNotificationToTenant(
-      req.user!.tid,
-      'INVENTORY_MODIFIED',
-      `📦 <b>New Inventory Stock Item Added!</b>\n\n• <b>Item:</b> ${ingredient.name}\n• <b>Current Stock:</b> ${ingredient.currentStock} ${ingredient.unit}\n• <b>Cost/Unit:</b> ₹${ingredient.costPerUnit}\n• <b>Added By:</b> ${req.user!.email || 'Staff'}`
-    ).catch((e) => console.error('[Telegram Inventory Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Staff').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'INVENTORY_MODIFIED',
+        `📦 <b>New Inventory Stock Item Added!</b>\n\n• <b>Item:</b> ${ingredient.name}\n• <b>Current Stock:</b> ${ingredient.currentStock} ${ingredient.unit}\n• <b>Cost/Unit:</b> ₹${ingredient.costPerUnit}\n• <b>Added By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Inventory Alert Error]:', e));
+    });
 
     sendSuccess(res, ingredient, 201);
   }
@@ -138,11 +140,13 @@ export class InventoryController {
     });
 
     // Dispatch Telegram Bot Notification (INVENTORY_MODIFIED)
-    TelegramService.sendNotificationToTenant(
-      req.user!.tid,
-      'INVENTORY_MODIFIED',
-      `📦 <b>Inventory Stock Adjusted</b>\n\n• <b>Item:</b> ${result.ingredient.name}\n• <b>Movement:</b> ${data.movementType}\n• <b>Change:</b> ${data.quantity} ${result.ingredient.unit}\n• <b>New Level:</b> ${result.ingredient.currentStock} ${result.ingredient.unit}\n• <b>Notes:</b> ${data.notes || 'None'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
-    ).catch((e) => console.error('[Telegram Inventory Alert Error]:', e));
+    TelegramService.getUserName(req.user, 'Staff').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'INVENTORY_MODIFIED',
+        `📦 <b>Inventory Stock Adjusted</b>\n\n• <b>Item:</b> ${result.ingredient.name}\n• <b>Movement:</b> ${data.movementType}\n• <b>Change:</b> ${data.quantity} ${result.ingredient.unit}\n• <b>New Level:</b> ${result.ingredient.currentStock} ${result.ingredient.unit}\n• <b>Notes:</b> ${data.notes || 'None'}\n• <b>By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Inventory Alert Error]:', e));
+    });
 
     sendSuccess(res, result, 201);
   }

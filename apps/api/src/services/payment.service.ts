@@ -132,15 +132,16 @@ export class PaymentService {
             include: { menuItem: true, variant: true },
           },
         },
-      }).then((fullOrder) => {
+      }).then(async (fullOrder) => {
         if (!fullOrder) return;
+        const userName = await TelegramService.getUserName(createdBy, 'Cashier');
         const itemsList = fullOrder.items
-          .map((i) => `• ${i.quantity}x ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''} - ₹${Number(i.lineTotal).toFixed(2)}`)
+          .map((i) => `  • <b>${i.quantity}x</b> ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''} — ₹${Number(i.unitPrice || 0).toLocaleString('en-IN')} × ${i.quantity} = <b>₹${Number(i.lineTotal).toLocaleString('en-IN')}</b>`)
           .join('\n');
         TelegramService.sendNotificationToTenant(
           this.tenantId,
           'BILL_PAID',
-          `💳 <b>Bill Paid &amp; Settled!</b>\n\n• <b>Order #:</b> #${fullOrder.orderNumber}\n• <b>Table:</b> ${fullOrder.table?.name || 'Counter / Takeaway'}\n• <b>Payment Method:</b> ${dto.method}\n• <b>Amount Paid:</b> ₹${Number(dto.amount).toFixed(2)}\n• <b>Total Bill:</b> ₹${Number(fullOrder.total || 0).toFixed(2)}\n• <b>Total Items:</b> ${fullOrder.items.length}\n\n<b>Items Ordered:</b>\n${itemsList || 'None'}`
+          `💳 <b>Bill Paid &amp; Settled!</b>\n\n• <b>Order #:</b> #${fullOrder.orderNumber}\n• <b>Table:</b> ${fullOrder.table?.name || 'Counter / Takeaway'}\n• <b>Payment Method:</b> ${dto.method}\n• <b>Amount Paid:</b> <b>₹${Number(dto.amount).toLocaleString('en-IN')}</b>\n• <b>Total Bill:</b> <b>₹${Number(fullOrder.total || 0).toLocaleString('en-IN')}</b>\n• <b>Billed By:</b> ${userName}\n• <b>Total Items:</b> ${fullOrder.items.length}\n\n<b>Items Ordered:</b>\n${itemsList || 'None'}`
         ).catch((e) => console.error('[Telegram Bill Paid Alert Error]:', e));
       }).catch((e) => console.error('[Telegram Query Order Error]:', e));
 

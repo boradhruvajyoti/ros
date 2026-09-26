@@ -535,12 +535,22 @@ export class TableController {
     });
 
     // Dispatch Telegram Bot Notification (ORDER_QR_NEW)
-    const itemLines = (items || []).map((it: any) => `• ${it.quantity || 1}x ${it.name || it.menuItemId || 'Dish'}`).join('\n');
+    const orderItemsToDisplay = order.items && order.items.length > 0 ? order.items : items;
+    const itemLines = (orderItemsToDisplay || []).map((it: any) => {
+      const qty = it.quantity || 1;
+      const name = it.menuItem?.name || it.name || 'Dish';
+      const variant = it.variant?.name ? ` (${it.variant.name})` : '';
+      const price = Number(it.unitPrice || it.price || 0);
+      const lineTotal = price * qty;
+      return price > 0
+        ? `  • <b>${qty}x ${name}${variant}</b> — ₹${price.toLocaleString('en-IN')} × ${qty} = <b>₹${lineTotal.toLocaleString('en-IN')}</b>`
+        : `  • <b>${qty}x ${name}${variant}</b>`;
+    }).join('\n');
     const orderTypeLabel = (req.body.type || req.body.orderType || 'DINE_IN') === 'TAKEAWAY' ? 'Packing / Parcel' : 'Dine In';
     TelegramService.sendNotificationToTenant(
       table.tenantId,
       'ORDER_QR_NEW',
-      `📱 <b>New Order Received via QR Menu!</b>\n\n• <b>Table:</b> ${table.name}\n• <b>Order Type:</b> ${orderTypeLabel}\n• <b>Order #:</b> #${order.orderNumber}\n• <b>Guest:</b> ${customerName || 'Dine-In Guest'}${customerPhone ? ` (${customerPhone})` : ''}\n• <b>Items (${items.length}):</b>\n${itemLines}\n• <b>Total Amount:</b> ₹${Number(order.total || 0).toFixed(2)}`
+      `📱 <b>New Order Received via QR Menu!</b>\n\n• <b>Table:</b> ${table.name}\n• <b>Order Type:</b> ${orderTypeLabel}\n• <b>Order #:</b> #${order.orderNumber}\n• <b>Guest:</b> ${customerName || 'Dine-In Guest'}${customerPhone ? ` (${customerPhone})` : ''}\n• <b>Items (${items.length}):</b>\n${itemLines}\n• <b>Total Amount:</b> <b>₹${Number(order.total || 0).toLocaleString('en-IN')}</b>`
     ).catch((e) => console.error('[Telegram QR Order Alert Error]:', e));
 
     // Provide a fresh 45-min renewed session for subsequent rounds during this dining sitting

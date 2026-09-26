@@ -170,10 +170,11 @@ export class OrderController {
         where: { id: req.params.id },
         include: { table: true },
       });
+      const userName = await TelegramService.getUserName(req.user);
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'FOOD_SERVED',
-        `🥗 <b>Food Served to Table!</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Served By:</b> ${req.user!.email || 'Staff'}`
+        `🥗 <b>Food Served to Table!</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Served By:</b> ${userName}`
       ).catch((e) => console.error('[Telegram Food Served Trigger Error]:', e));
     } else if (dto.status === 'CANCELLED' || dto.status === 'VOIDED') {
       const fullOrder = await prisma.order.findUnique({
@@ -186,14 +187,22 @@ export class OrderController {
         },
       });
 
+      let orderTotal = 0;
       const cancelledItemsList = fullOrder?.items && fullOrder.items.length > 0
-        ? fullOrder.items.map((i) => `  • <b>${i.quantity}x</b> ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''}`).join('\n')
+        ? fullOrder.items.map((i) => {
+            const unitPrice = Number(i.unitPrice || (i.variant as any)?.price || 0);
+            const lineTotal = unitPrice * i.quantity;
+            orderTotal += lineTotal;
+            const priceStr = unitPrice > 0 ? ` — ₹${unitPrice.toLocaleString('en-IN')} × ${i.quantity} = <b>₹${lineTotal.toLocaleString('en-IN')}</b>` : '';
+            return `  • <b>${i.quantity}x</b> ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''}${priceStr}`;
+          }).join('\n')
         : '  • All items in order';
 
+      const userName = await TelegramService.getUserName(req.user);
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'ORDER_CANCELLED_TABLES',
-        `❌ <b>Order Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Cancelled Items:</b>\n${cancelledItemsList}\n• <b>Reason:</b> ${dto.reason || 'Cancelled on floor'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
+        `❌ <b>Order Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Cancelled Items:</b>\n${cancelledItemsList}\n• <b>Total Cancelled Value:</b> <b>₹${orderTotal.toLocaleString('en-IN')}</b>\n• <b>Reason:</b> ${dto.reason || 'Cancelled on floor'}\n• <b>Cancelled By:</b> ${userName}`
       ).catch((e) => console.error('[Telegram Cancel Tables Trigger Error]:', e));
     }
 
@@ -366,10 +375,15 @@ export class OrderController {
     });
 
     // Dispatch Telegram Bot Notification (ORDER_CANCELLED_TABLES)
+    const itemUnitPrice = Number(item.unitPrice || (item.variant as any)?.price || 0);
+    const itemTotal = itemUnitPrice * item.quantity;
+    const itemPriceStr = itemUnitPrice > 0 ? ` — ₹${itemUnitPrice.toLocaleString('en-IN')} × ${item.quantity} = <b>₹${itemTotal.toLocaleString('en-IN')}</b>` : '';
+    const userName = await TelegramService.getUserName(req.user);
+
     TelegramService.sendNotificationToTenant(
       req.user!.tid,
       'ORDER_CANCELLED_TABLES',
-      `❌ <b>Item Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${order.orderNumber}\n• <b>Table:</b> ${order.table?.name || 'Counter / Takeaway'}\n• <b>Item:</b> ${item.quantity}x ${item.menuItem?.name || 'Item'}${item.variant?.name ? ` (${item.variant.name})` : ''}\n• <b>Reason:</b> ${reason || 'Cancelled by staff'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
+      `❌ <b>Item Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${order.orderNumber}\n• <b>Table:</b> ${order.table?.name || 'Counter / Takeaway'}\n• <b>Cancelled Item:</b> <b>${item.quantity}x</b> ${item.menuItem?.name || 'Item'}${item.variant?.name ? ` (${item.variant.name})` : ''}${itemPriceStr}\n• <b>Cancelled Value:</b> <b>₹${itemTotal.toLocaleString('en-IN')}</b>\n• <b>Reason:</b> ${reason || 'Cancelled by staff'}\n• <b>Cancelled By:</b> ${userName}`
     ).catch((e) => console.error('[Telegram Cancel Tables Trigger Error]:', e));
 
     const refreshedOrder = await svc.getOrder(orderId);
