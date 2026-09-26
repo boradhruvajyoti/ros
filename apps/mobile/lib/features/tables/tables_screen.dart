@@ -101,6 +101,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _triggerTableSelection,
         icon: const Icon(Icons.add_shopping_cart_rounded),
