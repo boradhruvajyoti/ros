@@ -7,7 +7,7 @@ import {
   ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
-  Volume2, ChevronLeft, ChevronDown, ChevronUp, X
+  Volume2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -153,6 +153,7 @@ export default function POSPage() {
   const [mobileTab, setMobileTab] = useState<'menu' | 'cart'>('menu');
   const [showMobileCategories, setShowMobileCategories] = useState(false);
   const [isMobileCartDrawerOpen, setIsMobileCartDrawerOpen] = useState(false);
+  const [mobileSideRailCollapsed, setMobileSideRailCollapsed] = useState(false);
   const loadedOrderIdRef = useRef<string | null>(null);
   const initialParamProcessedRef = useRef(false);
 
@@ -913,34 +914,6 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* ── Mobile Vertical Categories Collapsed Trigger Button (Mobile Web View) ── */}
-          <div className="flex md:hidden items-center justify-between gap-2 pt-0.5">
-            <button
-              type="button"
-              onClick={() => setShowMobileCategories(true)}
-              className="flex-1 flex items-center justify-between px-3.5 py-2 rounded-2xl bg-card border border-border/90 hover:border-primary/50 text-xs font-black shadow-xs cursor-pointer active:scale-98"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base">{selectedCategoryObj?.icon || CATEGORY_ICONS[selectedCategoryObj?.name || ''] || '📂'}</span>
-                <span className="truncate">{selectedCategoryObj ? selectedCategoryObj.name : 'All Categories'}</span>
-              </div>
-              <div className="flex items-center gap-1 text-[11px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-xl shrink-0 font-mono">
-                <span>Categories</span>
-                <ChevronDown className="w-3.5 h-3.5" />
-              </div>
-            </button>
-            {selectedCategory && (
-              <button
-                type="button"
-                onClick={() => setSelectedCategory(null)}
-                className="px-2.5 py-2 rounded-2xl bg-muted/80 text-muted-foreground hover:text-foreground text-xs font-bold border border-border shrink-0 cursor-pointer"
-                title="Reset to All Categories"
-              >
-                ✕ Reset
-              </button>
-            )}
-          </div>
-
           {/* ── Large Visual Category Horizontal Buttons (Desktop / Tablet Only) ── */}
           <div className="hidden md:flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-0.5">
             <button
@@ -979,8 +952,191 @@ export default function POSPage() {
           </div>
         </div>
 
+        {/* ── MOBILE: Side Category Rail + Item Grid Split Layout ── */}
+        {/* Desktop: normal scrolling grid | Mobile: side-rail + item grid */}
+        <div className="flex md:hidden flex-1 overflow-hidden">
+          {/* Sticky Left Side Category Rail (Waiter-mode, always visible) */}
+          <div className={cn(
+            "flex flex-col border-r border-border bg-card/80 shrink-0 overflow-y-auto transition-all duration-200",
+            mobileSideRailCollapsed ? "w-12" : "w-[88px]"
+          )}>
+            {/* Collapse toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileSideRailCollapsed(v => !v)}
+              className="p-2 flex items-center justify-center border-b border-border text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+            >
+              {mobileSideRailCollapsed
+                ? <ChevronRight className="w-4 h-4" />
+                : <ChevronLeft className="w-4 h-4" />}
+            </button>
+
+            {/* All button */}
+            <button
+              type="button"
+              onClick={() => setSelectedCategory(null)}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 py-3 px-1 border-b border-border/50 cursor-pointer transition-all active:scale-95",
+                !selectedCategory
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <span className="text-xl">✨</span>
+              {!mobileSideRailCollapsed && (
+                <span className="text-[9px] font-black leading-tight text-center">All</span>
+              )}
+            </button>
+
+            {/* Per-category buttons */}
+            {mainCategories.map((c) => {
+              const icon = c.icon || CATEGORY_ICONS[c.name] || '🍽️';
+              const isActive = selectedCategory === c.id;
+              const sec = processedSections.find(s => s.id === c.id);
+              const count = sec ? sec.totalItems : (c.items?.length || 0);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(c.id)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 py-3.5 px-1 border-b border-border/50 cursor-pointer transition-all active:scale-95 relative",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  <span className="text-xl leading-none">{icon}</span>
+                  {!mobileSideRailCollapsed && (
+                    <>
+                      <span className={cn(
+                        "text-[9px] font-black text-center leading-tight line-clamp-2 max-w-full px-0.5",
+                        isActive ? "text-white" : "text-foreground"
+                      )}>
+                        {c.name.length > 14 ? c.name.slice(0, 12) + '…' : c.name}
+                      </span>
+                      <span className={cn(
+                        "text-[9px] font-mono px-1.5 py-0.5 rounded-full",
+                        isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                      )}>{count}</span>
+                    </>
+                  )}
+                  {mobileSideRailCollapsed && isActive && (
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground rounded-l-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right Item Grid */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-4 pb-28">
+            {isLoading ? (
+              <div className="grid grid-cols-2 gap-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-28 rounded-2xl bg-muted/60 animate-pulse border border-border" />
+                ))}
+              </div>
+            ) : processedSections.length > 0 ? (
+              processedSections.map((sec) => (
+                <div key={sec.id} className="space-y-2.5">
+                  {!selectedCategory && (
+                    <div className="flex items-center gap-1.5 pb-1 border-b border-border/60">
+                      <span className="text-sm">{sec.icon}</span>
+                      <h2 className="text-[10px] font-black text-foreground uppercase tracking-wider flex-1">{sec.name}</h2>
+                      <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{sec.totalItems}</span>
+                    </div>
+                  )}
+                  {sec.subcategories.map((sub) => (
+                    <div key={sub.id} className="space-y-2">
+                      {sec.subcategories.length > 1 && (
+                        <div className="text-[9px] font-black text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1">
+                          <span>🏷️</span><span>{sub.name}</span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        {sub.items.map((card) => {
+                          const inCart = cart.filter(c => c.menuItemId === card.menuItemId && c.variantId === card.variantId).reduce((s, c) => s + c.quantity, 0);
+                          const isVeg = card.foodType === 'VEG' || card.foodType === 'VEGAN';
+                          return (
+                            <button
+                              key={card.cardId}
+                              type="button"
+                              onClick={() => addToCart(card.itemRef, card.variantRef)}
+                              className={cn(
+                                'text-left relative p-3 rounded-2xl border-2 transition-all duration-100 cursor-pointer flex flex-col justify-between active:scale-95 min-h-[108px]',
+                                inCart > 0
+                                  ? 'border-primary bg-primary/10 shadow-md shadow-primary/20'
+                                  : isVeg
+                                  ? 'border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/60'
+                                  : 'border-rose-500/30 bg-rose-500/5 hover:border-rose-500/60'
+                              )}
+                            >
+                              {/* Top: Veg indicator + count badge */}
+                              <div className="flex items-start justify-between w-full gap-1">
+                                <div className={cn(
+                                  'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 mt-0.5',
+                                  isVeg ? 'border-emerald-500' : 'border-rose-500'
+                                )}>
+                                  <div className={cn('w-2 h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-rose-500')} />
+                                </div>
+                                {inCart > 0 ? (
+                                  <div className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-black shadow shrink-0">
+                                    {inCart}x
+                                  </div>
+                                ) : (
+                                  <div className={cn(
+                                    'w-7 h-7 rounded-full flex items-center justify-center font-black text-sm shrink-0',
+                                    isVeg
+                                      ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                      : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                  )}>
+                                    +
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Food name — BIG and bold */}
+                              <div className="mt-1.5">
+                                <p className="font-black text-xs text-foreground leading-snug line-clamp-2">
+                                  {card.displayName}
+                                </p>
+                              </div>
+
+                              {/* Price — prominent */}
+                              <div className={cn(
+                                "mt-2 pt-1.5 border-t flex items-center justify-between",
+                                isVeg ? 'border-emerald-500/20' : 'border-rose-500/20'
+                              )}>
+                                <span className={cn(
+                                  "text-sm font-black font-mono",
+                                  isVeg ? 'text-emerald-500' : 'text-rose-500'
+                                )}>₹{card.price.toFixed(0)}</span>
+                                {card.variantName && (
+                                  <span className="text-[9px] font-bold text-muted-foreground">{card.variantName}</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <Utensils className="w-10 h-10 mb-2 opacity-30" />
+                <p className="text-xs font-bold">No dishes found</p>
+                <p className="text-[10px]">Try a different category.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop: normal scrolling grid — unchanged */}
         {/* Big Food Grid (Touch-friendly 1-Tap Add) — Grouped Subcategory-wise with Separate Variant Items */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-5 pb-24 lg:pb-4">
+        <div className="hidden md:block flex-1 overflow-y-auto p-3 sm:p-4 space-y-5 pb-24 lg:pb-4">
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5">
               {Array.from({ length: 12 }).map((_, i) => (
@@ -1111,6 +1267,7 @@ export default function POSPage() {
             </div>
           )}
         </div>
+        {/* End desktop grid */}
 
         {/* ── Mobile Floating Bottom Itemised Tray Bar (QR Menu style) ── */}
         {cart.length > 0 && (
