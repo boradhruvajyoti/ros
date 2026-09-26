@@ -16,7 +16,6 @@ import { apiGet, apiPost, apiPatch, apiDelete, apiDownloadFile } from '@/lib/api
 import { formatCurrency } from '@ros/utils';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { MenuExportModal } from '@/components/menu/menu-export-modal';
 
 interface MenuItem {
   id: string;
@@ -53,7 +52,6 @@ export default function MenuPage() {
   const [editingDish, setEditingDish] = useState<MenuItem | null>(null);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Quick subcategory creation in Dish Modal
   const [isQuickAddCategoryOpen, setIsQuickAddCategoryOpen] = useState(false);
@@ -110,11 +108,6 @@ export default function MenuPage() {
   };
 
   // Queries
-  const { data: currentTenant } = useQuery<any>({
-    queryKey: ['current-tenant'],
-    queryFn: () => apiGet('/tenants/current'),
-  });
-
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery<MenuCategory[]>({
     queryKey: ['menu', 'categories'],
     queryFn: () => apiGet<MenuCategory[]>('/menu/categories'),
@@ -495,12 +488,16 @@ DESSERTS & DRINKS
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
-            onClick={() => setIsExportModalOpen(true)}
-            disabled={items.length === 0}
+            onClick={handleExportMenuPdf}
+            disabled={isExportingPdf || items.length === 0}
             variant="outline"
             className="gap-2 border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-500 shadow-sm cursor-pointer"
           >
-            <FileDown className="w-4 h-4" />
+            {isExportingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileDown className="w-4 h-4" />
+            )}
             Export Menu PDF
           </Button>
           <Button
@@ -1618,16 +1615,6 @@ DESSERTS & DRINKS
           </div>
         </div>
       )}
-
-      {/* Menu Export PDF Style Selection Modal */}
-      <MenuExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        restaurantName={currentTenant?.name}
-        tenant={currentTenant}
-        categories={categories}
-        items={items}
-      />
     </div>
   );
 }

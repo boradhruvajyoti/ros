@@ -533,10 +533,9 @@ export class MenuController {
       })),
     };
 
-    const template = (req.query.template as any) || 'hudson';
-    const pdfBuffer = await MenuPdfService.generateMenuPdf(pdfData, template);
+    const pdfBuffer = await MenuPdfService.generateMenuPdf(pdfData);
 
-    const cleanFilename = `${(tenant?.name || 'Restaurant').replace(/[^a-zA-Z0-9_-]/g, '_')}_Menu_${template}.pdf`;
+    const cleanFilename = `${(tenant?.name || 'Restaurant').replace(/[^a-zA-Z0-9_-]/g, '_')}_Menu.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${cleanFilename}"`);
