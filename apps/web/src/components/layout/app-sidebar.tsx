@@ -57,18 +57,20 @@ export function AppSidebar() {
       }
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !isPlatformSuperAdmin && !!user?.tenantId,
+    enabled: !!user?.tenantId,
   });
 
   const platformName = platformDetails?.platformName || 'ROS Platform';
   const platformTagline = platformDetails?.tagline || 'SaaS Control Plane';
 
   const tenantLogo = currentTenant?.logoUrl;
-  const tenantDisplayName = currentTenant?.name || user?.name || 'Restaurant OS';
-  let tenantTagline = 'Culinary OS';
+  const tenantDisplayName = isPlatformSuperAdmin
+    ? platformName
+    : currentTenant?.name || user?.name || 'Restaurant OS';
+  let tenantTagline = isPlatformSuperAdmin ? platformTagline : 'Culinary OS';
   try {
     const parsed = typeof currentTenant?.settings === 'string' ? JSON.parse(currentTenant.settings) : (currentTenant?.settings || {});
-    if (parsed?.tagline) tenantTagline = parsed.tagline;
+    if (!isPlatformSuperAdmin && parsed?.tagline) tenantTagline = parsed.tagline;
   } catch {}
 
   const navItems = getFilteredSidebarItems(user, hasAnyPermission);
@@ -155,7 +157,11 @@ export function AppSidebar() {
               : 'rounded-xl bg-primary'
           )}>
             {isPlatformSuperAdmin ? (
-              <Globe className="w-5 h-5 text-white" />
+              tenantLogo ? (
+                <img src={tenantLogo} alt={platformName} className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <Globe className="w-5 h-5 text-white" />
+              )
             ) : tenantLogo ? (
               <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-full" />
             ) : (
@@ -223,8 +229,23 @@ export function AppSidebar() {
             {/* Mobile Header */}
             <div className="flex items-center justify-between px-4 h-16 border-b border-sidebar-border bg-card/40">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shrink-0 shadow-sm">
-                  <UtensilsCrossed className="w-4 h-4" />
+                <div className={cn(
+                  'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden',
+                  isPlatformSuperAdmin
+                    ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500'
+                    : 'bg-primary text-primary-foreground'
+                )}>
+                  {isPlatformSuperAdmin ? (
+                    tenantLogo ? (
+                      <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <Globe className="w-4 h-4 text-white" />
+                    )
+                  ) : tenantLogo ? (
+                    <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-xl" />
+                  ) : (
+                    <UtensilsCrossed className="w-4 h-4 text-primary-foreground" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-black text-foreground truncate">{tenantDisplayName}</p>

@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Settings, Building2, Percent, Printer, Shield, Save,
   CheckCircle2, Bell, Globe, Sparkles, UploadCloud, Trash2,
-  ChefHat, Store, Phone, Mail, MapPin, Receipt, FileText, Loader2
+  ChefHat, Store, Phone, Mail, MapPin, Receipt, FileText, Loader2,
+  Sliders, Server, Laptop
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,11 +15,13 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPatch } from '@/lib/api';
 import { downscaleImage } from '@/lib/image-utils';
+import { useAuthStore } from '@/stores/auth.store';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'logo' | 'tax' | 'printer' | 'security'>('general');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
 
   // Load current tenant settings from API
   const { data: tenant, isLoading } = useQuery({
@@ -27,6 +30,25 @@ export default function SettingsPage() {
       const res = await apiGet<any>('/tenants/current');
       return res;
     },
+  });
+
+  const isPlatformSuperAdmin =
+    user?.email?.toLowerCase() === 'superadmin@ros.com' ||
+    user?.tenantId === 'tenant-platform' ||
+    tenant?.id === 'tenant-platform';
+
+  // Load platform details if superadmin
+  const { data: platformConfig } = useQuery({
+    queryKey: ['platform-details'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/superadmin/platform-details');
+        return res;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!isPlatformSuperAdmin,
   });
 
   // Local Form State
@@ -44,18 +66,26 @@ export default function SettingsPage() {
   const [serviceCharge, setServiceCharge] = useState('5.0');
   const [packagingFee, setPackagingFee] = useState('25');
 
-  // Populate state when tenant loads
+  // Populate state when tenant or platformConfig loads
   useEffect(() => {
-    if (tenant) {
-      setName(tenant.name || '');
-      setLogoUrl(tenant.logoUrl || '');
-
+    if (tenant || platformConfig) {
       let parsedSettings: any = {};
       try {
-        parsedSettings = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : (tenant.settings || {});
+        parsedSettings = typeof tenant?.settings === 'string' ? JSON.parse(tenant.settings) : (tenant?.settings || {});
       } catch {}
 
-      setTagline(parsedSettings?.tagline || '');
+      if (isPlatformSuperAdmin) {
+        setName(platformConfig?.platformName || tenant?.name || 'Restaurant OS (ROS)');
+        setTagline(platformConfig?.tagline || parsedSettings?.tagline || 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale');
+        setPhone(platformConfig?.supportPhone || tenant?.branches?.[0]?.phone || '');
+        setEmail(platformConfig?.supportEmail || tenant?.branches?.[0]?.email || 'support@restaurantos.cloud');
+      } else {
+        setName(tenant?.name || '');
+        setTagline(parsedSettings?.tagline || '');
+      }
+
+      setLogoUrl(tenant?.logoUrl || '');
+
       if (parsedSettings?.taxRate) {
         const half = (Number(parsedSettings.taxRate) / 2).toFixed(1);
         setCgst(half);
@@ -66,11 +96,13 @@ export default function SettingsPage() {
       }
 
       // Populate flagship branch info if available
-      const mainBranch = tenant.branches?.[0];
+      const mainBranch = tenant?.branches?.[0];
       if (mainBranch) {
-        setBranchName(mainBranch.name || '');
-        setPhone(mainBranch.phone || '');
-        setEmail(mainBranch.email || '');
+        setBranchName(mainBranch.name || (isPlatformSuperAdmin ? 'Global Multi-Tenant Cloud Cluster' : ''));
+        if (!isPlatformSuperAdmin) {
+          setPhone(mainBranch.phone || '');
+          setEmail(mainBranch.email || '');
+        }
         setGstin(mainBranch.gstin || '');
         setAddress(mainBranch.address || '');
 
@@ -81,7 +113,7 @@ export default function SettingsPage() {
         if (branchSettings?.fssai) setFssai(branchSettings.fssai);
       }
     }
-  }, [tenant]);
+  }, [tenant, platformConfig, isPlatformSuperAdmin]);
 
   // Handle Logo file upload (auto-downscaled to max 150px)
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,7 +126,10 @@ export default function SettingsPage() {
     try {
       const downscaledBase64 = await downscaleImage(file, 150);
       setLogoUrl(downscaledBase64);
-      toast.success('Logo Optimized & Selected', 'Logo auto-downscaled to 150px. Click "Save All Changes" to persist.');
+      toast.success(
+        isPlatformSuperAdmin ? 'Platform Logo Optimized & Selected' : 'Logo Optimized & Selected',
+        'Logo auto-downscaled to 150px. Click "Save All Changes" to persist.'
+      );
     } catch (err: any) {
       toast.error('Upload Failed', err.message || 'Could not process logo');
     }
@@ -118,14 +153,45 @@ export default function SettingsPage() {
           tagline: tagline.trim(),
           taxRate: totalTax,
           serviceChargeRate: parseFloat(serviceCharge) || 0,
+          ...(isPlatformSuperAdmin
+            ? {
+                platformConfig: {
+                  ...(currentSettings.platformConfig || {}),
+                  platformName: name.trim(),
+                  tagline: tagline.trim(),
+                  supportEmail: email.trim(),
+                  supportPhone: phone.trim(),
+                },
+              }
+            : {}),
         },
       };
 
-      return await apiPatch('/tenants/current', payload);
+      const res = await apiPatch('/tenants/current', payload);
+
+      if (isPlatformSuperAdmin) {
+        try {
+          await apiPatch('/superadmin/platform-details', {
+            platformName: name.trim(),
+            tagline: tagline.trim(),
+            supportEmail: email.trim(),
+            supportPhone: phone.trim(),
+          });
+        } catch {}
+      }
+
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['current-tenant'] });
-      toast.success('Settings Saved', 'Restaurant identity, logo and parameters updated successfully.');
+      queryClient.invalidateQueries({ queryKey: ['platform-details'] });
+      queryClient.invalidateQueries({ queryKey: ['superadmin-overview'] });
+      toast.success(
+        isPlatformSuperAdmin ? 'Platform Settings Saved' : 'Settings Saved',
+        isPlatformSuperAdmin
+          ? 'Platform brand identity, site title, tagline, logo, and global policies updated successfully.'
+          : 'Restaurant identity, logo and parameters updated successfully.'
+      );
     },
     onError: (err: any) => {
       toast.error('Save Failed', err?.message || 'Could not save settings.');
@@ -138,17 +204,28 @@ export default function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Settings className="w-6 h-6 text-primary" />
-            Restaurant Profile & System Settings
+            {isPlatformSuperAdmin ? (
+              <Globe className="w-6 h-6 text-indigo-400" />
+            ) : (
+              <Settings className="w-6 h-6 text-primary" />
+            )}
+            {isPlatformSuperAdmin ? 'Platform Settings' : 'Restaurant Profile & System Settings'}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Configure restaurant brand logo, outlet address, GST tax rules, and receipt printing
+            {isPlatformSuperAdmin
+              ? 'Configure global platform brand identity, site title, tagline, logo, support contacts, and system policies'
+              : 'Configure restaurant brand logo, outlet address, GST tax rules, and receipt printing'}
           </p>
         </div>
         <Button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending || isLoading}
-          className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          className={cn(
+            'gap-2 shadow-sm',
+            isPlatformSuperAdmin
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold'
+              : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+          )}
         >
           {saveMutation.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -162,11 +239,11 @@ export default function SettingsPage() {
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto scrollbar-none">
         {[
-          { id: 'general', label: 'Restaurant Info', icon: Building2 },
-          { id: 'logo', label: 'Brand Logo & Media', icon: UploadCloud },
-          { id: 'tax', label: 'Taxes & Charges', icon: Percent },
-          { id: 'printer', label: 'KOT & Printers', icon: Printer },
-          { id: 'security', label: 'Security & Access', icon: Shield },
+          { id: 'general', label: isPlatformSuperAdmin ? 'Platform Info' : 'Restaurant Info', icon: isPlatformSuperAdmin ? Globe : Building2 },
+          { id: 'logo', label: isPlatformSuperAdmin ? 'Platform Logo & Media' : 'Brand Logo & Media', icon: UploadCloud },
+          { id: 'tax', label: isPlatformSuperAdmin ? 'Global Tax Defaults' : 'Taxes & Charges', icon: Percent },
+          { id: 'printer', label: isPlatformSuperAdmin ? 'Hardware & Printers' : 'KOT & Printers', icon: Printer },
+          { id: 'security', label: isPlatformSuperAdmin ? 'Platform Security & Policies' : 'Security & Access', icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -176,7 +253,9 @@ export default function SettingsPage() {
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap',
                 activeTab === tab.id
-                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  ? isPlatformSuperAdmin
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               )}
             >
@@ -193,10 +272,12 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <UploadCloud className="w-5 h-5 text-primary" />
-              Restaurant Brand Logo & Digital Identity
+              {isPlatformSuperAdmin ? 'Platform Brand Logo & Digital Identity' : 'Restaurant Brand Logo & Digital Identity'}
             </CardTitle>
             <CardDescription>
-              This logo will appear on your top navigation bar, guest QR ordering menus, invoices, and physical standees.
+              {isPlatformSuperAdmin
+                ? 'This logo will appear on your top navigation bar, sidebar, login portal, and superadmin control plane.'
+                : 'This logo will appear on your top navigation bar, guest QR ordering menus, invoices, and physical standees.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -206,9 +287,14 @@ export default function SettingsPage() {
                 {logoUrl ? (
                   <img
                     src={logoUrl}
-                    alt={name || 'Restaurant Logo'}
+                    alt={name || (isPlatformSuperAdmin ? 'Platform Logo' : 'Restaurant Logo')}
                     className="w-full h-full object-cover rounded-full p-1"
                   />
+                ) : isPlatformSuperAdmin ? (
+                  <div className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 flex flex-col items-center justify-center text-white p-2 text-center rounded-full">
+                    <Globe className="w-10 h-10 mb-1 drop-shadow-sm" />
+                    <span className="text-[8px] font-black tracking-wider uppercase">DEFAULT LOGO</span>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center text-muted-foreground p-3 text-center">
                     <ChefHat className="w-8 h-8 opacity-40 mb-1" />
@@ -229,7 +315,7 @@ export default function SettingsPage() {
                     />
                     <div className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-accent text-xs font-bold text-foreground flex items-center gap-2 transition-colors shadow-sm">
                       <UploadCloud className="w-4 h-4 text-primary" />
-                      Upload Logo Image File (PNG/JPG/SVG)
+                      Upload {isPlatformSuperAdmin ? 'Platform' : 'Restaurant'} Logo Image File (PNG/JPG/SVG)
                     </div>
                   </label>
 
@@ -241,7 +327,7 @@ export default function SettingsPage() {
                       onClick={() => setLogoUrl('')}
                       className="text-xs h-10 rounded-xl text-destructive hover:bg-destructive/10"
                     >
-                      <Trash2 className="w-4 h-4 mr-1.5" /> Remove Logo
+                      <Trash2 className="w-4 h-4 mr-1.5" /> {isPlatformSuperAdmin ? 'Reset to Default Platform Logo' : 'Remove Logo'}
                     </Button>
                   )}
                 </div>
@@ -271,8 +357,14 @@ export default function SettingsPage() {
       {activeTab === 'general' && (
         <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Restaurant Identity & Flagship Outlet</CardTitle>
-            <CardDescription>Details printed on guest invoices, receipts, and KOT tickets</CardDescription>
+            <CardTitle className="text-lg">
+              {isPlatformSuperAdmin ? 'Platform Brand Identity & Global Configuration' : 'Restaurant Identity & Flagship Outlet'}
+            </CardTitle>
+            <CardDescription>
+              {isPlatformSuperAdmin
+                ? 'Global site title, platform tagline, and support contact credentials'
+                : 'Details printed on guest invoices, receipts, and KOT tickets'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Quick Logo Bar in General Tab */}
@@ -281,14 +373,20 @@ export default function SettingsPage() {
                 <div className="w-14 h-14 rounded-full border-2 border-primary/40 bg-card flex items-center justify-center overflow-hidden shrink-0">
                   {logoUrl ? (
                     <img src={logoUrl} alt={name} className="w-full h-full object-cover rounded-full p-0.5" />
+                  ) : isPlatformSuperAdmin ? (
+                    <div className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 flex items-center justify-center text-white">
+                      <Globe className="w-6 h-6 drop-shadow-sm" />
+                    </div>
                   ) : (
                     <ChefHat className="w-6 h-6 text-muted-foreground opacity-50" />
                   )}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-foreground">Restaurant Brand Logo</p>
+                  <p className="text-xs font-bold text-foreground">
+                    {isPlatformSuperAdmin ? 'Platform Brand Logo' : 'Restaurant Brand Logo'}
+                  </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {logoUrl ? 'Custom logo is active' : 'No custom logo uploaded yet'}
+                    {logoUrl ? 'Custom logo is active' : (isPlatformSuperAdmin ? 'Default platform logo is active' : 'No custom logo uploaded yet')}
                   </p>
                 </div>
               </div>
@@ -306,74 +404,90 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Restaurant Name</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Platform / Site Title' : 'Restaurant Name'}
+                </label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Restaurant Name"
+                  placeholder={isPlatformSuperAdmin ? 'e.g. Restaurant OS (ROS)' : 'Restaurant Name'}
                   className="h-10 bg-background font-medium"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Tagline / Brand Slogan</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Platform Tagline / Slogan' : 'Tagline / Brand Slogan'}
+                </label>
                 <Input
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
-                  placeholder="e.g. Authentic Wood-Fired Dining"
+                  placeholder={isPlatformSuperAdmin ? 'e.g. Enterprise Multi-Tenant Restaurant Cloud & Point of Sale' : 'e.g. Authentic Wood-Fired Dining'}
                   className="h-10 bg-background"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Primary Branch / Outlet Name</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Primary Platform Cluster / HQ Name' : 'Primary Branch / Outlet Name'}
+                </label>
                 <Input
                   value={branchName}
                   onChange={(e) => setBranchName(e.target.value)}
-                  placeholder="Connaught Place Flagship"
+                  placeholder={isPlatformSuperAdmin ? 'e.g. Global Multi-Tenant Cloud Cluster' : 'Connaught Place Flagship'}
                   className="h-10 bg-background"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Contact Phone Number</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Platform Support Phone Number' : 'Contact Phone Number'}
+                </label>
                 <Input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
+                  placeholder={isPlatformSuperAdmin ? '+1 (800) 555-0199' : '+91 98765 43210'}
                   className="h-10 bg-background"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Official Email Address</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Platform Support & Billing Email' : 'Official Email Address'}
+                </label>
                 <Input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="contact@restaurant.com"
+                  placeholder={isPlatformSuperAdmin ? 'support@restaurantos.cloud' : 'contact@restaurant.com'}
                   className="h-10 bg-background"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">GSTIN / Tax ID</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Corporate / Tax ID (GSTIN / EIN)' : 'GSTIN / Tax ID'}
+                </label>
                 <Input
                   value={gstin}
                   onChange={(e) => setGstin(e.target.value)}
-                  placeholder="27AAAAA0000A1Z5"
+                  placeholder={isPlatformSuperAdmin ? '27AAAAA0000A1Z5 / US-EIN' : '27AAAAA0000A1Z5'}
                   className="h-10 bg-background font-mono"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">FSSAI License No.</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Platform Regulatory / Compliance ID' : 'FSSAI License No.'}
+                </label>
                 <Input
                   value={fssai}
                   onChange={(e) => setFssai(e.target.value)}
-                  placeholder="10019011000543"
+                  placeholder={isPlatformSuperAdmin ? 'ISO-27001 / SOC-2 / FSSAI' : '10019011000543'}
                   className="h-10 bg-background font-mono"
                 />
               </div>
               <div className="col-span-full space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Full Physical Address</label>
+                <label className="text-xs font-semibold text-foreground">
+                  {isPlatformSuperAdmin ? 'Platform Corporate Headquarters Address' : 'Full Physical Address'}
+                </label>
                 <Input
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Full street address, city, state, postal code"
+                  placeholder={isPlatformSuperAdmin ? 'Corporate HQ, Tech Park, Suite 400, Silicon Valley' : 'Full street address, city, state, postal code'}
                   className="h-10 bg-background"
                 />
               </div>

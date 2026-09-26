@@ -74,7 +74,7 @@ export const PLATFORM_SUPERADMIN_NAV_SECTIONS: Array<
   { type: 'divider', label: 'SECURITY & OBSERVABILITY' },
   { href: '/audit-vault',   label: 'Global Audit Logs',   icon: ShieldAlert, permissions: null },
   { href: '/hardware',      label: 'Global Edge Hardware', icon: Activity,    permissions: null },
-  { href: '/settings',      label: 'Platform Policies',   icon: Settings,    permissions: null },
+  { href: '/settings',      label: 'Platform Settings',   icon: Settings,    permissions: null },
 ];
 
 import type { Permission } from '@ros/shared-types';

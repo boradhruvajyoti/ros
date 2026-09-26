@@ -40,6 +40,21 @@ export function AppTopbar() {
     user?.email?.toLowerCase() === 'superadmin@ros.com' ||
     user?.tenantId === 'tenant-platform';
 
+  // Platform details query for Superadmin
+  const { data: platformDetails } = useQuery({
+    queryKey: ['platform-details'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/superadmin/platform-details');
+        return res;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 1000 * 60 * 2,
+    enabled: isPlatformSuperAdmin,
+  });
+
   // Current Tenant Details
   const { data: currentTenant } = useQuery({
     queryKey: ['current-tenant'],
@@ -52,7 +67,7 @@ export function AppTopbar() {
       }
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !isPlatformSuperAdmin && !!user?.tenantId,
+    enabled: !!user?.tenantId,
   });
 
   // Current User Telegram Status
@@ -119,13 +134,15 @@ export function AppTopbar() {
 
   const tenantLogo = currentTenant?.logoUrl;
   const tenantDisplayName = isPlatformSuperAdmin
-    ? 'ROS Platform Superadmin'
+    ? platformDetails?.platformName || currentTenant?.name || 'Restaurant OS (ROS)'
     : currentTenant?.name || 'Restaurant OS';
 
-  let tenantTagline = isPlatformSuperAdmin ? 'SaaS Global Control Plane' : 'Culinary Operating System';
+  let tenantTagline = isPlatformSuperAdmin
+    ? platformDetails?.tagline || 'SaaS Global Control Plane'
+    : 'Culinary Operating System';
   try {
     const parsed = typeof currentTenant?.settings === 'string' ? JSON.parse(currentTenant.settings) : (currentTenant?.settings || {});
-    if (parsed?.tagline) tenantTagline = parsed.tagline;
+    if (!isPlatformSuperAdmin && parsed?.tagline) tenantTagline = parsed.tagline;
   } catch {}
 
   const handleLogout = async () => {
@@ -140,7 +157,7 @@ export function AppTopbar() {
 
   return (
     <header className="h-14 sm:h-16 border-b border-border bg-card/95 backdrop-blur-xl flex items-center px-3 sm:px-6 gap-2.5 sm:gap-4 shrink-0 sticky top-0 z-40 justify-between shadow-xs">
-      {/* Left: Mobile Drawer Trigger + Restaurant Logo & Title (Frozen) */}
+      {/* Left: Mobile Drawer Trigger + Restaurant / Platform Logo & Title (Frozen) */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Mobile Hamburger Drawer Trigger */}
         <button
@@ -152,18 +169,22 @@ export function AppTopbar() {
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Frozen Restaurant Brand Identity in Header */}
+        {/* Frozen Brand Identity in Header */}
         <div className="flex items-center gap-2.5 min-w-0 max-w-xs sm:max-w-sm">
           <div className={cn(
             'w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center shrink-0 shadow-sm overflow-hidden rounded-xl',
             isPlatformSuperAdmin
-              ? 'bg-gradient-to-tr from-indigo-500 to-purple-600'
+              ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500'
               : tenantLogo
               ? 'bg-card border border-border p-0.5'
               : 'bg-primary text-primary-foreground'
           )}>
             {isPlatformSuperAdmin ? (
-              <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              tenantLogo ? (
+                <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              )
             ) : tenantLogo ? (
               <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-lg" />
             ) : (
