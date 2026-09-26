@@ -1,9 +1,69 @@
-// =============================================================================
-// In-Memory Low-Quality Thermal Bill JPEG Generator
-// Pure In-Memory (Zero disk I/O, no PDF or image files stored on server)
-// =============================================================================
+import zlib from 'zlib';
 
-import jpeg from 'jpeg-js';
+// Pre-computed CRC32 table for standard PNG chunk checksums
+const CRC_TABLE = new Uint32Array(256);
+for (let n = 0; n < 256; n++) {
+  let c = n;
+  for (let k = 0; k < 8; k++) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  CRC_TABLE[n] = c >>> 0;
+}
+
+function computeCrc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ buf[i]) & 0xff];
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function makePngChunk(type: string, data: Buffer): Buffer {
+  const typeBuf = Buffer.from(type, 'ascii');
+  const lenBuf = Buffer.alloc(4);
+  lenBuf.writeUInt32BE(data.length, 0);
+
+  const body = Buffer.concat([typeBuf, data]);
+  const crcVal = computeCrc32(body);
+  const crcBuf = Buffer.alloc(4);
+  crcBuf.writeUInt32BE(crcVal, 0);
+
+  return Buffer.concat([lenBuf, body, crcBuf]);
+}
+
+function encodeRgbaToPngBuffer(rgba: Buffer, width: number, height: number): Buffer {
+  // 1. Standard PNG Signature (8 bytes)
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+
+  // 2. IHDR Chunk (13 bytes)
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(width, 0);
+  ihdrData.writeUInt32BE(height, 4);
+  ihdrData[8] = 8;  // bit depth: 8
+  ihdrData[9] = 6;  // color type: 6 (RGBA)
+  ihdrData[10] = 0; // compression method: deflate
+  ihdrData[11] = 0; // filter method: standard
+  ihdrData[12] = 0; // interlace: none
+  const ihdrChunk = makePngChunk('IHDR', ihdrData);
+
+  // 3. IDAT Chunk (Scanlines prepended with filter byte 0)
+  const rawScanlines = Buffer.alloc(height * (1 + width * 4));
+  let destOffset = 0;
+  for (let y = 0; y < height; y++) {
+    rawScanlines[destOffset++] = 0; // Filter byte 0 (None)
+    const srcStart = y * width * 4;
+    rgba.copy(rawScanlines, destOffset, srcStart, srcStart + width * 4);
+    destOffset += width * 4;
+  }
+
+  const compressedData = zlib.deflateSync(rawScanlines, { level: 6 });
+  const idatChunk = makePngChunk('IDAT', compressedData);
+
+  // 4. IEND Chunk (0 data bytes)
+  const iendChunk = makePngChunk('IEND', Buffer.alloc(0));
+
+  return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
+}
 
 // Standard 5x7 font table for ASCII 32..126
 // Each character is 5 columns wide (7 bits high per column)
@@ -360,14 +420,7 @@ export class ReceiptImageService {
     // Slice image buffer to exact content height
     const croppedRgba = rgba.subarray(0, width * actualContentHeight * 4);
 
-    // Encode to JPEG at minimum quality (quality: 35) for ultra-lightweight transmission
-    const rawImageData = {
-      data: croppedRgba,
-      width,
-      height: actualContentHeight,
-    };
-
-    const jpegImage = jpeg.encode(rawImageData, 35);
-    return jpegImage.data;
+    // Encode to PNG buffer in-memory using Node built-in zlib (zero disk I/O, zero external packages)
+    return encodeRgbaToPngBuffer(croppedRgba, width, actualContentHeight);
   }
 }
