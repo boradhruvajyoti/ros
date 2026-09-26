@@ -16,6 +16,7 @@ import { apiGet, apiPost, apiPatch, apiDelete, apiDownloadFile } from '@/lib/api
 import { formatCurrency } from '@ros/utils';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { MenuExportModal } from '@/components/menu/menu-export-modal';
 
 interface MenuItem {
   id: string;
@@ -92,20 +93,13 @@ export default function MenuPage() {
     cleanedUp: boolean;
   } | null>(null);
 
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
-  const handleExportMenuPdf = async () => {
-    setIsExportingPdf(true);
-    toast.info('Generating Menu PDF 📄', 'Crafting your restaurant-grade menu design. Download will start shortly...');
-    try {
-      await apiDownloadFile('/menu/export-pdf', 'Restaurant_Menu.pdf');
-      toast.success('Menu Downloaded! 🎉', 'Your menu PDF was exported successfully with zero server storage.');
-    } catch (err: any) {
-      toast.error('Export Failed', err?.response?.data?.error?.message || err?.message || 'Could not export menu PDF.');
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
+  // Tenant Query for Branding / PDF Export
+  const { data: tenant } = useQuery<any>({
+    queryKey: ['tenants', 'current'],
+    queryFn: () => apiGet<any>('/tenants/current'),
+  });
 
   // Queries
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery<MenuCategory[]>({
@@ -488,16 +482,12 @@ DESSERTS & DRINKS
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
-            onClick={handleExportMenuPdf}
-            disabled={isExportingPdf || items.length === 0}
+            onClick={() => setIsExportModalOpen(true)}
+            disabled={items.length === 0}
             variant="outline"
             className="gap-2 border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-500 shadow-sm cursor-pointer"
           >
-            {isExportingPdf ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <FileDown className="w-4 h-4" />
-            )}
+            <FileDown className="w-4 h-4" />
             Export Menu PDF
           </Button>
           <Button
@@ -1615,6 +1605,27 @@ DESSERTS & DRINKS
           </div>
         </div>
       )}
+
+      {/* Menu PDF Export Template Picker Modal */}
+      <MenuExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        tenantName={tenant?.name}
+        tenantLogoUrl={tenant?.logoUrl}
+        tagline={
+          tenant?.settings
+            ? typeof tenant.settings === 'string'
+              ? (() => {
+                  try {
+                    return JSON.parse(tenant.settings)?.tagline;
+                  } catch {
+                    return undefined;
+                  }
+                })()
+              : tenant.settings?.tagline
+            : undefined
+        }
+      />
     </div>
   );
 }

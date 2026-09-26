@@ -8,6 +8,7 @@ import { prisma } from '../lib/prisma';
 import { cacheGet, cacheSet, cacheDel, CacheKeys } from '../lib/redis';
 import { MenuParserService } from '../services/menu-parser.service';
 import { MenuPdfService, MenuPdfData } from '../services/menu-pdf.service';
+import { MENU_TEMPLATES } from '../services/menu-templates.data';
 import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 
@@ -467,9 +468,18 @@ export class MenuController {
     }, 201);
   }
 
+  static async listTemplates(req: Request, res: Response): Promise<void> {
+    sendSuccess(res, {
+      count: MENU_TEMPLATES.length,
+      templates: MENU_TEMPLATES,
+    });
+  }
+
   static async exportMenuPdf(req: Request, res: Response): Promise<void> {
     const tenantId = req.user?.tid;
     if (!tenantId) throw new AppError('UNAUTHORIZED', 'Tenant context required', 401);
+
+    const templateId = (req.query.templateId as string) || 'charcoal-noir';
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -515,6 +525,7 @@ export class MenuController {
       branchAddress: tenant?.branches?.[0]?.address || undefined,
       branchPhone: tenant?.branches?.[0]?.phone || undefined,
       currency,
+      templateId,
       categories: categories.map((c) => ({
         id: c.id,
         name: c.name,
@@ -533,9 +544,9 @@ export class MenuController {
       })),
     };
 
-    const pdfBuffer = await MenuPdfService.generateMenuPdf(pdfData);
+    const pdfBuffer = await MenuPdfService.generateMenuPdf(pdfData, templateId);
 
-    const cleanFilename = `${(tenant?.name || 'Restaurant').replace(/[^a-zA-Z0-9_-]/g, '_')}_Menu.pdf`;
+    const cleanFilename = `${(tenant?.name || 'Restaurant').replace(/[^a-zA-Z0-9_-]/g, '_')}_Menu_${templateId}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${cleanFilename}"`);

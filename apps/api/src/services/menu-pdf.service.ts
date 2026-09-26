@@ -1,10 +1,12 @@
 // =============================================================================
 // Restaurant Menu PDF Generator (PDFKit)
 // Strictly In-Memory — Zero disk storage, streamed directly to client
-// Charcoal Black Theme with Centered White-Outlined Logo & 300 DPI A4 Layout
+// Supports 20+ Dynamic Design Templates (Colors, Fonts, Badges, Borders)
+// A4 Vector Resolution (300+ DPI Equivalent)
 // =============================================================================
 
 import PDFDocument from 'pdfkit';
+import { getMenuTemplateById, MenuTemplate } from './menu-templates.data';
 
 export interface MenuPdfData {
   tenantName: string;
@@ -14,6 +16,7 @@ export interface MenuPdfData {
   branchAddress?: string;
   branchPhone?: string;
   currency?: string;
+  templateId?: string;
   categories: Array<{
     id: string;
     name: string;
@@ -64,10 +67,12 @@ async function resolveLogoBuffer(logoUrl?: string | null): Promise<Buffer | null
 export class MenuPdfService {
   /**
    * Generates a beautifully formatted restaurant menu PDF in-memory.
-   * Charcoal black background, centered restaurant logo with white outline, white fonts.
+   * Renders dynamically using the chosen template's colors, typography, borders, and badge styles.
    * A4 vector layout (crisp 300+ DPI equivalent).
    */
-  static async generateMenuPdf(data: MenuPdfData): Promise<Buffer> {
+  static async generateMenuPdf(data: MenuPdfData, chosenTemplateId?: string): Promise<Buffer> {
+    const template: MenuTemplate = getMenuTemplateById(chosenTemplateId || data.templateId);
+    const theme = template.themeConfig;
     const logoBuffer = await resolveLogoBuffer(data.logoUrl);
 
     return new Promise((resolve, reject) => {
@@ -76,29 +81,15 @@ export class MenuPdfService {
       const margin = 36;
       const contentWidth = pageWidth - margin * 2;
 
-      // ── COLOR PALETTE (Charcoal Black Theme) ────────────────────────────────
-      const charcoalBg = '#121214';       // Deep Charcoal Black
-      const cardBg = '#1c1c21';           // Dark Card Background
-      const headerBorder = '#ffffff';     // White Outline
-      const textWhite = '#ffffff';        // Pure White for primary text
-      const textOffWhite = '#f1f5f9';     // Off-white / Silver
-      const textMuted = '#94a3b8';        // Secondary slate for descriptions
-      const accentGold = '#f59e0b';       // Warm Amber / Gold for subtle highlights
-      const vegColor = '#22c55e';         // Bright Green
-      const nonVegColor = '#ef4444';      // Bright Crimson Red
-      const eggColor = '#f59e0b';         // Warm Amber
-      const veganColor = '#10b981';       // Emerald Green
-      const dividerColor = '#27272a';     // Subtle Charcoal Divider
-
       const doc = new PDFDocument({
         size: 'A4',
         margins: { top: margin, bottom: margin, left: margin, right: margin },
         bufferPages: true,
         autoFirstPage: true,
         info: {
-          Title: `${data.tenantName} - Menu`,
+          Title: `${data.tenantName} - Menu (${template.name})`,
           Author: data.tenantName,
-          Subject: 'Restaurant Menu',
+          Subject: `Restaurant Menu - ${template.name}`,
         },
       });
 
@@ -107,25 +98,27 @@ export class MenuPdfService {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', (err) => reject(err));
 
-      // Helper to paint page background & decorative borders
+      // Helper to paint page background & decorative borders per template
       const paintPageBackground = () => {
         doc.save();
-        // 1. Full page charcoal black fill
-        doc.rect(0, 0, pageWidth, pageHeight).fill(charcoalBg);
+        // 1. Full page background fill
+        doc.rect(0, 0, pageWidth, pageHeight).fill(theme.pageBg);
 
-        // 2. Outer elegant frame with subtle charcoal border
+        // 2. Outer decorative frame
         doc
           .rect(14, 14, pageWidth - 28, pageHeight - 28)
           .lineWidth(1)
-          .strokeColor(dividerColor)
+          .strokeColor(theme.frameColor)
           .stroke();
 
-        // 3. Inner fine hairline border
-        doc
-          .rect(17, 17, pageWidth - 34, pageHeight - 34)
-          .lineWidth(0.5)
-          .strokeColor('#18181b')
-          .stroke();
+        // 3. Inner fine hairline border if specified
+        if (theme.innerFrameColor) {
+          doc
+            .rect(17, 17, pageWidth - 34, pageHeight - 34)
+            .lineWidth(0.5)
+            .strokeColor(theme.innerFrameColor)
+            .stroke();
+        }
 
         doc.restore();
       };
@@ -138,16 +131,16 @@ export class MenuPdfService {
       // Paint initial page background
       paintPageBackground();
 
-      // ── CENTERED RESTAURANT LOGO WITH WHITE OUTLINE ─────────────────────────
+      // ── CENTERED RESTAURANT LOGO WITH BORDER OUTLINE ─────────────────────────
       const centerX = pageWidth / 2;
       const logoRadius = 26;
       const logoDiameter = logoRadius * 2;
       const logoCenterY = 48;
       const logoTopY = logoCenterY - logoRadius;
 
-      // Base circle background
       doc.save();
-      doc.circle(centerX, logoCenterY, logoRadius + 1).fillColor('#18181b').fill();
+      // Base circle background
+      doc.circle(centerX, logoCenterY, logoRadius + 1).fillColor(theme.logoBgColor || theme.cardBg).fill();
 
       let logoDrawn = false;
       if (logoBuffer) {
@@ -174,20 +167,20 @@ export class MenuPdfService {
       if (!logoDrawn) {
         const initial = (data.tenantName || 'R').trim().charAt(0).toUpperCase();
         doc
-          .font('Helvetica-Bold')
+          .font(theme.fontFamilyHeader)
           .fontSize(22)
-          .fillColor(textWhite)
+          .fillColor(theme.textPrimary)
           .text(initial, centerX - 20, logoCenterY - 10, {
             width: 40,
             align: 'center',
           });
       }
 
-      // Draw crisp WHITE BORDER OUTLINE around logo
+      // Draw crisp BORDER OUTLINE around logo
       doc
         .circle(centerX, logoCenterY, logoRadius)
         .lineWidth(2)
-        .strokeColor(headerBorder)
+        .strokeColor(theme.logoBorderColor)
         .stroke();
 
       doc.restore();
@@ -195,23 +188,23 @@ export class MenuPdfService {
       // ── RESTAURANT HEADER TEXT ──────────────────────────────────────────────
       doc.y = logoCenterY + logoRadius + 10;
 
-      // Restaurant Name (White, Bold, Uppercase, Centered)
+      // Restaurant Name (Centered, Uppercase)
       doc
-        .font('Helvetica-Bold')
+        .font(theme.fontFamilyHeader)
         .fontSize(20)
-        .fillColor(textWhite)
+        .fillColor(theme.textPrimary)
         .text(data.tenantName.toUpperCase(), {
           align: 'center',
           characterSpacing: 2,
         });
 
-      // Tagline (Subtle Gold / Silver Accent)
+      // Tagline
       if (data.tagline && data.tagline.trim()) {
         doc.moveDown(0.2);
         doc
-          .font('Helvetica-Oblique')
+          .font(theme.fontFamilyItalic)
           .fontSize(9.5)
-          .fillColor(accentGold)
+          .fillColor(theme.textAccent)
           .text(data.tagline.trim(), { align: 'center', characterSpacing: 0.5 });
       }
 
@@ -224,28 +217,28 @@ export class MenuPdfService {
       if (outletParts.length > 0) {
         doc.moveDown(0.25);
         doc
-          .font('Helvetica')
+          .font(theme.fontFamilyBody)
           .fontSize(8)
-          .fillColor(textMuted)
+          .fillColor(theme.textSecondary)
           .text(outletParts.join('  •  '), { align: 'center' });
       }
 
-      // Title Banner: "À LA CARTE MENU" with White / Slate Divider Bars
+      // Title Banner: "À LA CARTE MENU" with Decorative Dividers
       doc.moveDown(0.5);
       const titleY = doc.y;
       const barY = titleY + 6;
 
       doc
-        .strokeColor(dividerColor)
+        .strokeColor(theme.dividerColor)
         .lineWidth(0.75)
         .moveTo(margin + 30, barY)
         .lineTo(centerX - 75, barY)
         .stroke();
 
       doc
-        .font('Helvetica-Bold')
+        .font(theme.fontFamilyHeader)
         .fontSize(10)
-        .fillColor(textWhite)
+        .fillColor(theme.textPrimary)
         .text('À LA CARTE MENU', margin, titleY, {
           width: contentWidth,
           align: 'center',
@@ -253,7 +246,7 @@ export class MenuPdfService {
         });
 
       doc
-        .strokeColor(dividerColor)
+        .strokeColor(theme.dividerColor)
         .lineWidth(0.75)
         .moveTo(centerX + 75, barY)
         .lineTo(pageWidth - margin - 30, barY)
@@ -275,36 +268,63 @@ export class MenuPdfService {
 
         doc.moveDown(0.4);
 
-        // Category Header Bar (Dark Card + White Outline + Bold White Text)
+        // Category Header Bar (Card + Border + Category Name)
         const catY = doc.y;
         doc.save();
-        doc
-          .roundedRect(margin, catY, contentWidth, 22, 3)
-          .fillColor(cardBg)
-          .fill();
 
-        doc
-          .roundedRect(margin, catY, contentWidth, 22, 3)
-          .lineWidth(1)
-          .strokeColor(headerBorder)
-          .stroke();
+        if (theme.headerBannerStyle === 'solid-card') {
+          doc
+            .roundedRect(margin, catY, contentWidth, 22, 3)
+            .fillColor(theme.cardBg)
+            .fill();
+        } else if (theme.headerBannerStyle === 'vintage-ornate') {
+          doc
+            .rect(margin, catY, contentWidth, 22)
+            .fillColor(theme.cardBg)
+            .fill();
+          doc
+            .rect(margin, catY, contentWidth, 22)
+            .lineWidth(1)
+            .strokeColor(theme.cardBorderColor)
+            .stroke();
+          doc
+            .rect(margin + 2, catY + 2, contentWidth - 4, 18)
+            .lineWidth(0.5)
+            .strokeColor(theme.dividerColor)
+            .stroke();
+        } else {
+          // Outlined card
+          doc
+            .roundedRect(margin, catY, contentWidth, 22, 3)
+            .fillColor(theme.cardBg)
+            .fill();
+          doc
+            .roundedRect(margin, catY, contentWidth, 22, 3)
+            .lineWidth(1)
+            .strokeColor(theme.cardBorderColor)
+            .stroke();
+        }
         doc.restore();
 
         // Category Title
+        const catTextColor = theme.headerBannerStyle === 'solid-card' && theme.cardBg === '#000000' && theme.pageBg === '#ffffff'
+          ? '#ffffff'
+          : theme.textPrimary;
+
         doc
-          .font('Helvetica-Bold')
+          .font(theme.fontFamilyHeader)
           .fontSize(10.5)
-          .fillColor(textWhite)
+          .fillColor(catTextColor)
           .text(cat.name.toUpperCase(), margin + 12, catY + 5.5, {
             characterSpacing: 1.2,
           });
 
-        // Category Item Count
+        // Category Item Count Badge
         const countStr = `${cat.items.length} ${cat.items.length === 1 ? 'ITEM' : 'ITEMS'}`;
         doc
-          .font('Helvetica-Bold')
+          .font(theme.fontFamilyHeader)
           .fontSize(8)
-          .fillColor(accentGold)
+          .fillColor(theme.textAccent)
           .text(countStr, margin, catY + 6.5, {
             align: 'right',
             width: contentWidth - 12,
@@ -326,23 +346,29 @@ export class MenuPdfService {
           const isVeg = item.foodType === 'VEG';
           const isVegan = item.foodType === 'VEGAN';
           const isEgg = item.foodType === 'EGG';
-          const indicatorColor = isVegan ? veganColor : isVeg ? vegColor : isEgg ? eggColor : nonVegColor;
+          const indicatorColor = isVegan
+            ? theme.foodTypeColors.vegan
+            : isVeg
+            ? theme.foodTypeColors.veg
+            : isEgg
+            ? theme.foodTypeColors.egg
+            : theme.foodTypeColors.nonVeg;
 
           const boxSize = 8;
           const boxX = margin + 4;
           const boxY = itemStartY + 2;
 
           doc.save();
-          // Dark background backing for badge
-          doc.rect(boxX, boxY, boxSize, boxSize).fillColor('#18181b').fill();
+          // Dark/Light backing for badge
+          doc.rect(boxX, boxY, boxSize, boxSize).fillColor(theme.cardBg).fill();
           // Crisp border outline
           doc.rect(boxX, boxY, boxSize, boxSize).strokeColor(indicatorColor).lineWidth(1.2).stroke();
-          // Inner dot or triangle
+          // Inner dot
           doc.circle(boxX + boxSize / 2, boxY + boxSize / 2, 2).fillColor(indicatorColor).fill();
           doc.restore();
 
           // 2. Dish Name & Spicy Tag
-          doc.font('Helvetica-Bold').fontSize(9.5).fillColor(textWhite);
+          doc.font(theme.fontFamilyHeader).fontSize(9.5).fillColor(theme.textPrimary);
 
           let nameText = item.name;
           const textStartX = margin + 18;
@@ -362,14 +388,14 @@ export class MenuPdfService {
             const spiceTagX = Math.min(textStartX + nameWidth + 6, margin + contentWidth - priceColumnWidth - 65);
             doc.save();
             doc
-              .font('Helvetica-Bold')
+              .font(theme.fontFamilyHeader)
               .fontSize(7)
               .fillColor('#fb923c')
               .text(spicyText, spiceTagX, itemStartY + 1.5, { lineBreak: false });
             doc.restore();
           }
 
-          // 3. Price & Variants (Right-aligned, Bold White)
+          // 3. Price & Variants (Right-aligned)
           let priceString = '';
           if (item.variants && item.variants.length > 0) {
             if (item.variants.length === 1) {
@@ -384,20 +410,20 @@ export class MenuPdfService {
           }
 
           doc
-            .font('Helvetica-Bold')
+            .font(theme.fontFamilyHeader)
             .fontSize(9.5)
-            .fillColor(textWhite)
+            .fillColor(theme.textPrimary)
             .text(priceString, pageWidth - margin - priceColumnWidth, itemStartY, {
               width: priceColumnWidth,
               align: 'right',
             });
 
-          // 4. Description (Italics Slate/Silver) if present
+          // 4. Description (Italics) if present
           if (item.description && item.description.trim()) {
             doc
-              .font('Helvetica-Oblique')
+              .font(theme.fontFamilyItalic)
               .fontSize(8)
-              .fillColor(textMuted)
+              .fillColor(theme.textSecondary)
               .text(item.description.trim(), textStartX, doc.y + 1.5, {
                 width: nameMaxWidth + 35,
                 lineBreak: true,
@@ -408,7 +434,7 @@ export class MenuPdfService {
           doc.moveDown(0.3);
           const lineY = doc.y;
           doc
-            .strokeColor(dividerColor)
+            .strokeColor(theme.dividerColor)
             .lineWidth(0.5)
             .moveTo(textStartX, lineY)
             .lineTo(pageWidth - margin, lineY)
@@ -429,17 +455,17 @@ export class MenuPdfService {
 
         // Subtle footer top hairline
         doc
-          .strokeColor(dividerColor)
+          .strokeColor(theme.dividerColor)
           .lineWidth(0.5)
           .moveTo(margin, footerY - 8)
           .lineTo(pageWidth - margin, footerY - 8)
           .stroke();
 
-        // Footer disclaimer (Muted Silver)
+        // Footer disclaimer
         doc
-          .font('Helvetica')
+          .font(theme.fontFamilyBody)
           .fontSize(7.5)
-          .fillColor(textMuted)
+          .fillColor(theme.textSecondary)
           .text(
             'All items freshly prepared. Applicable taxes & charges apply.',
             margin,
@@ -447,11 +473,11 @@ export class MenuPdfService {
             { align: 'left', width: contentWidth / 2 }
           );
 
-        // Page numbering (White / Silver)
+        // Page numbering
         doc
-          .font('Helvetica-Bold')
+          .font(theme.fontFamilyHeader)
           .fontSize(7.5)
-          .fillColor(textOffWhite)
+          .fillColor(theme.textPrimary)
           .text(`PAGE ${i + 1} OF ${range.count}`, pageWidth / 2, footerY, {
             align: 'right',
             width: contentWidth / 2,

@@ -45,7 +45,8 @@ router.post('/modifier-groups/:id/modifiers', requirePermission('menu:edit'), as
 router.post('/upload-parse',          requirePermission('menu:create'), asyncHandler(MenuController.parseUpload));
 router.post('/batch-import',          requirePermission('menu:create'), asyncHandler(MenuController.batchImport));
 
-// Export Menu in PDF (zero server file retention)
+// Export Menu in PDF & Templates (zero server file retention)
+router.get('/templates',              requirePermission('menu:view', 'orders:view'),   asyncHandler(MenuController.listTemplates));
 router.get('/export-pdf',             requirePermission('menu:view', 'orders:view'),   asyncHandler(MenuController.exportMenuPdf));
 
 export default router;
