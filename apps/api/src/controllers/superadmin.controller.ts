@@ -29,6 +29,7 @@ export interface SaasPlanItem {
 export interface PlatformConfigData {
   platformName: string;
   tagline: string;
+  faviconUrl?: string | null;
   supportEmail: string;
   supportPhone: string;
   defaultCurrency: string;

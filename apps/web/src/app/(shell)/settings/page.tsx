@@ -54,6 +54,7 @@ export default function SettingsPage() {
   // Local Form State
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [faviconUrl, setFaviconUrl] = useState('');
   const [tagline, setTagline] = useState('');
   const [branchName, setBranchName] = useState('');
   const [phone, setPhone] = useState('');
@@ -79,9 +80,11 @@ export default function SettingsPage() {
         setTagline(platformConfig?.tagline || parsedSettings?.tagline || 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale');
         setPhone(platformConfig?.supportPhone || tenant?.branches?.[0]?.phone || '');
         setEmail(platformConfig?.supportEmail || tenant?.branches?.[0]?.email || 'support@restaurantos.cloud');
+        setFaviconUrl(platformConfig?.faviconUrl || parsedSettings?.faviconUrl || '');
       } else {
         setName(tenant?.name || '');
         setTagline(parsedSettings?.tagline || '');
+        setFaviconUrl(parsedSettings?.faviconUrl || '');
       }
 
       setLogoUrl(tenant?.logoUrl || '');
@@ -135,6 +138,26 @@ export default function SettingsPage() {
     }
   };
 
+  // Handle Favicon file upload (auto-downscaled to 64px square)
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File Too Large', 'Please select an image under 5MB.');
+      return;
+    }
+    try {
+      const downscaledBase64 = await downscaleImage(file, 64);
+      setFaviconUrl(downscaledBase64);
+      toast.success(
+        'Favicon Selected',
+        'Favicon auto-downscaled to 64px. Click "Save All Changes" to persist.'
+      );
+    } catch (err: any) {
+      toast.error('Upload Failed', err.message || 'Could not process favicon');
+    }
+  };
+
   // Save Settings Mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -151,6 +174,7 @@ export default function SettingsPage() {
         settings: {
           ...currentSettings,
           tagline: tagline.trim(),
+          faviconUrl: faviconUrl.trim() || null,
           taxRate: totalTax,
           serviceChargeRate: parseFloat(serviceCharge) || 0,
           ...(isPlatformSuperAdmin
@@ -159,6 +183,7 @@ export default function SettingsPage() {
                   ...(currentSettings.platformConfig || {}),
                   platformName: name.trim(),
                   tagline: tagline.trim(),
+                  faviconUrl: faviconUrl.trim() || null,
                   supportEmail: email.trim(),
                   supportPhone: phone.trim(),
                 },
@@ -174,6 +199,7 @@ export default function SettingsPage() {
           await apiPatch('/superadmin/platform-details', {
             platformName: name.trim(),
             tagline: tagline.trim(),
+            faviconUrl: faviconUrl.trim() || null,
             supportEmail: email.trim(),
             supportPhone: phone.trim(),
           });
@@ -268,89 +294,196 @@ export default function SettingsPage() {
 
       {/* Brand Logo & Media Tab */}
       {activeTab === 'logo' && (
-        <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <UploadCloud className="w-5 h-5 text-primary" />
-              {isPlatformSuperAdmin ? 'Platform Brand Logo & Digital Identity' : 'Restaurant Brand Logo & Digital Identity'}
-            </CardTitle>
-            <CardDescription>
-              {isPlatformSuperAdmin
-                ? 'This logo will appear on your top navigation bar, sidebar, login portal, and superadmin control plane.'
-                : 'This logo will appear on your top navigation bar, guest QR ordering menus, invoices, and physical standees.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="p-6 rounded-2xl border border-border bg-background/50 flex flex-col md:flex-row items-center gap-6">
-              {/* Logo Preview Container */}
-              <div className="w-32 h-32 rounded-full border-2 border-dashed border-primary/40 bg-card flex flex-col items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
-                {logoUrl ? (
-                  <img
-                    src={logoUrl}
-                    alt={name || (isPlatformSuperAdmin ? 'Platform Logo' : 'Restaurant Logo')}
-                    className="w-full h-full object-cover rounded-full p-1"
-                  />
-                ) : isPlatformSuperAdmin ? (
-                  <div className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 flex flex-col items-center justify-center text-white p-2 text-center rounded-full">
-                    <Globe className="w-10 h-10 mb-1 drop-shadow-sm" />
-                    <span className="text-[8px] font-black tracking-wider uppercase">DEFAULT LOGO</span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center text-muted-foreground p-3 text-center">
-                    <ChefHat className="w-8 h-8 opacity-40 mb-1" />
-                    <span className="text-[10px] font-bold tracking-wider">NO LOGO</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Upload Actions & Direct URL */}
-              <div className="flex-1 w-full space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="hidden"
+        <div className="space-y-6">
+          {/* Logo Card */}
+          <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <UploadCloud className="w-5 h-5 text-primary" />
+                {isPlatformSuperAdmin ? 'Platform Brand Logo & Digital Identity' : 'Restaurant Brand Logo & Digital Identity'}
+              </CardTitle>
+              <CardDescription>
+                {isPlatformSuperAdmin
+                  ? 'This logo will appear on your top navigation bar, sidebar, login portal, and superadmin control plane.'
+                  : 'This logo will appear on your top navigation bar, guest QR ordering menus, invoices, and physical standees.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-6 rounded-2xl border border-border bg-background/50 flex flex-col md:flex-row items-center gap-6">
+                {/* Logo Preview Container */}
+                <div className="w-32 h-32 rounded-full border-2 border-dashed border-primary/40 bg-card flex flex-col items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={name || (isPlatformSuperAdmin ? 'Platform Logo' : 'Restaurant Logo')}
+                      className="w-full h-full object-cover rounded-full p-1"
                     />
-                    <div className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-accent text-xs font-bold text-foreground flex items-center gap-2 transition-colors shadow-sm">
-                      <UploadCloud className="w-4 h-4 text-primary" />
-                      Upload {isPlatformSuperAdmin ? 'Platform' : 'Restaurant'} Logo Image File (PNG/JPG/SVG)
+                  ) : isPlatformSuperAdmin ? (
+                    <div className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 flex flex-col items-center justify-center text-white p-2 text-center rounded-full">
+                      <Globe className="w-10 h-10 mb-1 drop-shadow-sm" />
+                      <span className="text-[8px] font-black tracking-wider uppercase">DEFAULT LOGO</span>
                     </div>
-                  </label>
-
-                  {logoUrl && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setLogoUrl('')}
-                      className="text-xs h-10 rounded-xl text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-4 h-4 mr-1.5" /> {isPlatformSuperAdmin ? 'Reset to Default Platform Logo' : 'Remove Logo'}
-                    </Button>
+                  ) : (
+                    <div className="flex flex-col items-center text-muted-foreground p-3 text-center">
+                      <ChefHat className="w-8 h-8 opacity-40 mb-1" />
+                      <span className="text-[10px] font-bold tracking-wider">NO LOGO</span>
+                    </div>
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Or specify Direct Public Image URL
-                  </label>
-                  <Input
-                    placeholder="https://example.com/logo.png"
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                    className="h-10 bg-card text-xs font-mono"
-                  />
+                {/* Upload Actions & Direct URL */}
+                <div className="flex-1 w-full space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+                      <div className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-accent text-xs font-bold text-foreground flex items-center gap-2 transition-colors shadow-sm">
+                        <UploadCloud className="w-4 h-4 text-primary" />
+                        Upload {isPlatformSuperAdmin ? 'Platform' : 'Restaurant'} Logo Image File (PNG/JPG/SVG)
+                      </div>
+                    </label>
+
+                    {logoUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogoUrl('')}
+                        className="text-xs h-10 rounded-xl text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1.5" /> {isPlatformSuperAdmin ? 'Reset to Default Platform Logo' : 'Remove Logo'}
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Or specify Direct Public Image URL
+                    </label>
+                    <Input
+                      placeholder="https://example.com/logo.png"
+                      value={logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      className="h-10 bg-card text-xs font-mono"
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground">
+                    💡 Tip: High-resolution PNG or SVG files with transparent backgrounds display best in dark and light modes.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Favicon & Browser Tab Icon Card */}
+          <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-400" />
+                {isPlatformSuperAdmin ? 'Platform Favicon & Browser Tab Icon' : 'Browser Favicon & Tab Icon'}
+              </CardTitle>
+              <CardDescription>
+                Customize the icon displayed on browser tabs, bookmarks, and mobile home screen shortcuts for this portal.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Browser Tab Simulation Preview */}
+              <div className="p-4 rounded-xl border border-border bg-background/80 space-y-3">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Live Browser Tab Simulation
+                </p>
+                <div className="flex items-center gap-2 max-w-sm px-3.5 py-2 rounded-t-xl bg-card border-t border-x border-border shadow-xs">
+                  <div className="w-4 h-4 rounded-md overflow-hidden flex items-center justify-center shrink-0">
+                    {faviconUrl ? (
+                      <img src={faviconUrl} alt="Favicon" className="w-full h-full object-contain" />
+                    ) : logoUrl ? (
+                      <img src={logoUrl} alt="Favicon" className="w-full h-full object-contain" />
+                    ) : isPlatformSuperAdmin ? (
+                      <div className="w-full h-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center rounded-sm">
+                        <Globe className="w-3 h-3 text-white" />
+                      </div>
+                    ) : (
+                      <ChefHat className="w-3.5 h-3.5 text-primary" />
+                    )}
+                  </div>
+                  <span className="text-xs font-bold text-foreground truncate flex-1">
+                    {name || (isPlatformSuperAdmin ? 'ROS — Platform Control Plane' : 'Restaurant Operating System')}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-mono">✕</span>
+                </div>
+              </div>
+
+              <div className="p-6 rounded-2xl border border-border bg-background/50 flex flex-col md:flex-row items-center gap-6">
+                {/* Favicon Preview Container */}
+                <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-indigo-500/40 bg-card flex flex-col items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
+                  {faviconUrl ? (
+                    <img
+                      src={faviconUrl}
+                      alt="Favicon Preview"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-muted-foreground p-2 text-center">
+                      <Sparkles className="w-6 h-6 text-indigo-400 opacity-60 mb-0.5" />
+                      <span className="text-[8px] font-bold tracking-wider">AUTO / LOGO</span>
+                    </div>
+                  )}
                 </div>
 
-                <p className="text-[11px] text-muted-foreground">
-                  💡 Tip: High-resolution PNG or SVG files with transparent backgrounds display best in dark and light modes.
-                </p>
+                {/* Upload Actions & Direct URL for Favicon */}
+                <div className="flex-1 w-full space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/png,image/x-icon,image/svg+xml,image/jpeg,image/webp"
+                        onChange={handleFaviconUpload}
+                        className="hidden"
+                      />
+                      <div className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-accent text-xs font-bold text-foreground flex items-center gap-2 transition-colors shadow-sm">
+                        <UploadCloud className="w-4 h-4 text-indigo-400" />
+                        Upload Custom Favicon (PNG/ICO/SVG)
+                      </div>
+                    </label>
+
+                    {faviconUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFaviconUrl('')}
+                        className="text-xs h-10 rounded-xl text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1.5" /> Reset to Default Favicon
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Or specify Direct Favicon Image URL
+                    </label>
+                    <Input
+                      placeholder="https://example.com/favicon.ico or favicon.png"
+                      value={faviconUrl}
+                      onChange={(e) => setFaviconUrl(e.target.value)}
+                      className="h-10 bg-card text-xs font-mono"
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground">
+                    💡 Tip: 32x32px or 64x64px square PNG or ICO images with transparent backgrounds work best. If no favicon is uploaded, your brand logo is automatically used as the fallback.
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* General Settings */}

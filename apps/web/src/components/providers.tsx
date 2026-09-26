@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { RealtimeSync } from '@/components/realtime-sync';
+import { DynamicBranding } from '@/components/dynamic-branding';
 import { useState } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <DynamicBranding />
       <RealtimeSync />
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         {children}
