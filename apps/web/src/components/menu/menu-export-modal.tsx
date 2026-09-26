@@ -14,6 +14,8 @@ import {
   Flame,
   Globe,
   Feather,
+  Eye,
+  LayoutGrid,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiDownloadFile } from '@/lib/api';
@@ -210,11 +212,22 @@ interface MenuExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   restaurantName?: string;
+  tenant?: any;
+  categories?: any[];
+  items?: any[];
 }
 
-export function MenuExportModal({ isOpen, onClose, restaurantName }: MenuExportModalProps) {
+export function MenuExportModal({
+  isOpen,
+  onClose,
+  restaurantName,
+  tenant,
+  categories = [],
+  items = [],
+}: MenuExportModalProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('hudson');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [mobileTab, setMobileTab] = useState<'templates' | 'preview'>('templates');
   const [isDownloading, setIsDownloading] = useState(false);
 
   if (!isOpen) return null;
@@ -248,184 +261,473 @@ export function MenuExportModal({ isOpen, onClose, restaurantName }: MenuExportM
     }
   };
 
+  // Prepare display categories & items for live preview
+  const displayCategories = categories.length > 0
+    ? categories
+        .filter((c) => !c.parentId)
+        .slice(0, 4)
+        .map((cat) => ({
+          ...cat,
+          displayItems: items
+            .filter((i) => i.categoryId === cat.id || i.category?.id === cat.id)
+            .slice(0, 4),
+        }))
+        .filter((c) => c.displayItems.length > 0)
+    : [
+        {
+          id: '1',
+          name: 'Starters & Appetizers',
+          displayItems: [
+            { id: '1', name: 'Truffle Herb Fries', price: 280, description: 'Hand-cut russet potatoes, parmesan, truffle oil' },
+            { id: '2', name: 'Burrata Caprese Salad', price: 420, description: 'Heirloom tomatoes, fresh basil, aged balsamic glaze' },
+          ],
+        },
+        {
+          id: '2',
+          name: 'Main Courses',
+          displayItems: [
+            { id: '3', name: 'Wild Mushroom Risotto', price: 540, description: 'Arborio rice, porcini mushrooms, parmigiano reggiano' },
+            { id: '4', name: 'Pan-Seared Sea Bass', price: 680, description: 'Citrus beurre blanc, braised baby vegetables' },
+          ],
+        },
+      ];
+
+  const brandName = tenant?.name || restaurantName || 'The Reverie';
+  const logoUrl = tenant?.logoUrl;
+  let tagline = 'Fine Dining & Hospitality';
+  try {
+    const parsed = typeof tenant?.settings === 'string' ? JSON.parse(tenant.settings) : (tenant?.settings || {});
+    if (parsed?.tagline) tagline = parsed.tagline;
+  } catch {}
+
+  const currencySymbol = '₹';
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-card border border-border/80 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        {/* Modal Header */}
-        <div className="p-5 sm:px-8 border-b border-border/70 flex items-center justify-between bg-muted/20">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
-                <Palette className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-in fade-in duration-200">
+      <div className="bg-card border border-border/80 rounded-2xl sm:rounded-3xl max-w-6xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        
+        {/* Modal Top Header */}
+        <div className="p-4 sm:px-6 border-b border-border/70 flex items-center justify-between bg-muted/20 shrink-0">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                <Palette className="w-4 h-4" />
               </span>
-              <h2 className="text-xl font-bold tracking-tight text-foreground">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
                 Export Restaurant Menu PDF
               </h2>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Choose from 12 styles matching your restaurant ambiance · 300 DPI A4 Vector Print Ready · Zero Server Retention
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              Choose from 12 distinct styles · Live 300 DPI A4 Vector Print Preview · Zero Server Storage
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Filter Pills */}
-        <div className="px-5 sm:px-8 py-3 border-b border-border/40 bg-muted/10 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {[
-              { id: 'all', label: 'All 12 Styles' },
-              { id: 'dark', label: '🌙 Dark & Obsidian' },
-              { id: 'light', label: '☀️ Light & Ivory' },
-              { id: 'vintage', label: '📜 Vintage & Tuscan' },
-              { id: 'tasting', label: '✨ Tasting & Minimalist' },
-            ].map((cat) => (
+          {/* Mobile Tab Switcher */}
+          <div className="flex items-center gap-2">
+            <div className="flex lg:hidden items-center bg-muted p-0.5 rounded-xl border border-border">
               <button
-                key={cat.id}
-                onClick={() => setFilterCategory(cat.id)}
+                onClick={() => setMobileTab('templates')}
                 className={cn(
-                  'px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border',
-                  filterCategory === cat.id
-                    ? 'bg-primary text-primary-foreground border-primary shadow-sm font-bold'
-                    : 'bg-card/80 border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+                  'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1',
+                  mobileTab === 'templates' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground'
                 )}
               >
-                {cat.label}
+                <LayoutGrid className="w-3.5 h-3.5" /> Styles
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => setMobileTab('preview')}
+                className={cn(
+                  'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1',
+                  mobileTab === 'preview' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground'
+                )}
+              >
+                <Eye className="w-3.5 h-3.5" /> Preview
+              </button>
+            </div>
 
-          <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
-            Showing {filteredTemplates.length} templates
-          </span>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+              title="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Templates Grid (Scrollable) */}
-        <div className="p-5 sm:px-8 overflow-y-auto flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredTemplates.map((template) => {
-            const isSelected = selectedTemplateId === template.id;
-
-            return (
-              <div
-                key={template.id}
-                onClick={() => setSelectedTemplateId(template.id)}
-                className={cn(
-                  'group relative rounded-2xl border-2 p-3.5 flex flex-col justify-between cursor-pointer transition-all duration-200 overflow-hidden',
-                  isSelected
-                    ? 'border-primary ring-2 ring-primary/30 shadow-lg scale-[1.02] bg-primary/[0.02]'
-                    : 'border-border/80 hover:border-border hover:shadow-md bg-card/60'
-                )}
-              >
-                {/* Mini Preview Box */}
-                <div
-                  className="w-full h-36 rounded-xl border p-2.5 flex flex-col justify-between relative shadow-inner overflow-hidden"
-                  style={{
-                    backgroundColor: template.bgColor,
-                    borderColor: template.borderColor,
-                  }}
+        {/* Modal Body: Two-Column Split (Left: Template Picker, Right: Live Menu Preview) */}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+          
+          {/* LEFT COLUMN: Template Selector */}
+          <div
+            className={cn(
+              'w-full lg:w-[480px] xl:w-[500px] border-r border-border/70 flex flex-col bg-card shrink-0 overflow-hidden',
+              mobileTab === 'preview' ? 'hidden lg:flex' : 'flex'
+            )}
+          >
+            {/* Category Filter Pills */}
+            <div className="p-3 sm:px-4 border-b border-border/50 bg-muted/10 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
+              {[
+                { id: 'all', label: 'All 12' },
+                { id: 'dark', label: '🌙 Dark' },
+                { id: 'light', label: '☀️ Light' },
+                { id: 'vintage', label: '📜 Vintage' },
+                { id: 'tasting', label: '✨ Tasting' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setFilterCategory(cat.id)}
+                  className={cn(
+                    'px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border shrink-0',
+                    filterCategory === cat.id
+                      ? 'bg-primary text-primary-foreground border-primary shadow-xs font-bold'
+                      : 'bg-card/80 border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+                  )}
                 >
-                  {/* Top mini header */}
-                  <div className="flex items-center justify-between">
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Template Cards Grid */}
+            <div className="p-3 sm:p-4 overflow-y-auto flex-1 grid grid-cols-2 gap-2.5">
+              {filteredTemplates.map((template) => {
+                const isSelected = selectedTemplateId === template.id;
+
+                return (
+                  <div
+                    key={template.id}
+                    onClick={() => {
+                      setSelectedTemplateId(template.id);
+                      if (window.innerWidth < 1024) {
+                        setMobileTab('preview');
+                      }
+                    }}
+                    className={cn(
+                      'group relative rounded-xl border-2 p-2.5 flex flex-col justify-between cursor-pointer transition-all duration-150 overflow-hidden min-w-0',
+                      isSelected
+                        ? 'border-primary ring-2 ring-primary/30 shadow-md bg-primary/[0.03]'
+                        : 'border-border/80 hover:border-border hover:shadow-xs bg-card/60'
+                    )}
+                  >
+                    {/* Mini Swatch Box */}
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border"
+                      className="w-full h-20 rounded-lg border p-2 flex flex-col justify-between relative shadow-inner overflow-hidden shrink-0"
                       style={{
                         backgroundColor: template.bgColor,
-                        color: template.textColor,
                         borderColor: template.borderColor,
                       }}
                     >
-                      {template.name.charAt(0)}
+                      <div className="flex items-center justify-between min-w-0">
+                        <div
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold border shrink-0"
+                          style={{
+                            backgroundColor: template.bgColor,
+                            color: template.textColor,
+                            borderColor: template.borderColor,
+                          }}
+                        >
+                          {template.name.charAt(0)}
+                        </div>
+                        <span
+                          className="text-[8px] font-bold uppercase tracking-wider truncate pl-1"
+                          style={{ color: template.accentColor }}
+                        >
+                          {template.tag}
+                        </span>
+                      </div>
+
+                      <div className="text-center my-auto min-w-0">
+                        <div
+                          className="text-[11px] font-bold tracking-wider uppercase truncate px-1"
+                          style={{ color: template.textColor }}
+                        >
+                          {template.name}
+                        </div>
+                        <div
+                          className="text-[8px] truncate px-1 opacity-80"
+                          style={{ color: template.accentColor }}
+                        >
+                          {template.subtitle}
+                        </div>
+                      </div>
+
+                      <div
+                        className="h-0.5 rounded-full w-full opacity-60"
+                        style={{ backgroundColor: template.accentColor }}
+                      />
+
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 bg-primary text-primary-foreground p-0.5 rounded-full shadow-md">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </div>
+                      )}
                     </div>
-                    <span
-                      className="text-[9px] font-bold uppercase tracking-wider"
-                      style={{ color: template.accentColor }}
+
+                    {/* Template Details */}
+                    <div className="mt-2 space-y-0.5 min-w-0 flex-1 flex flex-col justify-between">
+                      <div className="flex items-center justify-between gap-1 min-w-0">
+                        <span className="text-xs font-bold text-foreground truncate">
+                          {template.name}
+                        </span>
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-border shrink-0"
+                          style={{ backgroundColor: template.bgColor }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate leading-tight">
+                        {template.fontStyle}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Live Menu Preview Panel */}
+          <div
+            className={cn(
+              'flex-1 flex flex-col bg-muted/30 overflow-hidden min-w-0',
+              mobileTab === 'templates' ? 'hidden lg:flex' : 'flex'
+            )}
+          >
+            {/* Preview Sub-bar */}
+            <div className="px-4 py-2.5 border-b border-border/50 bg-card/60 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20 shrink-0">
+                  <Eye className="w-3.5 h-3.5" /> Live A4 Preview
+                </span>
+                <span className="text-xs font-semibold text-foreground truncate">
+                  {selectedTemplate.name} · {selectedTemplate.subtitle}
+                </span>
+              </div>
+              <span className="text-[11px] text-muted-foreground font-mono shrink-0 hidden sm:inline">
+                Vector 300 DPI
+              </span>
+            </div>
+
+            {/* A4 Document Preview Canvas (Scrollable without text overflow) */}
+            <div className="flex-1 p-3 sm:p-5 overflow-y-auto flex items-center justify-center min-w-0">
+              <div
+                className="w-full max-w-[500px] shadow-2xl rounded-xl p-5 sm:p-7 transition-all duration-200 relative flex flex-col justify-between overflow-hidden border"
+                style={{
+                  backgroundColor: selectedTemplate.bgColor,
+                  color: selectedTemplate.textColor,
+                  borderColor: selectedTemplate.borderColor,
+                  minHeight: '560px',
+                }}
+              >
+                {/* Decorative Frame Line */}
+                <div
+                  className="absolute inset-2.5 rounded-lg border pointer-events-none opacity-40"
+                  style={{ borderColor: selectedTemplate.borderColor }}
+                />
+
+                {/* Inner Header Section */}
+                <div className="text-center space-y-1 relative z-10 shrink-0">
+                  {/* Centered Restaurant Logo with Outline */}
+                  <div className="flex justify-center mb-2">
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center shadow-sm relative overflow-hidden border-2"
+                      style={{
+                        backgroundColor: selectedTemplate.bgColor,
+                        borderColor: selectedTemplate.id === 'hudson' || selectedTemplate.id === 'lumiere' ? '#ffffff' : selectedTemplate.borderColor,
+                      }}
                     >
-                      {template.tag}
-                    </span>
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt={brandName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span
+                          className="text-base font-bold font-serif"
+                          style={{ color: selectedTemplate.textColor }}
+                        >
+                          {brandName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Center sample title */}
-                  <div className="text-center my-auto">
-                    <div
-                      className="text-xs font-bold tracking-wider uppercase truncate px-1"
-                      style={{ color: template.textColor }}
-                    >
-                      {template.name}
-                    </div>
-                    <div
-                      className="text-[9px] truncate px-1 opacity-80"
-                      style={{ color: template.accentColor }}
-                    >
-                      {template.subtitle}
-                    </div>
-                  </div>
-
-                  {/* Bottom mock items lines */}
-                  <div className="space-y-1 opacity-70">
-                    <div
-                      className="h-1 rounded-full w-full"
-                      style={{ backgroundColor: template.accentColor }}
-                    />
-                    <div className="flex justify-between items-center text-[8px] font-mono" style={{ color: template.textColor }}>
-                      <span>Course Dish</span>
-                      <span>₹250</span>
-                    </div>
-                  </div>
-
-                  {/* Selection Badge */}
-                  {isSelected && (
-                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-1 rounded-full shadow-md animate-in zoom-in">
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  {/* Template Special Header Flourishes */}
+                  {selectedTemplate.id === 'reverie' && (
+                    <div className="text-[9px] uppercase tracking-widest font-semibold opacity-75" style={{ color: selectedTemplate.accentColor }}>
+                      THE
                     </div>
                   )}
-                </div>
 
-                {/* Template Info Details */}
-                <div className="mt-3 space-y-1.5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-1">
-                      <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                        {template.icon}
-                        {template.name}
-                      </h4>
-                      <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                        {template.tag}
-                      </span>
+                  {selectedTemplate.id === 'omakase' && (
+                    <div className="text-[10px] font-bold text-red-600 tracking-widest mb-0.5">
+                      東 京 • TOKYO
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                      {template.layoutDescription}
-                    </p>
-                  </div>
+                  )}
 
-                  <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span className="truncate max-w-[150px] font-medium">{template.fontStyle}</span>
+                  {selectedTemplate.id === 'grand_cafe' && (
+                    <div className="text-[9px] font-bold uppercase tracking-widest opacity-80" style={{ color: selectedTemplate.accentColor }}>
+                      EST. 1928
+                    </div>
+                  )}
+
+                  {/* Restaurant Name */}
+                  <h3
+                    className="text-base sm:text-lg font-bold tracking-wider uppercase truncate px-2"
+                    style={{ color: selectedTemplate.textColor }}
+                  >
+                    {brandName}
+                  </h3>
+
+                  {/* Subtitle / Tagline */}
+                  <p
+                    className="text-[10px] sm:text-[11px] italic truncate px-4 opacity-85"
+                    style={{ color: selectedTemplate.accentColor }}
+                  >
+                    {tagline}
+                  </p>
+
+                  {/* Title Banner Divider */}
+                  <div className="pt-2 flex items-center justify-center gap-2">
+                    <div
+                      className="h-px w-10 sm:w-16 opacity-50"
+                      style={{ backgroundColor: selectedTemplate.accentColor }}
+                    />
                     <span
-                      className="w-3.5 h-3.5 rounded-full border border-border shadow-xs shrink-0"
-                      style={{ backgroundColor: template.bgColor }}
-                      title={`Background: ${template.bgColor}`}
+                      className="text-[9px] font-bold tracking-widest uppercase"
+                      style={{ color: selectedTemplate.textColor }}
+                    >
+                      {selectedTemplate.id === 'omakase'
+                        ? 'お任せ • OMAKASE'
+                        : selectedTemplate.id === 'vino_dolci'
+                        ? 'WINES & DESSERTS'
+                        : 'À LA CARTE MENU'}
+                    </span>
+                    <div
+                      className="h-px w-10 sm:w-16 opacity-50"
+                      style={{ backgroundColor: selectedTemplate.accentColor }}
                     />
                   </div>
                 </div>
+
+                {/* Categories & Dishes (Rendered cleanly without text overflow) */}
+                <div className="space-y-4 my-4 flex-1 relative z-10 overflow-hidden">
+                  {displayCategories.map((cat: any, cIdx: number) => (
+                    <div key={cat.id || cIdx} className="space-y-1.5 overflow-hidden">
+                      {/* Category Header */}
+                      <div
+                        className="py-1 px-2 rounded flex items-center justify-between overflow-hidden"
+                        style={{
+                          backgroundColor:
+                            selectedTemplate.category === 'dark' ? '#1c1c21' : 'rgba(0,0,0,0.03)',
+                          borderBottom: `1px solid ${selectedTemplate.borderColor}`,
+                        }}
+                      >
+                        <span
+                          className="text-[11px] font-bold uppercase tracking-wider truncate pr-2"
+                          style={{ color: selectedTemplate.textColor }}
+                        >
+                          {selectedTemplate.id === 'reverie' || selectedTemplate.id === 'omakase' || selectedTemplate.id === 'azure'
+                            ? `0${cIdx + 1}  ${cat.name}`
+                            : cat.name}
+                        </span>
+                        <span
+                          className="text-[9px] font-bold shrink-0 opacity-75"
+                          style={{ color: selectedTemplate.accentColor }}
+                        >
+                          {cat.displayItems?.length || 2} ITEMS
+                        </span>
+                      </div>
+
+                      {/* Item Rows */}
+                      <div className="space-y-2 pt-0.5 overflow-hidden">
+                        {(cat.displayItems || []).map((item: any, iIdx: number) => {
+                          const itemPrice = item.variants?.[0]?.price || item.price || 250;
+                          return (
+                            <div key={item.id || iIdx} className="text-xs space-y-0.5 overflow-hidden">
+                              <div className="flex items-baseline justify-between gap-2 overflow-hidden">
+                                <span
+                                  className="font-semibold truncate text-[11px]"
+                                  style={{ color: selectedTemplate.textColor }}
+                                >
+                                  {item.name}
+                                </span>
+                                <span
+                                  className="font-bold font-mono text-[11px] shrink-0"
+                                  style={{ color: selectedTemplate.accentColor }}
+                                >
+                                  {currencySymbol}{itemPrice}
+                                </span>
+                              </div>
+                              {item.description && (
+                                <p
+                                  className="text-[9.5px] italic line-clamp-1 opacity-70 leading-tight"
+                                  style={{ color: selectedTemplate.textColor }}
+                                >
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer Section */}
+                <div
+                  className="pt-2 border-t text-center space-y-0.5 relative z-10 shrink-0 opacity-80"
+                  style={{ borderColor: selectedTemplate.borderColor }}
+                >
+                  <p
+                    className="text-[8.5px] font-medium tracking-wider uppercase truncate"
+                    style={{ color: selectedTemplate.textColor }}
+                  >
+                    {selectedTemplate.id === 'reverie'
+                      ? 'SIMPLE INGREDIENTS • EXTRAORDINARY MOMENTS'
+                      : selectedTemplate.id === 'lumiere'
+                      ? 'BON APPÉTIT • LUXE & SAVEUR'
+                      : selectedTemplate.id === 'omakase'
+                      ? 'A SEASONAL JOURNEY THROUGH JAPAN'
+                      : selectedTemplate.id === 'bellini'
+                      ? 'BUON APPETITO • PASSIONE ITALIANA'
+                      : selectedTemplate.id === 'azure'
+                      ? 'GOOD FOOD • BRIGHTER DAYS'
+                      : selectedTemplate.id === 'arima'
+                      ? 'PEOPLE • PLACE • FLAVOUR'
+                      : selectedTemplate.id === 'garden'
+                      ? 'ORGANIC • LOCALLY SOURCED • FRESH'
+                      : selectedTemplate.id === 'kori'
+                      ? 'BOLD FLAVOURS • NEW HORIZONS'
+                      : selectedTemplate.id === 'grand_cafe'
+                      ? '❦  BON APPÉTIT  ❦'
+                      : selectedTemplate.id === 'vino_dolci'
+                      ? 'FINE VINTAGES & ARTISAN PASTRY'
+                      : selectedTemplate.id === 'daily'
+                      ? 'GOOD BREAD  |  BETTER DAYS'
+                      : 'ALL ITEMS FRESHLY PREPARED TO ORDER'}
+                  </p>
+                  <p className="text-[7.5px] opacity-60">
+                    PAGE 1 OF 1 · A4 PRINT READY
+                  </p>
+                </div>
               </div>
-            );
-          })}
+            </div>
+          </div>
         </div>
 
-        {/* Modal Footer Controls */}
-        <div className="p-4 sm:px-8 border-t border-border/70 bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Selected Style:</span>
-            <span className="font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 flex items-center gap-1.5">
+        {/* Modal Bottom Action Controls */}
+        <div className="p-3 sm:px-6 border-t border-border/70 bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+            <span className="font-semibold text-foreground shrink-0">Selected:</span>
+            <span className="font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 flex items-center gap-1.5 truncate">
               {selectedTemplate.icon}
-              {selectedTemplate.name} ({selectedTemplate.tag})
+              <span className="truncate">{selectedTemplate.name} ({selectedTemplate.tag})</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
             <Button
               variant="outline"
               onClick={onClose}
@@ -453,6 +755,7 @@ export function MenuExportModal({ isOpen, onClose, restaurantName }: MenuExportM
             </Button>
           </div>
         </div>
+
       </div>
     </div>
   );

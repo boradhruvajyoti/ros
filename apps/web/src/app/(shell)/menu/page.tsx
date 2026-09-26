@@ -1624,6 +1624,9 @@ DESSERTS & DRINKS
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         restaurantName={currentTenant?.name}
+        tenant={currentTenant}
+        categories={categories}
+        items={items}
       />
     </div>
   );
