@@ -30,6 +30,9 @@ interface Employee {
   user?: {
     id: string;
     email: string;
+    telegramChatId?: string | null;
+    telegramUsername?: string | null;
+    telegramNotifications?: string[];
     roles: string[];
     permissions: string[];
   } | null;
@@ -287,6 +290,93 @@ const ROLE_PRESETS = [
   },
 ];
 
+const TELEGRAM_NOTIFICATION_OPTIONS = [
+  {
+    id: 'ORDER_QR_NEW',
+    category: 'Orders & Tables',
+    name: '📱 QR Menu New Orders',
+    description: 'Alert when guest places an order via QR menu with table & type (Dine-In/Parcel)',
+  },
+  {
+    id: 'KOT_SENT',
+    category: 'Orders & Tables',
+    name: '🍳 KOT Sent to Kitchen',
+    description: 'Alert when an order is fired and sent to the kitchen',
+  },
+  {
+    id: 'KOT_ACCEPTED',
+    category: 'Kitchen Display',
+    name: '👨‍🍳 KDS Ticket Accepted',
+    description: 'Alert when chef accepts a ticket in kitchen display',
+  },
+  {
+    id: 'FOOD_READY',
+    category: 'Kitchen Display',
+    name: '🔔 Food Ready to Serve',
+    description: 'Alert waitstaff when dishes are cooked and ready for pickup at pass',
+  },
+  {
+    id: 'FOOD_SERVED',
+    category: 'Orders & Tables',
+    name: '🥗 Food Served to Table',
+    description: 'Alert when food is marked as served at the table',
+  },
+  {
+    id: 'BILL_PAID',
+    category: 'Billing & Cash',
+    name: '💳 Bill Paid & Settled',
+    description: 'Instant notification with table, bill items, total amount and item count',
+  },
+  {
+    id: 'ORDER_CANCELLED_TABLES',
+    category: 'Cancellations & Voids',
+    name: '❌ Cancelled on Tables View',
+    description: 'Alert when an order or items are cancelled from the Tables floor plan',
+  },
+  {
+    id: 'ORDER_CANCELLED_KITCHEN',
+    category: 'Cancellations & Voids',
+    name: '🚫 Cancelled on Kitchen Display',
+    description: 'Alert when chef cancels or voids items on the KDS display',
+  },
+  {
+    id: 'DAILY_SALES_REPORT',
+    category: 'Reports & Analytics',
+    name: '📊 Daily Sales & Top Selling Items',
+    description: 'End-of-day summary with tablewise breakdown and top performers',
+  },
+  {
+    id: 'DAILY_EXPENSES_REPORT',
+    category: 'Reports & Analytics',
+    name: '💸 Daily Expenses Report',
+    description: 'Daily operational expenses and petty cash disbursements',
+  },
+  {
+    id: 'MONTHLY_REPORT',
+    category: 'Reports & Analytics',
+    name: '📈 Monthly Financial Report',
+    description: 'Month-end consolidated revenue, expenses, and net profit report',
+  },
+  {
+    id: 'STAFF_MODIFIED',
+    category: 'Administration',
+    name: '👤 Staff Added / Modified',
+    description: 'Alert when staff roster, role permissions or accounts are changed',
+  },
+  {
+    id: 'INVENTORY_MODIFIED',
+    category: 'Inventory & Stock',
+    name: '📦 Stock & Inventory Changes',
+    description: 'Alert on inventory adjustments, low-stock updates and purchases',
+  },
+  {
+    id: 'MENU_MODIFIED',
+    category: 'Menu Management',
+    name: '🍽️ Menu Dish Add / Edit / Delete',
+    description: 'Alert when dish catalog, pricing or availability changes',
+  },
+];
+
 export default function StaffPage() {
   const [activeTab, setActiveTab] = useState<'directory' | 'attendance'>('directory');
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
@@ -311,6 +401,14 @@ export default function StaffPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRolePreset, setSelectedRolePreset] = useState<string>('WAITER');
   const [selectedModules, setSelectedModules] = useState<string[]>(['pos', 'tables', 'history']);
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [selectedTelegramNotifs, setSelectedTelegramNotifs] = useState<string[]>([
+    'ORDER_QR_NEW',
+    'KOT_SENT',
+    'FOOD_READY',
+    'BILL_PAID',
+  ]);
 
   // Edit Form State
   const [editName, setEditName] = useState('');
@@ -324,6 +422,9 @@ export default function StaffPage() {
   const [editShowPassword, setEditShowPassword] = useState(false);
   const [editSelectedRolePreset, setEditSelectedRolePreset] = useState<string>('CUSTOM');
   const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
+  const [editTelegramChatId, setEditTelegramChatId] = useState('');
+  const [editTelegramUsername, setEditTelegramUsername] = useState('');
+  const [editSelectedTelegramNotifs, setEditSelectedTelegramNotifs] = useState<string[]>([]);
 
   const queryClient = useQueryClient();
 
@@ -395,6 +496,9 @@ export default function StaffPage() {
     setUserPassword('');
     setSelectedRolePreset('WAITER');
     setSelectedModules(['pos', 'tables', 'history']);
+    setTelegramChatId('');
+    setTelegramUsername('');
+    setSelectedTelegramNotifs(['ORDER_QR_NEW', 'KOT_SENT', 'FOOD_READY', 'BILL_PAID']);
   };
 
   const handleApplyPreset = (presetId: string) => {
@@ -410,6 +514,18 @@ export default function StaffPage() {
       prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
     );
     setSelectedRolePreset('CUSTOM');
+  };
+
+  const toggleTelegramNotif = (notifId: string) => {
+    setSelectedTelegramNotifs((prev) =>
+      prev.includes(notifId) ? prev.filter((id) => id !== notifId) : [...prev, notifId]
+    );
+  };
+
+  const toggleEditTelegramNotif = (notifId: string) => {
+    setEditSelectedTelegramNotifs((prev) =>
+      prev.includes(notifId) ? prev.filter((id) => id !== notifId) : [...prev, notifId]
+    );
   };
 
   const handleSelectAllModules = () => {
@@ -433,6 +549,9 @@ export default function StaffPage() {
     setEditCreateUserAccount(Boolean(emp.userId || emp.user));
     setEditUserPassword('');
     setEditShowPassword(false);
+    setEditTelegramChatId(emp.user?.telegramChatId || '');
+    setEditTelegramUsername(emp.user?.telegramUsername || '');
+    setEditSelectedTelegramNotifs(emp.user?.telegramNotifications || []);
 
     // Compute which feature modules are active for this employee using exact keyPermission
     const userPerms = new Set(emp.user?.permissions || []);
@@ -514,6 +633,9 @@ export default function StaffPage() {
       createUserAccount: editCreateUserAccount,
       roleName: editSelectedRolePreset !== 'CUSTOM' ? editSelectedRolePreset : editDesignation.trim(),
       permissions: editCreateUserAccount ? selectedPerms : undefined,
+      telegramChatId: editTelegramChatId.trim() || null,
+      telegramUsername: editTelegramUsername.trim() || null,
+      telegramNotifications: editSelectedTelegramNotifs,
     };
 
     if (editUserPassword.trim()) {
@@ -575,6 +697,9 @@ export default function StaffPage() {
       password: createUserAccount ? userPassword : undefined,
       roleName: createUserAccount ? selectedRolePreset : undefined,
       permissions: createUserAccount ? selectedPerms : undefined,
+      telegramChatId: telegramChatId.trim() || undefined,
+      telegramUsername: telegramUsername.trim() || undefined,
+      telegramNotifications: selectedTelegramNotifs,
     });
   };
 
@@ -774,6 +899,16 @@ export default function StaffPage() {
                               <strong className="text-foreground">{emp.user.permissions.length} modules granted</strong>
                             </div>
                           )}
+                          {emp.user.telegramChatId && (
+                            <div className="pt-1 mt-1 border-t border-border/50 flex items-center justify-between text-[10px]">
+                              <span className="text-sky-400 font-medium flex items-center gap-1">
+                                ✈️ Telegram Active
+                              </span>
+                              <span className="text-muted-foreground font-mono">
+                                {emp.user.telegramUsername ? `@${emp.user.telegramUsername}` : emp.user.telegramChatId}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -887,7 +1022,7 @@ export default function StaffPage() {
                     <UserCheck className="w-5 h-5 text-primary" /> Add Staff Member &amp; User Account
                   </CardTitle>
                   <CardDescription className="text-xs mt-0.5">
-                    Register employee profile, set salary, and optionally provision a login account with granular feature permissions.
+                    Register employee profile, set salary, provision a login account, and configure Telegram notifications.
                   </CardDescription>
                 </div>
                 <button
@@ -1049,8 +1184,8 @@ export default function StaffPage() {
                               className={cn(
                                 'p-2.5 rounded-xl border text-xs font-bold text-left transition-all cursor-pointer flex flex-col justify-between gap-1',
                                 selectedRolePreset === preset.id
-                                  ? 'bg-primary/10 border-primary text-primary shadow-xs ring-1 ring-primary/40'
-                                  : 'bg-card border-border text-foreground hover:bg-muted'
+                                    ? 'bg-primary/10 border-primary text-primary shadow-xs ring-1 ring-primary/40'
+                                    : 'bg-card border-border text-foreground hover:bg-muted'
                               )}
                             >
                               <span>{preset.name}</span>
@@ -1077,7 +1212,7 @@ export default function StaffPage() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 sm:max-h-80 overflow-y-auto p-1 no-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 no-scrollbar">
                           {FEATURE_MODULES.map((mod) => {
                             const isSelected = selectedModules.includes(mod.id);
                             return (
@@ -1117,6 +1252,107 @@ export default function StaffPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Section 3: Telegram Bot Alerts Configuration */}
+                {createUserAccount && (
+                  <div className="p-4 rounded-2xl bg-sky-500/5 border border-sky-500/20 space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center font-bold text-base">
+                          ✈️
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground">Telegram Notifications for Staff</h4>
+                          <p className="text-[11px] text-muted-foreground">
+                            Configure which operational events this staff member will receive on their connected Telegram bot.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-sky-500/20">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-foreground">Staff Telegram Chat ID</label>
+                        <Input
+                          value={telegramChatId}
+                          onChange={(e) => setTelegramChatId(e.target.value)}
+                          placeholder="e.g. 123456789"
+                          className="h-10 rounded-xl font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-muted-foreground">User gets this by sending /start to your bot</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-foreground">Telegram Username (Optional)</label>
+                        <Input
+                          value={telegramUsername}
+                          onChange={(e) => setTelegramUsername(e.target.value)}
+                          placeholder="e.g. chef_rajesh"
+                          className="h-10 rounded-xl text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Operational Triggers Matrix */}
+                    <div className="space-y-2 pt-2 border-t border-sky-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          🔔 Select Operational Alerts ({selectedTelegramNotifs.length}/14)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedTelegramNotifs.length === TELEGRAM_NOTIFICATION_OPTIONS.length) {
+                              setSelectedTelegramNotifs([]);
+                            } else {
+                              setSelectedTelegramNotifs(TELEGRAM_NOTIFICATION_OPTIONS.map((o) => o.id));
+                            }
+                          }}
+                          className="text-xs font-bold text-sky-400 hover:underline cursor-pointer"
+                        >
+                          {selectedTelegramNotifs.length === TELEGRAM_NOTIFICATION_OPTIONS.length ? 'Deselect All' : 'Select All 14 Alerts'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto p-1 no-scrollbar">
+                        {TELEGRAM_NOTIFICATION_OPTIONS.map((opt) => {
+                          const isChecked = selectedTelegramNotifs.includes(opt.id);
+                          return (
+                            <div
+                              key={opt.id}
+                              onClick={() => toggleTelegramNotif(opt.id)}
+                              className={cn(
+                                'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
+                                isChecked
+                                  ? 'bg-sky-500/10 border-sky-500/40 text-foreground'
+                                  : 'bg-card border-border/60 text-muted-foreground hover:border-border'
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
+                                  isChecked
+                                    ? 'bg-sky-500 text-white border-sky-500'
+                                    : 'border-muted-foreground/40 bg-background'
+                                )}
+                              >
+                                {isChecked && <Check className="w-3 h-3" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-foreground leading-tight">
+                                  {opt.name}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                  {opt.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </form>
             </div>
 
@@ -1155,7 +1391,7 @@ export default function StaffPage() {
                     <Edit3 className="w-5 h-5 text-primary" /> Modify Staff &amp; Permissions
                   </CardTitle>
                   <CardDescription className="text-xs mt-0.5">
-                    Update profile, credentials, active status, or customize feature access permissions.
+                    Update profile, credentials, active status, module access permissions, and Telegram alerts.
                   </CardDescription>
                 </div>
                 <button
@@ -1352,7 +1588,7 @@ export default function StaffPage() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 sm:max-h-80 overflow-y-auto p-1 no-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 no-scrollbar">
                           {FEATURE_MODULES.map((mod) => {
                             const isSelected = editSelectedModules.includes(mod.id);
                             return (
@@ -1392,6 +1628,107 @@ export default function StaffPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Section 3: Telegram Bot Alerts Configuration */}
+                {editCreateUserAccount && (
+                  <div className="p-4 rounded-2xl bg-sky-500/5 border border-sky-500/20 space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center font-bold text-base">
+                          ✈️
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground">Telegram Notifications for Staff</h4>
+                          <p className="text-[11px] text-muted-foreground">
+                            Configure which operational events this staff member will receive on their connected Telegram bot.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-sky-500/20">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-foreground">Staff Telegram Chat ID</label>
+                        <Input
+                          value={editTelegramChatId}
+                          onChange={(e) => setEditTelegramChatId(e.target.value)}
+                          placeholder="e.g. 123456789"
+                          className="h-10 rounded-xl font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-muted-foreground">User gets this by sending /start to your bot</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-foreground">Telegram Username (Optional)</label>
+                        <Input
+                          value={editTelegramUsername}
+                          onChange={(e) => setEditTelegramUsername(e.target.value)}
+                          placeholder="e.g. chef_rajesh"
+                          className="h-10 rounded-xl text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Operational Triggers Matrix */}
+                    <div className="space-y-2 pt-2 border-t border-sky-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          🔔 Select Operational Alerts ({editSelectedTelegramNotifs.length}/14)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editSelectedTelegramNotifs.length === TELEGRAM_NOTIFICATION_OPTIONS.length) {
+                              setEditSelectedTelegramNotifs([]);
+                            } else {
+                              setEditSelectedTelegramNotifs(TELEGRAM_NOTIFICATION_OPTIONS.map((o) => o.id));
+                            }
+                          }}
+                          className="text-xs font-bold text-sky-400 hover:underline cursor-pointer"
+                        >
+                          {editSelectedTelegramNotifs.length === TELEGRAM_NOTIFICATION_OPTIONS.length ? 'Deselect All' : 'Select All 14 Alerts'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto p-1 no-scrollbar">
+                        {TELEGRAM_NOTIFICATION_OPTIONS.map((opt) => {
+                          const isChecked = editSelectedTelegramNotifs.includes(opt.id);
+                          return (
+                            <div
+                              key={opt.id}
+                              onClick={() => toggleEditTelegramNotif(opt.id)}
+                              className={cn(
+                                'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
+                                isChecked
+                                  ? 'bg-sky-500/10 border-sky-500/40 text-foreground'
+                                  : 'bg-card border-border/60 text-muted-foreground hover:border-border'
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
+                                  isChecked
+                                    ? 'bg-sky-500 text-white border-sky-500'
+                                    : 'border-muted-foreground/40 bg-background'
+                                )}
+                              >
+                                {isChecked && <Check className="w-3 h-3" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-foreground leading-tight">
+                                  {opt.name}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                  {opt.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </form>
             </div>
 

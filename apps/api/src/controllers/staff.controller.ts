@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { ErrorCodes } from '@ros/shared-types';
+import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 
 export const FEATURE_MODULES = [
@@ -198,6 +199,93 @@ export const FEATURE_MODULES = [
   },
 ];
 
+export const TELEGRAM_NOTIFICATION_CATALOG = [
+  {
+    id: 'ORDER_QR_NEW',
+    category: 'Orders & Service',
+    name: 'QR Menu New Orders',
+    description: 'Alert when a customer places an order via QR menu with table & order type (Dine In / Parcel)',
+  },
+  {
+    id: 'KOT_SENT',
+    category: 'Orders & Service',
+    name: 'KOT Sent to Kitchen',
+    description: 'Alert when an order is fired and KOT is routed to kitchen displays/printers',
+  },
+  {
+    id: 'KOT_ACCEPTED',
+    category: 'Kitchen Display',
+    name: 'KDS Order Accepted',
+    description: 'Alert when chef acknowledges/accepts ticket in kitchen display',
+  },
+  {
+    id: 'FOOD_READY',
+    category: 'Kitchen Display',
+    name: 'Food Ready to Serve',
+    description: 'Alert waitstaff when dishes are marked ready for pickup at pass',
+  },
+  {
+    id: 'FOOD_SERVED',
+    category: 'Orders & Service',
+    name: 'Food Served to Table',
+    description: 'Alert when order items are marked served at the guest table',
+  },
+  {
+    id: 'BILL_PAID',
+    category: 'Billing & Cash',
+    name: 'Bill Paid & Settled',
+    description: 'Real-time billing alert with table info, ordered items, amount, and item count',
+  },
+  {
+    id: 'ORDER_CANCELLED_TABLES',
+    category: 'Cancellations & Voids',
+    name: 'Order Cancelled (Floor / Tables)',
+    description: 'Alert when items or full orders are cancelled on floor tables view',
+  },
+  {
+    id: 'ORDER_CANCELLED_KITCHEN',
+    category: 'Cancellations & Voids',
+    name: 'Order Cancelled (Kitchen Display)',
+    description: 'Alert when chef or kitchen supervisor voids/cancels items in KDS',
+  },
+  {
+    id: 'DAILY_SALES_REPORT',
+    category: 'Reports & Analytics',
+    name: 'Daily Sales & Top Items Report',
+    description: 'End-of-day summary with tablewise breakdown, total sales & top selling items',
+  },
+  {
+    id: 'DAILY_EXPENSES_REPORT',
+    category: 'Reports & Analytics',
+    name: 'Daily Expenses Report',
+    description: 'Daily operational expenses and petty cash payout summary',
+  },
+  {
+    id: 'MONTHLY_REPORT',
+    category: 'Reports & Analytics',
+    name: 'Monthly P&L & Revenue Report',
+    description: 'Month-end consolidated revenue, expenses, and net profit report',
+  },
+  {
+    id: 'STAFF_MODIFIED',
+    category: 'Administration',
+    name: 'Staff Added / Modified',
+    description: 'Alert when an employee profile, role, or access permission is modified',
+  },
+  {
+    id: 'INVENTORY_MODIFIED',
+    category: 'Inventory & Stock',
+    name: 'Stock & Inventory Updates',
+    description: 'Alert when ingredient stocks, batches, or purchase adjustments occur',
+  },
+  {
+    id: 'MENU_MODIFIED',
+    category: 'Menu Management',
+    name: 'Menu Item Add / Edit / Delete',
+    description: 'Alert when dishes, prices, modifier groups, or category items are changed',
+  },
+];
+
 const createEmployeeSchema = z.object({
   name: z.string().min(1),
   department: z.string().min(1),
@@ -210,6 +298,9 @@ const createEmployeeSchema = z.object({
   password: z.string().min(4).optional(),
   roleName: z.string().optional(),
   permissions: z.array(z.string()).optional(),
+  telegramChatId: z.string().optional().nullable(),
+  telegramUsername: z.string().optional().nullable(),
+  telegramNotifications: z.array(z.string()).optional(),
 });
 
 const updateEmployeeSchema = z.object({
@@ -225,6 +316,9 @@ const updateEmployeeSchema = z.object({
   roleName: z.string().optional(),
   permissions: z.array(z.string()).optional(),
   isActiveUser: z.boolean().optional(),
+  telegramChatId: z.string().optional().nullable(),
+  telegramUsername: z.string().optional().nullable(),
+  telegramNotifications: z.array(z.string()).optional(),
 });
 
 const punchAttendanceSchema = z.object({
@@ -257,6 +351,9 @@ export class StaffController {
               name: true,
               phone: true,
               isActive: true,
+              telegramChatId: true,
+              telegramUsername: true,
+              telegramNotifications: true,
               branchRoles: {
                 include: {
                   role: {
@@ -274,12 +371,23 @@ export class StaffController {
 
     const enriched = employees.map((emp) => {
       const user = emp.userId ? userMap.get(emp.userId) : null;
+      let parsedTelegramNotifs: string[] = [];
+      if (user?.telegramNotifications) {
+        try {
+          parsedTelegramNotifs = JSON.parse(user.telegramNotifications);
+        } catch {
+          parsedTelegramNotifs = [];
+        }
+      }
       return {
         ...emp,
         user: user
           ? {
               id: user.id,
               email: user.email,
+              telegramChatId: user.telegramChatId,
+              telegramUsername: user.telegramUsername,
+              telegramNotifications: parsedTelegramNotifs,
               roles: user.branchRoles.map((br) => br.role.name),
               permissions: Array.from(
                 new Set(user.branchRoles.flatMap((br) => br.role.permissions.map((p) => p.permission.code)))
@@ -358,7 +466,7 @@ export class StaffController {
         }
       }
 
-      // Create User
+      // Create User with Telegram connection preferences
       const newUser = await prisma.user.create({
         data: {
           tenantId,
@@ -367,6 +475,9 @@ export class StaffController {
           phone: data.phone || null,
           passwordHash,
           isActive: true,
+          telegramChatId: data.telegramChatId || null,
+          telegramUsername: data.telegramUsername ? data.telegramUsername.replace(/^@/, '') : null,
+          telegramNotifications: data.telegramNotifications ? JSON.stringify(data.telegramNotifications) : null,
           branchRoles: {
             create: {
               branchId,
@@ -392,6 +503,13 @@ export class StaffController {
         branchId,
       },
     });
+
+    // Notify Superadmin / Staff on Telegram
+    TelegramService.sendNotificationToTenant(
+      tenantId,
+      'STAFF_MODIFIED',
+      `👤 <b>Staff Member Added</b>\n\n• <b>Name:</b> ${data.name}\n• <b>Designation:</b> ${data.designation}\n• <b>Department:</b> ${data.department}\n• <b>Email:</b> ${data.email || 'None'}\n• <b>Added By:</b> ${req.user?.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
 
     sendSuccess(res, employee, 201);
   }
@@ -430,6 +548,18 @@ export class StaffController {
 
           if (data.isActiveUser !== undefined) {
             userUpdates.isActive = data.isActiveUser;
+          }
+
+          if (data.telegramChatId !== undefined) {
+            userUpdates.telegramChatId = data.telegramChatId || null;
+          }
+
+          if (data.telegramUsername !== undefined) {
+            userUpdates.telegramUsername = data.telegramUsername ? data.telegramUsername.replace(/^@/, '') : null;
+          }
+
+          if (data.telegramNotifications !== undefined) {
+            userUpdates.telegramNotifications = JSON.stringify(data.telegramNotifications || []);
           }
 
           if (emailToUse && emailToUse !== user.email) {
@@ -595,6 +725,9 @@ export class StaffController {
             phone: data.phone || employee.phone || null,
             passwordHash,
             isActive: true,
+            telegramChatId: data.telegramChatId || null,
+            telegramUsername: data.telegramUsername ? data.telegramUsername.replace(/^@/, '') : null,
+            telegramNotifications: data.telegramNotifications ? JSON.stringify(data.telegramNotifications) : null,
             branchRoles: {
               create: {
                 branchId,
@@ -626,6 +759,13 @@ export class StaffController {
         },
       },
     });
+
+    // Notify Superadmin / Staff on Telegram
+    TelegramService.sendNotificationToTenant(
+      tenantId,
+      'STAFF_MODIFIED',
+      `👤 <b>Staff Member Updated</b>\n\n• <b>Name:</b> ${updatedEmployee.name}\n• <b>Designation:</b> ${updatedEmployee.designation}\n• <b>Department:</b> ${updatedEmployee.department}\n• <b>Updated By:</b> ${req.user?.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
 
     sendSuccess(res, updatedEmployee);
   }
@@ -660,11 +800,21 @@ export class StaffController {
     await prisma.leaveRecord.deleteMany({ where: { employeeId: id } });
     await prisma.employee.delete({ where: { id } });
 
+    // Notify Superadmin on Telegram
+    TelegramService.sendNotificationToTenant(
+      tenantId,
+      'STAFF_MODIFIED',
+      `👤 <b>Staff Member Removed</b>\n\n• <b>Name:</b> ${employee.name}\n• <b>Designation:</b> ${employee.designation}\n• <b>Department:</b> ${employee.department}\n• <b>Removed By:</b> ${req.user?.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Staff Alert Error]:', e));
+
     sendSuccess(res, { message: 'Staff member removed successfully' });
   }
 
   static async listAvailablePermissions(req: Request, res: Response) {
-    sendSuccess(res, FEATURE_MODULES);
+    sendSuccess(res, {
+      modules: FEATURE_MODULES,
+      telegramNotifications: TELEGRAM_NOTIFICATION_CATALOG,
+    });
   }
 
   static async punchAttendance(req: Request, res: Response) {

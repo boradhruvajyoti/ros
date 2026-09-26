@@ -24,5 +24,10 @@ router.patch('/tenants/:id/status',requirePlatformSuperAdmin(), asyncHandler(Sup
 router.delete('/tenants/:id',      requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.deleteTenant));
 router.post('/cache/purge',         requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.purgeAllCache));
 
+// Telegram Bot Automation Settings
+router.get('/telegram-config',     requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.getTelegramConfig));
+router.post('/telegram-config',    requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.updateTelegramConfig));
+router.post('/telegram-test',      requirePlatformSuperAdmin(), asyncHandler(SuperAdminController.testTelegramBot));
+
 export default router;
 

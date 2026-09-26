@@ -5,6 +5,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { sendSuccess } from '../middlewares/error.middleware';
+import { TelegramService } from '../services/telegram.service';
 
 export class ReportController {
   static async getSummary(req: Request, res: Response) {
@@ -309,5 +310,132 @@ export class ReportController {
       totalGrossSales: taxableSales + totalTax,
       filingPeriod: new Date().toISOString().slice(0, 7),
     });
+  }
+
+  // ── Telegram Automated & Manual Report Triggers ─────────────────────────────
+  static async triggerDailySalesTelegram(req: Request, res: Response) {
+    const tenantId = req.user!.tid;
+    const branchId = req.user!.bid!;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const orders = await prisma.order.findMany({
+      where: {
+        tenantId,
+        branchId,
+        createdAt: { gte: todayStart },
+        status: { notIn: ['CANCELLED', 'VOIDED'] },
+      },
+      include: {
+        table: true,
+        items: {
+          include: { menuItem: true },
+        },
+      },
+    });
+
+    const totalSales = orders.reduce((s, o) => s + Number(o.total || 0), 0);
+
+    // Table-wise breakdown
+    const tableSales: Record<string, number> = {};
+    const itemCounts: Record<string, number> = {};
+
+    for (const ord of orders) {
+      const tName = ord.table?.name || (ord.type === 'TAKEAWAY' ? 'Takeaway' : 'Counter / Online');
+      tableSales[tName] = (tableSales[tName] || 0) + Number(ord.total || 0);
+
+      for (const itm of ord.items) {
+        const dishName = itm.menuItem?.name || 'Dish';
+        itemCounts[dishName] = (itemCounts[dishName] || 0) + itm.quantity;
+      }
+    }
+
+    const sortedItems = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]);
+    const topItem = sortedItems[0] ? `${sortedItems[0][0]} (${sortedItems[0][1]} orders)` : 'None';
+
+    const tableBreakdownLines = Object.entries(tableSales)
+      .map(([tbl, amt]) => `• <b>${tbl}:</b> ₹${amt.toFixed(2)}`)
+      .join('\n');
+
+    const msg = `📊 <b>Daily Sales &amp; Revenue Report</b>\n📅 <i>${todayStart.toDateString()}</i>\n\n• <b>Total Sales:</b> ₹${totalSales.toFixed(2)}\n• <b>Total Orders:</b> ${orders.length}\n• <b>Most Selling Item:</b> ${topItem}\n\n<b>Table-wise Breakdown:</b>\n${tableBreakdownLines || 'No table orders recorded today.'}`;
+
+    const sent = await TelegramService.sendNotificationToTenant(tenantId, 'DAILY_SALES_REPORT', msg);
+    sendSuccess(res, { message: 'Daily sales report dispatched to Telegram', sentCount: sent });
+  }
+
+  static async triggerDailyExpensesTelegram(req: Request, res: Response) {
+    const tenantId = req.user!.tid;
+    const branchId = req.user!.bid!;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const expenses = await prisma.expense.findMany({
+      where: {
+        tenantId,
+        branchId,
+        date: { gte: todayStart },
+        status: 'APPROVED',
+      },
+      include: { category: true },
+    });
+
+    const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const categoryBreakdown: Record<string, number> = {};
+
+    for (const exp of expenses) {
+      const catName = exp.category?.name || 'Operational';
+      categoryBreakdown[catName] = (categoryBreakdown[catName] || 0) + Number(exp.amount || 0);
+    }
+
+    const catLines = Object.entries(categoryBreakdown)
+      .map(([cat, amt]) => `• <b>${cat}:</b> ₹${amt.toFixed(2)}`)
+      .join('\n');
+
+    const msg = `💸 <b>Daily Operational Expenses Report</b>\n📅 <i>${todayStart.toDateString()}</i>\n\n• <b>Total Recorded Expenses:</b> ₹${totalExpenses.toFixed(2)}\n• <b>Vouchers Count:</b> ${expenses.length}\n\n<b>Category Breakdown:</b>\n${catLines || 'No approved expenses for today.'}`;
+
+    const sent = await TelegramService.sendNotificationToTenant(tenantId, 'DAILY_EXPENSES_REPORT', msg);
+    sendSuccess(res, { message: 'Daily expenses report dispatched to Telegram', sentCount: sent });
+  }
+
+  static async triggerMonthlyReportTelegram(req: Request, res: Response) {
+    const tenantId = req.user!.tid;
+    const branchId = req.user!.bid!;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [orders, expenses] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          tenantId,
+          branchId,
+          createdAt: { gte: monthStart },
+          status: { notIn: ['CANCELLED', 'VOIDED'] },
+        },
+        select: { total: true },
+      }),
+      prisma.expense.findMany({
+        where: {
+          tenantId,
+          branchId,
+          date: { gte: monthStart },
+          status: 'APPROVED',
+        },
+        select: { amount: true },
+      }),
+    ]);
+
+    const totalRevenue = orders.reduce((s, o) => s + Number(o.total || 0), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const estimatedNetProfit = totalRevenue * 0.7 - totalExpenses;
+
+    const monthName = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    const msg = `📈 <b>Monthly Financial P&amp;L Report</b>\n📅 <i>Period: ${monthName}</i>\n\n• <b>Total Gross Sales:</b> ₹${totalRevenue.toFixed(2)}\n• <b>Total Orders:</b> ${orders.length}\n• <b>Operating Expenses:</b> ₹${totalExpenses.toFixed(2)}\n• <b>Estimated Net P&amp;L:</b> ₹${estimatedNetProfit.toFixed(2)}\n• <b>Profitability:</b> ${estimatedNetProfit >= 0 ? '🟢 Profitable' : '🔴 Operating Deficit'}`;
+
+    const sent = await TelegramService.sendNotificationToTenant(tenantId, 'MONTHLY_REPORT', msg);
+    sendSuccess(res, { message: 'Monthly P&L report dispatched to Telegram', sentCount: sent });
   }
 }

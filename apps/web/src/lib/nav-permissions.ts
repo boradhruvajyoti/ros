@@ -3,7 +3,7 @@ import {
   Package, Truck, Users, UserCheck, BarChart3, Settings,
   ClipboardList, ArrowLeftRight, Radio, Tag, Sparkles, Star,
   QrCode, Globe, Printer, ShieldAlert, Gift, Flame, Smartphone,
-  Car, Eye, Activity, Building2, CreditCard, Server, Wallet
+  Car, Eye, Activity, Building2, CreditCard, Server, Wallet, Zap
 } from 'lucide-react';
 
 export interface NavItemConfig {
@@ -69,6 +69,7 @@ export const PLATFORM_SUPERADMIN_NAV_SECTIONS: Array<
   { href: '/super-admin',   label: 'Platform Overview',   icon: Globe,       permissions: null },
   { href: '/super-admin?tab=tenants', label: 'Tenant Directory', icon: Building2, permissions: null },
   { href: '/super-admin?tab=plans',   label: 'SaaS Plans & Tiers', icon: CreditCard, permissions: null },
+  { href: '/super-admin?tab=automation', label: 'Automation', icon: Zap, permissions: null },
   { href: '/super-admin?tab=system',  label: 'System & Infra',   icon: Server,      permissions: null },
   { type: 'divider', label: 'SECURITY & OBSERVABILITY' },
   { href: '/audit-vault',   label: 'Global Audit Logs',   icon: ShieldAlert, permissions: null },

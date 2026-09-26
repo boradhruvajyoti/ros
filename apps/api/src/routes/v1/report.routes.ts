@@ -18,6 +18,9 @@ router.get('/daily-summary', requirePermission('reports:view'), asyncHandler(Rep
 router.get('/sales', requirePermission('reports:view'), asyncHandler(ReportController.getSalesReport));
 router.get('/payments', requirePermission('reports:view'), asyncHandler(ReportController.getPaymentReport));
 router.get('/tax', requirePermission('reports:view'), asyncHandler(ReportController.getTaxReport));
+router.post('/telegram/daily-sales', requirePermission('reports:export'), asyncHandler(ReportController.triggerDailySalesTelegram));
+router.post('/telegram/daily-expenses', requirePermission('reports:export'), asyncHandler(ReportController.triggerDailyExpensesTelegram));
+router.post('/telegram/monthly', requirePermission('reports:export'), asyncHandler(ReportController.triggerMonthlyReportTelegram));
 router.get('/', requirePermission('reports:view'), asyncHandler(ReportController.getSummary));
 
 export default router;

@@ -12,6 +12,7 @@ import { emitToRoom } from '../socket';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { generateInvoicePdf } from '../services/invoice.service';
+import { TelegramService } from '../services/telegram.service';
 
 const createOrderSchema = z.object({
   type: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).optional(),
@@ -163,6 +164,28 @@ export class OrderController {
       entityId: req.params.id,
       newValue: { status: dto.status, reason: dto.reason },
     });
+
+    if (dto.status === 'SERVED') {
+      const fullOrder = await prisma.order.findUnique({
+        where: { id: req.params.id },
+        include: { table: true },
+      });
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'FOOD_SERVED',
+        `🥗 <b>Food Served to Table!</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Served By:</b> ${req.user!.email || 'Staff'}`
+      ).catch((e) => console.error('[Telegram Food Served Trigger Error]:', e));
+    } else if (dto.status === 'CANCELLED' || dto.status === 'VOIDED') {
+      const fullOrder = await prisma.order.findUnique({
+        where: { id: req.params.id },
+        include: { table: true },
+      });
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'ORDER_CANCELLED_TABLES',
+        `❌ <b>Order Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Reason:</b> ${dto.reason || 'Cancelled on floor'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
+      ).catch((e) => console.error('[Telegram Cancel Tables Trigger Error]:', e));
+    }
 
     sendSuccess(res, order);
   }
@@ -331,6 +354,13 @@ export class OrderController {
       previousValue: old as any,
       newValue: { status: 'CANCELLED', reason },
     });
+
+    // Dispatch Telegram Bot Notification (ORDER_CANCELLED_TABLES)
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'ORDER_CANCELLED_TABLES',
+      `❌ <b>Item Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${order.orderNumber}\n• <b>Table:</b> ${order.table?.name || 'Counter / Takeaway'}\n• <b>Item:</b> ${item.quantity}x ${item.menuItem?.name || 'Item'}${item.variant?.name ? ` (${item.variant.name})` : ''}\n• <b>Reason:</b> ${reason || 'Cancelled by staff'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
+    ).catch((e) => console.error('[Telegram Cancel Tables Trigger Error]:', e));
 
     const refreshedOrder = await svc.getOrder(orderId);
     sendSuccess(res, refreshedOrder);

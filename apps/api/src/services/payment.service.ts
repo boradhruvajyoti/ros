@@ -8,6 +8,7 @@ import { ErrorCodes } from '@ros/shared-types';
 import { addAmounts, toAmount } from '@ros/utils';
 import { generateULID } from '@ros/utils';
 import { emitToRoom } from '../socket';
+import { TelegramService } from './telegram.service';
 
 export class PaymentService {
   private tenantId: string;
@@ -120,6 +121,28 @@ export class PaymentService {
         type: 'PAYMENT_COMPLETED',
         payload: { orderId, amount: dto.amount, method: dto.method },
       });
+
+      // Dispatch Telegram Bot Notification (BILL_PAID)
+      prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          table: true,
+          items: {
+            where: { status: { notIn: ['VOIDED', 'CANCELLED'] } },
+            include: { menuItem: true, variant: true },
+          },
+        },
+      }).then((fullOrder) => {
+        if (!fullOrder) return;
+        const itemsList = fullOrder.items
+          .map((i) => `• ${i.quantity}x ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''} - ₹${Number(i.lineTotal).toFixed(2)}`)
+          .join('\n');
+        TelegramService.sendNotificationToTenant(
+          this.tenantId,
+          'BILL_PAID',
+          `💳 <b>Bill Paid &amp; Settled!</b>\n\n• <b>Order #:</b> #${fullOrder.orderNumber}\n• <b>Table:</b> ${fullOrder.table?.name || 'Counter / Takeaway'}\n• <b>Payment Method:</b> ${dto.method}\n• <b>Amount Paid:</b> ₹${Number(dto.amount).toFixed(2)}\n• <b>Total Bill:</b> ₹${Number(fullOrder.total || 0).toFixed(2)}\n• <b>Total Items:</b> ${fullOrder.items.length}\n\n<b>Items Ordered:</b>\n${itemsList || 'None'}`
+        ).catch((e) => console.error('[Telegram Bill Paid Alert Error]:', e));
+      }).catch((e) => console.error('[Telegram Query Order Error]:', e));
 
       return payment;
     });

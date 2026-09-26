@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { sendSuccess } from '../middlewares/error.middleware';
 import { writeAuditLog, AuditActions } from '../middlewares/audit.middleware';
+import { TelegramService } from '../services/telegram.service';
 import { generateULID } from '@ros/utils';
 import { z } from 'zod';
 
@@ -82,6 +83,13 @@ export class InventoryController {
       include: { category: true },
     });
 
+    // Dispatch Telegram Bot Notification (INVENTORY_MODIFIED)
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'INVENTORY_MODIFIED',
+      `📦 <b>New Inventory Stock Item Added!</b>\n\n• <b>Item:</b> ${ingredient.name}\n• <b>Current Stock:</b> ${ingredient.currentStock} ${ingredient.unit}\n• <b>Cost/Unit:</b> ₹${ingredient.costPerUnit}\n• <b>Added By:</b> ${req.user!.email || 'Staff'}`
+    ).catch((e) => console.error('[Telegram Inventory Alert Error]:', e));
+
     sendSuccess(res, ingredient, 201);
   }
 
@@ -128,6 +136,13 @@ export class InventoryController {
       entityId: data.ingredientId,
       newValue: { type: data.movementType, quantity: data.quantity },
     });
+
+    // Dispatch Telegram Bot Notification (INVENTORY_MODIFIED)
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'INVENTORY_MODIFIED',
+      `📦 <b>Inventory Stock Adjusted</b>\n\n• <b>Item:</b> ${result.ingredient.name}\n• <b>Movement:</b> ${data.movementType}\n• <b>Change:</b> ${data.quantity} ${result.ingredient.unit}\n• <b>New Level:</b> ${result.ingredient.currentStock} ${result.ingredient.unit}\n• <b>Notes:</b> ${data.notes || 'None'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
+    ).catch((e) => console.error('[Telegram Inventory Alert Error]:', e));
 
     sendSuccess(res, result, 201);
   }

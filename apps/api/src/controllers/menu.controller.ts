@@ -7,6 +7,7 @@ import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { prisma } from '../lib/prisma';
 import { cacheGet, cacheSet, cacheDel, CacheKeys } from '../lib/redis';
 import { MenuParserService } from '../services/menu-parser.service';
+import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 
 const categorySchema = z.object({
@@ -156,6 +157,14 @@ export class MenuController {
       include: { variants: true },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+
+    // Dispatch Telegram Bot Notification (MENU_MODIFIED)
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'MENU_MODIFIED',
+      `🍽️ <b>New Menu Dish Added!</b>\n\n• <b>Name:</b> ${item.name}\n• <b>Type:</b> ${item.foodType}\n• <b>Base Price:</b> ₹${variants[0]?.price || 0}\n• <b>Added By:</b> ${req.user!.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+
     sendSuccess(res, item, 201);
   }
 
@@ -183,15 +192,32 @@ export class MenuController {
       } as any,
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+
+    // Dispatch Telegram Bot Notification (MENU_MODIFIED)
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'MENU_MODIFIED',
+      `🍽️ <b>Menu Dish Updated</b>\n\n• <b>Name:</b> ${item.name}\n• <b>Status:</b> ${item.isActive ? 'Active' : 'Archived'}\n• <b>Updated By:</b> ${req.user!.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+
     sendSuccess(res, item);
   }
 
   static async deleteItem(req: Request, res: Response): Promise<void> {
+    const item = await prisma.menuItem.findUnique({ where: { id: req.params.id } });
     await prisma.menuItem.updateMany({
       where: { id: req.params.id, tenantId: req.user!.tid },
       data: { isActive: false },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+
+    // Dispatch Telegram Bot Notification (MENU_MODIFIED)
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'MENU_MODIFIED',
+      `🍽️ <b>Menu Dish Deleted</b>\n\n• <b>Name:</b> ${item?.name || req.params.id}\n• <b>Deleted By:</b> ${req.user!.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+
     sendSuccess(res, { message: 'Item deleted from active menu' });
   }
 
@@ -205,16 +231,31 @@ export class MenuController {
       data: { isActive: false },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'MENU_MODIFIED',
+      `🍽️ <b>Batch Menu Items Removed</b>\n\n• <b>Total Removed:</b> ${result.count} items\n• <b>Action By:</b> ${req.user!.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+
     sendSuccess(res, { count: result.count, message: `${result.count} items deleted from active menu.` });
   }
 
   static async toggleAvailability(req: Request, res: Response): Promise<void> {
     const { isAvailable } = z.object({ isAvailable: z.boolean() }).parse(req.body);
+    const item = await prisma.menuItem.findUnique({ where: { id: req.params.id } });
     await prisma.menuItem.updateMany({
       where: { id: req.params.id, tenantId: req.user!.tid },
       data: { isAvailable },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+
+    TelegramService.sendNotificationToTenant(
+      req.user!.tid,
+      'MENU_MODIFIED',
+      `🍽️ <b>Menu Availability Changed</b>\n\n• <b>Item:</b> ${item?.name || 'Dish'}\n• <b>Availability:</b> ${isAvailable ? '✅ In Stock' : '❌ Out of Stock (86ed)'}\n• <b>By:</b> ${req.user!.email || 'Admin'}`
+    ).catch((e) => console.error('[Telegram Menu Alert Error]:', e));
+
     sendSuccess(res, { isAvailable });
   }
 

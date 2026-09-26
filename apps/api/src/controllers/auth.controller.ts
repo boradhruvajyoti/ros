@@ -16,6 +16,7 @@ import {
   onboardRestaurantSchema,
 } from '../validators/auth.schema';
 import { prisma } from '../lib/prisma';
+import { TelegramService } from '../services/telegram.service';
 
 const REFRESH_COOKIE = 'ros_rt';
 const COOKIE_OPTIONS = {
@@ -176,5 +177,80 @@ export class AuthController {
 
     const result = await AuthService.switchTenant(req.user!.sub, tenantId, branchId);
     sendSuccess(res, result);
+  }
+
+  static async getTelegramStatus(req: Request, res: Response): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.sub },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        telegramChatId: true,
+        telegramUsername: true,
+        telegramNotifications: true,
+      },
+    });
+
+    const botInfo = await TelegramService.getBotInfo();
+
+    sendSuccess(res, {
+      isConnected: Boolean(user?.telegramChatId),
+      chatId: user?.telegramChatId || null,
+      username: user?.telegramUsername || null,
+      notifications: user?.telegramNotifications ? JSON.parse(user.telegramNotifications) : [],
+      botUsername: botInfo?.username || process.env.TELEGRAM_BOT_USERNAME || '',
+      botConfigured: Boolean(botInfo),
+    });
+  }
+
+  static async updateTelegramConnection(req: Request, res: Response): Promise<void> {
+    const { chatId, username } = req.body;
+    if (!chatId) {
+      throw new AppError('VALIDATION_ERROR', 'Telegram Chat ID is required', 400);
+    }
+
+    const cleanChatId = String(chatId).trim();
+    const cleanUsername = username ? String(username).trim().replace(/^@/, '') : undefined;
+
+    const updated = await prisma.user.update({
+      where: { id: req.user!.sub },
+      data: {
+        telegramChatId: cleanChatId,
+        ...(cleanUsername !== undefined ? { telegramUsername: cleanUsername } : {}),
+      },
+      select: {
+        id: true,
+        telegramChatId: true,
+        telegramUsername: true,
+      },
+    });
+
+    // Send a welcome message via Telegram
+    try {
+      await TelegramService.sendMessage(
+        cleanChatId,
+        `👋 <b>Welcome to ROS Restaurant OS Notifications!</b>\n\n✅ Your Telegram account has been linked to <b>${req.user!.email}</b>.\nYou will now receive live operational alerts based on your assigned role.`
+      );
+    } catch {}
+
+    sendSuccess(res, {
+      message: 'Telegram account connected successfully! A test confirmation message was sent.',
+      user: updated,
+    });
+  }
+
+  static async disconnectTelegram(req: Request, res: Response): Promise<void> {
+    await prisma.user.update({
+      where: { id: req.user!.sub },
+      data: {
+        telegramChatId: null,
+        telegramUsername: null,
+      },
+    });
+
+    sendSuccess(res, {
+      message: 'Telegram account disconnected.',
+    });
   }
 }

@@ -8,7 +8,8 @@ import {
   CreditCard, Database, Search, ArrowRight, ShieldAlert, CheckCircle2, XCircle, RefreshCw,
   Layers, Users, Activity, ShieldCheck, Zap, Lock, ChevronRight, Filter, AlertTriangle,
   ExternalLink, BarChart3, TrendingUp, DollarSign, Terminal, Edit, Trash2, Settings,
-  Radio, Cpu, Check, AlertCircle, Info, Sparkles, Phone, Mail, Sliders
+  Radio, Cpu, Check, AlertCircle, Info, Sparkles, Phone, Mail, Sliders,
+  Send, Eye, EyeOff, Key, Bot
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -96,13 +97,13 @@ export default function SuperAdminPage() {
   }, [user, isPlatformSuperAdmin, router]);
 
   // Sync tab with URL search parameter
-  const tabFromUrl = searchParams.get('tab') as 'overview' | 'tenants' | 'plans' | 'system' | null;
-  const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'plans' | 'system'>(
-    tabFromUrl && ['overview', 'tenants', 'plans', 'system'].includes(tabFromUrl) ? tabFromUrl : 'overview'
+  const tabFromUrl = searchParams.get('tab') as 'overview' | 'tenants' | 'plans' | 'automation' | 'system' | null;
+  const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'plans' | 'automation' | 'system'>(
+    tabFromUrl && ['overview', 'tenants', 'plans', 'automation', 'system'].includes(tabFromUrl) ? tabFromUrl : 'overview'
   );
 
   useEffect(() => {
-    if (tabFromUrl && ['overview', 'tenants', 'plans', 'system'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['overview', 'tenants', 'plans', 'automation', 'system'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
@@ -111,7 +112,7 @@ export default function SuperAdminPage() {
     return null;
   }
 
-  const handleTabChange = (newTab: 'overview' | 'tenants' | 'plans' | 'system') => {
+  const handleTabChange = (newTab: 'overview' | 'tenants' | 'plans' | 'automation' | 'system') => {
     setActiveTab(newTab);
     const params = new URLSearchParams(searchParams.toString());
     if (newTab === 'overview') {
@@ -122,6 +123,12 @@ export default function SuperAdminPage() {
     const newQuery = params.toString();
     router.push(newQuery ? `/super-admin?${newQuery}` : '/super-admin');
   };
+
+  // State for Telegram Bot Automation
+  const [telegramTokenInput, setTelegramTokenInput] = useState('');
+  const [showTelegramToken, setShowTelegramToken] = useState(false);
+  const [testTelegramChatId, setTestTelegramChatId] = useState('');
+  const [testTelegramMessage, setTestTelegramMessage] = useState('');
 
   // State for Tenant Provisioning Modal
   const [showProvisionModal, setShowProvisionModal] = useState(false);
@@ -495,6 +502,36 @@ export default function SuperAdminPage() {
     updatePlatformMutation.mutate(platformForm);
   };
 
+  // Telegram Bot Automation Queries & Mutations
+  const { data: telegramConfig, isLoading: isTelegramLoading, refetch: refetchTelegramConfig } = useQuery({
+    queryKey: ['superadmin-telegram-config'],
+    queryFn: () => apiGet<any>('/super-admin/telegram-config'),
+    enabled: isPlatformSuperAdmin && activeTab === 'automation',
+  });
+
+  const saveTelegramMutation = useMutation({
+    mutationFn: (token: string) => apiPost('/super-admin/telegram-config', { token }),
+    onSuccess: (data: any) => {
+      toast.success('Telegram Bot Saved! 🚀', data?.message || 'Token was saved to .env file.');
+      queryClient.invalidateQueries({ queryKey: ['superadmin-telegram-config'] });
+      setTelegramTokenInput('');
+    },
+    onError: (err: any) => {
+      toast.error('Connection Error', err?.response?.data?.error?.message || 'Invalid bot token or failed to reach Telegram.');
+    },
+  });
+
+  const testTelegramMutation = useMutation({
+    mutationFn: (payload: { chatId: string; message?: string }) =>
+      apiPost('/super-admin/telegram-test', payload),
+    onSuccess: (data: any) => {
+      toast.success('Test Message Dispatched! ✉️', data?.message || 'Check your Telegram chat.');
+    },
+    onError: (err: any) => {
+      toast.error('Test Message Failed', err?.response?.data?.error?.message || 'Could not send test message.');
+    },
+  });
+
   const tenants = overview?.tenants || [];
   const filteredTenants = tenants.filter((t) => {
     const matchesSearch =
@@ -599,6 +636,7 @@ export default function SuperAdminPage() {
             { id: 'overview', label: 'Platform Overview', icon: Globe },
             { id: 'tenants', label: `Tenant Directory (${tenants.length})`, icon: Building },
             { id: 'plans', label: `SaaS Plans & Tiers (${plansData.length || 3})`, icon: CreditCard },
+            { id: 'automation', label: 'Automation', icon: Zap },
             { id: 'system', label: 'System & Infra Settings', icon: Server },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -1114,7 +1152,324 @@ export default function SuperAdminPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          TAB 4: SYSTEM & INFRASTRUCTURE CONFIGURATION
+          TAB 4: AUTOMATION (TELEGRAM BOT CONTROL PLANE)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'automation' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Zap className="w-5 h-5 text-indigo-400" />
+                <span>Global Operational Automation &amp; Telegram Bot</span>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Connect the platform Telegram Bot to power real-time operational notifications for all restaurant tenants.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetchTelegramConfig()}
+                className="gap-1.5 text-xs font-bold border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh Status
+              </Button>
+            </div>
+          </div>
+
+          {/* Telegram Status & Configuration Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left: Token Configuration Form */}
+            <Card className="lg:col-span-2 bg-card/60 backdrop-blur-md border-indigo-500/20 shadow-xl space-y-4">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-400 font-bold">
+                      <Send className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-bold text-foreground">Telegram Bot Credentials</CardTitle>
+                      <CardDescription className="text-xs text-muted-foreground">
+                        Enter your Telegram Bot API token. It is automatically validated and saved to the backend <code>.env</code> file.
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {telegramConfig?.isConfigured ? (
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs font-bold gap-1 py-1 px-2.5">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Bot Connected
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs font-bold gap-1 py-1 px-2.5">
+                      <AlertCircle className="w-3.5 h-3.5" /> Token Missing
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4 pt-0">
+                {/* Active Bot Info Banner */}
+                {telegramConfig?.isConfigured && (
+                  <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-between flex-wrap gap-2 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold">
+                        🤖
+                      </div>
+                      <div>
+                        <p className="font-bold text-white text-sm">
+                          {telegramConfig.botName || 'ROS Telegram Bot'}
+                        </p>
+                        <p className="text-sky-300 font-mono text-xs">
+                          @{telegramConfig.botUsername}
+                        </p>
+                      </div>
+                    </div>
+
+                    <a
+                      href={`https://t.me/${telegramConfig.botUsername}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-xs transition-colors"
+                    >
+                      <span>Open Bot</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+
+                {/* Bot Token Input Form */}
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground flex items-center justify-between mb-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Telegram Bot API Token (from @BotFather)</span>
+                      </span>
+                      {telegramConfig?.maskedToken && (
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          Active: {telegramConfig.maskedToken}
+                        </span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showTelegramToken ? 'text' : 'password'}
+                        placeholder={telegramConfig?.maskedToken ? 'Enter new token to overwrite...' : 'e.g. 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ'}
+                        value={telegramTokenInput}
+                        onChange={(e) => setTelegramTokenInput(e.target.value)}
+                        className="w-full pl-3.5 pr-24 py-2.5 rounded-xl bg-background border border-border focus:ring-2 focus:ring-indigo-500 text-xs font-mono"
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowTelegramToken(!showTelegramToken)}
+                          className="p-1.5 text-muted-foreground hover:text-foreground text-xs rounded cursor-pointer"
+                        >
+                          {showTelegramToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <span>Saved automatically to:</span>
+                      <code className="px-1.5 py-0.5 rounded bg-muted text-indigo-300 font-mono text-[10px]">apps/api/.env (TELEGRAM_BOT_TOKEN)</code>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {telegramConfig?.hasToken && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={saveTelegramMutation.isPending}
+                          onClick={() => saveTelegramMutation.mutate('')}
+                          className="h-9 px-3 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 cursor-pointer"
+                        >
+                          Clear Token
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        disabled={!telegramTokenInput.trim() || saveTelegramMutation.isPending}
+                        loading={saveTelegramMutation.isPending}
+                        onClick={() => saveTelegramMutation.mutate(telegramTokenInput.trim())}
+                        className="h-9 px-4 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" /> Save &amp; Connect Bot
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Right: Live Test Simulator Card */}
+            <Card className="bg-card/60 backdrop-blur-md border-indigo-500/20 shadow-xl flex flex-col justify-between">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Send className="w-4 h-4 text-sky-400" />
+                  <span>Test Telegram Dispatch</span>
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Send a live test message to verify delivery to your Telegram Chat ID.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-3 pt-0">
+                <div>
+                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                    Your Telegram Chat ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 123456789"
+                    value={testTelegramChatId}
+                    onChange={(e) => setTestTelegramChatId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-background border border-border font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Tip: Open your bot in Telegram and send <code>/start</code> first.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                    Custom Message (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Testing ROS Automation notification engine..."
+                    value={testTelegramMessage}
+                    onChange={(e) => setTestTelegramMessage(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-background border border-border focus:ring-1 focus:ring-indigo-500 resize-none"
+                  />
+                </div>
+
+                <Button
+                  size="sm"
+                  disabled={!testTelegramChatId.trim() || !telegramConfig?.isConfigured || testTelegramMutation.isPending}
+                  loading={testTelegramMutation.isPending}
+                  onClick={() => {
+                    testTelegramMutation.mutate({
+                      chatId: testTelegramChatId.trim(),
+                      message: testTelegramMessage.trim() || undefined,
+                    });
+                  }}
+                  className="w-full h-9 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5 mr-1" /> Send Test Message
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Quick Setup Guide & 14 Multi-Tenant Notification Engine Reference */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Quick 4-Step Setup Guide */}
+            <Card className="bg-card/40 border-indigo-500/20 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-indigo-400" />
+                  <span>How to Create Telegram Bot</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs text-muted-foreground pt-0">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                    1
+                  </div>
+                  <div>
+                    <p className="font-bold text-foreground">Open @BotFather in Telegram</p>
+                    <p className="text-[11px]">Search for <code>@BotFather</code> in your Telegram app and tap Start.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                    2
+                  </div>
+                  <div>
+                    <p className="font-bold text-foreground">Create New Bot</p>
+                    <p className="text-[11px]">Send command <code>/newbot</code>, choose a friendly name and a username ending in <code>bot</code>.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                    3
+                  </div>
+                  <div>
+                    <p className="font-bold text-foreground">Copy HTTP API Token</p>
+                    <p className="text-[11px]">BotFather will return an API Token string (e.g. <code>123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>).</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                    4
+                  </div>
+                  <div>
+                    <p className="font-bold text-foreground">Save Above &amp; Connect Staff</p>
+                    <p className="text-[11px]">Paste the token above. Staff and Admins can now link their accounts from their Profile section.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Operational Notification Engine Overview */}
+            <Card className="lg:col-span-2 bg-card/40 border-indigo-500/20 shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <span>Automated Role-Based Notification Triggers (14 Events)</span>
+                  </CardTitle>
+                  <span className="text-[10px] font-bold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                    Tenant Admin + Staff Granular Controls
+                  </span>
+                </div>
+                <CardDescription className="text-xs text-muted-foreground">
+                  By default, Tenant Superadmins receive all operational alerts. Tenant Superadmins can customize which staff roles receive specific alerts in the Staff &amp; HR section.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {[
+                    { id: '1', title: '1. QR Menu Order Placed', desc: 'Table info, guest details, order type (Dine In / Packing / Parcel)', tag: 'Order' },
+                    { id: '2', title: '2. KOT Dispatched', desc: 'Sent to kitchen with table number & itemized list', tag: 'Kitchen' },
+                    { id: '3', title: '3. Ticket Accepted in KDS', desc: 'Kitchen chef starts cooking and bumps order', tag: 'KDS' },
+                    { id: '4', title: '4. Food Ready to Serve', desc: 'Chef marks dish as cooked with table info', tag: 'Service' },
+                    { id: '5', title: '5. Food Served to Table', desc: 'Delivery confirmation to guest table', tag: 'Service' },
+                    { id: '6', title: '6. Bill Paid & Settled', desc: 'Amount paid, payment mode, and total item count', tag: 'Billing' },
+                    { id: '7', title: '7. Order Cancelled (Tables)', desc: 'Partial or full cancellation on floor tables', tag: 'Audit' },
+                    { id: '8', title: '8. Order Cancelled (Kitchen)', desc: 'Partial or full cancellation in Kitchen Display', tag: 'Audit' },
+                    { id: '9', title: '9. Daily Tablewise Sales', desc: 'Total sales, table performance & top selling dish', tag: 'Report' },
+                    { id: '10', title: '10. Daily Expense Summary', desc: 'Daily operational expenses logged by department', tag: 'Report' },
+                    { id: '11', title: '11. Staff Member Changes', desc: 'Employee enrollment, modification, and permissions', tag: 'HR' },
+                    { id: '12', title: '12. Monthly Performance Report', desc: 'Month-end P&L, revenue vs expenses summary', tag: 'Report' },
+                    { id: '13', title: '13. Stock & Inventory Changes', desc: 'Stock inward, wastage, transfers, and adjustments', tag: 'Stock' },
+                    { id: '14', title: '14. Menu Catalog Changes', desc: 'Dishes, variants, pricing, and category edits', tag: 'Catalog' },
+                  ].map((evt) => (
+                    <div key={evt.id} className="p-2.5 rounded-xl bg-background/60 border border-border/80 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground text-xs">{evt.title}</p>
+                        <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{evt.desc}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] font-mono shrink-0 py-0 text-indigo-300 border-indigo-500/30">
+                        {evt.tag}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          TAB 5: SYSTEM & INFRASTRUCTURE CONFIGURATION
       ───────────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'system' && (
         <div className="space-y-6">

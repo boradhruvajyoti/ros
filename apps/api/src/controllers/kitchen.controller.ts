@@ -9,6 +9,7 @@ import { emitToRoom, emitToStation } from '../socket';
 import { z } from 'zod';
 import { ErrorCodes } from '@ros/shared-types';
 import { OrderService } from '../services/order.service';
+import { TelegramService } from '../services/telegram.service';
 
 export class KitchenController {
   static async listStations(req: Request, res: Response): Promise<void> {
@@ -126,7 +127,7 @@ export class KitchenController {
       const kot = await prisma.orderKot.update({
         where: { id: req.params.kotId },
         data: { status: 'CANCELLED' },
-        include: { kitchenStation: true, order: true },
+        include: { kitchenStation: true, order: { include: { table: true } } },
       });
 
       await prisma.orderKotItem.updateMany({
@@ -220,6 +221,13 @@ export class KitchenController {
         },
       });
 
+      // Dispatch Telegram Notification (ORDER_CANCELLED_KITCHEN)
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'ORDER_CANCELLED_KITCHEN',
+        `🚫 <b>KOT Cancelled in Kitchen Display</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Kitchen'}\n• <b>Reason:</b> ${reason || 'Cancelled by kitchen staff'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
+      ).catch((e) => console.error('[Telegram Cancel KOT Trigger Error]:', e));
+
       sendSuccess(res, kot);
       return;
     }
@@ -233,7 +241,7 @@ export class KitchenController {
         ...(status === 'READY'     ? { readyAt: new Date() }     : {}),
         ...(status === 'SERVED'    ? { servedAt: new Date() }    : {}),
       },
-      include: { kitchenStation: true, order: true },
+      include: { kitchenStation: true, order: { include: { table: true } } },
     });
 
     // Synchronize all non-cancelled items under this KOT
@@ -299,7 +307,29 @@ export class KitchenController {
       });
     }
 
+    // Dispatch Telegram Notifications based on status
+    if (status === 'ACCEPTED') {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'KOT_ACCEPTED',
+        `👨‍🍳 <b>KDS Order Accepted!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter / Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Main Kitchen'}\n• <b>Accepted By:</b> ${req.user!.email || 'Chef'}`
+      ).catch((e) => console.error('[Telegram KOT Accepted Trigger Error]:', e));
+    } else if (status === 'READY') {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'FOOD_READY',
+        `🔔 <b>Food is Ready to Serve!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter / Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Pass Counter'}`
+      ).catch((e) => console.error('[Telegram Food Ready Trigger Error]:', e));
+    } else if (status === 'SERVED') {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'FOOD_SERVED',
+        `🥗 <b>Food Served to Table!</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Counter'}`
+      ).catch((e) => console.error('[Telegram Food Served Trigger Error]:', e));
+    }
+
     sendSuccess(res, kot);
+    return;
   }
 
   static async updateKotItemStatus(req: Request, res: Response): Promise<void> {
@@ -461,6 +491,13 @@ export class KitchenController {
           itemCount: activeSiblingItems.length,
         },
       });
+
+      // Dispatch Telegram Notification (ORDER_CANCELLED_KITCHEN)
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'ORDER_CANCELLED_KITCHEN',
+        `🚫 <b>Item Cancelled on Kitchen Display</b>\n\n• <b>Order #:</b> #${existingItem.kot.order.orderNumber}\n• <b>KOT #:</b> #${existingItem.kot.kotNumber}\n• <b>Reason:</b> ${reason || 'Cancelled in kitchen'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
+      ).catch((e) => console.error('[Telegram Cancel KOT Item Trigger Error]:', e));
 
       sendSuccess(res, updatedKotItem);
       return;

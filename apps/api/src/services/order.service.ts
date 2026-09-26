@@ -8,6 +8,7 @@ import { ErrorCodes, ORDER_STATE_TRANSITIONS, type OrderStatus } from '@ros/shar
 import { emitToRoom, emitToStation } from '../socket';
 import { addAmounts, multiplyAmount, percentageOf, toAmount } from '@ros/utils';
 import { generateULID, generateOrderNumber, generateKotNumber } from '@ros/utils';
+import { TelegramService } from './telegram.service';
 import type { Prisma } from '@prisma/client';
 
 export interface CreateOrderDto {
@@ -849,6 +850,14 @@ export class OrderService {
         emitToStation(this.tenantId, targetBranchId, stationId, { type: 'KOT_CREATED', payload: kotSummary });
       }
       emitToRoom(this.tenantId, targetBranchId, { type: 'KOT_CREATED', payload: kotSummary });
+
+      // Dispatch Telegram Bot Notification (KOT_SENT)
+      const kotItemsList = items.map((i) => `• ${i.quantity}x ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''}`).join('\n');
+      TelegramService.sendNotificationToTenant(
+        this.tenantId,
+        'KOT_SENT',
+        `🍳 <b>KOT Sent to Kitchen!</b>\n\n• <b>KOT #:</b> #${kotSummary.kotNumber}\n• <b>Order #:</b> #${kotSummary.orderNumber}\n• <b>Table:</b> ${kotSummary.tableName || 'Counter / Takeaway'}\n• <b>Station:</b> ${kotSummary.stationName || 'Main Kitchen'}\n• <b>Items (${items.length}):</b>\n${kotItemsList}`
+      ).catch((e) => console.error('[Telegram KOT Sent Alert Error]:', e));
     }
   }
 

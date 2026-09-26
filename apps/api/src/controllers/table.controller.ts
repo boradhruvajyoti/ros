@@ -9,6 +9,7 @@ import { prisma } from '../lib/prisma';
 import { emitToRoom } from '../socket';
 import { generateShortCode } from '@ros/utils';
 import { OrderService } from '../services/order.service';
+import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -532,6 +533,15 @@ export class TableController {
         itemCount: items.length,
       },
     });
+
+    // Dispatch Telegram Bot Notification (ORDER_QR_NEW)
+    const itemLines = (items || []).map((it: any) => `• ${it.quantity || 1}x ${it.name || it.menuItemId || 'Dish'}`).join('\n');
+    const orderTypeLabel = (req.body.type || req.body.orderType || 'DINE_IN') === 'TAKEAWAY' ? 'Packing / Parcel' : 'Dine In';
+    TelegramService.sendNotificationToTenant(
+      table.tenantId,
+      'ORDER_QR_NEW',
+      `📱 <b>New Order Received via QR Menu!</b>\n\n• <b>Table:</b> ${table.name}\n• <b>Order Type:</b> ${orderTypeLabel}\n• <b>Order #:</b> #${order.orderNumber}\n• <b>Guest:</b> ${customerName || 'Dine-In Guest'}${customerPhone ? ` (${customerPhone})` : ''}\n• <b>Items (${items.length}):</b>\n${itemLines}\n• <b>Total Amount:</b> ₹${Number(order.total || 0).toFixed(2)}`
+    ).catch((e) => console.error('[Telegram QR Order Alert Error]:', e));
 
     // Provide a fresh 45-min renewed session for subsequent rounds during this dining sitting
     const refreshedSession = generateGuestSessionToken(table);

@@ -2,26 +2,104 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, LogOut, Moon, Sun, Search, Building2, ChevronDown, Check, ShieldAlert, Sparkles, Menu, Maximize2, Minimize2 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { apiPost } from '@/lib/api';
-import { disconnectSocket, connectSocket } from '@/lib/socket';
+import { disconnectSocket } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { apiGet, apiPost, apiDelete } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Menu, Search, Sun, Moon, Maximize2, Minimize2, ChevronDown,
+  LogOut, Send, UtensilsCrossed, Globe, Sparkles as SparklesIcon,
+  MessageSquare, ExternalLink, Link2, Unlink, Check, Shield
+} from 'lucide-react';
 
 export function AppTopbar() {
   const { user, setAuth, logout } = useAuthStore();
   const { toggleMobileSidebar, isFullscreen, toggleFullscreen } = useUIStore();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [switching, setSwitching] = useState(false);
+  const [telegramChatIdInput, setTelegramChatIdInput] = useState('');
+  const [telegramUsernameInput, setTelegramUsernameInput] = useState('');
+  const [isEditingTelegram, setIsEditingTelegram] = useState(false);
 
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN');
+  const isPlatformSuperAdmin =
+    user?.email?.toLowerCase() === 'superadmin@ros.com' ||
+    user?.tenantId === 'tenant-platform';
+
+  // Current Tenant Details
+  const { data: currentTenant } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/tenants/current');
+        return res;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 1000 * 60 * 5,
+    enabled: !isPlatformSuperAdmin && !!user?.tenantId,
+  });
+
+  // Current User Telegram Status
+  const { data: telegramStatus } = useQuery({
+    queryKey: ['my-telegram-status'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/auth/me/telegram');
+        return res;
+      } catch {
+        return { isConnected: false, chatId: null, username: null, botUsername: '', botConfigured: false };
+      }
+    },
+    staleTime: 1000 * 30,
+  });
+
+  const connectTelegramMutation = useMutation({
+    mutationFn: (payload: { chatId: string; username?: string }) =>
+      apiPost('/auth/me/telegram', payload),
+    onSuccess: (data: any) => {
+      toast.success('Telegram Connected! 🚀', data?.message || 'You will now receive live role-based operational notifications.');
+      setIsEditingTelegram(false);
+      queryClient.invalidateQueries({ queryKey: ['my-telegram-status'] });
+    },
+    onError: (err: any) => {
+      toast.error('Connection Failed', err?.response?.data?.error?.message || 'Could not link Telegram account.');
+    },
+  });
+
+  const disconnectTelegramMutation = useMutation({
+    mutationFn: () => apiDelete('/auth/me/telegram'),
+    onSuccess: () => {
+      toast.info('Telegram Disconnected', 'Operational notifications have been stopped.');
+      setTelegramChatIdInput('');
+      setTelegramUsernameInput('');
+      setIsEditingTelegram(false);
+      queryClient.invalidateQueries({ queryKey: ['my-telegram-status'] });
+    },
+    onError: (err: any) => {
+      toast.error('Error', err?.response?.data?.error?.message || 'Could not disconnect Telegram.');
+    },
+  });
+
+  const tenantLogo = currentTenant?.logoUrl;
+  const tenantDisplayName = isPlatformSuperAdmin
+    ? 'ROS Platform Superadmin'
+    : currentTenant?.name || 'Restaurant OS';
+
+  let tenantTagline = isPlatformSuperAdmin ? 'SaaS Global Control Plane' : 'Culinary Operating System';
+  try {
+    const parsed = typeof currentTenant?.settings === 'string' ? JSON.parse(currentTenant.settings) : (currentTenant?.settings || {});
+    if (parsed?.tagline) tenantTagline = parsed.tagline;
+  } catch {}
 
   const handleLogout = async () => {
     try {
@@ -33,42 +111,10 @@ export function AppTopbar() {
     toast.success('Logged out successfully');
   };
 
-  const handleSwitchBranch = async (branchId: string, branchName: string) => {
-    try {
-      setSwitching(true);
-      const res = await apiPost<{ accessToken: string; user: any }>('/auth/switch-branch', { branchId });
-      setAuth(res.accessToken, res.user);
-      connectSocket(res.accessToken);
-      setShowProfileMenu(false);
-      toast.success('Switched active branch', branchName);
-      window.location.reload();
-    } catch (err: any) {
-      toast.error('Branch switch failed', err?.response?.data?.error?.message || 'Could not switch branch');
-    } finally {
-      setSwitching(false);
-    }
-  };
-
-  const handleSwitchTenant = async (tenantId: string, tenantName: string) => {
-    try {
-      setSwitching(true);
-      const res = await apiPost<{ accessToken: string; user: any; tenant: any }>('/auth/switch-tenant', { tenantId });
-      setAuth(res.accessToken, res.user);
-      connectSocket(res.accessToken);
-      setShowProfileMenu(false);
-      toast.success('Switched tenant organization', tenantName);
-      window.location.reload();
-    } catch (err: any) {
-      toast.error('Tenant switch failed', err?.response?.data?.error?.message || 'Could not switch tenant');
-    } finally {
-      setSwitching(false);
-    }
-  };
-
   return (
-    <header className="h-14 sm:h-16 border-b border-border bg-card/75 backdrop-blur-md flex items-center px-3 sm:px-6 gap-2.5 sm:gap-4 shrink-0 relative z-30 justify-between">
-      {/* Left: Mobile Drawer Trigger & Search */}
-      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+    <header className="h-14 sm:h-16 border-b border-border bg-card/95 backdrop-blur-xl flex items-center px-3 sm:px-6 gap-2.5 sm:gap-4 shrink-0 sticky top-0 z-40 justify-between shadow-xs">
+      {/* Left: Mobile Drawer Trigger + Restaurant Logo & Title (Frozen) */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Mobile Hamburger Drawer Trigger */}
         <button
           type="button"
@@ -79,30 +125,49 @@ export function AppTopbar() {
           <Menu className="w-5 h-5" />
         </button>
 
+        {/* Frozen Restaurant Brand Identity in Header */}
+        <div className="flex items-center gap-2.5 min-w-0 max-w-xs sm:max-w-sm">
+          <div className={cn(
+            'w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center shrink-0 shadow-sm overflow-hidden rounded-xl',
+            isPlatformSuperAdmin
+              ? 'bg-gradient-to-tr from-indigo-500 to-purple-600'
+              : tenantLogo
+              ? 'bg-card border border-border p-0.5'
+              : 'bg-primary text-primary-foreground'
+          )}>
+            {isPlatformSuperAdmin ? (
+              <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            ) : tenantLogo ? (
+              <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-lg" />
+            ) : (
+              <UtensilsCrossed className="w-4 h-4 text-primary-foreground" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm font-black text-foreground tracking-tight truncate leading-tight" title={tenantDisplayName}>
+              {tenantDisplayName}
+            </h1>
+            <p className="text-[10px] text-muted-foreground truncate leading-none mt-0.5" title={tenantTagline}>
+              {tenantTagline}
+            </p>
+          </div>
+        </div>
+
         {/* Search bar (Desktop / Tablet) */}
-        <div className="flex-1 max-w-md hidden sm:block">
+        <div className="flex-1 max-w-xs hidden lg:block ml-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search orders, menu, customers..."
-              className="w-full pl-9 pr-4 h-9 rounded-xl border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+              placeholder="Search dishes, tables, staff..."
+              className="w-full pl-8 pr-4 h-8 rounded-xl border border-border bg-background/60 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden md:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
-              ⌘K
-            </kbd>
           </div>
         </div>
       </div>
 
       {/* Right: Quick actions and clean Profile dropdown */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-        {/* Notifications */}
-        <Button variant="ghost" size="icon-sm" className="relative text-muted-foreground hover:text-foreground">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-pulse-dot" />
-        </Button>
-
         {/* Fullscreen toggle (Desktop / Tablet only) */}
         <Button
           variant="ghost"
@@ -126,7 +191,13 @@ export function AppTopbar() {
         <div className="relative ml-1">
           <button
             type="button"
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            onClick={() => {
+              setShowProfileMenu(!showProfileMenu);
+              if (telegramStatus?.chatId) {
+                setTelegramChatIdInput(telegramStatus.chatId);
+                setTelegramUsernameInput(telegramStatus.username || '');
+              }
+            }}
             className={cn(
               "flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-2xl border transition-all cursor-pointer",
               showProfileMenu
@@ -140,20 +211,20 @@ export function AppTopbar() {
             <div className="hidden sm:flex flex-col items-start text-left">
               <span className="text-xs font-bold text-foreground leading-tight">{user?.name || 'Staff User'}</span>
               <span className="text-[10px] text-muted-foreground capitalize leading-none">
-                {user?.roles?.[0]?.toLowerCase().replace('_', ' ') || 'Manager'}
+                {user?.roles?.[0]?.toLowerCase().replace('_', ' ') || 'Staff Member'}
               </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden sm:block ml-0.5" />
           </button>
 
-          {/* Clean Profile & Organization Dropdown Panel */}
+          {/* Clean Profile Dropdown Panel */}
           {showProfileMenu && (
             <>
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowProfileMenu(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-2xl border border-border bg-popover/95 backdrop-blur-xl p-3.5 shadow-2xl space-y-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-foreground">
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-border bg-popover/95 backdrop-blur-2xl p-4 shadow-2xl space-y-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-foreground">
                 {/* User Info Header */}
                 <div className="flex items-center gap-3 pb-3 border-b border-border/70">
                   <div className="w-10 h-10 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center font-black text-sm text-primary shrink-0">
@@ -168,85 +239,119 @@ export function AppTopbar() {
                   </div>
                 </div>
 
-                {/* Tenant / Organization Card */}
-                <div className="p-2.5 rounded-xl bg-muted/60 border border-border/80 space-y-1">
+                {/* ── TELEGRAM NOTIFICATIONS CONNECTION CARD ── */}
+                <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Building2 className="w-3 h-3 text-primary" /> Active Organization
-                    </span>
-                    {isSuperAdmin && (
-                      <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Super Admin</span>
+                    <div className="flex items-center gap-1.5 text-xs font-black text-sky-400">
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Telegram Operational Alerts</span>
+                    </div>
+                    {telegramStatus?.isConnected ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Connected
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                        Not Linked
+                      </span>
                     )}
                   </div>
-                  <p className="text-xs font-black text-foreground">
-                    {user?.tenantId === 'tenant-sg-01' ? 'Spice Garden Hospitality' : user?.tenantId || 'Restaurant Organization'}
-                  </p>
-                  <p className="text-[10px] font-mono text-muted-foreground">
-                    ID: {user?.tenantId || 'tenant-default'}
-                  </p>
-                </div>
 
-                {/* Branch Selection List */}
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Select Branch
-                  </p>
-                  <div className="space-y-1">
-                    {[
-                      { id: 'branch-sg-main', name: 'Main Branch - Indiranagar' },
-                      { id: 'branch-sg-whitefield', name: 'Whitefield Outlet' },
-                    ].map((b) => (
-                      <button
-                        key={b.id}
-                        type="button"
-                        disabled={switching}
-                        onClick={() => handleSwitchBranch(b.id, b.name)}
-                        className={cn(
-                          'w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition-all text-left cursor-pointer',
-                          user?.branchId === b.id
-                            ? 'bg-primary/15 text-primary font-bold border border-primary/30'
-                            : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                  {telegramStatus?.isConnected && !isEditingTelegram ? (
+                    <div className="space-y-2 text-xs">
+                      <div className="p-2 rounded-xl bg-background/80 border border-border/60 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-semibold">Telegram Chat ID</p>
+                          <p className="font-mono font-bold text-foreground text-xs">{telegramStatus.chatId}</p>
+                        </div>
+                        {telegramStatus.username && (
+                          <div className="text-right">
+                            <p className="text-[10px] text-muted-foreground font-semibold">Handle</p>
+                            <p className="font-mono font-bold text-sky-400 text-xs">@{telegramStatus.username}</p>
+                          </div>
                         )}
-                      >
-                        <span className="truncate">{b.name}</span>
-                        {user?.branchId === b.id && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Super Admin Cross-Tenant Switcher */}
-                {isSuperAdmin && (
-                  <div className="space-y-1.5 pt-2 border-t border-border/70">
-                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                      <ShieldAlert className="w-3 h-3" />
-                      <span>Cross-Tenant Switch</span>
-                    </p>
-                    <div className="space-y-1">
-                      {[
-                        { id: 'tenant-sg-01', name: 'Spice Garden' },
-                        { id: 'tenant-ub-01', name: 'Urban Bistro' },
-                        { id: 'tenant-tr-01', name: 'Tokyo Ramen' },
-                      ].map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          disabled={switching}
-                          onClick={() => handleSwitchTenant(t.id, t.name)}
-                          className={cn(
-                            'w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all text-left cursor-pointer',
-                            user?.tenantId === t.id
-                              ? 'bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30'
-                              : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                          )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Live notifications for orders, kitchen tickets, bills & reports are dispatched directly to your Telegram.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditingTelegram(true)}
+                          className="h-7 text-[11px] rounded-lg border-border hover:bg-muted flex-1 cursor-pointer"
                         >
-                          <span>{t.name}</span>
-                          {user?.tenantId === t.id && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                        </button>
-                      ))}
+                          Change ID
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          loading={disconnectTelegramMutation.isPending}
+                          onClick={() => disconnectTelegramMutation.mutate()}
+                          className="h-7 text-[11px] rounded-lg flex-1 cursor-pointer"
+                        >
+                          <Unlink className="w-3 h-3 mr-1" /> Disconnect
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Connect your Telegram to receive instant real-time kitchen, order, and billing updates.
+                      </p>
+
+                      {telegramStatus?.botUsername && (
+                        <a
+                          href={`https://t.me/${telegramStatus.botUsername}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-bold underline decoration-sky-400/40"
+                        >
+                          <span>1. Open @{telegramStatus.botUsername} in Telegram</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          2. Enter Your Telegram Chat ID
+                        </label>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            placeholder="e.g. 987654321"
+                            value={telegramChatIdInput}
+                            onChange={(e) => setTelegramChatIdInput(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-background border border-border focus:ring-1 focus:ring-sky-500 font-mono"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={!telegramChatIdInput.trim() || connectTelegramMutation.isPending}
+                            loading={connectTelegramMutation.isPending}
+                            onClick={() => {
+                              connectTelegramMutation.mutate({
+                                chatId: telegramChatIdInput.trim(),
+                                username: telegramUsernameInput.trim() || undefined,
+                              });
+                            }}
+                            className="h-8 px-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white cursor-pointer"
+                          >
+                            <Link2 className="w-3 h-3 mr-1" /> Connect
+                          </Button>
+                        </div>
+                        {isEditingTelegram && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingTelegram(false)}
+                            className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer pt-0.5"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Log Out Action */}
                 <div className="pt-2 border-t border-border/70">

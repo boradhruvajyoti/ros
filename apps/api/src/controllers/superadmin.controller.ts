@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { prisma } from '../lib/prisma';
 import { cachePurgeAll } from '../lib/redis';
+import { TelegramService } from '../services/telegram.service';
 import bcrypt from 'bcryptjs';
 
 export interface SaasPlanItem {
@@ -690,6 +691,59 @@ export class SuperAdminController {
       message: 'Global platform cache purged successfully across all tenants.',
       timestamp: new Date().toISOString(),
       ...result,
+    });
+  }
+
+  static async getTelegramConfig(req: Request, res: Response): Promise<void> {
+    const token = TelegramService.getBotToken();
+    const botInfo = await TelegramService.getBotInfo();
+    const maskedToken = token ? `${token.slice(0, 8)}...${token.slice(-6)}` : '';
+
+    sendSuccess(res, {
+      isConfigured: Boolean(token && botInfo),
+      hasToken: Boolean(token),
+      token: token,
+      maskedToken,
+      botUsername: botInfo?.username || process.env.TELEGRAM_BOT_USERNAME || '',
+      botName: botInfo?.first_name || '',
+      botDetails: botInfo,
+    });
+  }
+
+  static async updateTelegramConfig(req: Request, res: Response): Promise<void> {
+    const { token } = req.body;
+    if (typeof token !== 'string') {
+      throw new AppError('BAD_REQUEST', 'Bot token must be a string', 400);
+    }
+
+    const result = await TelegramService.saveBotToken(token);
+    sendSuccess(res, {
+      message: token.trim()
+        ? `Telegram bot @${result.botInfo?.username || 'Bot'} connected successfully and saved to .env!`
+        : 'Telegram bot token cleared.',
+      isConfigured: Boolean(result.botInfo),
+      botUsername: result.botInfo?.username || '',
+      botName: result.botInfo?.first_name || '',
+      botDetails: result.botInfo,
+    });
+  }
+
+  static async testTelegramBot(req: Request, res: Response): Promise<void> {
+    const { chatId, message } = req.body;
+    if (!chatId) {
+      throw new AppError('BAD_REQUEST', 'Target Telegram Chat ID is required for testing', 400);
+    }
+
+    const testMsg = message || `🤖 <b>ROS Superadmin Telegram Bot Test</b>\n\n✅ Connected successfully to Restaurant Operating System platform.\n⏱ Timestamp: <code>${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</code>`;
+    const resSend = await TelegramService.sendMessage(String(chatId), testMsg);
+
+    if (!resSend.success) {
+      throw new AppError('BAD_REQUEST', resSend.error || 'Failed to send test message via Telegram Bot', 400);
+    }
+
+    sendSuccess(res, {
+      message: `Test message dispatched successfully to Telegram Chat ID: ${chatId}`,
+      delivered: true,
     });
   }
 }
