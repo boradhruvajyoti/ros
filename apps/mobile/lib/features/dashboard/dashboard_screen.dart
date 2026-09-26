@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/providers/providers.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -371,7 +372,7 @@ class _QuickAction extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).pushNamed(route),
+      onTap: () => context.go(route),
       child: Container(
         decoration: BoxDecoration(
           color: RosTheme.bgCard,

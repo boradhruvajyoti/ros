@@ -16,16 +16,13 @@ class MenuScreen extends ConsumerStatefulWidget {
   ConsumerState<MenuScreen> createState() => _MenuScreenState();
 }
 
-class _MenuScreenState extends ConsumerState<MenuScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _MenuScreenState extends ConsumerState<MenuScreen> {
   List<MenuCategory> _categories = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 0, vsync: this);
     _load();
   }
 
@@ -33,24 +30,49 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
     setState(() => _loading = true);
     try {
       final api = ref.read(apiClientProvider);
-      final data = await api.get<List<dynamic>>('/menu/categories');
-      // Also load items for each category
-      final items = await api.get<List<dynamic>>('/menu/items');
-      final itemList = items
+      final categoriesData = await api.get<dynamic>('/menu/categories');
+      final itemsData = await api.get<dynamic>('/menu/items');
+      final catList = categoriesData is List ? categoriesData : [];
+      final itemList = itemsData is List ? itemsData : [];
+      final allItems = itemList
           .map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      final cats = data.map((e) => MenuCategory.fromJson(e as Map<String, dynamic>)).toList();
-      // Group items into categories
-      final categorized = cats.map((c) => MenuCategory(
-        id: c.id, name: c.name, imageUrl: c.imageUrl,
-        sortOrder: c.sortOrder, isActive: c.isActive,
-        items: itemList.where((i) => i.categoryId == c.id).toList(),
-      )).toList();
+      final result = <MenuCategory>[];
 
-      _tabController.dispose();
-      _tabController = TabController(length: categorized.length, vsync: this);
-      setState(() { _categories = categorized; _loading = false; });
+      // All items tab
+      if (allItems.isNotEmpty) {
+        result.add(
+          MenuCategory(
+            id: 'all',
+            name: 'All Items',
+            sortOrder: -1,
+            isActive: true,
+            items: allItems,
+          ),
+        );
+      }
+
+      for (final c in catList) {
+        final catJson = Map<String, dynamic>.from(c as Map<String, dynamic>);
+        final catId = catJson['id']?.toString() ?? '';
+        final catItems = allItems.where((i) => i.categoryId == catId).toList();
+        result.add(
+          MenuCategory(
+            id: catId,
+            name: catJson['name']?.toString() ?? '',
+            imageUrl: catJson['imageUrl']?.toString(),
+            sortOrder: (catJson['sortOrder'] as num?)?.toInt() ?? 0,
+            isActive: catJson['isActive'] as bool? ?? true,
+            items: catItems,
+          ),
+        );
+      }
+
+      setState(() {
+        _categories = result;
+        _loading = false;
+      });
     } catch (e) {
       setState(() => _loading = false);
     }
@@ -74,29 +96,59 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Menu Catalog'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
-        ],
-        bottom: _categories.isNotEmpty
-            ? TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: _categories.map((c) => Tab(text: c.name)).toList(),
-              )
-            : null,
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Menu Catalog')),
+        body: const Center(child: CircularProgressIndicator(color: RosTheme.primary)),
+      );
+    }
+
+    if (_categories.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Menu Catalog'),
+          actions: [
+            IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+          ],
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.menu_book_rounded, size: 48, color: RosTheme.textMuted),
+              const SizedBox(height: 12),
+              const Text('No menu items found', style: TextStyle(color: RosTheme.textSecondary)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Reload Menu'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return DefaultTabController(
+      key: ValueKey('menu_tab_${_categories.length}_${_categories.map((c) => c.id).join()}'),
+      length: _categories.length,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Menu Catalog'),
+          actions: [
+            IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+          ],
+          bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: _categories.map((c) => Tab(text: c.name)).toList(),
+          ),
+        ),
+        body: TabBarView(
+          children: _categories.map((cat) => _buildCategoryItems(cat)).toList(),
+        ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: RosTheme.primary))
-          : _categories.isEmpty
-              ? const Center(child: Text('No menu categories', style: TextStyle(color: RosTheme.textSecondary)))
-              : TabBarView(
-                  controller: _tabController,
-                  children: _categories.map((cat) => _buildCategoryItems(cat)).toList(),
-                ),
     );
   }
 

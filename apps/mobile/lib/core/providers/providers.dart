@@ -197,21 +197,61 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
     final itemsData = await api.get<dynamic>('/menu/items');
     final catList = categoriesData is List ? categoriesData : [];
     final itemList = itemsData is List ? itemsData : [];
-    final allItems = itemList.map((e) => MenuItem.fromJson(e as Map<String, dynamic>)).toList();
+    final allItems = itemList
+        .map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
+        .toList();
 
-    return catList.map((e) {
-      final catJson = Map<String, dynamic>.from(e as Map<String, dynamic>);
-      final catId = catJson['id'] as String? ?? '';
-      final catItems = allItems.where((item) => item.categoryId == catId).toList();
-      return MenuCategory(
-        id: catId,
-        name: catJson['name'] as String? ?? '',
-        imageUrl: catJson['imageUrl'] as String?,
-        sortOrder: (catJson['sortOrder'] as num?)?.toInt() ?? 0,
-        isActive: catJson['isActive'] as bool? ?? true,
-        items: catItems,
+    final result = <MenuCategory>[];
+
+    // Always provide an "All Items" category as first tab
+    if (allItems.isNotEmpty) {
+      result.add(
+        MenuCategory(
+          id: 'all',
+          name: 'All Items',
+          sortOrder: -1,
+          isActive: true,
+          items: allItems,
+        ),
       );
-    }).toList();
+    }
+
+    // Map existing categories
+    final mappedCategoryIds = <String>{};
+    for (final c in catList) {
+      final catJson = Map<String, dynamic>.from(c as Map<String, dynamic>);
+      final catId = catJson['id']?.toString() ?? '';
+      if (catId.isNotEmpty) mappedCategoryIds.add(catId);
+      final catItems = allItems.where((item) => item.categoryId == catId).toList();
+      result.add(
+        MenuCategory(
+          id: catId,
+          name: catJson['name']?.toString() ?? '',
+          imageUrl: catJson['imageUrl']?.toString(),
+          sortOrder: (catJson['sortOrder'] as num?)?.toInt() ?? 0,
+          isActive: catJson['isActive'] as bool? ?? true,
+          items: catItems,
+        ),
+      );
+    }
+
+    // Capture any items that belong to categories not in catList
+    final unmappedItems = allItems
+        .where((item) => !mappedCategoryIds.contains(item.categoryId) && item.categoryId != 'general')
+        .toList();
+    if (unmappedItems.isNotEmpty && catList.isNotEmpty) {
+      result.add(
+        MenuCategory(
+          id: 'other',
+          name: 'Other',
+          sortOrder: 999,
+          isActive: true,
+          items: unmappedItems,
+        ),
+      );
+    }
+
+    return result;
   } catch (e) {
     return [];
   }

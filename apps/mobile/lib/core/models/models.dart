@@ -359,25 +359,48 @@ class MenuItem {
     this.kitchenStationId,
   });
 
-  factory MenuItem.fromJson(Map<String, dynamic> json) => MenuItem(
-    id: json['id'] as String,
-    categoryId: json['categoryId'] as String,
-    name: json['name'] as String,
-    description: json['description'] as String?,
-    imageUrl: json['imageUrl'] as String?,
-    foodType: json['foodType'] as String? ?? 'VEG',
-    spiceLevel: json['spiceLevel'] as String? ?? 'NONE',
-    isAvailable: json['isAvailable'] as bool? ?? true,
-    isActive: json['isActive'] as bool? ?? true,
-    sortOrder: json['sortOrder'] as int? ?? 0,
-    variants: (json['variants'] as List<dynamic>?)
-        ?.map((e) => MenuItemVariant.fromJson(e as Map<String, dynamic>))
-        .toList() ?? [],
-    modifierGroups: (json['modifierGroups'] as List<dynamic>?)
-        ?.map((e) => ModifierGroupLink.fromJson(e as Map<String, dynamic>))
-        .toList() ?? [],
-    kitchenStationId: json['kitchenStationId'] as String?,
-  );
+  factory MenuItem.fromJson(Map<String, dynamic> json) {
+    final rawVariants = json['variants'] as List<dynamic>?;
+    List<MenuItemVariant> variants = [];
+    if (rawVariants != null && rawVariants.isNotEmpty) {
+      variants = rawVariants
+          .map((e) => MenuItemVariant.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      final p = (json['price'] as num?)?.toDouble() ??
+          double.tryParse(json['price']?.toString() ?? '') ??
+          (json['basePrice'] as num?)?.toDouble() ??
+          0.0;
+      variants = [
+        MenuItemVariant(
+          id: json['id']?.toString() ?? 'v-default',
+          name: 'Regular',
+          price: p,
+          cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
+          isActive: true,
+          sortOrder: 0,
+        ),
+      ];
+    }
+
+    return MenuItem(
+      id: json['id']?.toString() ?? '',
+      categoryId: json['categoryId']?.toString() ?? json['category']?['id']?.toString() ?? 'general',
+      name: json['name']?.toString() ?? 'Item',
+      description: json['description']?.toString(),
+      imageUrl: json['imageUrl']?.toString(),
+      foodType: json['foodType']?.toString() ?? 'VEG',
+      spiceLevel: json['spiceLevel']?.toString() ?? 'NONE',
+      isAvailable: json['isAvailable'] as bool? ?? true,
+      isActive: json['isActive'] as bool? ?? true,
+      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+      variants: variants,
+      modifierGroups: (json['modifierGroups'] as List<dynamic>?)
+          ?.map((e) => ModifierGroupLink.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      kitchenStationId: json['kitchenStationId']?.toString(),
+    );
+  }
 
   double get basePrice => variants.isNotEmpty ? variants.first.price : 0.0;
 }
@@ -400,12 +423,14 @@ class MenuItemVariant {
   });
 
   factory MenuItemVariant.fromJson(Map<String, dynamic> json) => MenuItemVariant(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    price: (json['price'] as num).toDouble(),
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? 'Regular',
+    price: (json['price'] as num?)?.toDouble() ??
+        double.tryParse(json['price']?.toString() ?? '') ??
+        0.0,
     cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
     isActive: json['isActive'] as bool? ?? true,
-    sortOrder: json['sortOrder'] as int? ?? 0,
+    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
   );
 }
 

@@ -17,25 +17,7 @@ class PosScreen extends ConsumerStatefulWidget {
   ConsumerState<PosScreen> createState() => _PosScreenState();
 }
 
-class _PosScreenState extends ConsumerState<PosScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  String? _selectedCategoryId;
-  String _searchQuery = '';
-  bool _cartExpanded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 0, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
+class _PosScreenState extends ConsumerState<PosScreen> {
   @override
   Widget build(BuildContext context) {
     final menuAsync = ref.watch(posMenuProvider);
@@ -46,6 +28,11 @@ class _PosScreenState extends ConsumerState<PosScreen>
       appBar: AppBar(
         title: const Text('Point of Sale'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh Menu',
+            onPressed: () => ref.invalidate(posMenuProvider),
+          ),
           // Order type badge
           Container(
             margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
@@ -77,7 +64,7 @@ class _PosScreenState extends ConsumerState<PosScreen>
               padding: const EdgeInsets.only(right: 8),
               child: TextButton.icon(
                 onPressed: () => _showCartSheet(context),
-                icon: Icon(Icons.shopping_cart_rounded,
+                icon: const Icon(Icons.shopping_cart_rounded,
                     size: 18, color: RosTheme.primary),
                 label: Text(
                   '${cart.items.length} • ₹${cart.total.toStringAsFixed(0)}',
@@ -94,7 +81,23 @@ class _PosScreenState extends ConsumerState<PosScreen>
             : _buildNarrowLayout(categories, cart),
         loading: () => const Center(
             child: CircularProgressIndicator(color: RosTheme.primary)),
-        error: (err, _) => Center(child: Text('Error: $err')),
+        error: (err, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: RosTheme.danger, size: 40),
+              const SizedBox(height: 12),
+              Text('Failed to load menu: $err',
+                  style: const TextStyle(color: RosTheme.textSecondary)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => ref.invalidate(posMenuProvider),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -227,153 +230,151 @@ class _MenuPanel extends ConsumerStatefulWidget {
   ConsumerState<_MenuPanel> createState() => _MenuPanelState();
 }
 
-class _MenuPanelState extends ConsumerState<_MenuPanel>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _MenuPanelState extends ConsumerState<_MenuPanel> {
   String _search = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(
-      length: widget.categories.length,
-      vsync: this,
-    );
-  }
-
-  @override
-  void didUpdateWidget(_MenuPanel old) {
-    super.didUpdateWidget(old);
-    if (old.categories.length != widget.categories.length) {
-      _tabController.dispose();
-      _tabController = TabController(
-        length: widget.categories.length,
-        vsync: this,
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    final categories = widget.categories;
 
-    return Column(
-      children: [
-        // Search
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: TextField(
-            onChanged: (v) => setState(() => _search = v.toLowerCase()),
-            style: const TextStyle(color: RosTheme.textPrimary, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Search menu...',
-              prefixIcon: const Icon(Icons.search_rounded,
-                  color: RosTheme.textMuted, size: 20),
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              suffixIcon: _search.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded,
-                          color: RosTheme.textMuted, size: 18),
-                      onPressed: () => setState(() => _search = ''),
-                    )
-                  : null,
+    if (categories.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.restaurant_menu_rounded, size: 48, color: RosTheme.textMuted),
+            const SizedBox(height: 12),
+            const Text(
+              'No menu items found',
+              style: TextStyle(color: RosTheme.textSecondary, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => ref.invalidate(posMenuProvider),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Refresh Catalog'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return DefaultTabController(
+      key: ValueKey('tab_${categories.length}_${categories.map((c) => c.id).join()}'),
+      length: categories.length,
+      child: Column(
+        children: [
+          // Search
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              onChanged: (v) => setState(() => _search = v.toLowerCase()),
+              style: const TextStyle(color: RosTheme.textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Search menu...',
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: RosTheme.textMuted, size: 20),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded,
+                            color: RosTheme.textMuted, size: 18),
+                        onPressed: () => setState(() => _search = ''),
+                      )
+                    : null,
+              ),
             ),
           ),
-        ),
 
-        // Category tabs
-        if (widget.categories.isNotEmpty)
+          // Category tabs
           TabBar(
-            controller: _tabController,
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: widget.categories
-                .map((c) => Tab(text: c.name))
-                .toList(),
+            tabs: categories.map((c) => Tab(text: c.name)).toList(),
           ),
 
-        // Items grid
-        Expanded(
-          child: widget.categories.isEmpty
-              ? const Center(child: Text('No menu items'))
-              : TabBarView(
-                  controller: _tabController,
-                  children: widget.categories.map((cat) {
-                    final items = cat.items.where((item) {
-                      if (!item.isAvailable) return false;
-                      if (_search.isEmpty) return true;
-                      return item.name.toLowerCase().contains(_search);
-                    }).toList();
+          // Items grid
+          Expanded(
+            child: TabBarView(
+              children: categories.map((cat) {
+                final items = cat.items.where((item) {
+                  if (!item.isAvailable) return false;
+                  if (_search.isEmpty) return true;
+                  return item.name.toLowerCase().contains(_search);
+                }).toList();
 
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 180,
-                        mainAxisExtent: 160,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemCount: items.length,
-                      itemBuilder: (ctx, i) =>
-                          _MenuItemCard(item: items[i]),
-                    );
-                  }).toList(),
-                ),
-        ),
+                if (items.isEmpty) {
+                  return Center(
+                    child: Text(
+                      _search.isNotEmpty ? 'No items match "$_search"' : 'No items in this category',
+                      style: const TextStyle(color: RosTheme.textMuted),
+                    ),
+                  );
+                }
 
-        // Cart summary bar (mobile)
-        if (cart.items.isNotEmpty && widget.onCartTap != null)
-          GestureDetector(
-            onTap: widget.onCartTap,
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: RosTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: RosTheme.primary.withOpacity(0.4),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+                return GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 180,
+                    mainAxisExtent: 160,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
                   ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.shopping_cart_rounded, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Text(
-                    '${cart.items.length} item${cart.items.length > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '₹${cart.total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_upward_rounded,
-                      color: Colors.white, size: 18),
-                ],
-              ),
+                  itemCount: items.length,
+                  itemBuilder: (ctx, i) => _MenuItemCard(item: items[i]),
+                );
+              }).toList(),
             ),
           ),
-      ],
+
+          // Cart summary bar (mobile)
+          if (cart.items.isNotEmpty && widget.onCartTap != null)
+            GestureDetector(
+              onTap: widget.onCartTap,
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: RosTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: RosTheme.primary.withOpacity(0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shopping_cart_rounded, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${cart.items.length} item${cart.items.length > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '₹${cart.total.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_upward_rounded,
+                        color: Colors.white, size: 18),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
