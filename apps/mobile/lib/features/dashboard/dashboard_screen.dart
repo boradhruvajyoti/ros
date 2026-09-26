@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/models/models.dart';
 import '../../core/providers/providers.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -38,10 +39,10 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildDashboard(BuildContext context, Map<String, dynamic> data, String? name) {
-    final todayRevenue = (data['todayRevenue'] as num?)?.toDouble() ?? 0.0;
-    final todayOrders = data['todayOrders'] as int? ?? 0;
-    final activeOrders = data['activeOrders'] as int? ?? 0;
-    final avgOrder = (data['avgOrderValue'] as num?)?.toDouble() ?? 0.0;
+    final todayRevenue = parseDouble(data['todayRevenue'], 0.0);
+    final todayOrders = parseInt(data['todayOrders'], 0);
+    final activeOrders = parseInt(data['activeOrders'], 0);
+    final avgOrder = parseDouble(data['avgOrderValue'], 0.0);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -278,7 +279,7 @@ class _RevenueChart extends StatelessWidget {
     if (chartData.isEmpty) return const SizedBox();
 
     final spots = chartData.asMap().entries.map((e) {
-      final amount = (e.value['amount'] as num?)?.toDouble() ?? 0.0;
+      final amount = parseDouble(e.value['amount'], 0.0);
       return FlSpot(e.key.toDouble(), amount);
     }).toList();
 

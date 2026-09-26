@@ -2,6 +2,44 @@
 // Core Data Models — matching backend Prisma schema exactly
 // =============================================================================
 
+double parseDouble(dynamic value, [double defaultValue = 0.0]) {
+  if (value == null) return defaultValue;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? defaultValue;
+  return defaultValue;
+}
+
+double? parseNullableDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+int parseInt(dynamic value, [int defaultValue = 0]) {
+  if (value == null) return defaultValue;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? double.tryParse(value)?.toInt() ?? defaultValue;
+  return defaultValue;
+}
+
+int? parseNullableInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+  return null;
+}
+
+bool parseBool(dynamic value, [bool defaultValue = true]) {
+  if (value == null) return defaultValue;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final str = value.toString().toLowerCase().trim();
+  if (str == 'true' || str == '1' || str == 'yes') return true;
+  if (str == 'false' || str == '0' || str == 'no') return false;
+  return defaultValue;
+}
+
 // ── Auth / User ──────────────────────────────────────────────────────────────
 
 class AuthUser {
@@ -135,10 +173,10 @@ class TenantSummary {
       plan: json['plan'] as String? ?? 'starter',
       status: json['status'] as String? ?? 'ACTIVE',
       logoUrl: json['logoUrl'] as String?,
-      branchesCount: (json['branchesCount'] as num?)?.toInt() ?? 1,
-      usersCount: (json['usersCount'] as num?)?.toInt() ?? 0,
-      ordersCount: (json['ordersCount'] as num?)?.toInt() ?? 0,
-      tablesCount: (json['tablesCount'] as num?)?.toInt() ?? 0,
+      branchesCount: parseInt(json['branchesCount'], 1),
+      usersCount: parseInt(json['usersCount'], 0),
+      ordersCount: parseInt(json['ordersCount'], 0),
+      tablesCount: parseInt(json['tablesCount'], 0),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
@@ -165,12 +203,12 @@ class SuperAdminOverview {
 
   factory SuperAdminOverview.fromJson(Map<String, dynamic> json) {
     return SuperAdminOverview(
-      totalTenants: (json['totalTenants'] as num?)?.toInt() ?? 0,
-      activeTenants: (json['activeTenants'] as num?)?.toInt() ?? 0,
-      monthlyRecurringRevenue: (json['monthlyRecurringRevenue'] as num?)?.toDouble() ?? 0.0,
-      totalOrdersProcessed: (json['totalOrdersProcessed'] as num?)?.toInt() ?? 0,
+      totalTenants: parseInt(json['totalTenants'], 0),
+      activeTenants: parseInt(json['activeTenants'], 0),
+      monthlyRecurringRevenue: parseDouble(json['monthlyRecurringRevenue'], 0.0),
+      totalOrdersProcessed: parseInt(json['totalOrdersProcessed'], 0),
       systemUptime: json['systemUptime'] as String? ?? '99.9%',
-      databaseLatencyMs: (json['databaseLatencyMs'] as num?)?.toInt() ?? 15,
+      databaseLatencyMs: parseInt(json['databaseLatencyMs'], 15),
       tenants: (json['tenants'] as List<dynamic>?)
           ?.map((e) => TenantSummary.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
@@ -216,17 +254,17 @@ class SaasPlanItem {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       code: json['code'] as String? ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      price: parseDouble(json['price'], 0.0),
       currency: json['currency'] as String? ?? 'INR',
       interval: json['interval'] as String? ?? 'month',
       description: json['description'] as String? ?? '',
       features: (json['features'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      maxBranches: (json['maxBranches'] as num?)?.toInt() ?? 1,
-      maxUsers: (json['maxUsers'] as num?)?.toInt() ?? 5,
-      maxOrdersPerMonth: (json['maxOrdersPerMonth'] as num?)?.toInt() ?? 1000,
+      maxBranches: parseInt(json['maxBranches'], 1),
+      maxUsers: parseInt(json['maxUsers'], 5),
+      maxOrdersPerMonth: parseInt(json['maxOrdersPerMonth'], 1000),
       badge: json['badge'] as String?,
-      isPopular: json['isPopular'] as bool? ?? false,
-      isActive: json['isActive'] as bool? ?? true,
+      isPopular: parseBool(json['isPopular'], false),
+      isActive: parseBool(json['isActive'], true),
     );
   }
 }
@@ -320,8 +358,8 @@ class MenuCategory {
     id: json['id']?.toString() ?? '',
     name: json['name']?.toString() ?? '',
     imageUrl: json['imageUrl']?.toString(),
-    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
-    isActive: json['isActive'] == null ? true : (json['isActive'] == true || json['isActive'] == 1 || json['isActive']?.toString() == 'true'),
+    sortOrder: parseInt(json['sortOrder'], 0),
+    isActive: parseBool(json['isActive'], true),
     items: (json['items'] as List<dynamic>?)
         ?.where((e) => e != null && e is Map<String, dynamic>)
         .map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
@@ -369,16 +407,13 @@ class MenuItem {
           .map((e) => MenuItemVariant.fromJson(e as Map<String, dynamic>))
           .toList();
     } else {
-      final p = (json['price'] as num?)?.toDouble() ??
-          double.tryParse(json['price']?.toString() ?? '') ??
-          (json['basePrice'] as num?)?.toDouble() ??
-          0.0;
+      final p = parseDouble(json['price'] ?? json['basePrice'], 0.0);
       variants = [
         MenuItemVariant(
           id: json['id']?.toString() ?? 'v-default',
           name: 'Regular',
           price: p,
-          cost: (json['cost'] as num?)?.toDouble() ?? double.tryParse(json['cost']?.toString() ?? '') ?? 0.0,
+          cost: parseDouble(json['cost'], 0.0),
           isActive: true,
           sortOrder: 0,
         ),
@@ -393,9 +428,9 @@ class MenuItem {
       imageUrl: json['imageUrl']?.toString(),
       foodType: json['foodType']?.toString() ?? 'VEG',
       spiceLevel: json['spiceLevel']?.toString() ?? 'NONE',
-      isAvailable: json['isAvailable'] == null ? true : (json['isAvailable'] == true || json['isAvailable'] == 1 || json['isAvailable']?.toString() == 'true'),
-      isActive: json['isActive'] == null ? true : (json['isActive'] == true || json['isActive'] == 1 || json['isActive']?.toString() == 'true'),
-      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
+      isAvailable: parseBool(json['isAvailable'], true),
+      isActive: parseBool(json['isActive'], true),
+      sortOrder: parseInt(json['sortOrder'], 0),
       variants: variants,
       modifierGroups: (json['modifierGroups'] as List<dynamic>?)
           ?.where((e) => e != null && e is Map<String, dynamic>)
@@ -428,14 +463,10 @@ class MenuItemVariant {
   factory MenuItemVariant.fromJson(Map<String, dynamic> json) => MenuItemVariant(
     id: json['id']?.toString() ?? '',
     name: json['name']?.toString() ?? 'Regular',
-    price: (json['price'] as num?)?.toDouble() ??
-        double.tryParse(json['price']?.toString() ?? '') ??
-        0.0,
-    cost: (json['cost'] as num?)?.toDouble() ??
-        double.tryParse(json['cost']?.toString() ?? '') ??
-        0.0,
-    isActive: json['isActive'] == null ? true : (json['isActive'] == true || json['isActive'] == 1 || json['isActive']?.toString() == 'true'),
-    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
+    price: parseDouble(json['price'], 0.0),
+    cost: parseDouble(json['cost'], 0.0),
+    isActive: parseBool(json['isActive'], true),
+    sortOrder: parseInt(json['sortOrder'], 0),
   );
 }
 
@@ -474,9 +505,9 @@ class ModifierGroup {
   factory ModifierGroup.fromJson(Map<String, dynamic> json) => ModifierGroup(
     id: json['id']?.toString() ?? '',
     name: json['name']?.toString() ?? '',
-    minSelections: (json['minSelections'] as num?)?.toInt() ?? int.tryParse(json['minSelections']?.toString() ?? '') ?? 0,
-    maxSelections: (json['maxSelections'] as num?)?.toInt() ?? int.tryParse(json['maxSelections']?.toString() ?? '') ?? 1,
-    isRequired: json['isRequired'] == true || json['isRequired'] == 1 || json['isRequired']?.toString() == 'true',
+    minSelections: parseInt(json['minSelections'], 0),
+    maxSelections: parseInt(json['maxSelections'], 1),
+    isRequired: parseBool(json['isRequired'], false),
     modifiers: (json['modifiers'] as List<dynamic>?)
         ?.where((e) => e != null && e is Map<String, dynamic>)
         .map((e) => Modifier.fromJson(e as Map<String, dynamic>))
@@ -500,8 +531,8 @@ class Modifier {
   factory Modifier.fromJson(Map<String, dynamic> json) => Modifier(
     id: json['id']?.toString() ?? '',
     name: json['name']?.toString() ?? '',
-    price: (json['price'] as num?)?.toDouble() ?? double.tryParse(json['price']?.toString() ?? '') ?? 0.0,
-    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
+    price: parseDouble(json['price'], 0.0),
+    sortOrder: parseInt(json['sortOrder'], 0),
   );
 }
 
@@ -535,13 +566,13 @@ class RestaurantTable {
   factory RestaurantTable.fromJson(Map<String, dynamic> json) => RestaurantTable(
     id: json['id'] as String? ?? '',
     name: json['name'] as String? ?? 'Table',
-    capacity: (json['capacity'] as num?)?.toInt() ?? 4,
+    capacity: parseInt(json['capacity'], 4),
     shape: json['shape'] as String? ?? 'RECTANGLE',
     status: json['status'] as String? ?? 'AVAILABLE',
     floorId: json['floorId'] as String?,
     sectionId: json['sectionId'] as String?,
-    posX: (json['posX'] as num?)?.toDouble() ?? 0.0,
-    posY: (json['posY'] as num?)?.toDouble() ?? 0.0,
+    posX: parseDouble(json['posX'], 0.0),
+    posY: parseDouble(json['posY'], 0.0),
     activeOrder: json['activeOrder'] != null
         ? Order.fromJson(json['activeOrder'] as Map<String, dynamic>)
         : (json['orders'] is List && (json['orders'] as List).isNotEmpty
@@ -566,7 +597,7 @@ class Floor {
   factory Floor.fromJson(Map<String, dynamic> json) => Floor(
     id: json['id'] as String? ?? '',
     name: json['name'] as String? ?? 'Floor',
-    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+    sortOrder: parseInt(json['sortOrder'], 0),
     tables: (json['tables'] as List<dynamic>?)
         ?.map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>))
         .toList() ?? [],
@@ -626,11 +657,11 @@ class Order {
         ? RestaurantTable.fromJson(json['table'] as Map<String, dynamic>)
         : null,
     customerId: json['customerId'] as String?,
-    subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
-    discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
-    taxAmount: (json['taxAmount'] as num?)?.toDouble() ?? 0.0,
-    total: (json['total'] as num?)?.toDouble() ?? 0.0,
-    paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
+    subtotal: parseDouble(json['subtotal'], 0.0),
+    discountAmount: parseDouble(json['discountAmount'], 0.0),
+    taxAmount: parseDouble(json['taxAmount'], 0.0),
+    total: parseDouble(json['total'], 0.0),
+    paidAmount: parseDouble(json['paidAmount'], 0.0),
     notes: json['notes'] as String?,
     items: (json['items'] as List<dynamic>?)
         ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
@@ -682,9 +713,9 @@ class OrderItem {
     variantId: json['variantId'] as String?,
     menuItemName: json['menuItem']?['name'] as String? ?? json['name'] as String?,
     variantName: json['variant']?['name'] as String?,
-    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-    unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? (json['price'] as num?)?.toDouble() ?? 0.0,
-    lineTotal: (json['lineTotal'] as num?)?.toDouble() ?? 0.0,
+    quantity: parseInt(json['quantity'], 1),
+    unitPrice: parseDouble(json['unitPrice'] ?? json['price'], 0.0),
+    lineTotal: parseDouble(json['lineTotal'], 0.0),
     status: json['status'] as String? ?? 'PENDING',
     notes: json['notes'] as String?,
     modifiers: (json['modifiers'] as List<dynamic>?)
@@ -708,7 +739,7 @@ class OrderItemModifier {
       OrderItemModifier(
         id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? '',
-        price: (json['price'] as num?)?.toDouble() ?? 0.0,
+        price: parseDouble(json['price'], 0.0),
       );
 }
 
@@ -758,7 +789,7 @@ class OrderKotItem {
     status: json['status'] as String? ?? 'NEW',
     menuItemName: json['orderItem']?['menuItem']?['name'] as String? ?? json['menuItem']?['name'] as String?,
     variantName: json['orderItem']?['variant']?['name'] as String? ?? json['variant']?['name'] as String?,
-    quantity: (json['orderItem']?['quantity'] as num?)?.toInt() ?? (json['quantity'] as num?)?.toInt() ?? 1,
+    quantity: parseInt(json['orderItem']?['quantity'] ?? json['quantity'], 1),
   );
 }
 
@@ -787,7 +818,7 @@ class Payment {
     id: json['id'] as String? ?? '',
     orderId: json['orderId'] as String? ?? '',
     method: json['method'] as String? ?? 'CASH',
-    amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+    amount: parseDouble(json['amount'], 0.0),
     referenceNumber: json['referenceNumber'] as String?,
     status: json['status'] as String? ?? 'COMPLETED',
     createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
@@ -824,10 +855,10 @@ class Customer {
     name: json['name'] as String? ?? 'Guest',
     phone: json['phone'] as String? ?? '',
     email: json['email'] as String?,
-    loyaltyPoints: (json['loyaltyPoints'] as num?)?.toInt() ?? 0,
-    totalSpent: (json['totalSpent'] as num?)?.toDouble() ?? 0.0,
-    visitCount: (json['visitCount'] as num?)?.toInt() ?? 0,
-    isActive: json['isActive'] as bool? ?? true,
+    loyaltyPoints: parseInt(json['loyaltyPoints'], 0),
+    totalSpent: parseDouble(json['totalSpent'], 0.0),
+    visitCount: parseInt(json['visitCount'], 0),
+    isActive: parseBool(json['isActive'], true),
     createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
   );
 }
@@ -896,11 +927,11 @@ class InventoryItem {
     id: json['id'] as String? ?? '',
     name: json['name'] as String? ?? '',
     unit: json['unit'] as String? ?? 'kg',
-    currentStock: (json['currentStock'] as num?)?.toDouble() ?? 0.0,
-    minStock: (json['minStock'] as num?)?.toDouble() ?? 0.0,
-    maxStock: (json['maxStock'] as num?)?.toDouble(),
+    currentStock: parseDouble(json['currentStock'], 0.0),
+    minStock: parseDouble(json['minStock'], 0.0),
+    maxStock: parseNullableDouble(json['maxStock']),
     category: json['category'] as String?,
-    costPerUnit: (json['costPerUnit'] as num?)?.toDouble(),
+    costPerUnit: parseNullableDouble(json['costPerUnit']),
   );
 
   bool get isLowStock => currentStock <= minStock;
@@ -939,7 +970,7 @@ class Reservation {
     id: json['id'] as String? ?? '',
     customerName: json['customerName'] as String? ?? json['guestName'] as String? ?? 'Guest',
     customerPhone: json['customerPhone'] as String? ?? json['guestPhone'] as String? ?? '',
-    partySize: (json['partySize'] as num?)?.toInt() ?? 2,
+    partySize: parseInt(json['partySize'], 2),
     date: DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
     timeSlot: json['timeSlot'] as String? ?? '19:00',
     occasion: json['occasion'] as String?,
@@ -973,12 +1004,12 @@ class DashboardSummary {
 
   factory DashboardSummary.fromJson(Map<String, dynamic> json) =>
       DashboardSummary(
-        todayRevenue: (json['todayRevenue'] as num?)?.toDouble() ?? 0.0,
-        todayOrders: (json['todayOrders'] as num?)?.toInt() ?? 0,
-        activeOrders: (json['activeOrders'] as num?)?.toInt() ?? 0,
-        availableTables: (json['availableTables'] as num?)?.toInt() ?? 0,
-        occupiedTables: (json['occupiedTables'] as num?)?.toInt() ?? 0,
-        avgOrderValue: (json['avgOrderValue'] as num?)?.toDouble() ?? 0.0,
+        todayRevenue: parseDouble(json['todayRevenue'], 0.0),
+        todayOrders: parseInt(json['todayOrders'], 0),
+        activeOrders: parseInt(json['activeOrders'], 0),
+        availableTables: parseInt(json['availableTables'], 0),
+        occupiedTables: parseInt(json['occupiedTables'], 0),
+        avgOrderValue: parseDouble(json['avgOrderValue'], 0.0),
         revenueChart: (json['revenueChart'] as List<dynamic>?)
             ?.map((e) => RevenuePoint.fromJson(e as Map<String, dynamic>))
             .toList() ?? [],
@@ -992,8 +1023,8 @@ class RevenuePoint {
   const RevenuePoint({required this.label, required this.amount});
 
   factory RevenuePoint.fromJson(Map<String, dynamic> json) => RevenuePoint(
-    label: json['label'] as String,
-    amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+    label: json['label'] as String? ?? '',
+    amount: parseDouble(json['amount'], 0.0),
   );
 }
 

@@ -292,8 +292,8 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
           id: catId,
           name: c['name']?.toString() ?? '',
           imageUrl: c['imageUrl']?.toString(),
-          sortOrder: (c['sortOrder'] as num?)?.toInt() ?? 0,
-          isActive: c['isActive'] == null ? true : (c['isActive'] == true || c['isActive'] == 1 || c['isActive']?.toString() == 'true'),
+          sortOrder: parseInt(c['sortOrder'], 0),
+          isActive: parseBool(c['isActive'], true),
           items: catItems,
         ),
       );
@@ -451,9 +451,9 @@ final dashboardProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   try {
     final summary = await api.get<dynamic>('/reports/summary');
     if (summary is Map<String, dynamic>) {
-      final totalRevenue = (summary['totalRevenue'] as num?)?.toDouble() ?? 0.0;
-      final totalOrders = (summary['totalOrders'] as num?)?.toInt() ?? 0;
-      final activeTables = (summary['activeTables'] as num?)?.toInt() ?? 0;
+      final totalRevenue = parseDouble(summary['totalRevenue'], 0.0);
+      final totalOrders = parseInt(summary['totalOrders'], 0);
+      final activeTables = parseInt(summary['activeTables'], 0);
       return {
         'todayRevenue': totalRevenue,
         'todayOrders': totalOrders,

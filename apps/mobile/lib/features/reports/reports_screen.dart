@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import '../../core/models/models.dart';
 import '../../core/providers/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/api/api_client.dart';
@@ -92,17 +93,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     childAspectRatio: 1.6,
                     children: [
                       _ReportCard('Total Revenue',
-                          '₹${NumberFormat('#,##,###').format(((_data?['totalRevenue'] ?? _data?['todayRevenue'] ?? 0) as num).toInt())}',
+                          '₹${NumberFormat('#,##,###').format(parseDouble(_data?['totalRevenue'] ?? _data?['todayRevenue'], 0.0).toInt())}',
                           Icons.currency_rupee_rounded, RosTheme.primaryGradient),
                       _ReportCard('Orders',
-                          '${(_data?['totalOrders'] ?? _data?['todayOrders'] ?? 0) as int}',
+                          '${parseInt(_data?['totalOrders'] ?? _data?['todayOrders'], 0)}',
                           Icons.receipt_long_rounded, RosTheme.greenGradient),
                       _ReportCard('Avg Order',
-                          '₹${((_data?['avgOrderValue'] ?? 0) as num).toStringAsFixed(0)}',
+                          '₹${parseDouble(_data?['avgOrderValue'], 0.0).toStringAsFixed(0)}',
                           Icons.trending_up_rounded,
                           const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)])),
                       _ReportCard('Customers',
-                          '${(_data?['uniqueCustomers'] ?? _data?['totalCustomers'] ?? 0) as int}',
+                          '${parseInt(_data?['uniqueCustomers'] ?? _data?['totalCustomers'], 0)}',
                           Icons.people_rounded,
                           const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)])),
                     ],
@@ -130,7 +131,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                     children: [
                                       Text(e.key, style: const TextStyle(color: RosTheme.textSecondary)),
                                       const Spacer(),
-                                      Text('₹${(e.value as num).toStringAsFixed(0)}',
+                                      Text('₹${parseDouble(e.value, 0.0).toStringAsFixed(0)}',
                                           style: const TextStyle(color: RosTheme.primary, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
