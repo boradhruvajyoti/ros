@@ -318,6 +318,118 @@ export class TelegramService {
     }
   }
 
+  /** Send a photo directly from in-memory Buffer to a specific Telegram Chat ID */
+  static async sendPhoto(
+    chatId: string,
+    photoBuffer: Buffer,
+    filename = 'receipt.jpg',
+    caption?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const token = this.getBotToken();
+    if (!token) return { success: false, error: 'Telegram Bot Token is not configured' };
+    if (!chatId) return { success: false, error: 'Chat ID is required' };
+
+    try {
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      const blob = new Blob([photoBuffer], { type: 'image/jpeg' });
+      formData.append('photo', blob, filename);
+      if (caption) {
+        formData.append('caption', caption);
+        formData.append('parse_mode', 'HTML');
+      }
+
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = (await res.json()) as any;
+      if (data && data.ok) {
+        return { success: true };
+      }
+      return { success: false, error: data?.description || 'Telegram sendPhoto returned failure' };
+    } catch (err: any) {
+      logger.error(`Telegram sendPhoto failed: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /** Send a photo notification to all authorized users of a tenant */
+  static async sendPhotoNotificationToTenant(
+    tenantId: string,
+    notificationType: string,
+    photoBuffer: Buffer,
+    filename = 'receipt.jpg',
+    caption?: string,
+    options?: { branchId?: string; excludeUserId?: string }
+  ): Promise<number> {
+    const token = this.getBotToken();
+    if (!token || !tenantId) return 0;
+
+    try {
+      const users = await prisma.user.findMany({
+        where: {
+          tenantId,
+          isActive: true,
+          telegramChatId: { not: null },
+          deletedAt: null,
+          ...(options?.excludeUserId ? { id: { not: options.excludeUserId } } : {}),
+        },
+        include: {
+          branchRoles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+
+      let sentCount = 0;
+
+      for (const u of users) {
+        if (!u.telegramChatId) continue;
+
+        const isSuperadmin =
+          u.email.toLowerCase() === 'superadmin@ros.com' ||
+          u.tenantId === 'tenant-platform' ||
+          u.branchRoles.some((br) => ['OWNER', 'ADMIN'].includes(br.role.name.toUpperCase()));
+
+        let shouldSend = false;
+
+        if (isSuperadmin) {
+          shouldSend = true;
+        } else {
+          let userPermittedNotifs: string[] = [];
+          if (u.telegramNotifications) {
+            try {
+              userPermittedNotifs = JSON.parse(u.telegramNotifications);
+            } catch {
+              userPermittedNotifs = [];
+            }
+          }
+          if (Array.isArray(userPermittedNotifs) && userPermittedNotifs.includes(notificationType)) {
+            shouldSend = true;
+          }
+        }
+
+        if (shouldSend) {
+          try {
+            await this.sendPhoto(u.telegramChatId, photoBuffer, filename, caption);
+            sentCount++;
+          } catch (err: any) {
+            logger.warn(`Failed to send telegram photo to user ${u.email}: ${err.message}`);
+          }
+        }
+      }
+
+      return sentCount;
+    } catch (err: any) {
+      logger.error(`sendPhotoNotificationToTenant error: ${err.message}`);
+      return 0;
+    }
+  }
+
   private static isPolling = false;
   private static pollOffset = 0;
 

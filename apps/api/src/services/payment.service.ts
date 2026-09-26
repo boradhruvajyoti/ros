@@ -9,6 +9,7 @@ import { addAmounts, toAmount } from '@ros/utils';
 import { generateULID } from '@ros/utils';
 import { emitToRoom } from '../socket';
 import { TelegramService } from './telegram.service';
+import { ReceiptImageService } from './receipt-image.service';
 
 export class PaymentService {
   private tenantId: string;
@@ -122,11 +123,13 @@ export class PaymentService {
         payload: { orderId, amount: dto.amount, method: dto.method },
       });
 
-      // Dispatch Telegram Bot Notification (BILL_PAID)
+      // Dispatch Telegram Bot Notification (BILL_PAID) with In-Memory Receipt JPEG
       prisma.order.findUnique({
         where: { id: orderId },
         include: {
           table: true,
+          tenant: { select: { name: true } },
+          branch: { select: { name: true, address: true, phone: true } },
           items: {
             where: { status: { notIn: ['VOIDED', 'CANCELLED'] } },
             include: { menuItem: true, variant: true },
@@ -135,14 +138,49 @@ export class PaymentService {
       }).then(async (fullOrder) => {
         if (!fullOrder) return;
         const userName = await TelegramService.getUserName(createdBy, 'Cashier');
-        const itemsList = fullOrder.items
-          .map((i) => `  • <b>${i.quantity}x</b> ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''} — ₹${Number(i.unitPrice || 0).toLocaleString('en-IN')} × ${i.quantity} = <b>₹${Number(i.lineTotal).toLocaleString('en-IN')}</b>`)
-          .join('\n');
-        TelegramService.sendNotificationToTenant(
-          this.tenantId,
-          'BILL_PAID',
-          `💳 <b>Bill Paid &amp; Settled!</b>\n\n• <b>Order #:</b> #${fullOrder.orderNumber}\n• <b>Table:</b> ${fullOrder.table?.name || 'Counter / Takeaway'}\n• <b>Payment Method:</b> ${dto.method}\n• <b>Amount Paid:</b> <b>₹${Number(dto.amount).toLocaleString('en-IN')}</b>\n• <b>Total Bill:</b> <b>₹${Number(fullOrder.total || 0).toLocaleString('en-IN')}</b>\n• <b>Billed By:</b> ${userName}\n• <b>Total Items:</b> ${fullOrder.items.length}\n\n<b>Items Ordered:</b>\n${itemsList || 'None'}`
-        ).catch((e) => console.error('[Telegram Bill Paid Alert Error]:', e));
+        const caption = `💳 <b>Bill Paid &amp; Settled!</b>\n\n• <b>Order #:</b> #${fullOrder.orderNumber}\n• <b>Table:</b> ${fullOrder.table?.name || 'Counter / Takeaway'}\n• <b>Payment Method:</b> ${dto.method}\n• <b>Amount Paid:</b> <b>₹${Number(dto.amount).toLocaleString('en-IN')}</b>\n• <b>Total Bill:</b> <b>₹${Number(fullOrder.total || 0).toLocaleString('en-IN')}</b>\n• <b>Billed By:</b> ${userName}\n• <b>Total Items:</b> ${fullOrder.items.length}`;
+
+        try {
+          // Generate lightweight low-quality in-memory JPEG receipt (Zero disk I/O, no PDF stored)
+          const receiptJpeg = ReceiptImageService.generateReceiptJpeg({
+            restaurantName: fullOrder.tenant?.name || 'Restaurant',
+            branchName: fullOrder.branch?.name,
+            branchAddress: fullOrder.branch?.address || undefined,
+            branchPhone: fullOrder.branch?.phone || undefined,
+            orderNumber: fullOrder.orderNumber,
+            tableName: fullOrder.table?.name || 'Counter / Takeaway',
+            orderType: fullOrder.type,
+            billedBy: userName,
+            paymentMethod: dto.method,
+            date: new Date(),
+            items: fullOrder.items.map((i) => ({
+              name: i.menuItem?.name || 'Dish',
+              variantName: i.variant?.name,
+              quantity: i.quantity,
+              unitPrice: Number(i.unitPrice || 0),
+              lineTotal: Number(i.lineTotal || 0),
+            })),
+            subtotal: Number(fullOrder.subtotal || fullOrder.total || 0),
+            discountAmount: Number(fullOrder.discountAmount || 0),
+            taxAmount: Number(fullOrder.taxAmount || 0),
+            total: Number(fullOrder.total || 0),
+          });
+
+          await TelegramService.sendPhotoNotificationToTenant(
+            this.tenantId,
+            'BILL_PAID',
+            receiptJpeg,
+            `bill_${fullOrder.orderNumber}.jpg`,
+            caption
+          );
+        } catch (imgErr) {
+          console.error('[Receipt Image Generation Error]:', imgErr);
+          await TelegramService.sendNotificationToTenant(
+            this.tenantId,
+            'BILL_PAID',
+            caption
+          );
+        }
       }).catch((e) => console.error('[Telegram Query Order Error]:', e));
 
       return payment;

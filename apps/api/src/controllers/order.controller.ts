@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { generateInvoicePdf } from '../services/invoice.service';
 import { TelegramService } from '../services/telegram.service';
+import { ReceiptImageService } from '../services/receipt-image.service';
 
 const createOrderSchema = z.object({
   type: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).optional(),
@@ -204,6 +205,71 @@ export class OrderController {
         'ORDER_CANCELLED_TABLES',
         `❌ <b>Order Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Cancelled Items:</b>\n${cancelledItemsList}\n• <b>Total Cancelled Value:</b> <b>₹${orderTotal.toLocaleString('en-IN')}</b>\n• <b>Reason:</b> ${dto.reason || 'Cancelled on floor'}\n• <b>Cancelled By:</b> ${userName}`
       ).catch((e) => console.error('[Telegram Cancel Tables Trigger Error]:', e));
+    } else if (dto.status === 'PAID' || dto.status === 'COMPLETED') {
+      prisma.order.findUnique({
+        where: { id: req.params.id },
+        include: {
+          table: true,
+          tenant: { select: { name: true } },
+          branch: { select: { name: true, address: true, phone: true } },
+          items: {
+            where: { status: { notIn: ['VOIDED', 'CANCELLED'] } },
+            include: { menuItem: true, variant: true },
+          },
+          payments: {
+            where: { status: 'COMPLETED' },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      }).then(async (fullOrder) => {
+        if (!fullOrder) return;
+        const userName = await TelegramService.getUserName(req.user, 'Cashier');
+        const paymentMethod = fullOrder.payments?.[0]?.method || 'CASH';
+        const caption = `💳 <b>Bill Paid &amp; Settled!</b>\n\n• <b>Order #:</b> #${fullOrder.orderNumber}\n• <b>Table:</b> ${fullOrder.table?.name || 'Counter / Takeaway'}\n• <b>Payment Method:</b> ${paymentMethod}\n• <b>Total Bill:</b> <b>₹${Number(fullOrder.total || 0).toLocaleString('en-IN')}</b>\n• <b>Billed By:</b> ${userName}\n• <b>Total Items:</b> ${fullOrder.items.length}`;
+
+        try {
+          // Generate lightweight low-quality in-memory JPEG receipt (Zero disk I/O, no PDF stored)
+          const receiptJpeg = ReceiptImageService.generateReceiptJpeg({
+            restaurantName: fullOrder.tenant?.name || 'Restaurant',
+            branchName: fullOrder.branch?.name,
+            branchAddress: fullOrder.branch?.address || undefined,
+            branchPhone: fullOrder.branch?.phone || undefined,
+            orderNumber: fullOrder.orderNumber,
+            tableName: fullOrder.table?.name || 'Counter / Takeaway',
+            orderType: fullOrder.type,
+            billedBy: userName,
+            paymentMethod,
+            date: new Date(),
+            items: fullOrder.items.map((i) => ({
+              name: i.menuItem?.name || 'Dish',
+              variantName: i.variant?.name,
+              quantity: i.quantity,
+              unitPrice: Number(i.unitPrice || 0),
+              lineTotal: Number(i.lineTotal || 0),
+            })),
+            subtotal: Number(fullOrder.subtotal || fullOrder.total || 0),
+            discountAmount: Number(fullOrder.discountAmount || 0),
+            taxAmount: Number(fullOrder.taxAmount || 0),
+            total: Number(fullOrder.total || 0),
+          });
+
+          await TelegramService.sendPhotoNotificationToTenant(
+            req.user!.tid,
+            'BILL_PAID',
+            receiptJpeg,
+            `bill_${fullOrder.orderNumber}.jpg`,
+            caption
+          );
+        } catch (imgErr) {
+          console.error('[Receipt Image Generation Error]:', imgErr);
+          await TelegramService.sendNotificationToTenant(
+            req.user!.tid,
+            'BILL_PAID',
+            caption
+          );
+        }
+      }).catch((e) => console.error('[Telegram Query Order on Paid Error]:', e));
     }
 
     sendSuccess(res, order);
