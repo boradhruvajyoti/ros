@@ -25,7 +25,6 @@ export const ALL_RESTAURANT_NAV_SECTIONS: Array<
   { href: '/kitchen',       label: 'Kitchen Display (KDS)', icon: ChefHat,         permissions: ['kitchen:view'] },
   { href: '/order-history', label: 'Order History',          icon: ClipboardList,   permissions: ['payments:view'] },
   { href: '/reservations',  label: 'Reservations',           icon: Users,           permissions: ['reservations:view'] },
-  { href: '/qr-order',      label: 'QR Ordering Setup',     icon: QrCode,          permissions: ['tables:create'] },
 
   // Inventory & Kitchen
   { type: 'divider', label: 'INVENTORY & RECIPES' },
@@ -53,9 +52,6 @@ export const ALL_RESTAURANT_NAV_SECTIONS: Array<
   // Operations & Tech
   { type: 'divider', label: 'NEXT-GEN OPERATIONS' },
   { href: '/kiosk',         label: 'Touch Kiosk',           icon: Smartphone,      permissions: ['orders:void'] },
-  { href: '/drive-thru',    label: 'Drive-Thru SOS',        icon: Car,             permissions: ['orders:cancel'] },
-  { href: '/ai-expediter',  label: 'AI Expediter',          icon: Eye,             permissions: ['kitchen:update'] },
-  { href: '/iot-sensors',   label: 'IoT HACCP Probes',      icon: Activity,        permissions: ['cash:adjust'] },
   { href: '/franchise',     label: 'Franchise HQ',          icon: Building2,       permissions: ['branches:create'] },
 
   // Administration

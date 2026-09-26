@@ -242,9 +242,29 @@ export default function OrderHistoryPage() {
           <title>Receipt - ${tenant?.name || 'Restaurant'} - #${order.orderNumber || ''}</title>
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <style>
-            @page { margin: 8mm; size: 80mm auto; }
-            body { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; color: #0f172a; margin: 0; padding: 16px 12px; background: #fff; line-height: 1.4; }
-            .receipt-box { max-width: 340px; margin: 0 auto; }
+            @page { size: 80mm auto; margin: 0; }
+            @media print {
+              html, body {
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 auto !important;
+                padding: 2mm 3mm !important;
+                background: #fff !important;
+              }
+            }
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              font-size: 12px;
+              color: #0f172a;
+              margin: 0 auto;
+              padding: 6px 4px;
+              background: #fff;
+              line-height: 1.4;
+              width: 80mm;
+              max-width: 80mm;
+              box-sizing: border-box;
+            }
+            .receipt-box { width: 100%; margin: 0 auto; }
             .center { text-align: center; }
             .logo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; margin: 0 auto 8px; border: 2px solid #0f172a; display: block; }
             .title { font-size: 18px; font-weight: 900; text-transform: uppercase; margin: 0 0 2px; color: #0f172a; letter-spacing: -0.5px; }
@@ -259,7 +279,6 @@ export default function OrderHistoryPage() {
             .footer-note { font-size: 11px; color: #475569; margin-top: 14px; text-align: center; }
             .oxom-brand { font-size: 10px; color: #64748b; margin-top: 14px; border-top: 1px dashed #cbd5e1; padding-top: 10px; text-align: center; }
             .oxom-brand a { color: #0284c7; text-decoration: none; font-weight: 700; }
-            @media print { body { padding: 0; } }
           </style>
         </head>
         <body>
@@ -388,8 +407,26 @@ export default function OrderHistoryPage() {
         <head>
           <title>KOT - Order #${order.orderNumber}</title>
           <style>
-            @page { margin: 4mm; size: 80mm auto; }
-            body { font-family: monospace; font-size: 13px; color: #000; padding: 10px; margin: 0; }
+            @page { size: 80mm auto; margin: 0; }
+            @media print {
+              html, body {
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 auto !important;
+                padding: 2mm 3mm !important;
+                background: #fff !important;
+              }
+            }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 13px;
+              color: #000;
+              padding: 6px 4px;
+              margin: 0 auto;
+              width: 80mm;
+              max-width: 80mm;
+              box-sizing: border-box;
+            }
             .center { text-align: center; }
             .bold { font-weight: bold; }
             .divider { border-top: 1px dashed #000; margin: 8px 0; }

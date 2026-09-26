@@ -457,15 +457,29 @@ export default function TablesPage() {
         <head>
           <title>${isKot ? 'KOT' : 'POS Bill'} - #${order.orderNumber}</title>
           <style>
-            @page { margin: 4mm; }
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+            @media print {
+              html, body {
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 auto !important;
+                padding: 2mm 3mm !important;
+                background: #fff !important;
+              }
+            }
             body {
-              font-family: 'Courier New', Courier, monospace;
-              padding: 10px;
-              max-width: 320px;
+              font-family: 'Courier New', Courier, monospace, system-ui;
+              width: 80mm;
+              max-width: 80mm;
+              padding: 6px 4px;
               margin: 0 auto;
               font-size: 12px;
               color: #000;
               line-height: 1.3;
+              box-sizing: border-box;
             }
             .center { text-align: center; }
             .bold { font-weight: bold; }

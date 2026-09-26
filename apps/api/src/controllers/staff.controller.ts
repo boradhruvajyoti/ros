@@ -53,13 +53,6 @@ export const FEATURE_MODULES = [
     keyPermission: 'reservations:view',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
   },
-  {
-    id: 'qr-order',
-    name: 'QR Ordering Setup',
-    description: 'Dine-in table QR codes, contactless ordering setup and table tags',
-    keyPermission: 'tables:create',
-    permissions: ['tables:create', 'tables:view', 'settings:view'],
-  },
 
   // Inventory & Kitchen
   {
@@ -172,27 +165,6 @@ export const FEATURE_MODULES = [
     description: 'Self-ordering guest kiosk mode with touch menu interface',
     keyPermission: 'orders:void',
     permissions: ['orders:create', 'orders:void'],
-  },
-  {
-    id: 'drive-thru',
-    name: 'Drive-Thru SOS Operations',
-    description: 'Order taker drive-thru lane, queue timing, pickup window',
-    keyPermission: 'orders:cancel',
-    permissions: ['orders:view', 'orders:cancel'],
-  },
-  {
-    id: 'ai-expediter',
-    name: 'AI Kitchen Expediter',
-    description: 'Real-time kitchen bottleneck detection and plating assistance',
-    keyPermission: 'kitchen:update',
-    permissions: ['kitchen:view', 'kitchen:update'],
-  },
-  {
-    id: 'iot-sensors',
-    name: 'IoT HACCP Probes',
-    description: 'Refrigerator temperature probes, HACCP food compliance telemetry',
-    keyPermission: 'cash:adjust',
-    permissions: ['settings:view', 'cash:adjust'],
   },
   {
     id: 'franchise',
