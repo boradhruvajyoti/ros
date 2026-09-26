@@ -208,13 +208,13 @@ export class AuthController {
   static async requestTelegramOtp(req: Request, res: Response): Promise<void> {
     const { phone, chatId, username } = req.body;
 
-    if (!phone && !chatId) {
-      throw new AppError('VALIDATION_ERROR', 'Please enter your Telegram phone number or Chat ID', 400);
+    if (!phone && !chatId && !username) {
+      throw new AppError('VALIDATION_ERROR', 'Please enter your Telegram username, phone number, or Chat ID', 400);
     }
 
+    const cleanUsername = username ? String(username).trim().toLowerCase().replace(/^@/, '') : undefined;
     const cleanPhone = phone ? String(phone).trim().replace(/[^\d+]/g, '') : undefined;
     const cleanChatId = chatId ? String(chatId).trim() : undefined;
-    const cleanUsername = username ? String(username).trim().replace(/^@/, '') : undefined;
 
     // Check if bot is configured
     const botInfo = await TelegramService.getBotInfo();
@@ -225,14 +225,23 @@ export class AuthController {
     // Generate 6-digit numeric OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Check if we have a known Chat ID for this phone number
+    // Check if we have a known Chat ID for this username, phone number, or user ID
     let targetChatId = cleanChatId;
+
+    if (!targetChatId && cleanUsername) {
+      const cachedChatId = await cacheGet<string>(`tg_chat_username:${cleanUsername}`);
+      if (cachedChatId) targetChatId = cachedChatId;
+    }
+
     if (!targetChatId && cleanPhone) {
       const digitsOnly = cleanPhone.replace(/\D/g, '');
       const cachedChatId = await cacheGet<string>(`tg_chat_phone:${digitsOnly}`);
-      if (cachedChatId) {
-        targetChatId = cachedChatId;
-      }
+      if (cachedChatId) targetChatId = cachedChatId;
+    }
+
+    if (!targetChatId) {
+      const cachedChatId = await cacheGet<string>(`tg_chat_user:${req.user!.sub}`);
+      if (cachedChatId) targetChatId = cachedChatId;
     }
 
     // Store in cache for 5 minutes (300 seconds)
@@ -244,6 +253,10 @@ export class AuthController {
       username: cleanUsername,
       requestedAt: new Date().toISOString(),
     }, 300);
+
+    if (cleanUsername) {
+      await cacheSet(`tg_username_to_user:${cleanUsername}`, req.user!.sub, 300);
+    }
 
     if (cleanPhone) {
       const last10 = cleanPhone.replace(/\D/g, '').slice(-10);
@@ -268,8 +281,8 @@ export class AuthController {
 
     sendSuccess(res, {
       message: directSent
-        ? `A 6-digit verification code has been sent directly to your Telegram chat!`
-        : `Verification code generated! Please tap "Open Telegram Bot" to view your 6-digit code.`,
+        ? `A 6-digit verification code was sent directly to your Telegram chat!`
+        : `Verification code generated! Tap "Open Bot in Telegram" or message @${botUsername} to view your 6-digit code.`,
       directSent,
       botUsername,
       deepLink,
@@ -297,9 +310,15 @@ export class AuthController {
 
     // Determine final chat ID
     let finalChatId = stored.chatId;
+    if (!finalChatId && stored.username) {
+      finalChatId = (await cacheGet<string>(`tg_chat_username:${stored.username.toLowerCase()}`)) || null;
+    }
     if (!finalChatId && stored.phone) {
       const digits = stored.phone.replace(/\D/g, '');
       finalChatId = (await cacheGet<string>(`tg_chat_phone:${digits}`)) || null;
+    }
+    if (!finalChatId) {
+      finalChatId = (await cacheGet<string>(`tg_chat_user:${req.user!.sub}`)) || null;
     }
 
     // OTP matched! Update user record in database

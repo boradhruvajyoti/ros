@@ -293,6 +293,54 @@ export class TelegramService {
     }
   }
 
+  private static isPolling = false;
+  private static pollOffset = 0;
+
+  /**
+   * Start continuous long-polling loop to instantly receive messages & /start commands
+   */
+  static startPolling(): void {
+    if (this.isPolling) return;
+    const token = this.getBotToken();
+    if (!token) return;
+
+    this.isPolling = true;
+    logger.info('🤖 Starting Telegram Bot polling loop for instant OTP delivery...');
+
+    const poll = async () => {
+      try {
+        const currentToken = this.getBotToken();
+        if (!currentToken) {
+          setTimeout(poll, 5000);
+          return;
+        }
+
+        const url = `https://api.telegram.org/bot${currentToken}/getUpdates?offset=${TelegramService.pollOffset}&timeout=15`;
+        const res = await fetch(url, {
+          signal: AbortSignal.timeout(20000),
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          if (data && data.ok && Array.isArray(data.result)) {
+            for (const update of data.result) {
+              TelegramService.pollOffset = Math.max(TelegramService.pollOffset, update.update_id + 1);
+              await TelegramService.handleTelegramUpdate(update);
+            }
+          }
+        }
+      } catch (err: any) {
+        // Ignore timeout / network retry errors
+      } finally {
+        if (TelegramService.isPolling) {
+          setTimeout(poll, 1000);
+        }
+      }
+    };
+
+    poll();
+  }
+
   /**
    * Process incoming Telegram webhook updates (messages, /start <token>, shared contact)
    */
@@ -302,11 +350,17 @@ export class TelegramService {
       if (!message) return;
 
       const chatId = String(message.chat?.id || '');
-      const username = message.from?.username || '';
+      const rawUsername = message.from?.username || '';
+      const cleanUsername = rawUsername ? rawUsername.trim().toLowerCase().replace(/^@/, '') : '';
       const text = String(message.text || '').trim();
       const contact = message.contact;
 
       if (!chatId) return;
+
+      // Always cache chatId by username if available
+      if (cleanUsername) {
+        await cacheSet(`tg_chat_username:${cleanUsername}`, chatId, 86400 * 30);
+      }
 
       // Case 1: Deep Link /start link_<userId>
       if (text.startsWith('/start link_')) {
@@ -322,15 +376,15 @@ export class TelegramService {
             await cacheSet(`tg_otp:${user.id}`, {
               otp,
               chatId,
-              username,
+              username: cleanUsername || undefined,
               phone: user.phone,
               requestedAt: new Date().toISOString(),
             }, 300);
 
-            // Also cache phone to chatId mapping
-            if (user.phone) {
-              const cleanPhone = user.phone.replace(/\D/g, '');
-              await cacheSet(`tg_chat_phone:${cleanPhone}`, chatId, 86400 * 30);
+            // Cache mapping
+            await cacheSet(`tg_chat_user:${user.id}`, chatId, 86400 * 30);
+            if (cleanUsername) {
+              await cacheSet(`tg_chat_username:${cleanUsername}`, chatId, 86400 * 30);
             }
 
             await this.sendMessage(
@@ -342,7 +396,34 @@ export class TelegramService {
         }
       }
 
-      // Case 2: Contact Shared (Phone number)
+      // Case 2: Matching by Username pending request
+      if (cleanUsername) {
+        const pendingUserId = await cacheGet<string>(`tg_username_to_user:${cleanUsername}`);
+        if (pendingUserId) {
+          const user = await prisma.user.findUnique({
+            where: { id: pendingUserId },
+            select: { id: true, email: true, name: true },
+          });
+
+          if (user) {
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            await cacheSet(`tg_otp:${user.id}`, {
+              otp,
+              chatId,
+              username: cleanUsername,
+              requestedAt: new Date().toISOString(),
+            }, 300);
+
+            await this.sendMessage(
+              chatId,
+              `🔐 <b>ROS Restaurant OS — Verification Code</b>\n\nHello <b>${user.name}</b> (@${cleanUsername})!\n\nYour 6-digit verification code is:\n\n👉 <code>${otp}</code> 👈\n\n⏱️ <i>Enter this code in your Restaurant User Profile to connect your Telegram.</i>`
+            );
+            return;
+          }
+        }
+      }
+
+      // Case 3: Contact Shared (Phone number)
       if (contact?.phone_number) {
         const cleanPhone = contact.phone_number.replace(/\D/g, '');
         await cacheSet(`tg_chat_phone:${cleanPhone}`, chatId, 86400 * 30);
@@ -362,7 +443,7 @@ export class TelegramService {
           await cacheSet(`tg_otp:${user.id}`, {
             otp,
             chatId,
-            username,
+            username: cleanUsername || undefined,
             phone: cleanPhone,
             requestedAt: new Date().toISOString(),
           }, 300);
@@ -375,13 +456,14 @@ export class TelegramService {
         }
       }
 
-      // Case 3: Default Greeting / Help
+      // Case 4: Default Greeting / Help
       if (text.startsWith('/start') || text === 'hi' || text === 'hello') {
+        const usernameTag = cleanUsername ? ` (@${cleanUsername})` : '';
         await this.sendMessage(
           chatId,
           `👋 <b>Welcome to ROS Restaurant Operating System Bot!</b>\n\n` +
-          `Your Telegram Chat ID is: <code>${chatId}</code>\n\n` +
-          `To connect your account, go to your <b>Restaurant User Profile</b>, enter your <b>Telegram Number / Chat ID</b>, and input the verification OTP.`
+          `Your Telegram ID: <code>${chatId}</code>${usernameTag}\n\n` +
+          `To connect your account, enter your <b>Username (@${cleanUsername || 'handle'})</b> or <b>Mobile Number</b> on your Restaurant Profile page, and enter the OTP code.`
         );
       }
     } catch (err: any) {

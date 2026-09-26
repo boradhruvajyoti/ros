@@ -16,6 +16,7 @@ import { errorHandler } from './middlewares/error.middleware';
 import { logger } from './lib/logger';
 import { prisma } from './lib/prisma';
 import { redis } from './lib/redis';
+import { TelegramService } from './services/telegram.service';
 
 const app = express();
 const httpServer = createServer(app);
@@ -104,6 +105,8 @@ const PORT = parseInt(process.env.PORT || process.env.API_PORT || '4000', 10);
 httpServer.listen(PORT, () => {
   logger.info(`🚀 ROS API running on http://localhost:${PORT}`);
   logger.info(`🌍 Environment: ${process.env.NODE_ENV}`);
+  // Start Telegram bot listener
+  TelegramService.startPolling();
 });
 
 // ── Graceful shutdown ──────────────────────────────────────────────────────

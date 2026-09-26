@@ -33,6 +33,8 @@ export function AppTopbar() {
   const [isEditingTelegram, setIsEditingTelegram] = useState(false);
   const [otpDeepLink, setOtpDeepLink] = useState<string | null>(null);
 
+  const [connectMode, setConnectMode] = useState<'username' | 'phone'>('username');
+
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN');
   const isPlatformSuperAdmin =
     user?.email?.toLowerCase() === 'superadmin@ros.com' ||
@@ -71,7 +73,7 @@ export function AppTopbar() {
     mutationFn: (payload: { phone?: string; chatId?: string; username?: string }) =>
       apiPost<any>('/auth/me/telegram/request-otp', payload),
     onSuccess: (data: any) => {
-      toast.info('OTP Sent! 📩', data?.message || 'Check your Telegram for the 6-digit verification code.');
+      toast.info('OTP Generated! 📩', data?.message || 'Check your Telegram for the 6-digit verification code.');
       setOtpStep('OTP');
       setTelegramOtpInput('');
       if (data?.deepLink) setOtpDeepLink(data.deepLink);
@@ -402,64 +404,121 @@ export function AppTopbar() {
                       </div>
                     </div>
                   ) : (
-                    /* ── STEP 1: ENTER TELEGRAM NUMBER & SEND OTP ── */
-                    <div className="space-y-2">
+                    /* ── STEP 1: ENTER USERNAME OR MOBILE & REQUEST OTP ── */
+                    <div className="space-y-2.5">
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Enter your Telegram registered mobile number to receive live kitchen, order, and billing updates.
+                        Connect your Telegram account to receive live kitchen tickets, order status, and bill notifications.
                       </p>
 
-                      <div className="space-y-1.5 pt-1">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                          Telegram Mobile Number
-                        </label>
-                        <div className="flex gap-1.5">
-                          <input
-                            type="tel"
-                            placeholder="e.g. +91 98765 43210"
-                            value={telegramPhoneInput}
-                            onChange={(e) => setTelegramPhoneInput(e.target.value)}
-                            className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-background border border-border focus:ring-1 focus:ring-sky-500 font-mono"
-                          />
-                          <Button
-                            size="sm"
-                            disabled={!telegramPhoneInput.trim() || requestOtpMutation.isPending}
-                            loading={requestOtpMutation.isPending}
-                            onClick={() => {
-                              requestOtpMutation.mutate({
-                                phone: telegramPhoneInput.trim(),
-                                username: telegramUsernameInput.trim() || undefined,
-                              });
-                            }}
-                            className="h-8 px-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white cursor-pointer"
-                          >
-                            <Shield className="w-3 h-3 mr-1" /> Send OTP
-                          </Button>
-                        </div>
-
-                        {telegramStatus?.botUsername && (
-                          <div className="pt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-                            <span>Bot: @{telegramStatus.botUsername}</span>
-                            <a
-                              href={`https://t.me/${telegramStatus.botUsername}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-sky-400 hover:underline font-bold inline-flex items-center gap-0.5"
-                            >
-                              Open Bot <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          </div>
-                        )}
-
-                        {isEditingTelegram && (
-                          <button
-                            type="button"
-                            onClick={() => setIsEditingTelegram(false)}
-                            className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer pt-0.5"
-                          >
-                            Cancel
-                          </button>
-                        )}
+                      {/* Mode Selector Tabs */}
+                      <div className="grid grid-cols-2 p-0.5 rounded-xl bg-background/80 border border-border/80 text-[11px] font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setConnectMode('username')}
+                          className={cn(
+                            "py-1 rounded-lg transition-all text-center cursor-pointer",
+                            connectMode === 'username'
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          By Username (@)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConnectMode('phone')}
+                          className={cn(
+                            "py-1 rounded-lg transition-all text-center cursor-pointer",
+                            connectMode === 'phone'
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          By Phone Number
+                        </button>
                       </div>
+
+                      {connectMode === 'username' ? (
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            Telegram Username (@handle)
+                          </label>
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              placeholder="e.g. @chef_alex or chef_alex"
+                              value={telegramUsernameInput}
+                              onChange={(e) => setTelegramUsernameInput(e.target.value)}
+                              className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-background border border-border focus:ring-1 focus:ring-sky-500 font-mono"
+                            />
+                            <Button
+                              size="sm"
+                              disabled={!telegramUsernameInput.trim() || requestOtpMutation.isPending}
+                              loading={requestOtpMutation.isPending}
+                              onClick={() => {
+                                requestOtpMutation.mutate({
+                                  username: telegramUsernameInput.trim(),
+                                });
+                              }}
+                              className="h-8 px-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white cursor-pointer"
+                            >
+                              <Shield className="w-3 h-3 mr-1" /> Get OTP
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            Telegram Registered Phone
+                          </label>
+                          <div className="flex gap-1.5">
+                            <input
+                              type="tel"
+                              placeholder="e.g. +91 98765 43210"
+                              value={telegramPhoneInput}
+                              onChange={(e) => setTelegramPhoneInput(e.target.value)}
+                              className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-background border border-border focus:ring-1 focus:ring-sky-500 font-mono"
+                            />
+                            <Button
+                              size="sm"
+                              disabled={!telegramPhoneInput.trim() || requestOtpMutation.isPending}
+                              loading={requestOtpMutation.isPending}
+                              onClick={() => {
+                                requestOtpMutation.mutate({
+                                  phone: telegramPhoneInput.trim(),
+                                });
+                              }}
+                              className="h-8 px-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white cursor-pointer"
+                            >
+                              <Shield className="w-3 h-3 mr-1" /> Get OTP
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {telegramStatus?.botUsername && (
+                        <div className="pt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>Bot: @{telegramStatus.botUsername}</span>
+                          <a
+                            href={`https://t.me/${telegramStatus.botUsername}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sky-400 hover:underline font-bold inline-flex items-center gap-0.5"
+                          >
+                            Open Bot <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        </div>
+                      )}
+
+                      {isEditingTelegram && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingTelegram(false)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer pt-0.5"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
