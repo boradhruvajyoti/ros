@@ -178,12 +178,22 @@ export class OrderController {
     } else if (dto.status === 'CANCELLED' || dto.status === 'VOIDED') {
       const fullOrder = await prisma.order.findUnique({
         where: { id: req.params.id },
-        include: { table: true },
+        include: {
+          table: true,
+          items: {
+            include: { menuItem: true, variant: true },
+          },
+        },
       });
+
+      const cancelledItemsList = fullOrder?.items && fullOrder.items.length > 0
+        ? fullOrder.items.map((i) => `  • <b>${i.quantity}x</b> ${i.menuItem?.name || 'Dish'}${i.variant?.name ? ` (${i.variant.name})` : ''}`).join('\n')
+        : '  • All items in order';
+
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'ORDER_CANCELLED_TABLES',
-        `❌ <b>Order Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Reason:</b> ${dto.reason || 'Cancelled on floor'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
+        `❌ <b>Order Cancelled on Tables View</b>\n\n• <b>Order #:</b> #${fullOrder?.orderNumber || order.orderNumber}\n• <b>Table:</b> ${fullOrder?.table?.name || 'Counter / Takeaway'}\n• <b>Cancelled Items:</b>\n${cancelledItemsList}\n• <b>Reason:</b> ${dto.reason || 'Cancelled on floor'}\n• <b>By:</b> ${req.user!.email || 'Staff'}`
       ).catch((e) => console.error('[Telegram Cancel Tables Trigger Error]:', e));
     }
 

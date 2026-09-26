@@ -100,7 +100,16 @@ export class KitchenController {
 
     const existingKot = await prisma.orderKot.findUnique({
       where: { id: req.params.kotId },
-      include: { items: true, order: true },
+      include: {
+        items: {
+          include: {
+            orderItem: {
+              include: { menuItem: true, variant: true },
+            },
+          },
+        },
+        order: true,
+      },
     });
 
     if (!existingKot) {
@@ -221,11 +230,16 @@ export class KitchenController {
         },
       });
 
+      // Format item breakdown for notification
+      const kotCancelledItems = existingKot.items && existingKot.items.length > 0
+        ? existingKot.items.map((i) => `  • <b>${i.orderItem?.quantity || 1}x</b> ${i.orderItem?.menuItem?.name || 'Dish'}${i.orderItem?.variant?.name ? ` (${i.orderItem.variant.name})` : ''}`).join('\n')
+        : '  • All items in KOT';
+
       // Dispatch Telegram Notification (ORDER_CANCELLED_KITCHEN)
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'ORDER_CANCELLED_KITCHEN',
-        `🚫 <b>KOT Cancelled in Kitchen Display</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Takeaway'}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Kitchen'}\n• <b>Reason:</b> ${reason || 'Cancelled by kitchen staff'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
+        `🚫 <b>KOT Cancelled in Kitchen Display</b>\n\n• <b>KOT #:</b> #${kot.kotNumber}\n• <b>Order #:</b> #${kot.order.orderNumber}\n• <b>Table:</b> ${kot.order.table?.name || 'Takeaway'}\n• <b>Cancelled Items:</b>\n${kotCancelledItems}\n• <b>Station:</b> ${kot.kitchenStation?.name || 'Kitchen'}\n• <b>Reason:</b> ${reason || 'Cancelled by kitchen staff'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
       ).catch((e) => console.error('[Telegram Cancel KOT Trigger Error]:', e));
 
       sendSuccess(res, kot);
@@ -342,9 +356,15 @@ export class KitchenController {
       where: { id: req.params.itemId },
       include: {
         kot: {
-          include: { order: true },
+          include: {
+            order: {
+              include: { table: true },
+            },
+          },
         },
-        orderItem: true,
+        orderItem: {
+          include: { menuItem: true, variant: true },
+        },
       },
     });
 
@@ -493,10 +513,12 @@ export class KitchenController {
       });
 
       // Dispatch Telegram Notification (ORDER_CANCELLED_KITCHEN)
+      const cancelledItemTitle = `${existingItem.orderItem?.quantity || 1}x ${existingItem.orderItem?.menuItem?.name || 'Item'}${existingItem.orderItem?.variant?.name ? ` (${existingItem.orderItem.variant.name})` : ''}`;
+
       TelegramService.sendNotificationToTenant(
         req.user!.tid,
         'ORDER_CANCELLED_KITCHEN',
-        `🚫 <b>Item Cancelled on Kitchen Display</b>\n\n• <b>Order #:</b> #${existingItem.kot.order.orderNumber}\n• <b>KOT #:</b> #${existingItem.kot.kotNumber}\n• <b>Reason:</b> ${reason || 'Cancelled in kitchen'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
+        `🚫 <b>Item Cancelled on Kitchen Display</b>\n\n• <b>Order #:</b> #${existingItem.kot.order.orderNumber}\n• <b>Table:</b> ${existingItem.kot.order.table?.name || 'Counter / Takeaway'}\n• <b>KOT #:</b> #${existingItem.kot.kotNumber}\n• <b>Cancelled Item:</b> <b>${cancelledItemTitle}</b>\n• <b>Reason:</b> ${reason || 'Cancelled in kitchen'}\n• <b>By:</b> ${req.user!.email || 'Chef'}`
       ).catch((e) => console.error('[Telegram Cancel KOT Item Trigger Error]:', e));
 
       sendSuccess(res, updatedKotItem);
