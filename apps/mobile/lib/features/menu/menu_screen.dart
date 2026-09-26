@@ -60,7 +60,15 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Menu',
-            onPressed: () => ref.invalidate(posMenuProvider),
+            onPressed: () {
+              ref.invalidate(posMenuProvider);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Refreshing menu catalog...'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -75,9 +83,20 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   const SizedBox(height: 12),
                   const Text('No menu items found in database',
                       style: TextStyle(color: RosTheme.textSecondary, fontSize: 16)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
+                  const Text('Dishes added to this restaurant will appear here.',
+                      style: TextStyle(color: RosTheme.textMuted, fontSize: 13)),
+                  const SizedBox(height: 18),
                   ElevatedButton.icon(
-                    onPressed: () => ref.invalidate(posMenuProvider),
+                    onPressed: () {
+                      ref.invalidate(posMenuProvider);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Refreshing menu catalog...'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Reload Catalog'),
                   ),

@@ -3,6 +3,7 @@
 // =============================================================================
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../api/api_client.dart';
@@ -227,11 +228,40 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
   final api = ref.watch(apiClientProvider);
 
   try {
+    // 1. Try optimized pos-menu endpoint
+    try {
+      final posData = await api.get<dynamic>('/menu/pos-menu');
+      if (posData is List && posData.isNotEmpty) {
+        final categories = posData
+            .where((e) => e != null && e is Map<String, dynamic>)
+            .map((e) => MenuCategory.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+        final allItems = categories.expand((c) => c.items).toList();
+        if (allItems.isNotEmpty) {
+          return [
+            MenuCategory(
+              id: 'all',
+              name: 'All Items',
+              sortOrder: -1,
+              isActive: true,
+              items: allItems,
+            ),
+            ...categories,
+          ];
+        }
+      }
+    } catch (e) {
+      debugPrint('[posMenuProvider] /menu/pos-menu fallback to /menu/categories & /menu/items: $e');
+    }
+
+    // 2. Fetch categories and items
     final categoriesData = await api.get<dynamic>('/menu/categories');
     final itemsData = await api.get<dynamic>('/menu/items');
     final catList = categoriesData is List ? categoriesData : [];
     final itemList = itemsData is List ? itemsData : [];
     final allItems = itemList
+        .where((e) => e != null && e is Map<String, dynamic>)
         .map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
         .toList();
 
@@ -253,17 +283,17 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
     // Map existing categories
     final mappedCategoryIds = <String>{};
     for (final c in catList) {
-      final catJson = Map<String, dynamic>.from(c as Map<String, dynamic>);
-      final catId = catJson['id']?.toString() ?? '';
+      if (c is! Map<String, dynamic>) continue;
+      final catId = c['id']?.toString() ?? '';
       if (catId.isNotEmpty) mappedCategoryIds.add(catId);
       final catItems = allItems.where((item) => item.categoryId == catId).toList();
       result.add(
         MenuCategory(
           id: catId,
-          name: catJson['name']?.toString() ?? '',
-          imageUrl: catJson['imageUrl']?.toString(),
-          sortOrder: (catJson['sortOrder'] as num?)?.toInt() ?? 0,
-          isActive: catJson['isActive'] as bool? ?? true,
+          name: c['name']?.toString() ?? '',
+          imageUrl: c['imageUrl']?.toString(),
+          sortOrder: (c['sortOrder'] as num?)?.toInt() ?? 0,
+          isActive: c['isActive'] == null ? true : (c['isActive'] == true || c['isActive'] == 1 || c['isActive']?.toString() == 'true'),
           items: catItems,
         ),
       );
@@ -286,8 +316,9 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
     }
 
     return result;
-  } catch (e) {
-    return [];
+  } catch (e, st) {
+    debugPrint('[posMenuProvider Error]: $e\n$st');
+    rethrow;
   }
 });
 

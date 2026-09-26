@@ -317,13 +317,14 @@ class MenuCategory {
   });
 
   factory MenuCategory.fromJson(Map<String, dynamic> json) => MenuCategory(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    imageUrl: json['imageUrl'] as String?,
-    sortOrder: json['sortOrder'] as int? ?? 0,
-    isActive: json['isActive'] as bool? ?? true,
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    imageUrl: json['imageUrl']?.toString(),
+    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
+    isActive: json['isActive'] == null ? true : (json['isActive'] == true || json['isActive'] == 1 || json['isActive']?.toString() == 'true'),
     items: (json['items'] as List<dynamic>?)
-        ?.map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
+        ?.where((e) => e != null && e is Map<String, dynamic>)
+        .map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
         .toList() ?? [],
   );
 }
@@ -364,6 +365,7 @@ class MenuItem {
     List<MenuItemVariant> variants = [];
     if (rawVariants != null && rawVariants.isNotEmpty) {
       variants = rawVariants
+          .where((e) => e != null && e is Map<String, dynamic>)
           .map((e) => MenuItemVariant.fromJson(e as Map<String, dynamic>))
           .toList();
     } else {
@@ -376,7 +378,7 @@ class MenuItem {
           id: json['id']?.toString() ?? 'v-default',
           name: 'Regular',
           price: p,
-          cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
+          cost: (json['cost'] as num?)?.toDouble() ?? double.tryParse(json['cost']?.toString() ?? '') ?? 0.0,
           isActive: true,
           sortOrder: 0,
         ),
@@ -391,12 +393,13 @@ class MenuItem {
       imageUrl: json['imageUrl']?.toString(),
       foodType: json['foodType']?.toString() ?? 'VEG',
       spiceLevel: json['spiceLevel']?.toString() ?? 'NONE',
-      isAvailable: json['isAvailable'] as bool? ?? true,
-      isActive: json['isActive'] as bool? ?? true,
-      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+      isAvailable: json['isAvailable'] == null ? true : (json['isAvailable'] == true || json['isAvailable'] == 1 || json['isAvailable']?.toString() == 'true'),
+      isActive: json['isActive'] == null ? true : (json['isActive'] == true || json['isActive'] == 1 || json['isActive']?.toString() == 'true'),
+      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
       variants: variants,
       modifierGroups: (json['modifierGroups'] as List<dynamic>?)
-          ?.map((e) => ModifierGroupLink.fromJson(e as Map<String, dynamic>))
+          ?.where((e) => e != null && e is Map<String, dynamic>)
+          .map((e) => ModifierGroupLink.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
       kitchenStationId: json['kitchenStationId']?.toString(),
     );
@@ -428,9 +431,11 @@ class MenuItemVariant {
     price: (json['price'] as num?)?.toDouble() ??
         double.tryParse(json['price']?.toString() ?? '') ??
         0.0,
-    cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
-    isActive: json['isActive'] as bool? ?? true,
-    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+    cost: (json['cost'] as num?)?.toDouble() ??
+        double.tryParse(json['cost']?.toString() ?? '') ??
+        0.0,
+    isActive: json['isActive'] == null ? true : (json['isActive'] == true || json['isActive'] == 1 || json['isActive']?.toString() == 'true'),
+    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
   );
 }
 
@@ -439,11 +444,14 @@ class ModifierGroupLink {
 
   const ModifierGroupLink({required this.modifierGroup});
 
-  factory ModifierGroupLink.fromJson(Map<String, dynamic> json) => ModifierGroupLink(
-    modifierGroup: ModifierGroup.fromJson(
-      json['modifierGroup'] as Map<String, dynamic>,
-    ),
-  );
+  factory ModifierGroupLink.fromJson(Map<String, dynamic> json) {
+    final mgJson = json['modifierGroup'] is Map<String, dynamic>
+        ? json['modifierGroup'] as Map<String, dynamic>
+        : json;
+    return ModifierGroupLink(
+      modifierGroup: ModifierGroup.fromJson(mgJson),
+    );
+  }
 }
 
 class ModifierGroup {
@@ -464,13 +472,14 @@ class ModifierGroup {
   });
 
   factory ModifierGroup.fromJson(Map<String, dynamic> json) => ModifierGroup(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    minSelections: json['minSelections'] as int? ?? 0,
-    maxSelections: json['maxSelections'] as int? ?? 1,
-    isRequired: json['isRequired'] as bool? ?? false,
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    minSelections: (json['minSelections'] as num?)?.toInt() ?? int.tryParse(json['minSelections']?.toString() ?? '') ?? 0,
+    maxSelections: (json['maxSelections'] as num?)?.toInt() ?? int.tryParse(json['maxSelections']?.toString() ?? '') ?? 1,
+    isRequired: json['isRequired'] == true || json['isRequired'] == 1 || json['isRequired']?.toString() == 'true',
     modifiers: (json['modifiers'] as List<dynamic>?)
-        ?.map((e) => Modifier.fromJson(e as Map<String, dynamic>))
+        ?.where((e) => e != null && e is Map<String, dynamic>)
+        .map((e) => Modifier.fromJson(e as Map<String, dynamic>))
         .toList() ?? [],
   );
 }
@@ -489,10 +498,10 @@ class Modifier {
   });
 
   factory Modifier.fromJson(Map<String, dynamic> json) => Modifier(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    price: (json['price'] as num?)?.toDouble() ?? 0.0,
-    sortOrder: json['sortOrder'] as int? ?? 0,
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    price: (json['price'] as num?)?.toDouble() ?? double.tryParse(json['price']?.toString() ?? '') ?? 0.0,
+    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
   );
 }
 
