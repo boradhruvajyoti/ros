@@ -16,27 +16,28 @@ import { TelegramService } from '../services/telegram.service';
 import { ReceiptImageService } from '../services/receipt-image.service';
 
 const createOrderSchema = z.object({
-  type: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).optional(),
-  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).optional(),
-  status: z.enum(['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN']).optional(),
-  tableId: z.string().optional(),
-  customerId: z.string().optional(),
-  waiterId: z.string().optional(),
-  notes: z.string().max(1000).optional(),
-  clientId: z.string().optional(),
+  type: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).nullable().optional(),
+  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).nullable().optional(),
+  status: z.enum(['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN']).nullable().optional(),
+  tableId: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
+  waiterId: z.string().nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+  clientId: z.string().nullable().optional(),
   items: z.array(z.object({
     menuItemId: z.string(),
-    variantId:  z.string().optional(),
+    variantId:  z.string().nullable().optional(),
     quantity:   z.number().int().positive().max(999),
-    unitPrice:  z.number().nonnegative().optional(),
-    notes:      z.string().max(500).optional(),
-    modifierIds: z.array(z.string()).optional(),
+    unitPrice:  z.number().nonnegative().nullable().optional(),
+    price:      z.number().nonnegative().nullable().optional(),
+    notes:      z.string().max(500).nullable().optional(),
+    modifierIds: z.array(z.string()).nullable().optional(),
   })).min(0),
-  subtotal: z.number().nonnegative().optional(),
-  taxAmount: z.number().nonnegative().optional(),
-  discountAmount: z.number().nonnegative().optional(),
-  serviceCharge: z.number().nonnegative().optional(),
-  finalAmount: z.number().nonnegative().optional(),
+  subtotal: z.number().nonnegative().nullable().optional(),
+  taxAmount: z.number().nonnegative().nullable().optional(),
+  discountAmount: z.number().nonnegative().nullable().optional(),
+  serviceCharge: z.number().nonnegative().nullable().optional(),
+  finalAmount: z.number().nonnegative().nullable().optional(),
 });
 
 const statusSchema = z.object({
@@ -130,7 +131,20 @@ export class OrderController {
     const orderPayload = {
       ...dto,
       type: (dto.type || dto.orderType || 'DINE_IN') as any,
-      status: dto.status,
+      tableId: dto.tableId || undefined,
+      customerId: dto.customerId || undefined,
+      waiterId: dto.waiterId || undefined,
+      notes: dto.notes || undefined,
+      clientId: dto.clientId || undefined,
+      status: (dto.status || 'SENT_TO_KITCHEN') as any,
+      items: dto.items.map((i) => ({
+        menuItemId: i.menuItemId,
+        variantId: i.variantId || undefined,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice !== undefined && i.unitPrice !== null ? i.unitPrice : (i.price !== undefined && i.price !== null ? i.price : undefined),
+        notes: i.notes || undefined,
+        modifierIds: i.modifierIds || undefined,
+      })),
     };
     const svc = getOrderService(req);
     const order = await svc.createOrder(orderPayload, req.user!.sub);

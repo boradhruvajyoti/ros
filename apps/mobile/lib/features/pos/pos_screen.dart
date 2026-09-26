@@ -1353,17 +1353,33 @@ class _OrderTicketDrawer extends ConsumerWidget {
 
     try {
       final api = ref.read(apiClientProvider);
-      final payload = {
+      final itemsPayload = cart.items.map((i) {
+        final itemMap = <String, dynamic>{
+          'menuItemId': i.menuItemId,
+          'quantity': i.quantity,
+          'unitPrice': i.unitPrice,
+        };
+        if (i.variantId != null &&
+            i.variantId!.isNotEmpty &&
+            !i.variantId!.startsWith('v-')) {
+          itemMap['variantId'] = i.variantId;
+        }
+        if (i.notes != null && i.notes!.isNotEmpty) {
+          itemMap['notes'] = i.notes;
+        }
+        return itemMap;
+      }).toList();
+
+      final payload = <String, dynamic>{
+        'type': cart.orderType,
         'orderType': cart.orderType,
-        'tableId': cart.tableId,
-        'items': cart.items.map((i) => {
-              'menuItemId': i.menuItemId,
-              'variantId': i.variantId,
-              'quantity': i.quantity,
-              'price': i.unitPrice,
-              'notes': i.notes,
-            }).toList(),
+        'status': 'SENT_TO_KITCHEN',
+        'items': itemsPayload,
       };
+
+      if (cart.tableId != null && cart.tableId!.isNotEmpty) {
+        payload['tableId'] = cart.tableId;
+      }
 
       await api.post('/orders', data: payload);
       ref.read(cartProvider.notifier).clearCart();
@@ -1373,6 +1389,26 @@ class _OrderTicketDrawer extends ConsumerWidget {
           const SnackBar(
             content: Text('✓ KOT dispatched to Kitchen successfully!'),
             backgroundColor: RosTheme.secondary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      String msg = 'Failed to send KOT';
+      final resData = e.response?.data;
+      if (resData is Map) {
+        if (resData['error'] is Map && resData['error']['message'] != null) {
+          msg = resData['error']['message'].toString();
+        } else if (resData['message'] != null) {
+          msg = resData['message'].toString();
+        }
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: RosTheme.danger,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -1382,6 +1418,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
           SnackBar(
             content: Text('Failed to send KOT: $e'),
             backgroundColor: RosTheme.danger,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -1606,17 +1643,35 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
     try {
       final api = ref.read(apiClientProvider);
 
-      // 1. Create order
-      final orderRes = await api.post<Map<String, dynamic>>('/orders', data: {
+      final itemsPayload = cart.items.map((i) {
+        final itemMap = <String, dynamic>{
+          'menuItemId': i.menuItemId,
+          'quantity': i.quantity,
+          'unitPrice': i.unitPrice,
+        };
+        if (i.variantId != null &&
+            i.variantId!.isNotEmpty &&
+            !i.variantId!.startsWith('v-')) {
+          itemMap['variantId'] = i.variantId;
+        }
+        if (i.notes != null && i.notes!.isNotEmpty) {
+          itemMap['notes'] = i.notes;
+        }
+        return itemMap;
+      }).toList();
+
+      final payload = <String, dynamic>{
+        'type': cart.orderType,
         'orderType': cart.orderType,
-        'tableId': cart.tableId,
-        'items': cart.items.map((i) => {
-              'menuItemId': i.menuItemId,
-              'variantId': i.variantId,
-              'quantity': i.quantity,
-              'price': i.unitPrice,
-            }).toList(),
-      });
+        'items': itemsPayload,
+      };
+
+      if (cart.tableId != null && cart.tableId!.isNotEmpty) {
+        payload['tableId'] = cart.tableId;
+      }
+
+      // 1. Create order
+      final orderRes = await api.post<Map<String, dynamic>>('/orders', data: payload);
 
       final orderId = orderRes['id'] as String? ?? '';
 
@@ -1636,6 +1691,26 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
           const SnackBar(
             content: Text('✓ Order Paid & Settled Successfully!'),
             backgroundColor: RosTheme.secondary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      String msg = 'Settlement failed';
+      final resData = e.response?.data;
+      if (resData is Map) {
+        if (resData['error'] is Map && resData['error']['message'] != null) {
+          msg = resData['error']['message'].toString();
+        } else if (resData['message'] != null) {
+          msg = resData['message'].toString();
+        }
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: RosTheme.danger,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -1645,6 +1720,7 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
           SnackBar(
             content: Text('Settlement failed: $e'),
             backgroundColor: RosTheme.danger,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
