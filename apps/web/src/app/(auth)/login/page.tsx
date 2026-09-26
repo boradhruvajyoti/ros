@@ -23,7 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStore, clearWebSessionCache } from '@/stores/auth.store';
 import { apiPost } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { connectSocket } from '@/lib/socket';
@@ -58,6 +58,8 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     try {
+      clearWebSessionCache();
+
       const payload: any = {
         email: data.email.trim(),
         password: data.password,

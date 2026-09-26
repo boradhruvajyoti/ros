@@ -33,6 +33,33 @@ interface AuthState {
   hasRole: (role: string) => boolean;
 }
 
+export function clearWebSessionCache() {
+  if (typeof window === 'undefined') return;
+  try {
+    // Clear session storage completely
+    window.sessionStorage.clear();
+
+    // Preserve UI theme preference if any, purge all other cached items
+    const theme = window.localStorage.getItem('theme') || window.localStorage.getItem('ros-theme');
+    
+    // Clear all localStorage keys except theme
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key !== 'theme' && key !== 'ros-theme') {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+
+    if (theme) {
+      window.localStorage.setItem('theme', theme);
+    }
+  } catch (e) {
+    console.warn('Failed to clear session cache:', e);
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -44,6 +71,9 @@ export const useAuthStore = create<AuthState>()(
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setAuth: (token, user) => {
+        // Clear prior session cache first
+        clearWebSessionCache();
+
         const roles = Array.isArray(user.roles)
           ? user.roles
           : user.role
@@ -70,7 +100,10 @@ export const useAuthStore = create<AuthState>()(
 
       setAccessToken: (token) => set({ accessToken: token }),
 
-      logout: () => set({ accessToken: null, user: null, isAuthenticated: false }),
+      logout: () => {
+        clearWebSessionCache();
+        set({ accessToken: null, user: null, isAuthenticated: false });
+      },
 
       hasPermission: (permission) => {
         const { user } = get();

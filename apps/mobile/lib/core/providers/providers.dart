@@ -57,8 +57,9 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient _api;
   final SecureStorageService _storage;
+  final Ref _ref;
 
-  AuthNotifier(this._api, this._storage) : super(const AuthState()) {
+  AuthNotifier(this._api, this._storage, this._ref) : super(const AuthState()) {
     _initialize();
   }
 
@@ -77,8 +78,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  void _clearSessionCache() {
+    try {
+      _ref.read(cartProvider.notifier).clearCart();
+    } catch (_) {}
+    _ref.invalidate(posMenuProvider);
+    _ref.invalidate(menuCategoriesProvider);
+    _ref.invalidate(tablesProvider);
+    _ref.invalidate(floorsProvider);
+    _ref.invalidate(activeOrdersProvider);
+    _ref.invalidate(kitchenKotsProvider);
+    _ref.invalidate(kitchenStationsProvider);
+    _ref.invalidate(staffProvider);
+    _ref.invalidate(inventoryProvider);
+    _ref.invalidate(dashboardProvider);
+    _ref.invalidate(superAdminOverviewProvider);
+    _ref.invalidate(superAdminTenantsProvider);
+    _ref.invalidate(saasPlansProvider);
+  }
+
   Future<void> login(String email, String password, {String? branchId}) async {
     state = state.copyWith(isLoading: true, error: null);
+    // Purge any stale cache and session storage before writing new credentials
+    await _storage.clearAll();
+    _clearSessionCache();
+
     try {
       final res = await _api.post<Map<String, dynamic>>('/auth/login', data: {
         'email': email,
@@ -107,6 +131,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         accessToken: token,
         isAuthenticated: true,
       );
+
+      // Invalidate all feature providers so newly authenticated user fetches fresh data
+      _clearSessionCache();
     } on DioException catch (e) {
       String msg = 'Login failed. Please check your credentials.';
       final resData = e.response?.data;
@@ -134,6 +161,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _api.post('/auth/logout');
     } catch (_) {}
     await _storage.clearAll();
+    _clearSessionCache();
     state = const AuthState();
   }
 
@@ -155,6 +183,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _storage.saveUser(userData);
         state = state.copyWith(user: AuthUser.fromJson(userData));
       }
+      _clearSessionCache();
     } catch (_) {}
   }
 
@@ -164,7 +193,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final api = ref.watch(apiClientProvider);
   final storage = ref.watch(secureStorageProvider);
-  return AuthNotifier(api, storage);
+  return AuthNotifier(api, storage, ref);
 });
 
 // ── Socket.IO ─────────────────────────────────────────────────────────────────
