@@ -101,3 +101,24 @@ export async function apiDelete<T = void>(url: string): Promise<T> {
   const res = await api.delete<ApiSuccess<T>>(url);
   return res.data.data;
 }
+
+export async function apiDownloadFile(url: string, fallbackFilename = 'download.pdf'): Promise<void> {
+  const res = await api.get(url, { responseType: 'blob' });
+  const disposition = String(res.headers['content-disposition'] || '');
+  let filename = fallbackFilename;
+  if (disposition && disposition.includes('filename=')) {
+    const match = disposition.match(/filename=["']?([^"']+)["']?/);
+    if (match?.[1]) filename = match[1];
+  }
+
+  const contentType = typeof res.headers['content-type'] === 'string' ? res.headers['content-type'] : 'application/pdf';
+  const blob = new Blob([res.data], { type: contentType });
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}

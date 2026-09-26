@@ -7,6 +7,7 @@ import { sendSuccess, AppError } from '../middlewares/error.middleware';
 import { prisma } from '../lib/prisma';
 import { cacheGet, cacheSet, cacheDel, CacheKeys } from '../lib/redis';
 import { MenuParserService } from '../services/menu-parser.service';
+import { MenuPdfService, MenuPdfData } from '../services/menu-pdf.service';
 import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 
@@ -464,5 +465,75 @@ export class MenuController {
       message: `Successfully imported ${createdCategories.length} categories with items & variants.`,
       categories: createdCategories,
     }, 201);
+  }
+
+  static async exportMenuPdf(req: Request, res: Response): Promise<void> {
+    const tenantId = req.user?.tid;
+    if (!tenantId) throw new AppError('UNAUTHORIZED', 'Tenant context required', 401);
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        branches: { where: { isActive: true }, take: 1 },
+      },
+    });
+
+    let tagline = '';
+    try {
+      const parsed = typeof tenant?.settings === 'string' ? JSON.parse(tenant.settings) : (tenant?.settings || {});
+      if (parsed?.tagline) tagline = parsed.tagline;
+    } catch {}
+
+    const categories = await prisma.menuCategory.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        items: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            variants: {
+              where: { isActive: true },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    const pdfData: MenuPdfData = {
+      tenantName: tenant?.name || 'Restaurant Menu',
+      tagline: tagline || 'Fine Dining & Hospitality',
+      branchName: tenant?.branches?.[0]?.name,
+      branchAddress: tenant?.branches?.[0]?.address || undefined,
+      branchPhone: tenant?.branches?.[0]?.phone || undefined,
+      currency: 'Rs.',
+      categories: categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        items: c.items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          description: i.description,
+          foodType: i.foodType,
+          spiceLevel: i.spiceLevel,
+          variants: i.variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            price: Number(v.price),
+          })),
+        })),
+      })),
+    };
+
+    const pdfBuffer = await MenuPdfService.generateMenuPdf(pdfData);
+
+    const cleanFilename = `${(tenant?.name || 'Restaurant').replace(/[^a-zA-Z0-9_-]/g, '_')}_Menu.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${cleanFilename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.end(pdfBuffer);
   }
 }

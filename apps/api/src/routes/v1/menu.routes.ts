@@ -41,11 +41,11 @@ router.patch('/modifier-groups/:id',  requirePermission('menu:edit'),   asyncHan
 router.delete('/modifier-groups/:id', requirePermission('menu:delete'), asyncHandler(MenuController.deleteModifierGroup));
 router.post('/modifier-groups/:id/modifiers', requirePermission('menu:edit'), asyncHandler(MenuController.addModifier));
 
-// Full menu (POS-optimized, cached)
-router.get('/pos-menu',               requirePermission('menu:view', 'orders:create', 'orders:view', 'tables:view'),   asyncHandler(MenuController.getPosMenu));
-
 // Upload OCR Parser & Batch Import (zero server image retention)
 router.post('/upload-parse',          requirePermission('menu:create'), asyncHandler(MenuController.parseUpload));
 router.post('/batch-import',          requirePermission('menu:create'), asyncHandler(MenuController.batchImport));
+
+// Export Menu in PDF (zero server file retention)
+router.get('/export-pdf',             requirePermission('menu:view', 'orders:view'),   asyncHandler(MenuController.exportMenuPdf));
 
 export default router;

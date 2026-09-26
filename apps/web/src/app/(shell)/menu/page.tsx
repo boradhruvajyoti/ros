@@ -6,13 +6,13 @@ import {
   UtensilsCrossed, Plus, Search, CheckCircle2,
   XCircle, Edit3, Trash2, Tag,
   UploadCloud, FileCheck, ShieldCheck, RefreshCw, Wand2, X, Check,
-  Layers, ChevronRight, AlertCircle, Sparkles, CheckSquare, Square
+  Layers, ChevronRight, AlertCircle, Sparkles, CheckSquare, Square, FileDown, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
+import { apiGet, apiPost, apiPatch, apiDelete, apiDownloadFile } from '@/lib/api';
 import { formatCurrency } from '@ros/utils';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -91,6 +91,21 @@ export default function MenuPage() {
     itemCount: number;
     cleanedUp: boolean;
   } | null>(null);
+
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExportMenuPdf = async () => {
+    setIsExportingPdf(true);
+    toast.info('Generating Menu PDF 📄', 'Crafting your restaurant-grade menu design. Download will start shortly...');
+    try {
+      await apiDownloadFile('/menu/export-pdf', 'Restaurant_Menu.pdf');
+      toast.success('Menu Downloaded! 🎉', 'Your menu PDF was exported successfully with zero server storage.');
+    } catch (err: any) {
+      toast.error('Export Failed', err?.response?.data?.error?.message || err?.message || 'Could not export menu PDF.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   // Queries
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery<MenuCategory[]>({
@@ -471,24 +486,37 @@ DESSERTS & DRINKS
             {items.length} dishes across {categories.length} categories &amp; subcategories · Live real-time POS catalogue
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            onClick={handleExportMenuPdf}
+            disabled={isExportingPdf || items.length === 0}
+            variant="outline"
+            className="gap-2 border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-500 shadow-sm cursor-pointer"
+          >
+            {isExportingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileDown className="w-4 h-4" />
+            )}
+            Export Menu PDF
+          </Button>
           <Button
             onClick={() => setIsScanModalOpen(true)}
             variant="outline"
-            className="gap-2 border-primary/40 bg-primary/5 hover:bg-primary/15 text-primary shadow-sm"
+            className="gap-2 border-primary/40 bg-primary/5 hover:bg-primary/15 text-primary shadow-sm cursor-pointer"
           >
             <Wand2 className="w-4 h-4" /> Scan Menu Card
           </Button>
           <Button
             onClick={() => setIsManageCategoriesOpen(true)}
             variant="outline"
-            className="gap-2"
+            className="gap-2 cursor-pointer"
           >
             <Tag className="w-4 h-4" /> Manage Categories
           </Button>
           <Button
             onClick={handleOpenAddDish}
-            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Add Dish
           </Button>
