@@ -650,7 +650,6 @@ async function main() {
       where: { id: ing.id },
       update: { currentStock: ing.currentStock },
       create: {
-        id: ing.id,
         tenantId: tenant.id,
         branchId: branch.id,
         ...ing,

@@ -9,6 +9,7 @@ import { cacheGet, cacheSet, cacheDel, CacheKeys } from '../lib/redis';
 import { MenuParserService } from '../services/menu-parser.service';
 import { MenuPdfService, MenuPdfData } from '../services/menu-pdf.service';
 import { TelegramService } from '../services/telegram.service';
+import { emitToRoom } from '../socket';
 import { z } from 'zod';
 
 const categorySchema = z.object({
@@ -80,6 +81,7 @@ export class MenuController {
       },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_CATEGORY_CREATED', payload: category });
     sendSuccess(res, category, 201);
   }
 
@@ -94,6 +96,7 @@ export class MenuController {
       },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_CATEGORY_UPDATED', payload: category });
     sendSuccess(res, category);
   }
 
@@ -108,6 +111,7 @@ export class MenuController {
       data: { isActive: false },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_CATEGORY_DELETED', payload: { id: req.params.id } });
     sendSuccess(res, { message: 'Category and subcategories deactivated' });
   }
 
@@ -158,6 +162,7 @@ export class MenuController {
       include: { variants: true },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_ITEM_CREATED', payload: item });
 
     // Dispatch Telegram Bot Notification (MENU_MODIFIED)
     TelegramService.getUserName(req.user, 'Admin').then((userName) => {
@@ -195,6 +200,7 @@ export class MenuController {
       } as any,
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_ITEM_UPDATED', payload: item });
 
     // Dispatch Telegram Bot Notification (MENU_MODIFIED)
     TelegramService.getUserName(req.user, 'Admin').then((userName) => {
@@ -215,6 +221,7 @@ export class MenuController {
       data: { isActive: false },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_ITEM_DELETED', payload: { id: req.params.id } });
 
     // Dispatch Telegram Bot Notification (MENU_MODIFIED)
     TelegramService.getUserName(req.user, 'Admin').then((userName) => {
@@ -238,6 +245,7 @@ export class MenuController {
       data: { isActive: false },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_ITEM_DELETED', payload: { ids } });
 
     TelegramService.getUserName(req.user, 'Admin').then((userName) => {
       TelegramService.sendNotificationToTenant(
@@ -258,6 +266,7 @@ export class MenuController {
       data: { isAvailable },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_AVAILABILITY_CHANGED', payload: { id: req.params.id, isAvailable } });
 
     TelegramService.getUserName(req.user, 'Admin').then((userName) => {
       TelegramService.sendNotificationToTenant(
@@ -277,17 +286,22 @@ export class MenuController {
       data: { menuItemId: req.params.id, ...dto },
     });
     await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_UPDATED', payload: { variant } });
     sendSuccess(res, variant, 201);
   }
 
   static async updateVariant(req: Request, res: Response): Promise<void> {
     const dto = z.object({ name: z.string().optional(), price: z.number().nonnegative().optional(), cost: z.number().nonnegative().optional(), isActive: z.boolean().optional() }).parse(req.body);
     const variant = await prisma.menuItemVariant.update({ where: { id: req.params.id }, data: dto });
+    await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_UPDATED', payload: { variant } });
     sendSuccess(res, variant);
   }
 
   static async deleteVariant(req: Request, res: Response): Promise<void> {
     await prisma.menuItemVariant.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await cacheDel(CacheKeys.menu(req.user!.tid, req.user!.bid));
+    emitToRoom(req.user!.tid, req.user!.bid, { type: 'MENU_UPDATED', payload: { id: req.params.id } });
     sendSuccess(res, { message: 'Variant deactivated' });
   }
 
@@ -460,6 +474,7 @@ export class MenuController {
     }
 
     await cacheDel(CacheKeys.menu(tenantId, branchId));
+    emitToRoom(tenantId, branchId, { type: 'MENU_UPDATED', payload: { count: createdCategories.length } });
 
     sendSuccess(res, {
       message: `Successfully imported ${createdCategories.length} categories with items & variants.`,

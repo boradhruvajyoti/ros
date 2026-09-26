@@ -30,6 +30,7 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
     final authState = ref.watch(authProvider);
+    ref.watch(socketProvider); // Maintain active real-time socket connection
     final user = authState.user;
     final isSuperAdmin = user?.isPlatformAdmin ?? false;
 

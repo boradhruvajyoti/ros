@@ -299,7 +299,6 @@ class _MenuPanelState extends ConsumerState<_MenuPanel> {
             child: TabBarView(
               children: categories.map((cat) {
                 final items = cat.items.where((item) {
-                  if (!item.isAvailable) return false;
                   if (_search.isEmpty) return true;
                   return item.name.toLowerCase().contains(_search);
                 }).toList();
@@ -390,88 +389,121 @@ class _MenuItemCard extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () => _addToCart(context, ref),
-      child: Container(
-        decoration: BoxDecoration(
-          color: RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: RosTheme.bgBorder),
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Food type indicator
-            Row(
-              children: [
-                Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isVeg ? RosTheme.secondary : RosTheme.danger,
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: item.isAvailable ? 1.0 : 0.5,
+        child: Container(
+          decoration: BoxDecoration(
+            color: RosTheme.bgCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: item.isAvailable ? RosTheme.bgBorder : RosTheme.danger.withOpacity(0.4),
+            ),
+          ),
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Food type indicator & 86'd badge
+              Row(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      border: Border.all(
                         color: isVeg ? RosTheme.secondary : RosTheme.danger,
-                        shape: BoxShape.circle,
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: isVeg ? RosTheme.secondary : RosTheme.danger,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const Spacer(),
-                if (!item.isAvailable)
-                  const Text('86\'d',
-                      style: TextStyle(color: RosTheme.danger, fontSize: 9)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item.name,
-              style: const TextStyle(
-                color: RosTheme.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+                  const Spacer(),
+                  if (!item.isAvailable)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: RosTheme.danger.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        '86\'d',
+                        style: TextStyle(
+                          color: RosTheme.danger,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '₹${price.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    color: RosTheme.primary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                item.name,
+                style: TextStyle(
+                  color: item.isAvailable ? RosTheme.textPrimary : RosTheme.textMuted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  decoration: item.isAvailable ? null : TextDecoration.lineThrough,
                 ),
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: RosTheme.primary,
-                    borderRadius: BorderRadius.circular(8),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '₹${price.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: item.isAvailable ? RosTheme.primary : RosTheme.textMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  child: const Icon(Icons.add_rounded,
-                      color: Colors.white, size: 16),
-                ),
-              ],
-            ),
-          ],
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: item.isAvailable ? RosTheme.primary : RosTheme.bgElevated,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      item.isAvailable ? Icons.add_rounded : Icons.block_rounded,
+                      color: item.isAvailable ? Colors.white : RosTheme.textMuted,
+                      size: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   void _addToCart(BuildContext context, WidgetRef ref) {
+    if (!item.isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${item.name} is currently out of stock (86\'d)'),
+          backgroundColor: RosTheme.danger,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     if (item.variants.isEmpty) return;
 
     if (item.variants.length == 1 && item.modifierGroups.isEmpty) {

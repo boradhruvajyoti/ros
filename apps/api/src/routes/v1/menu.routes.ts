@@ -11,7 +11,8 @@ import { asyncHandler } from '../../middlewares/error.middleware';
 const router = Router();
 router.use(auth());
 
-// Categories
+// Categories & POS Menu
+router.get('/pos-menu',               requirePermission('menu:view', 'orders:create', 'orders:view', 'tables:view'),   asyncHandler(MenuController.getPosMenu));
 router.get('/categories',             requirePermission('menu:view', 'orders:create', 'orders:view', 'tables:view'),   asyncHandler(MenuController.listCategories));
 router.post('/categories',            requirePermission('menu:create'), asyncHandler(MenuController.createCategory));
 router.patch('/categories/:id',       requirePermission('menu:edit'),   asyncHandler(MenuController.updateCategory));

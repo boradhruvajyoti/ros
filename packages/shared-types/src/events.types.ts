@@ -27,6 +27,14 @@ export type RosEvent =
   | { type: 'STOCK_LOW';            payload: { ingredientId: string; name: string; currentStock: number; threshold: number } }
   | { type: 'QR_ORDER_PENDING';      payload: { orderId: string; orderNumber: string; tableId: string; tableName: string; customerName?: string; customerPhone?: string; total: number; itemCount: number } }
   | { type: 'ORDER_UPDATED';        payload: { orderId: string; orderNumber: string; total: number; itemCount: number } }
+  | { type: 'MENU_UPDATED';         payload?: any }
+  | { type: 'MENU_AVAILABILITY_CHANGED'; payload?: { id: string; isAvailable: boolean } }
+  | { type: 'MENU_ITEM_CREATED';    payload?: any }
+  | { type: 'MENU_ITEM_UPDATED';    payload?: any }
+  | { type: 'MENU_ITEM_DELETED';    payload?: any }
+  | { type: 'MENU_CATEGORY_CREATED'; payload?: any }
+  | { type: 'MENU_CATEGORY_UPDATED'; payload?: any }
+  | { type: 'MENU_CATEGORY_DELETED'; payload?: any }
   | { type: 'NOTIFICATION';         payload: NotificationPayload };
 
 // Socket.IO room naming convention

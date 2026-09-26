@@ -183,6 +183,37 @@ final socketProvider = Provider<io.Socket?>((ref) {
 
   socket.connect();
 
+  socket.on('ros:event', (data) {
+    if (data is Map) {
+      final type = data['type']?.toString();
+      if (type == 'MENU_UPDATED' ||
+          type == 'MENU_MODIFIED' ||
+          type == 'MENU_ITEM_CREATED' ||
+          type == 'MENU_ITEM_UPDATED' ||
+          type == 'MENU_ITEM_DELETED' ||
+          type == 'MENU_AVAILABILITY_CHANGED' ||
+          type == 'MENU_CATEGORY_CREATED' ||
+          type == 'MENU_CATEGORY_UPDATED' ||
+          type == 'MENU_CATEGORY_DELETED') {
+        ref.invalidate(posMenuProvider);
+        ref.invalidate(menuCategoriesProvider);
+      } else if (type == 'TABLE_UPDATED' || type == 'TABLE_STATUS_CHANGED') {
+        ref.invalidate(tablesProvider);
+      } else if (type == 'ORDER_CREATED' ||
+          type == 'ORDER_STATUS_CHANGED' ||
+          type == 'ORDER_UPDATED' ||
+          type == 'QR_ORDER_PENDING' ||
+          type == 'PAYMENT_COMPLETED') {
+        ref.invalidate(activeOrdersProvider);
+        ref.invalidate(tablesProvider);
+        ref.invalidate(dashboardProvider);
+      } else if (type == 'KOT_CREATED' || type == 'KOT_STATUS_CHANGED' || type == 'KOT_ITEM_STATUS_CHANGED') {
+        ref.invalidate(kitchenKotsProvider);
+        ref.invalidate(activeOrdersProvider);
+      }
+    }
+  });
+
   ref.onDispose(() => socket.disconnect());
 
   return socket;
@@ -191,7 +222,10 @@ final socketProvider = Provider<io.Socket?>((ref) {
 // ── Menu Providers ────────────────────────────────────────────────────────────
 
 final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
+  // Re-fetch when user or active branch changes
+  ref.watch(authProvider);
   final api = ref.watch(apiClientProvider);
+
   try {
     final categoriesData = await api.get<dynamic>('/menu/categories');
     final itemsData = await api.get<dynamic>('/menu/items');
@@ -235,11 +269,11 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
       );
     }
 
-    // Capture any items that belong to categories not in catList
+    // Capture any items that belong to categories not in catList or unmapped
     final unmappedItems = allItems
-        .where((item) => !mappedCategoryIds.contains(item.categoryId) && item.categoryId != 'general')
+        .where((item) => !mappedCategoryIds.contains(item.categoryId))
         .toList();
-    if (unmappedItems.isNotEmpty && catList.isNotEmpty) {
+    if (unmappedItems.isNotEmpty) {
       result.add(
         MenuCategory(
           id: 'other',
