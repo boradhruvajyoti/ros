@@ -764,37 +764,79 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      '#${widget.order.orderNumber}',
-                      style: const TextStyle(
-                        color: RosTheme.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _typeColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: _typeColor.withValues(alpha: 0.5), width: 1),
-                      ),
-                      child: Text(
-                        _typeLabel,
-                        style: TextStyle(
-                          color: _typeColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        '#${widget.order.orderNumber}',
+                        style: const TextStyle(
+                          color: RosTheme.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'monospace',
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+
+                      // Bold Table Pill or Type Badge
+                      if (widget.order.table != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color:
+                                RosTheme.statusOccupied.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: RosTheme.statusOccupied
+                                  .withValues(alpha: 0.6),
+                              width: 1.3,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.table_restaurant_rounded,
+                                size: 12,
+                                color: RosTheme.statusOccupied,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'TABLE: ${widget.order.table!.name}',
+                                style: const TextStyle(
+                                  color: RosTheme.statusOccupied,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _typeColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: _typeColor.withValues(alpha: 0.5),
+                                width: 1),
+                          ),
+                          child: Text(
+                            _typeLabel,
+                            style: TextStyle(
+                              color: _typeColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 Container(
                   padding:
@@ -846,6 +888,57 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
               ],
             ),
           ),
+
+          // ── Prominent Running Table Order Banner ──
+          if (widget.order.table != null)
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
+              decoration: BoxDecoration(
+                color: RosTheme.statusOccupied.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: RosTheme.statusOccupied.withValues(alpha: 0.35),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: RosTheme.statusOccupied,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'RUNNING TABLE ORDER · TABLE ${widget.order.table!.name}',
+                        style: const TextStyle(
+                          color: RosTheme.statusOccupied,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (widget.order.table?.capacity != null)
+                    Text(
+                      '${widget.order.table!.capacity} Seats',
+                      style: const TextStyle(
+                        color: RosTheme.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
 
           // ── Status & KOT Progress Strip ──
           Padding(

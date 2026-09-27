@@ -575,27 +575,39 @@ export default function CurrentOrdersPage() {
               >
                 {/* Order Card Header */}
                 <div className="p-4 border-b border-border bg-muted/20">
-                  <div className="flex items-center justify-between">
-                    {/* Order Number & Type Badge */}
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Order Number & Table / Type Badge */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-black text-sm text-foreground">
                         #{order.orderNumber}
                       </span>
 
-                      {/* Type Badge */}
-                      {isDineIn ? (
-                        <Badge variant="outline" className="gap-1 bg-rose-500/10 text-rose-400 border-rose-500/30 text-[10px] font-black">
-                          <UtensilsCrossed className="w-2.5 h-2.5" />
-                          <span>{order.table?.name || 'Table'}</span>
+                      {/* Bold Table Badge if Table Order */}
+                      {order.table ? (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/50 shadow-xs shadow-rose-500/20">
+                          <UtensilsCrossed className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
+                          <span className="text-xs font-black uppercase tracking-wide">
+                            TABLE: {order.table.name}
+                          </span>
+                          {order.table.capacity && (
+                            <span className="text-[10px] text-rose-300/70 font-bold">
+                              ({order.table.capacity}p)
+                            </span>
+                          )}
+                        </div>
+                      ) : isDineIn ? (
+                        <Badge variant="outline" className="gap-1 bg-rose-500/10 text-rose-400 border-rose-500/30 text-xs font-black">
+                          <UtensilsCrossed className="w-3 h-3" />
+                          <span>Dine-In Table</span>
                         </Badge>
                       ) : isTakeaway ? (
-                        <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] font-black">
-                          <Package className="w-2.5 h-2.5" />
+                        <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-400 border-amber-500/30 text-xs font-black">
+                          <Package className="w-3 h-3" />
                           <span>Takeaway</span>
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="gap-1 bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] font-black">
-                          <Bike className="w-2.5 h-2.5" />
+                        <Badge variant="outline" className="gap-1 bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs font-black">
+                          <Bike className="w-3 h-3" />
                           <span>Delivery</span>
                         </Badge>
                       )}
@@ -604,7 +616,7 @@ export default function CurrentOrdersPage() {
                     {/* Elapsed Timer with Warning Alert */}
                     <div
                       className={cn(
-                        'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono',
+                        'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono shrink-0',
                         elapsedMin > 30
                           ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
                           : elapsedMin > 15
@@ -616,6 +628,21 @@ export default function CurrentOrdersPage() {
                       <span>{elapsedMin}m ago</span>
                     </div>
                   </div>
+
+                  {/* Prominent Running Order Table Banner */}
+                  {order.table && (
+                    <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/30 shadow-inner">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                        <span className="text-[11px] font-black text-rose-300 uppercase tracking-wider">
+                          RUNNING TABLE ORDER · TABLE {order.table.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-rose-400/80 font-mono">
+                        {order.table.floor?.name || order.table.shape || 'Active'}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Status & KDS Kitchen Progress Row */}
                   <div className="flex items-center justify-between mt-2.5">
