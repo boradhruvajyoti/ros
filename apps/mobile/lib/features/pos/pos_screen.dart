@@ -1554,6 +1554,8 @@ class _OrderTicketDrawer extends ConsumerWidget {
 
       await api.post('/orders', data: payload);
       ref.read(cartProvider.notifier).clearCart();
+      ref.invalidate(tablesProvider);
+      ref.invalidate(activeOrdersProvider);
       if (context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1886,6 +1888,8 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
       }
 
       ref.read(cartProvider.notifier).clearCart();
+      ref.invalidate(tablesProvider);
+      ref.invalidate(activeOrdersProvider);
       if (context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(

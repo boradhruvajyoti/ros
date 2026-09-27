@@ -55,7 +55,7 @@ class MergedOrderItem {
       final key = '${item.menuItemId}_${item.variantId ?? ''}_${baseName}_$vName';
 
       final qty = item.quantity;
-      final price = item.unitPrice;
+      final price = item.unitPrice > 0 ? item.unitPrice : (qty > 0 ? item.lineTotal / qty : 0.0);
       final lineTot = item.lineTotal > 0 ? item.lineTotal : (qty * price);
 
       final noteList = <String>[];
@@ -76,15 +76,21 @@ class MergedOrderItem {
           if (!updatedMods.contains(m)) updatedMods.add(m);
         }
 
+        final totalQty = existing.totalQuantity + qty;
+        final totalAmount = existing.totalAmount + lineTot;
+        final effectiveUnitPrice = existing.unitPrice > 0
+            ? existing.unitPrice
+            : (price > 0 ? price : (totalQty > 0 ? totalAmount / totalQty : 0.0));
+
         map[key] = MergedOrderItem(
           key: key,
           menuItemId: existing.menuItemId,
           variantId: existing.variantId,
           name: existing.name,
           variantName: existing.variantName,
-          totalQuantity: existing.totalQuantity + qty,
-          unitPrice: existing.unitPrice,
-          totalAmount: existing.totalAmount + lineTot,
+          totalQuantity: totalQty,
+          unitPrice: effectiveUnitPrice,
+          totalAmount: totalAmount,
           notes: updatedNotes,
           modifiers: updatedMods,
           itemIds: [...existing.itemIds, item.id],
@@ -589,6 +595,24 @@ class _WebMatchingTableCard extends StatelessWidget {
           DateTime.now().difference(activeOrder!.createdAt).inMinutes;
     }
 
+    // Calculate accurate card total
+    final activeItemsSum = activeOrder?.items.fold<double>(
+          0.0,
+          (sum, it) {
+            if (it.status == 'CANCELLED' || it.status == 'VOIDED') return sum;
+            final line = it.lineTotal > 0 ? it.lineTotal : (it.quantity * it.unitPrice);
+            return sum + line;
+          },
+        ) ?? 0.0;
+    final cardSubtotal = (activeOrder?.subtotal != null && activeOrder!.subtotal > 0)
+        ? activeOrder!.subtotal
+        : activeItemsSum;
+    final cardTax = activeOrder?.taxAmount ?? 0.0;
+    final cardDiscount = activeOrder?.discountAmount ?? 0.0;
+    final cardTotal = (activeOrder?.total != null && activeOrder!.total > 0)
+        ? activeOrder!.total
+        : (cardSubtotal + cardTax - cardDiscount).clamp(0.0, double.infinity);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -680,7 +704,7 @@ class _WebMatchingTableCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '₹${(activeOrder?.total ?? 0).toStringAsFixed(0)}',
+                    '₹${cardTotal.toStringAsFixed(0)}',
                     style: const TextStyle(
                       color: RosTheme.secondary,
                       fontSize: 15,
@@ -777,6 +801,24 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
     super.initState();
     _currentTable = widget.table;
     _currentOrder = widget.activeOrder;
+    _fetchFreshOrderDetails();
+  }
+
+  Future<void> _fetchFreshOrderDetails() async {
+    final orderId = _currentOrder?.id ?? _currentTable.activeOrder?.id;
+    if (orderId == null || orderId.isEmpty) return;
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.get('/orders/$orderId');
+      if (res.data != null && mounted) {
+        final orderData = res.data is Map && res.data['data'] != null ? res.data['data'] : res.data;
+        if (orderData is Map<String, dynamic>) {
+          setState(() {
+            _currentOrder = Order.fromJson(orderData);
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Color get _statusColor => switch (_currentTable.status) {
@@ -850,11 +892,26 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
     try {
       final api = ref.read(apiClientProvider);
 
+      final itemsSum = _currentOrder!.items.fold<double>(
+        0.0,
+        (sum, it) {
+          if (it.status == 'CANCELLED' || it.status == 'VOIDED') return sum;
+          return sum + (it.lineTotal > 0 ? it.lineTotal : (it.quantity * it.unitPrice));
+        },
+      );
+      final sub = itemsSum > 0 ? itemsSum : _currentOrder!.subtotal;
+      final tax = _currentOrder!.taxAmount;
+      final disc = _currentOrder!.discountAmount;
+      final calcTotal = (sub + tax - disc).clamp(0.0, double.infinity);
+      final settleAmount = (_currentOrder!.total > 0 && _currentOrder!.total >= (sub - disc))
+          ? _currentOrder!.total
+          : calcTotal;
+
       // 1. Post Payment
       await api.post('/payments', data: {
         'orderId': _currentOrder!.id,
         'method': method,
-        'amount': _currentOrder!.total,
+        'amount': settleAmount,
       });
 
       // 2. Mark order PAID
@@ -1240,6 +1297,19 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
         ? DateTime.now().difference(_currentOrder!.createdAt).inMinutes
         : 0;
 
+    final calculatedSubtotal = mergedItems.fold<double>(
+      0.0,
+      (sum, item) => sum + item.totalAmount,
+    );
+    final orderSubtotal = _currentOrder?.subtotal ?? 0.0;
+    final displaySubtotal = calculatedSubtotal > 0 ? calculatedSubtotal : orderSubtotal;
+    final taxAmount = _currentOrder?.taxAmount ?? 0.0;
+    final discountAmount = _currentOrder?.discountAmount ?? 0.0;
+    final orderTotal = _currentOrder?.total ?? 0.0;
+    final displayTotal = (orderTotal > 0 && orderTotal >= (displaySubtotal - discountAmount))
+        ? orderTotal
+        : (displaySubtotal + taxAmount - discountAmount).clamp(0.0, double.infinity);
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.90,
@@ -1601,7 +1671,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                           style: TextStyle(
                               color: RosTheme.textMuted, fontSize: 11)),
                       Text(
-                        '₹${(_currentOrder!.subtotal > 0 ? _currentOrder!.subtotal : _currentOrder!.total).toStringAsFixed(0)}',
+                        '₹${displaySubtotal.toStringAsFixed(0)}',
                         style: const TextStyle(
                           color: RosTheme.textPrimary,
                           fontSize: 11.5,
@@ -1611,7 +1681,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                       ),
                     ],
                   ),
-                  if (_currentOrder!.taxAmount > 0) ...[
+                  if (taxAmount > 0) ...[
                     const SizedBox(height: 2),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1620,7 +1690,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                             style: TextStyle(
                                 color: RosTheme.textMuted, fontSize: 11)),
                         Text(
-                          '+₹${_currentOrder!.taxAmount.toStringAsFixed(0)}',
+                          '+₹${taxAmount.toStringAsFixed(0)}',
                           style: const TextStyle(
                             color: RosTheme.textPrimary,
                             fontSize: 11.5,
@@ -1630,7 +1700,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                       ],
                     ),
                   ],
-                  if (_currentOrder!.discountAmount > 0) ...[
+                  if (discountAmount > 0) ...[
                     const SizedBox(height: 2),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1639,7 +1709,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                             style: TextStyle(
                                 color: RosTheme.secondary, fontSize: 11)),
                         Text(
-                          '-₹${_currentOrder!.discountAmount.toStringAsFixed(0)}',
+                          '-₹${discountAmount.toStringAsFixed(0)}',
                           style: const TextStyle(
                             color: RosTheme.secondary,
                             fontSize: 11.5,
@@ -1663,7 +1733,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                         ),
                       ),
                       Text(
-                        '₹${_currentOrder!.total.toStringAsFixed(0)}',
+                        '₹${displayTotal.toStringAsFixed(0)}',
                         style: const TextStyle(
                           color: RosTheme.secondary,
                           fontSize: 17,

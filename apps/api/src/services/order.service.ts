@@ -259,6 +259,23 @@ export class OrderService {
           }
         }
 
+        // Recalculate exact subtotal and totals from all active order items
+        const allActiveItems = await tx.orderItem.findMany({
+          where: {
+            orderId: existingActiveOrder.id,
+            status: { notIn: ['CANCELLED', 'VOIDED'] },
+          },
+        });
+        const recalculatedSubtotal = allActiveItems.reduce(
+          (sum, item) => addAmounts(sum, toAmount(item.lineTotal)),
+          0
+        );
+        const recalculatedTaxAmount = taxRate > 0 ? Math.round((recalculatedSubtotal * (taxRate / 100)) * 100) / 100 : 0;
+        const discountAmount = toAmount(existingActiveOrder.discountAmount || 0);
+        const recalculatedTotal = toAmount(
+          Math.max(0, addAmounts(recalculatedSubtotal, recalculatedTaxAmount) - discountAmount)
+        );
+
         // Determine if status should change (e.g. if previous was DRAFT/CONFIRMED and sent to kitchen)
         let newStatus = existingActiveOrder.status;
         if (initialStatus === 'SENT_TO_KITCHEN' && ['DRAFT', 'CONFIRMED'].includes(existingActiveOrder.status as any)) {
@@ -269,9 +286,9 @@ export class OrderService {
           where: { id: existingActiveOrder.id },
           data: {
             status: newStatus,
-            subtotal: combinedSubtotal,
-            taxAmount: combinedTaxAmount,
-            total: combinedTotal,
+            subtotal: recalculatedSubtotal,
+            taxAmount: recalculatedTaxAmount,
+            total: recalculatedTotal,
             notes: combinedNotes || null,
             customerId: existingActiveOrder.customerId || dto.customerId || undefined,
             updatedBy: createdBy,
