@@ -1214,7 +1214,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
             ],
           ),
 
-          // Table Selector / Indicator (Mandatory for sending KOT)
+          // Table Selector / Indicator (Mandatory for sending KOT only if DINE_IN)
           if (cart.orderType == 'DINE_IN') ...[
             const SizedBox(height: 10),
             Builder(
@@ -1306,6 +1306,48 @@ class _OrderTicketDrawer extends ConsumerWidget {
                   ),
                 );
               },
+            ),
+          ] else ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: cart.orderType == 'TAKEAWAY'
+                    ? RosTheme.warning.withValues(alpha: 0.12)
+                    : RosTheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: cart.orderType == 'TAKEAWAY'
+                      ? RosTheme.warning.withValues(alpha: 0.4)
+                      : RosTheme.primary.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    cart.orderType == 'TAKEAWAY'
+                        ? Icons.takeout_dining_rounded
+                        : Icons.delivery_dining_rounded,
+                    size: 16,
+                    color: cart.orderType == 'TAKEAWAY'
+                        ? RosTheme.warning
+                        : RosTheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    cart.orderType == 'TAKEAWAY'
+                        ? '📦 Takeaway / Packaging (No table assigned)'
+                        : '🛵 Delivery / Online (No table assigned)',
+                    style: TextStyle(
+                      color: cart.orderType == 'TAKEAWAY'
+                          ? RosTheme.warning
+                          : RosTheme.primary,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
 
@@ -1493,7 +1535,8 @@ class _OrderTicketDrawer extends ConsumerWidget {
     final cart = ref.read(cartProvider);
     if (cart.items.isEmpty) return;
 
-    if (cart.tableId == null || cart.tableId!.isEmpty) {
+    if (cart.orderType == 'DINE_IN' &&
+        (cart.tableId == null || cart.tableId!.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
@@ -1502,7 +1545,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Please select a table before sending KOT to Kitchen',
+                  'Please select a table before sending dine-in KOT to Kitchen',
                   style: TextStyle(
                     color: Colors.black,
                     fontWeight: FontWeight.w700,

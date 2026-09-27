@@ -2,7 +2,6 @@
 // App Router — GoRouter with auth guard
 // =============================================================================
 
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
@@ -12,6 +11,7 @@ import '../../features/tables/tables_screen.dart';
 import '../../features/tables/table_detail_screen.dart';
 import '../../features/pos/pos_screen.dart';
 import '../../features/kitchen/kitchen_screen.dart';
+import '../../features/orders/current_orders_screen.dart';
 import '../../features/orders/order_history_screen.dart';
 import '../../features/orders/order_detail_screen.dart';
 import '../../features/menu/menu_screen.dart';
@@ -76,6 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: '/current-orders',
+            builder: (context, state) => const CurrentOrdersScreen(),
           ),
           GoRoute(
             path: '/pos',

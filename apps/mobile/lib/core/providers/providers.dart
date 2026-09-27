@@ -586,7 +586,13 @@ class CartNotifier extends StateNotifier<CartState> {
     state = state.copyWith(items: updated);
   }
 
-  void setOrderType(String type) => state = state.copyWith(orderType: type);
+  void setOrderType(String type) {
+    if (type != 'DINE_IN') {
+      state = state.copyWith(orderType: type, tableId: null);
+    } else {
+      state = state.copyWith(orderType: type);
+    }
+  }
 
   void setTable(String? tableId) => state = state.copyWith(tableId: tableId);
 

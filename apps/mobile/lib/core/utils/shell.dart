@@ -16,10 +16,10 @@ class AppShell extends ConsumerWidget {
 
   static const List<_NavItem> _restaurantBottomNav = [
     _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
+    _NavItem(path: '/current-orders', label: 'Current', icon: Icons.receipt_long_rounded),
     _NavItem(path: '/pos', label: 'POS', icon: Icons.point_of_sale_rounded),
     _NavItem(path: '/kitchen', label: 'Kitchen', icon: Icons.restaurant_rounded),
     _NavItem(path: '/dashboard', label: 'Dashboard', icon: Icons.home_rounded),
-    _NavItem(path: '/menu', label: 'More', icon: Icons.menu_rounded),
   ];
 
   static const List<_NavItem> _superAdminBottomNav = [
@@ -781,6 +781,7 @@ class _SectionDivider {
 const List<Object> _restaurantNavSections = [
   _SectionDivider('OPERATIONS'),
   _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
+  _NavItem(path: '/current-orders', label: 'Current Orders', icon: Icons.receipt_long_rounded),
   _NavItem(path: '/pos', label: 'Point of Sale', icon: Icons.point_of_sale_rounded),
   _NavItem(path: '/kitchen', label: 'Kitchen Display', icon: Icons.restaurant_rounded),
   _NavItem(path: '/order-history', label: 'Order History', icon: Icons.receipt_long_rounded),
