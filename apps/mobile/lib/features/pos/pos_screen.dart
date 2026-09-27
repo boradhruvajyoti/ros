@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/api/api_client.dart';
 
 const Map<String, String> _categoryIcons = {
   'Starters & Kebabs': '🔥',
@@ -150,33 +149,46 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           : null,
                       color: activeTable.id.isNotEmpty
                           ? null
-                          : RosTheme.bgElevated,
+                          : RosTheme.warning.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: activeTable.id.isNotEmpty
                             ? Colors.transparent
-                            : RosTheme.bgBorder,
+                            : RosTheme.warning.withValues(alpha: 0.6),
+                        width: 1.2,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.table_restaurant_rounded,
-                            size: 15, color: Colors.white),
+                        Icon(
+                          Icons.table_restaurant_rounded,
+                          size: 15,
+                          color: activeTable.id.isNotEmpty
+                              ? Colors.white
+                              : RosTheme.warning,
+                        ),
                         const SizedBox(width: 5),
                         Text(
                           activeTable.id.isNotEmpty
                               ? activeTable.name
                               : 'Select Table',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: activeTable.id.isNotEmpty
+                                ? Colors.white
+                                : RosTheme.warning,
                             fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(width: 3),
-                        const Icon(Icons.arrow_drop_down_rounded,
-                            size: 16, color: Colors.white70),
+                        Icon(
+                          Icons.arrow_drop_down_rounded,
+                          size: 16,
+                          color: activeTable.id.isNotEmpty
+                              ? Colors.white70
+                              : RosTheme.warning,
+                        ),
                       ],
                     ),
                   ),
@@ -781,92 +793,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   void _showTablePickerModal(
       BuildContext context, List<RestaurantTable> tables) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Select Dining Table',
-                    style: TextStyle(
-                      color: RosTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        color: RosTheme.textMuted),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: tables.map((t) {
-                  final isSelected = t.id == _selectedTableId;
-                  return GestureDetector(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() {
-                        _selectedTableId = t.id;
-                        _selectedTableName = t.name;
-                      });
-                      ref.read(cartProvider.notifier).setTable(t.id);
-                      Navigator.pop(ctx);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        gradient: isSelected ? RosTheme.greenGradient : null,
-                        color: isSelected ? null : RosTheme.bgElevated,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? Colors.transparent
-                              : RosTheme.bgBorder,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.table_restaurant_rounded,
-                              size: 14, color: Colors.white70),
-                          const SizedBox(width: 6),
-                          Text(
-                            t.name,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : RosTheme.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
+    showPosTablePickerModal(
+      context,
+      ref,
+      tables,
+      onTableSelected: (t) {
+        setState(() {
+          _selectedTableId = t.id;
+          _selectedTableName = t.name;
+        });
       },
     );
   }
@@ -911,6 +846,117 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       builder: (ctx) => _ModifierPickerSheet(card: card),
     );
   }
+}
+
+// ── Reusable Table Picker Modal ───────────────────────────────────────────────
+
+void showPosTablePickerModal(
+  BuildContext context,
+  WidgetRef ref,
+  List<RestaurantTable> tables, {
+  void Function(RestaurantTable table)? onTableSelected,
+}) {
+  final cart = ref.read(cartProvider);
+  final currentSelectedTableId = cart.tableId;
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: RosTheme.bgCard,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Select Dining Table',
+                  style: TextStyle(
+                    color: RosTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded,
+                      color: RosTheme.textMuted),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (tables.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text(
+                    'No tables configured yet',
+                    style: TextStyle(color: RosTheme.textMuted, fontSize: 13),
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: tables.map((t) {
+                  final isSelected = t.id == currentSelectedTableId;
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(cartProvider.notifier).setTable(t.id);
+                      if (onTableSelected != null) {
+                        onTableSelected(t);
+                      }
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: isSelected ? RosTheme.greenGradient : null,
+                        color: isSelected ? null : RosTheme.bgElevated,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.transparent
+                              : RosTheme.bgBorder,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.table_restaurant_rounded,
+                              size: 14, color: Colors.white70),
+                          const SizedBox(width: 6),
+                          Text(
+                            t.name,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : RosTheme.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 // ── Exploded Food Card Data Model ─────────────────────────────────────────────
@@ -1168,6 +1214,101 @@ class _OrderTicketDrawer extends ConsumerWidget {
             ],
           ),
 
+          // Table Selector / Indicator (Mandatory for sending KOT)
+          if (cart.orderType == 'DINE_IN') ...[
+            const SizedBox(height: 10),
+            Builder(
+              builder: (ctx) {
+                final tables = ref.watch(tablesProvider).valueOrNull ?? [];
+                final hasTable =
+                    cart.tableId != null && cart.tableId!.isNotEmpty;
+                final activeTableName = hasTable
+                    ? tables
+                        .firstWhere(
+                          (t) => t.id == cart.tableId,
+                          orElse: () => RestaurantTable(
+                            id: cart.tableId!,
+                            name: 'Table',
+                            capacity: 4,
+                            shape: 'RECTANGLE',
+                            status: 'OCCUPIED',
+                            posX: 0,
+                            posY: 0,
+                          ),
+                        )
+                        .name
+                    : null;
+
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    showPosTablePickerModal(context, ref, tables);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: hasTable
+                          ? RosTheme.bgElevated
+                          : RosTheme.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: hasTable
+                            ? RosTheme.bgBorder
+                            : RosTheme.warning.withValues(alpha: 0.6),
+                        width: hasTable ? 1.0 : 1.3,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.table_restaurant_rounded,
+                              size: 16,
+                              color: hasTable
+                                  ? RosTheme.secondary
+                                  : RosTheme.warning,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              hasTable
+                                  ? 'Table: $activeTableName'
+                                  : '⚠️ No Table Selected (Required for KOT)',
+                              style: TextStyle(
+                                color: hasTable
+                                    ? RosTheme.textPrimary
+                                    : RosTheme.warning,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              hasTable ? 'Change' : 'Select Table',
+                              style: const TextStyle(
+                                color: RosTheme.secondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.arrow_forward_ios_rounded,
+                                size: 10, color: RosTheme.secondary),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+
           const Divider(color: RosTheme.bgBorder, height: 20),
 
           // Items List
@@ -1351,6 +1492,35 @@ class _OrderTicketDrawer extends ConsumerWidget {
   Future<void> _sendKOT(BuildContext context, WidgetRef ref) async {
     final cart = ref.read(cartProvider);
     if (cart.items.isEmpty) return;
+
+    if (cart.tableId == null || cart.tableId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.black, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Please select a table before sending KOT to Kitchen',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: RosTheme.warning,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      final tables = ref.read(tablesProvider).valueOrNull ?? [];
+      if (tables.isNotEmpty) {
+        showPosTablePickerModal(context, ref, tables);
+      }
+      return;
+    }
 
     try {
       final api = ref.read(apiClientProvider);
@@ -1639,6 +1809,36 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
   Future<void> _settlePayment(BuildContext context) async {
     final cart = ref.read(cartProvider);
     if (cart.items.isEmpty) return;
+
+    if (cart.orderType == 'DINE_IN' &&
+        (cart.tableId == null || cart.tableId!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.black, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Please select a table before settling dine-in order',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: RosTheme.warning,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      final tables = ref.read(tablesProvider).valueOrNull ?? [];
+      if (tables.isNotEmpty) {
+        showPosTablePickerModal(context, ref, tables);
+      }
+      return;
+    }
 
     setState(() => _isProcessing = true);
     try {
