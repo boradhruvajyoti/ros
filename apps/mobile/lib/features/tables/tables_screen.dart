@@ -7,11 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/api/api_client.dart';
 
 // ── Merged Order Item for Running Orders ──────────────────────────────────────
 
@@ -182,25 +182,10 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
     Order? activeOrder,
   ) {
     HapticFeedback.selectionClick();
-
-    if (table.status == 'OCCUPIED') {
-      if (activeOrder != null) {
-        _showActiveOrderSheet(table, activeOrder);
-      } else {
-        ref.read(cartProvider.notifier).setTable(table.id);
-        ref.read(cartProvider.notifier).setOrderType('DINE_IN');
-        context.go('/pos');
-      }
-    } else if (table.status == 'AVAILABLE') {
-      ref.read(cartProvider.notifier).setTable(table.id);
-      ref.read(cartProvider.notifier).setOrderType('DINE_IN');
-      context.go('/pos');
-    } else {
-      _showTableStatusManageSheet(table);
-    }
+    _showTableInfoSheet(table, activeOrder);
   }
 
-  void _showActiveOrderSheet(RestaurantTable table, Order order) {
+  void _showTableInfoSheet(RestaurantTable table, Order? activeOrder) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -208,27 +193,10 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => _ActiveOrderDetailsSheet(
+      builder: (ctx) => _TableInfoBottomSheet(
         table: table,
-        order: order,
+        activeOrder: activeOrder,
         onRefresh: () {
-          ref.invalidate(tablesProvider);
-          ref.invalidate(activeOrdersProvider);
-        },
-      ),
-    );
-  }
-
-  void _showTableStatusManageSheet(RestaurantTable table) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => _TableStatusManageSheet(
-        table: table,
-        onStatusChanged: () {
           ref.invalidate(tablesProvider);
           ref.invalidate(activeOrdersProvider);
         },
@@ -781,47 +749,121 @@ class _WebMatchingTableCard extends StatelessWidget {
   }
 }
 
-// ── Active Order Details Bottom Sheet (Deduplicated Merged Items) ─────────────
+// ── Unified Table Info & Active Order Bottom Sheet (Matching Web Version) ────
 
-class _ActiveOrderDetailsSheet extends ConsumerStatefulWidget {
+class _TableInfoBottomSheet extends ConsumerStatefulWidget {
   final RestaurantTable table;
-  final Order order;
+  final Order? activeOrder;
   final VoidCallback onRefresh;
 
-  const _ActiveOrderDetailsSheet({
+  const _TableInfoBottomSheet({
     required this.table,
-    required this.order,
+    this.activeOrder,
     required this.onRefresh,
   });
 
   @override
-  ConsumerState<_ActiveOrderDetailsSheet> createState() =>
-      _ActiveOrderDetailsSheetState();
+  ConsumerState<_TableInfoBottomSheet> createState() =>
+      _TableInfoBottomSheetState();
 }
 
-class _ActiveOrderDetailsSheetState
-    extends ConsumerState<_ActiveOrderDetailsSheet> {
+class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
   bool _isProcessing = false;
+  late RestaurantTable _currentTable;
+  Order? _currentOrder;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTable = widget.table;
+    _currentOrder = widget.activeOrder;
+  }
+
+  Color get _statusColor => switch (_currentTable.status) {
+        'AVAILABLE' => RosTheme.statusAvailable,
+        'OCCUPIED' => RosTheme.statusOccupied,
+        'RESERVED' => RosTheme.statusReserved,
+        'CLEANING' => RosTheme.statusCleaning,
+        'BLOCKED' => const Color(0xFF71717A),
+        _ => RosTheme.textMuted,
+      };
+
+  String get _statusLabel => switch (_currentTable.status) {
+        'AVAILABLE' => 'Available',
+        'OCCUPIED' => 'Dining / Occupied',
+        'RESERVED' => 'Reserved',
+        'CLEANING' => 'Needs Cleaning',
+        'BLOCKED' => 'Blocked',
+        _ => _currentTable.status,
+      };
+
+  Future<void> _updateTableStatus(String newStatus) async {
+    setState(() => _isProcessing = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.patch('/tables/${_currentTable.id}', data: {'status': newStatus});
+
+      setState(() {
+        _currentTable = RestaurantTable(
+          id: _currentTable.id,
+          name: _currentTable.name,
+          capacity: _currentTable.capacity,
+          shape: _currentTable.shape,
+          status: newStatus,
+          floorId: _currentTable.floorId,
+          sectionId: _currentTable.sectionId,
+          posX: _currentTable.posX,
+          posY: _currentTable.posY,
+          activeOrder: _currentTable.activeOrder,
+        );
+      });
+
+      widget.onRefresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Table ${_currentTable.name} status set to $newStatus'),
+            backgroundColor: RosTheme.secondary,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: RosTheme.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
 
   Future<void> _settlePayment(String method) async {
+    if (_currentOrder == null) return;
     setState(() => _isProcessing = true);
     try {
       final api = ref.read(apiClientProvider);
 
-      // Settle Payment
+      // 1. Post Payment
       await api.post('/payments', data: {
-        'orderId': widget.order.id,
+        'orderId': _currentOrder!.id,
         'method': method,
-        'amount': widget.order.total,
+        'amount': _currentOrder!.total,
       });
 
-      // Update Order Status to PAID
-      await api.patch('/orders/${widget.order.id}/status', data: {
+      // 2. Mark order PAID
+      await api.patch('/orders/${_currentOrder!.id}/status', data: {
         'status': 'PAID',
       });
 
-      // Update Table Status to AVAILABLE
-      await api.patch('/tables/${widget.table.id}', data: {
+      // 3. Mark table AVAILABLE
+      await api.patch('/tables/${_currentTable.id}', data: {
         'status': 'AVAILABLE',
       });
 
@@ -851,23 +893,363 @@ class _ActiveOrderDetailsSheetState
     }
   }
 
+  Future<void> _cancelItem(String itemId, String dishName) async {
+    final reasonController =
+        TextEditingController(text: 'Guest requested cancellation');
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: RosTheme.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          'Cancel "$dishName"?',
+          style: const TextStyle(
+            color: RosTheme.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: TextField(
+          controller: reasonController,
+          style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            labelText: 'Reason for cancellation',
+            labelStyle: const TextStyle(color: RosTheme.textMuted),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep Dish',
+                style: TextStyle(color: RosTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: RosTheme.danger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cancel Dish'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel == true && _currentOrder != null) {
+      try {
+        final api = ref.read(apiClientProvider);
+        await api.post('/orders/${_currentOrder!.id}/items/$itemId/cancel',
+            data: {'reason': reasonController.text.trim()});
+        widget.onRefresh();
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✓ "$dishName" cancelled from bill & KDS'),
+              backgroundColor: RosTheme.secondary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to cancel dish: $e'),
+              backgroundColor: RosTheme.danger,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _cancelEntireOrder() async {
+    if (_currentOrder == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: RosTheme.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          'Cancel Order #${_currentOrder!.orderNumber}?',
+          style: const TextStyle(
+            color: RosTheme.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: const Text(
+          'This will void the entire running order and release the dining table.',
+          style: TextStyle(color: RosTheme.textSecondary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Go Back',
+                style: TextStyle(color: RosTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: RosTheme.danger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isProcessing = true);
+      try {
+        final api = ref.read(apiClientProvider);
+        await api.patch('/orders/${_currentOrder!.id}/status',
+            data: {'status': 'CANCELLED'});
+        await api.patch('/tables/${_currentTable.id}',
+            data: {'status': 'AVAILABLE'});
+        widget.onRefresh();
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ Order cancelled & table marked available'),
+              backgroundColor: RosTheme.secondary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to cancel order: $e'),
+              backgroundColor: RosTheme.danger,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  void _showQrDialog() {
+    final qrUrl = 'https://ros.app/order/${_currentTable.id}';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: RosTheme.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Table ${_currentTable.name} QR',
+              style: const TextStyle(
+                color: RosTheme.textPrimary,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: RosTheme.textMuted),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: QrImageView(
+                data: qrUrl,
+                version: QrVersions.auto,
+                size: 190,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Scan to order from Table ${_currentTable.name}',
+              style: const TextStyle(
+                color: RosTheme.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openPaymentMethodDialog() {
+    if (_currentOrder == null) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: RosTheme.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Settle Bill & Mark Paid',
+                      style: TextStyle(
+                        color: RosTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Table ${_currentTable.name} · Total ₹${_currentOrder!.total.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: RosTheme.secondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded,
+                      color: RosTheme.textMuted),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Choose Payment Method:',
+              style: TextStyle(
+                color: RosTheme.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _settlePayment('CASH');
+                    },
+                    icon: const Icon(Icons.payments_rounded, size: 16),
+                    label: const Text('💵 Cash',
+                        style: TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w800)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RosTheme.secondary,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _settlePayment('UPI');
+                    },
+                    icon: const Icon(Icons.qr_code_rounded, size: 16),
+                    label: const Text('📱 UPI / QR',
+                        style: TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w800)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RosTheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _settlePayment('CARD');
+                    },
+                    icon: const Icon(Icons.credit_card_rounded, size: 16),
+                    label: const Text('💳 Card',
+                        style: TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w800)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RosTheme.bgElevated,
+                      foregroundColor: RosTheme.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: RosTheme.bgBorder),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewInsets = MediaQuery.of(context).viewInsets;
-    final mergedItems = MergedOrderItem.mergeItems(widget.order.items);
-    final elapsedMinutes =
-        DateTime.now().difference(widget.order.createdAt).inMinutes;
+    final isOccupied = _currentTable.status == 'OCCUPIED' && _currentOrder != null;
+
+    // Check KOT progress & can pay rules exactly matching web
+    final activeKots =
+        (_currentOrder?.kots ?? []).where((k) => k.status != 'CANCELLED').toList();
+    final totalKots = activeKots.length;
+    final servedKots = activeKots.where((k) => k.status == 'SERVED').length;
+    final allKotsServed = totalKots > 0 && servedKots == totalKots;
+    final orderStatus = _currentOrder?.status ?? 'DRAFT';
+    final canPay = ['SERVED', 'BILLED', 'PARTIALLY_PAID'].contains(orderStatus) ||
+        (totalKots > 0 && allKotsServed);
+
+    final mergedItems = _currentOrder != null
+        ? MergedOrderItem.mergeItems(_currentOrder!.items)
+        : <MergedOrderItem>[];
+    final elapsedMinutes = _currentOrder != null
+        ? DateTime.now().difference(_currentOrder!.createdAt).inMinutes
+        : 0;
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       padding: EdgeInsets.fromLTRB(18, 14, 18, viewInsets.bottom + 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Drag Handle
+          // ── Drag Handle ──
           Center(
             child: Container(
               width: 36,
@@ -880,550 +1262,713 @@ class _ActiveOrderDetailsSheetState
           ),
           const SizedBox(height: 12),
 
-          // ── Header: Table & Order Number ──
+          // ── Header: Table Badge, Floor, Capacity & Quick Actions ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: RosTheme.statusOccupied.withValues(alpha: 0.15),
+                      color: _statusColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: RosTheme.statusOccupied.withValues(alpha: 0.4),
+                        color: _statusColor.withValues(alpha: 0.5),
+                        width: 1.2,
                       ),
                     ),
                     child: Text(
-                      widget.table.name,
-                      style: const TextStyle(
-                        color: RosTheme.statusOccupied,
-                        fontSize: 14,
+                      _currentTable.name,
+                      style: TextStyle(
+                        color: _statusColor,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    '#${widget.order.orderNumber}',
-                    style: const TextStyle(
-                      color: RosTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'monospace',
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _currentOrder != null
+                            ? '#${_currentOrder!.orderNumber}'
+                            : 'Table Details',
+                        style: const TextStyle(
+                          color: RosTheme.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '${_currentTable.capacity} Seats · $_statusLabel',
+                        style: TextStyle(
+                          color: _statusColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: RosTheme.textMuted),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-
-          // Order status tag & elapsed time
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: RosTheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  widget.order.status.replaceAll('_', ' '),
-                  style: const TextStyle(
-                    color: RosTheme.primary,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.qr_code_2_rounded,
+                        color: RosTheme.textSecondary, size: 22),
+                    tooltip: 'Table QR',
+                    onPressed: _showQrDialog,
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '⏱️ Ordered $elapsedMinutes mins ago',
-                style: const TextStyle(color: RosTheme.textMuted, fontSize: 11),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          // ── Merged Billable Items List Header ──
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'DISH DESCRIPTION (CONSOLIDATED)',
-                style: TextStyle(
-                  color: RosTheme.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Text(
-                'QTY × RATE = AMOUNT',
-                style: TextStyle(
-                  color: RosTheme.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded,
+                        color: RosTheme.textMuted),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 6),
 
-          // ── Scrollable Merged Items Box ──
-          Flexible(
-            child: Container(
-              decoration: BoxDecoration(
-                color: RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: RosTheme.bgBorder),
-              ),
-              child: mergedItems.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Center(
-                        child: Text(
-                          'No active billable items in order',
-                          style: TextStyle(
-                              color: RosTheme.textMuted, fontSize: 12),
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      itemCount: mergedItems.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(color: RosTheme.bgBorder, height: 1),
-                      itemBuilder: (ctx, i) {
-                        final item = mergedItems[i];
-                        final fullTitle = item.variantName != null &&
-                                item.variantName!.isNotEmpty &&
-                                !item.variantName!
-                                    .toLowerCase()
-                                    .contains('regular')
-                            ? '${item.name} (${item.variantName})'
-                            : item.name;
+          const SizedBox(height: 10),
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Quantity Badge
-                              Container(
-                                width: 26,
-                                height: 26,
-                                decoration: BoxDecoration(
-                                  color: RosTheme.primary
-                                      .withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${item.totalQuantity}x',
-                                    style: const TextStyle(
-                                      color: RosTheme.primary,
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-
-                              // Title & Notes
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      fullTitle,
-                                      style: const TextStyle(
-                                        color: RosTheme.textPrimary,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    if (item.modifiers.isNotEmpty)
-                                      Text(
-                                        '+ ${item.modifiers.join(', ')}',
-                                        style: const TextStyle(
-                                          color: Color(0xFF818CF8),
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    if (item.notes.isNotEmpty)
-                                      Text(
-                                        'Note: ${item.notes.join(', ')}',
-                                        style: const TextStyle(
-                                          color: RosTheme.danger,
-                                          fontSize: 10.5,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-
-                              // Rates calculation
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '₹${item.totalAmount.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      color: RosTheme.textPrimary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                  Text(
-                                    '${item.totalQuantity} × ₹${item.unitPrice.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      color: RosTheme.textMuted,
-                                      fontSize: 10,
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+          // ── Status Switcher Strip ──
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildStatusChip('AVAILABLE', '🟢 Free', RosTheme.statusAvailable),
+                const SizedBox(width: 6),
+                _buildStatusChip('OCCUPIED', '🔴 Dining', RosTheme.statusOccupied),
+                const SizedBox(width: 6),
+                _buildStatusChip('RESERVED', '🔵 Reserved', RosTheme.statusReserved),
+                const SizedBox(width: 6),
+                _buildStatusChip('CLEANING', '🟡 Cleaning', RosTheme.statusCleaning),
+                const SizedBox(width: 6),
+                _buildStatusChip('BLOCKED', '⚪ Blocked', const Color(0xFF71717A)),
+              ],
             ),
           ),
 
           const SizedBox(height: 12),
 
-          // ── Financial Summary ──
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: RosTheme.bgElevated,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: RosTheme.bgBorder),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Subtotal',
-                        style: TextStyle(
-                            color: RosTheme.textMuted, fontSize: 11.5)),
-                    Text(
-                      '₹${(widget.order.subtotal > 0 ? widget.order.subtotal : widget.order.total).toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        color: RosTheme.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-                if (widget.order.taxAmount > 0) ...[
-                  const SizedBox(height: 4),
+          // ── Conditional Body: Running Order Details vs Table Operations ──
+          if (isOccupied) ...[
+            // Status & KDS progress banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: RosTheme.bgElevated,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: RosTheme.bgBorder),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Taxes & GST',
-                          style: TextStyle(
-                              color: RosTheme.textMuted, fontSize: 11.5)),
                       Text(
-                        '+₹${widget.order.taxAmount.toStringAsFixed(0)}',
+                        '#${_currentOrder!.orderNumber}',
                         style: const TextStyle(
                           color: RosTheme.textPrimary,
-                          fontSize: 12,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
                           fontFamily: 'monospace',
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: RosTheme.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _currentOrder!.status.replaceAll('_', ' '),
+                          style: const TextStyle(
+                            color: RosTheme.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ],
-                if (widget.order.discountAmount > 0) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Discount',
-                          style: TextStyle(
-                              color: RosTheme.secondary, fontSize: 11.5)),
-                      Text(
-                        '-₹${widget.order.discountAmount.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          color: RosTheme.secondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
+                  Text(
+                    totalKots > 0
+                        ? '🍳 $servedKots/$totalKots KOTs Served · ${elapsedMinutes}m'
+                        : '⏱️ Ordered ${elapsedMinutes}m ago',
+                    style: const TextStyle(
+                      color: RosTheme.textMuted,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
-                const Divider(color: RosTheme.bgBorder, height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Total Payable',
-                      style: TextStyle(
-                        color: RosTheme.textPrimary,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      '₹${widget.order.total.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        color: RosTheme.secondary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // Merged Billable Items List Box
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'DISH DESCRIPTION (CONSOLIDATED)',
+                  style: TextStyle(
+                    color: RosTheme.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  'QTY × RATE = AMOUNT',
+                  style: TextStyle(
+                    color: RosTheme.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 4),
 
-          const SizedBox(height: 14),
+            Flexible(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: RosTheme.bgElevated,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: RosTheme.bgBorder),
+                ),
+                child: mergedItems.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Center(
+                          child: Text(
+                            'No active billable items in order',
+                            style: TextStyle(
+                                color: RosTheme.textMuted, fontSize: 12),
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        itemCount: mergedItems.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: RosTheme.bgBorder, height: 1),
+                        itemBuilder: (ctx, i) {
+                          final item = mergedItems[i];
+                          final fullTitle = item.variantName != null &&
+                                  item.variantName!.isNotEmpty &&
+                                  !item.variantName!
+                                      .toLowerCase()
+                                      .contains('regular')
+                              ? '${item.name} (${item.variantName})'
+                              : item.name;
 
-          // ── Action Buttons ──
-          Row(
-            children: [
-              // Add More Items (Running Round)
-              Expanded(
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Quantity Badge
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: RosTheme.primary
+                                        .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${item.totalQuantity}x',
+                                      style: const TextStyle(
+                                        color: RosTheme.primary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+
+                                // Title, Modifiers & Notes
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        fullTitle,
+                                        style: const TextStyle(
+                                          color: RosTheme.textPrimary,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      if (item.modifiers.isNotEmpty)
+                                        Text(
+                                          '+ ${item.modifiers.join(', ')}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF818CF8),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      if (item.notes.isNotEmpty)
+                                        Text(
+                                          'Note: ${item.notes.join(', ')}',
+                                          style: const TextStyle(
+                                            color: RosTheme.danger,
+                                            fontSize: 10,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+
+                                // Line Total & Rate
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '₹${item.totalAmount.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        color: RosTheme.textPrimary,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                    Text(
+                                      '${item.totalQuantity} × ₹${item.unitPrice.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        color: RosTheme.textMuted,
+                                        fontSize: 9.5,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                // Partial Cancel Item
+                                if (item.itemIds.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  InkWell(
+                                    onTap: () => _cancelItem(
+                                        item.itemIds.first, item.name),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(3),
+                                      child: Icon(Icons.cancel_outlined,
+                                          size: 15, color: RosTheme.danger),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // Financial Summary
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: RosTheme.bgElevated,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: RosTheme.bgBorder),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Subtotal',
+                          style: TextStyle(
+                              color: RosTheme.textMuted, fontSize: 11)),
+                      Text(
+                        '₹${(_currentOrder!.subtotal > 0 ? _currentOrder!.subtotal : _currentOrder!.total).toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: RosTheme.textPrimary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_currentOrder!.taxAmount > 0) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Taxes & GST',
+                            style: TextStyle(
+                                color: RosTheme.textMuted, fontSize: 11)),
+                        Text(
+                          '+₹${_currentOrder!.taxAmount.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            color: RosTheme.textPrimary,
+                            fontSize: 11.5,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (_currentOrder!.discountAmount > 0) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Discount',
+                            style: TextStyle(
+                                color: RosTheme.secondary, fontSize: 11)),
+                        Text(
+                          '-₹${_currentOrder!.discountAmount.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            color: RosTheme.secondary,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const Divider(color: RosTheme.bgBorder, height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Payable',
+                        style: TextStyle(
+                          color: RosTheme.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '₹${_currentOrder!.total.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: RosTheme.secondary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // ── Primary Actions (Open in POS, Settle & Mark Paid, Cancel Order) ──
+            if (!canPay && totalKots > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '⚠️ Kitchen in progress: $servedKots/$totalKots KOTs Served. All KOTs must be marked as SERVED before billing.',
+                  style: const TextStyle(
+                      color: RosTheme.warning,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+
+            Row(
+              children: [
+                // Open in POS
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      ref.read(cartProvider.notifier).setTable(_currentTable.id);
+                      ref.read(cartProvider.notifier).setOrderType('DINE_IN');
+                      Navigator.pop(context);
+                      context.go('/pos');
+                    },
+                    icon: const Icon(Icons.add_shopping_cart_rounded, size: 15),
+                    label: const Text('Add Items (POS)',
+                        style: TextStyle(
+                            fontSize: 11.5, fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      side: const BorderSide(color: RosTheme.primary),
+                      foregroundColor: RosTheme.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Settle & Mark Paid
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isProcessing || !canPay
+                        ? null
+                        : _openPaymentMethodDialog,
+                    icon: _isProcessing
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.check_circle_rounded, size: 15),
+                    label: Text(
+                      _isProcessing
+                          ? 'Settling...'
+                          : (canPay ? 'Settle & Paid' : 'Locked (In Kitchen)'),
+                      style: const TextStyle(
+                          fontSize: 11.5, fontWeight: FontWeight.w800),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: canPay
+                          ? RosTheme.secondary
+                          : RosTheme.bgElevated,
+                      foregroundColor: canPay ? Colors.black : RosTheme.textMuted,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 6),
+
+            // Cancel Entire Order Button
+            SizedBox(
+              width: double.infinity,
+              height: 38,
+              child: TextButton.icon(
+                onPressed: _isProcessing ? null : _cancelEntireOrder,
+                icon: const Icon(Icons.cancel_outlined,
+                    size: 14, color: RosTheme.danger),
+                label: const Text(
+                  'Cancel Entire Order',
+                  style: TextStyle(
+                      color: RosTheme.danger,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ] else ...[
+            // ── Non-Occupied / Available / Clean / Reserved Options ──
+            const SizedBox(height: 8),
+
+            if (_currentTable.status == 'AVAILABLE') ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    ref.read(cartProvider.notifier).setTable(_currentTable.id);
+                    ref.read(cartProvider.notifier).setOrderType('DINE_IN');
+                    Navigator.pop(context);
+                    context.go('/pos');
+                  },
+                  icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                  label: const Text(
+                    'Take New Order (Dine-In)',
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RosTheme.secondary,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _updateTableStatus('RESERVED'),
+                      icon: const Icon(Icons.bookmark_outline_rounded, size: 15),
+                      label: const Text('Reserve Table',
+                          style: TextStyle(
+                              fontSize: 11.5, fontWeight: FontWeight.w700)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        foregroundColor: RosTheme.statusReserved,
+                        side: const BorderSide(color: RosTheme.statusReserved),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _updateTableStatus('CLEANING'),
+                      icon: const Icon(Icons.cleaning_services_rounded, size: 15),
+                      label: const Text('Needs Cleaning',
+                          style: TextStyle(
+                              fontSize: 11.5, fontWeight: FontWeight.w700)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        foregroundColor: RosTheme.statusCleaning,
+                        side: const BorderSide(color: RosTheme.statusCleaning),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else if (_currentTable.status == 'RESERVED') ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    _updateTableStatus('OCCUPIED');
+                    ref.read(cartProvider.notifier).setTable(_currentTable.id);
+                    ref.read(cartProvider.notifier).setOrderType('DINE_IN');
+                    Navigator.pop(context);
+                    context.go('/pos');
+                  },
+                  icon: const Icon(Icons.event_seat_rounded, size: 18),
+                  label: const Text(
+                    'Seat Guests & Take Order',
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RosTheme.statusReserved,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: () => _updateTableStatus('AVAILABLE'),
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                  label: const Text('Release Reservation (Make Free)',
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: RosTheme.statusAvailable,
+                    side: const BorderSide(color: RosTheme.statusAvailable),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ] else if (_currentTable.status == 'CLEANING') ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () => _updateTableStatus('AVAILABLE'),
+                  icon: const Icon(Icons.check_circle_rounded, size: 18),
+                  label: const Text(
+                    'Mark Clean & Ready (Available)',
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RosTheme.statusAvailable,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
                 child: OutlinedButton.icon(
                   onPressed: () {
                     HapticFeedback.mediumImpact();
-                    ref.read(cartProvider.notifier).setTable(widget.table.id);
+                    ref.read(cartProvider.notifier).setTable(_currentTable.id);
                     ref.read(cartProvider.notifier).setOrderType('DINE_IN');
                     Navigator.pop(context);
                     context.go('/pos');
                   },
                   icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
-                  label: const Text('Add Items',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  label: const Text('Take Order Directly',
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: const BorderSide(color: RosTheme.primary),
                     foregroundColor: RosTheme.primary,
+                    side: const BorderSide(color: RosTheme.primary),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-
-              // Settle & Mark Paid
-              Expanded(
+            ] else if (_currentTable.status == 'BLOCKED') ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: _isProcessing
-                      ? null
-                      : () => _settlePayment('CASH'),
-                  icon: _isProcessing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.check_circle_rounded, size: 16),
-                  label: Text(
-                    _isProcessing ? 'Settling...' : 'Settle & Paid',
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w800),
+                  onPressed: () => _updateTableStatus('AVAILABLE'),
+                  icon: const Icon(Icons.lock_open_rounded, size: 18),
+                  label: const Text(
+                    'Unblock Table (Make Available)',
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: RosTheme.secondary,
+                    backgroundColor: RosTheme.statusAvailable,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-// ── Table Status Manage Bottom Sheet (for Cleaning / Reserved / Blocked) ──────
+            const SizedBox(height: 10),
 
-class _TableStatusManageSheet extends StatefulWidget {
-  final RestaurantTable table;
-  final VoidCallback onStatusChanged;
-
-  const _TableStatusManageSheet({
-    required this.table,
-    required this.onStatusChanged,
-  });
-
-  @override
-  State<_TableStatusManageSheet> createState() =>
-      _TableStatusManageSheetState();
-}
-
-class _TableStatusManageSheetState extends State<_TableStatusManageSheet> {
-  bool _loading = false;
-
-  Future<void> _updateStatus(BuildContext context, WidgetRef ref, String status) async {
-    setState(() => _loading = true);
-    try {
-      final api = ref.read(apiClientProvider);
-      await api.patch('/tables/${widget.table.id}', data: {'status': status});
-      widget.onStatusChanged();
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Table ${widget.table.name} status updated to $status'),
-            backgroundColor: RosTheme.secondary,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update status: $e'),
-            backgroundColor: RosTheme.danger,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, _) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: RosTheme.textMuted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.table.name,
-                      style: const TextStyle(
-                        color: RosTheme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      'Current status: ${widget.table.status}',
-                      style: const TextStyle(
-                        color: RosTheme.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: RosTheme.textMuted),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            // Standee QR Code Button
             SizedBox(
               width: double.infinity,
-              height: 46,
-              child: ElevatedButton.icon(
-                onPressed: _loading
-                    ? null
-                    : () => _updateStatus(context, ref, 'AVAILABLE'),
-                icon: const Icon(Icons.check_circle_rounded),
-                label: const Text('Mark as Available & Clean'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: RosTheme.statusAvailable,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
+              height: 42,
               child: OutlinedButton.icon(
-                onPressed: _loading
-                    ? null
-                    : () => _updateStatus(context, ref, 'CLEANING'),
-                icon: const Icon(Icons.cleaning_services_rounded),
-                label: const Text('Mark as Needs Cleaning'),
+                onPressed: _showQrDialog,
+                icon: const Icon(Icons.qr_code_rounded, size: 16),
+                label: const Text('View Table QR Standee',
+                    style:
+                        TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: RosTheme.statusCleaning,
-                  side: const BorderSide(color: RosTheme.statusCleaning),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: OutlinedButton.icon(
-                onPressed: _loading
-                    ? null
-                    : () => _updateStatus(
-                        context,
-                        ref,
-                        widget.table.status == 'BLOCKED'
-                            ? 'AVAILABLE'
-                            : 'BLOCKED'),
-                icon: Icon(widget.table.status == 'BLOCKED'
-                    ? Icons.lock_open_rounded
-                    : Icons.block_rounded),
-                label: Text(widget.table.status == 'BLOCKED'
-                    ? 'Unblock Table'
-                    : 'Block Table'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: RosTheme.textMuted,
+                  foregroundColor: RosTheme.textSecondary,
                   side: const BorderSide(color: RosTheme.bgBorder),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -1431,6 +1976,37 @@ class _TableStatusManageSheetState extends State<_TableStatusManageSheet> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String statusKey, String label, Color color) {
+    final isCurrent = _currentTable.status == statusKey;
+    return GestureDetector(
+      onTap: () {
+        if (!isCurrent) {
+          HapticFeedback.selectionClick();
+          _updateTableStatus(statusKey);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isCurrent ? color.withValues(alpha: 0.22) : RosTheme.bgElevated,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isCurrent ? color : RosTheme.bgBorder,
+            width: isCurrent ? 1.4 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isCurrent ? color : RosTheme.textMuted,
+            fontSize: 11,
+            fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+          ),
         ),
       ),
     );
