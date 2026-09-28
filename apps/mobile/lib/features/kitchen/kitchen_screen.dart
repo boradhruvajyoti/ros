@@ -199,9 +199,6 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   String _activeRole = 'COOK';
   bool _roleInitialized = false;
 
-  // Sub-tabs
-  String _waiterTab = 'READY'; // 'READY' (Ready to Serve) | 'SERVED' (Served)
-
   bool _loading = true;
   bool _soundEnabled = true;
   Timer? _refreshTimer;
@@ -225,10 +222,8 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
       final access = getKdsAccess(user);
       if (access.category == KdsCategory.kitchen) {
         _activeRole = 'COOK';
-        _cookTab = 'NEW';
       } else if (access.category == KdsCategory.foh) {
         _activeRole = 'WAITER';
-        _waiterTab = 'READY';
       } else {
         _activeRole = 'COOK';
       }
@@ -239,6 +234,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _socket?.off('ros:event');
     super.dispose();
   }
 
@@ -417,7 +413,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
               controller: reasonController,
               style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'e.g. Out of stock / Customer changed mind',
+                hintText: 'e.g. Out of stock / Customer requested change',
                 hintStyle: const TextStyle(color: RosTheme.textMuted, fontSize: 12),
                 filled: true,
                 fillColor: RosTheme.bgElevated,
@@ -600,7 +596,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             ? 'WAITER'
             : _activeRole;
 
-    // 1. Cook View Lists
+    // 1. Cook View List (Active cooking KOTs)
     final cookNewKots = _kots
         .where((k) =>
             k.status != 'CANCELLED' &&
@@ -608,24 +604,11 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             k.items.any((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(i.status)))
         .toList();
 
-    final cookReadyKots = _kots
-        .where((k) =>
-            k.status != 'CANCELLED' &&
-            k.items.any((i) => i.status == 'READY'))
-        .toList();
-
-    // 2. Waiter View Lists (All active KOTs in kitchen or ready to serve)
+    // 2. Waiter View List (All active KOTs with ready or cooking items)
     final waiterReadyKots = _kots
         .where((k) =>
             k.status != 'CANCELLED' &&
             k.items.any((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY'].contains(i.status)))
-        .toList();
-
-    final waiterServedKots = _kots
-        .where((k) =>
-            k.status != 'CANCELLED' &&
-            k.items.any((i) => i.status == 'SERVED') &&
-            k.items.every((i) => i.status == 'SERVED' || i.status == 'CANCELLED'))
         .toList();
 
     return Scaffold(
@@ -660,10 +643,8 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                 ),
                 Text(
                   effectiveRole == 'COOK'
-                      ? (access.canViewWaiter
-                          ? '${cookNewKots.length} in kitchen • ${cookReadyKots.length} ready'
-                          : '${cookNewKots.length} in kitchen (Cooking)')
-                      : '${waiterReadyKots.length} ready to serve',
+                      ? '${cookNewKots.length} active in kitchen'
+                      : '${waiterReadyKots.length} tickets in queue',
                   style: const TextStyle(
                     fontSize: 10.5,
                     color: RosTheme.textMuted,
@@ -858,21 +839,18 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             ),
           ),
 
-
           // ── 2. Station Filter Chips ─────────────────────────────────────────
           if (_stations.isNotEmpty) _buildStationFilterBar(),
 
-          // ── 3. 2-Section Tabs Bar ───────────────────────────────────────────
+          // ── 3. Single-Column Header Banner ──────────────────────────────────
           _buildTwoSectionTabBar(
             access: access,
             effectiveRole: effectiveRole,
             cookNewCount: cookNewKots.length,
-            cookReadyCount: cookReadyKots.length,
             waiterReadyCount: waiterReadyKots.length,
-            waiterServedCount: waiterServedKots.length,
           ),
 
-          // ── 4. Main KOTs Cards List ─────────────────────────────────────────
+          // ── 4. Main KOTs Cards List (Single Column Horizontal Layout) ───────
           Expanded(
             child: _loading
                 ? const Center(
@@ -881,20 +859,14 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                 : effectiveRole == 'COOK'
                     ? _buildKotsList(
                         kots: cookNewKots,
-                        emptyMessage: 'No new orders cooking right now.',
+                        emptyMessage: 'No active orders cooking right now.\nNew KOTs will appear here instantly.',
                         isCookNewView: true,
                       )
-                    : (_waiterTab == 'READY'
-                        ? _buildKotsList(
-                            kots: waiterReadyKots,
-                            emptyMessage: 'Nothing ready at pass counter.',
-                            isWaiterReadyView: true,
-                          )
-                        : _buildKotsList(
-                            kots: waiterServedKots,
-                            emptyMessage: 'No served orders history.',
-                            isWaiterServedView: true,
-                          )),
+                    : _buildKotsList(
+                        kots: waiterReadyKots,
+                        emptyMessage: 'Pass Counter is clear.\nWhen dishes are ready, they will appear here.',
+                        isWaiterReadyView: true,
+                      ),
           ),
         ],
       ),
@@ -977,14 +949,12 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
     );
   }
 
-  // ── 2-Section Tabs Bar ──────────────────────────────────────────────────────
+  // ── Header Banner Bar ───────────────────────────────────────────────────────
   Widget _buildTwoSectionTabBar({
     required KdsAccessInfo access,
     required String effectiveRole,
     required int cookNewCount,
-    required int cookReadyCount,
     required int waiterReadyCount,
-    required int waiterServedCount,
   }) {
     if (effectiveRole == 'COOK') {
       return Container(
@@ -1001,36 +971,13 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
     } else {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Row(
-          children: [
-            Expanded(
-              child: _buildSectionTabButton(
-                label: '🛎️ Ready to Serve',
-                count: waiterReadyCount,
-                isSelected: _waiterTab == 'READY',
-                activeColor: RosTheme.secondary,
-                activeTextColor: Colors.white,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _waiterTab = 'READY');
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildSectionTabButton(
-                label: '✅ Served',
-                count: waiterServedCount,
-                isSelected: _waiterTab == 'SERVED',
-                activeColor: RosTheme.primary,
-                activeTextColor: Colors.white,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _waiterTab = 'SERVED');
-                },
-              ),
-            ),
-          ],
+        child: _buildSectionTabButton(
+          label: '🛎️ Ready to Serve Queue',
+          count: waiterReadyCount,
+          isSelected: true,
+          activeColor: RosTheme.secondary,
+          activeTextColor: Colors.white,
+          onTap: () {},
         ),
       );
     }
@@ -1044,74 +991,57 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
     required Color activeTextColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? activeColor : RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? activeColor : RosTheme.bgBorder,
-            width: isSelected ? 1.5 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : null,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: isSelected ? activeColor.withValues(alpha: 0.15) : RosTheme.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: activeColor.withValues(alpha: 0.5),
+          width: 1.5,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w900,
-                  color: isSelected ? activeTextColor : RosTheme.textPrimary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? activeTextColor.withValues(alpha: 0.2)
-                    : RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  color: isSelected ? activeTextColor : RosTheme.textSecondary,
+                  color: RosTheme.textPrimary,
                 ),
               ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: activeColor,
+              borderRadius: BorderRadius.circular(10),
             ),
-          ],
-        ),
+            child: Text(
+              '$count Active Tickets',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: activeTextColor,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // ── KOTs List Renderer ──────────────────────────────────────────────────────
+  // ── KOTs Single-Column List (Chronological: New appends below) ──────────────
   Widget _buildKotsList({
     required List<OrderKot> kots,
     required String emptyMessage,
     bool isCookNewView = false,
-    bool isCookReadyView = false,
     bool isWaiterReadyView = false,
-    bool isWaiterServedView = false,
   }) {
     if (kots.isEmpty) {
       return Center(
@@ -1123,7 +1053,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
               Icon(
                 isCookNewView
                     ? Icons.soup_kitchen_outlined
-                    : (isWaiterReadyView ? Icons.room_service_outlined : Icons.check_circle_outline_rounded),
+                    : Icons.room_service_outlined,
                 size: 56,
                 color: RosTheme.textMuted.withValues(alpha: 0.4),
               ),
@@ -1163,19 +1093,12 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
               onRequestCancelKot: () =>
                   _showCancelKotDialog(kot.id, kot.kotNumber),
             );
-          } else if (isCookReadyView) {
-            return _CookReadyKotCard(
-              kot: kot,
-              onUndoItem: (itemId) => _updateKotItemStatus(kot.id, itemId, 'PREPARING'),
-            );
-          } else if (isWaiterReadyView) {
+          } else {
             return _WaiterReadyKotCard(
               kot: kot,
               onServeItem: (itemId) => _updateKotItemStatus(kot.id, itemId, 'SERVED'),
               onServeAll: () => _updateKotStatus(kot.id, 'SERVED'),
             );
-          } else {
-            return _WaiterServedKotCard(kot: kot);
           }
         },
       ),
@@ -1183,7 +1106,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   }
 }
 
-// ── 1. COOK NEW ORDERS CARD (Item-Level Complete & Cancel) ───────────────────
+// ── 1. COOK / CHEF KOT CARD (Horizontal Layout in Single Column) ─────────────
 class _CookNewKotCard extends StatelessWidget {
   final OrderKot kot;
   final Function(String itemId) onCompleteItem;
@@ -1233,7 +1156,7 @@ class _CookNewKotCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header Bar with Bold Table Tag ────────────────────────────────
+          // ── Header Bar with Bold Table Tag & Timer ─────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             color: RosTheme.warning.withValues(alpha: 0.12),
@@ -1546,7 +1469,7 @@ class _CookNewKotCard extends StatelessWidget {
               ),
             ),
 
-          // ── Giant "COMPLETE ALL ITEMS" Button ─────────────────────────────
+          // ── "COMPLETE ALL ITEMS" Button ───────────────────────────────────
           if (pendingItems.isNotEmpty)
             Container(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -1577,147 +1500,7 @@ class _CookNewKotCard extends StatelessWidget {
   }
 }
 
-// ── 2. COOK READY TO SERVE CARD (Pass Counter Overview) ──────────────────────
-class _CookReadyKotCard extends StatelessWidget {
-  final OrderKot kot;
-  final Function(String itemId) onUndoItem;
-
-  const _CookReadyKotCard({
-    required this.kot,
-    required this.onUndoItem,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tableName = kot.tableName;
-    final isTakeaway = tableName == null || kot.orderType == 'TAKEAWAY' || kot.orderType == 'DELIVERY';
-    final readyItems = kot.items.where((i) => i.status == 'READY').toList();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: RosTheme.secondary.withValues(alpha: 0.5), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            color: RosTheme.secondary.withValues(alpha: 0.12),
-            child: Row(
-              children: [
-                Text(
-                  '#${kot.kotNumber}',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    fontFamily: 'monospace',
-                    color: RosTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isTakeaway ? RosTheme.primary : RosTheme.secondary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    isTakeaway ? '📦 TAKEAWAY' : 'TABLE: $tableName',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                const Text(
-                  'At Pass Counter',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: RosTheme.secondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: readyItems.map((item) {
-                final itemName = item.menuItemName ?? 'Dish';
-                final variant = item.variantName;
-                final fullTitle = variant != null && !variant.toLowerCase().contains('regular')
-                    ? '$itemName ($variant)'
-                    : itemName;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: RosTheme.secondary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: RosTheme.secondary.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: RosTheme.secondary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${item.quantity}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          fullTitle,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: RosTheme.textPrimary,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.undo_rounded, size: 18, color: RosTheme.textMuted),
-                        tooltip: 'Undo back to cooking',
-                        onPressed: () => onUndoItem(item.id),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── 3. WAITER READY TO SERVE CARD (Item-Level Serve & KOT Serve All) ─────────
+// ── 2. WAITER READY TO SERVE CARD (Horizontal Layout in Single Column) ───────
 class _WaiterReadyKotCard extends StatelessWidget {
   final OrderKot kot;
   final Function(String itemId) onServeItem;
@@ -1737,7 +1520,6 @@ class _WaiterReadyKotCard extends StatelessWidget {
     final readyItems = activeItems.where((i) => i.status == 'READY').toList();
     final cookingItems = activeItems.where((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(i.status)).toList();
     final hasReady = readyItems.isNotEmpty;
-    final isAllCompleted = cookingItems.isEmpty && readyItems.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -2004,7 +1786,7 @@ class _WaiterReadyKotCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
 
-                      // Action Button: Clickable Serve if Ready, Disabled if cooking
+                      // Action Button: Clickable Serve if Ready
                       if (isReady)
                         ElevatedButton.icon(
                           onPressed: () => onServeItem(item.id),
@@ -2054,203 +1836,33 @@ class _WaiterReadyKotCard extends StatelessWidget {
           ),
 
           // ── Whole KOT Footer Action ──────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-            child: isAllCompleted
-                ? ElevatedButton.icon(
-                    onPressed: onServeAll,
-                    icon: const Icon(Icons.room_service_rounded, size: 20),
-                    label: Text(
-                      'MARK ALL READY DISHES SERVED (${readyItems.length})',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: RosTheme.secondary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      elevation: 4,
-                      shadowColor: RosTheme.secondary.withValues(alpha: 0.4),
-                    ),
-                  )
-                : hasReady
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: RosTheme.bgElevated.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: RosTheme.bgBorder.withValues(alpha: 0.8)),
-                        ),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.lock_outline_rounded, size: 15, color: RosTheme.warning),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                'MARK ALL SERVED (${cookingItems.length} dish${cookingItems.length > 1 ? "es" : ""} still cooking)',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: RosTheme.textMuted,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        decoration: BoxDecoration(
-                          color: RosTheme.bgElevated,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: RosTheme.bgBorder),
-                        ),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.access_time_rounded, size: 15, color: RosTheme.warning),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Awaiting Kitchen (${cookingItems.length} Dishes Cooking)',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: RosTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── 4. WAITER SERVED HISTORY CARD ───────────────────────────────────────────
-class _WaiterServedKotCard extends StatelessWidget {
-  final OrderKot kot;
-
-  const _WaiterServedKotCard({required this.kot});
-
-  @override
-  Widget build(BuildContext context) {
-    final tableName = kot.tableName;
-    final isTakeaway = tableName == null || kot.orderType == 'TAKEAWAY' || kot.orderType == 'DELIVERY';
-    final servedItems = kot.items.where((i) => i.status == 'SERVED').toList();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: RosTheme.bgCard.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RosTheme.bgBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: RosTheme.bgElevated,
-            child: Row(
-              children: [
-                Text(
-                  '#${kot.kotNumber}',
+          if (readyItems.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: ElevatedButton.icon(
+                onPressed: onServeAll,
+                icon: const Icon(Icons.room_service_rounded, size: 20),
+                label: Text(
+                  'MARK ALL READY DISHES SERVED (${readyItems.length})',
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 13,
                     fontWeight: FontWeight.w900,
-                    fontFamily: 'monospace',
-                    color: RosTheme.textMuted,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: RosTheme.bgBorder),
-                  ),
-                  child: Text(
-                    isTakeaway ? 'TAKEAWAY' : 'TABLE: $tableName',
-                    style: const TextStyle(
-                      color: RosTheme.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: RosTheme.secondary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 4,
+                  shadowColor: RosTheme.secondary.withValues(alpha: 0.4),
                 ),
-                const Spacer(),
-                const Text(
-                  '✅ Served',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: RosTheme.primary,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: servedItems.map((item) {
-                final itemName = item.menuItemName ?? 'Dish';
-                final variant = item.variantName;
-                final fullTitle = variant != null && !variant.toLowerCase().contains('regular')
-                    ? '$itemName ($variant)'
-                    : itemName;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: RosTheme.bgElevated,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${item.quantity}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: RosTheme.textPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          fullTitle,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: RosTheme.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
         ],
       ),
     );
   }
 }
+
