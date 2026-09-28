@@ -57,18 +57,23 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
     return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
   }
 
-  const role = (user.role || user.roles?.[0] || '').toUpperCase();
-  const designation = (user.designation || '').toLowerCase();
-  const department = (user.department || '').toLowerCase();
+  const userRoles = [
+    ...(user.roles || []),
+    ...(user.role ? [user.role] : []),
+  ].map((r) => r.toUpperCase());
+  const designation = (user.designation || '').toLowerCase().trim();
+  const department = (user.department || '').toLowerCase().trim();
 
-  // 1. Management & Leadership
-  const isMgmtRole = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER'].includes(role);
+  // 1. Management & Leadership (full access)
+  const isMgmtRole = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'GENERAL_MANAGER'].some((m) => r.includes(m))
+  );
   const isMgmtDesignation =
     designation.includes('manager') ||
     designation.includes('supervisor') ||
     designation.includes('director') ||
     designation.includes('owner') ||
-    designation.includes('executive') ||
+    designation.includes('lead') ||
     department.includes('management') ||
     department.includes('leadership') ||
     department.includes('admin');
@@ -78,7 +83,9 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
   }
 
   // 2. Kitchen & Culinary
-  const isKitchenRole = ['COOK', 'CHEF', 'KITCHEN_STAFF', 'KITCHEN'].includes(role);
+  const isKitchenRole = userRoles.some((r) =>
+    ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY'].some((k) => r.includes(k))
+  );
   const isKitchenDesignation =
     designation.includes('chef') ||
     designation.includes('cook') ||
@@ -92,8 +99,14 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
     department.includes('kitchen') ||
     department.includes('culinary');
 
+  if (isKitchenDesignation || isKitchenRole) {
+    return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
+  }
+
   // 3. Front of House & Guest Service
-  const isFohRole = ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY_RIDER'].includes(role);
+  const isFohRole = userRoles.some((r) =>
+    ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'BARISTA', 'BARTENDER', 'FOH'].some((f) => r.includes(f))
+  );
   const isFohDesignation =
     designation.includes('waiter') ||
     designation.includes('waitress') ||
@@ -114,13 +127,19 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
     designation.includes('clean') ||
     department.includes('front') ||
     department.includes('service') ||
-    department.includes('guest');
-
-  if (isKitchenDesignation || isKitchenRole) {
-    return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
-  }
+    department.includes('guest') ||
+    department.includes('bar') ||
+    department.includes('cashier');
 
   if (isFohDesignation || isFohRole) {
+    return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
+  }
+
+  // Fallback check by department
+  if (department.includes('kitchen')) {
+    return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
+  }
+  if (department.includes('service') || department.includes('bar') || department.includes('cashier')) {
     return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
   }
 
@@ -332,13 +351,20 @@ export default function KitchenPage() {
     k.items.every((i) => i.status === 'SERVED' || i.status === 'CANCELLED')
   );
 
+  const effectiveRole: 'COOK' | 'WAITER' =
+    kdsAccess.category === 'KITCHEN'
+      ? 'COOK'
+      : kdsAccess.category === 'FOH'
+        ? 'WAITER'
+        : activeRole;
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1700px] mx-auto min-h-screen">
       {/* Top Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
-            {activeRole === 'COOK' ? (
+            {effectiveRole === 'COOK' ? (
               <ChefHat className="w-7 h-7 text-amber-500" />
             ) : (
               <Utensils className="w-7 h-7 text-emerald-500" />
@@ -369,7 +395,7 @@ export default function KitchenPage() {
                 onClick={() => setActiveRole('COOK')}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
-                  activeRole === 'COOK'
+                  effectiveRole === 'COOK'
                     ? 'bg-amber-500 text-slate-950 shadow-md'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
@@ -382,7 +408,7 @@ export default function KitchenPage() {
                 onClick={() => setActiveRole('WAITER')}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
-                  activeRole === 'WAITER'
+                  effectiveRole === 'WAITER'
                     ? 'bg-emerald-600 text-white shadow-md'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
@@ -468,7 +494,7 @@ export default function KitchenPage() {
           <ChefHat className="w-10 h-10 animate-bounce text-primary" />
           <p className="font-semibold text-sm">Loading Kitchen Queue...</p>
         </div>
-      ) : activeRole === 'COOK' ? (
+      ) : effectiveRole === 'COOK' ? (
         /* 👨‍🍳 COOK VIEW: 2 COLUMNS (NEW ORDERS + COMPLETE & READY TO SERVE) */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Column 1: 🔥 New Orders (Cooking) */}

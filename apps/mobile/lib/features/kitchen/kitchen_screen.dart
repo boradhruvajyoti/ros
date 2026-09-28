@@ -38,17 +38,21 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
     );
   }
 
-  final role = user.role.toUpperCase();
-  final designation = (user.designation ?? '').toLowerCase();
-  final department = (user.department ?? '').toLowerCase();
+  final userRoles = [
+    ...user.roles,
+    user.role,
+  ].map((r) => r.toUpperCase()).toList();
+  final designation = (user.designation ?? '').toLowerCase().trim();
+  final department = (user.department ?? '').toLowerCase().trim();
 
-  // 1. Management & Leadership
-  final isMgmtRole = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER'].contains(role);
+  // 1. Management & Leadership (full access & toggle)
+  final isMgmtRole = userRoles.any((r) =>
+      ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'GENERAL_MANAGER'].any((m) => r.contains(m)));
   final isMgmtDesignation = designation.contains('manager') ||
       designation.contains('supervisor') ||
       designation.contains('director') ||
       designation.contains('owner') ||
-      designation.contains('executive') ||
+      designation.contains('lead') ||
       department.contains('management') ||
       department.contains('leadership') ||
       department.contains('admin');
@@ -63,7 +67,8 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
   }
 
   // 2. Kitchen & Culinary
-  final isKitchenRole = ['COOK', 'CHEF', 'KITCHEN_STAFF', 'KITCHEN'].contains(role);
+  final isKitchenRole = userRoles.any((r) =>
+      ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY'].any((k) => r.contains(k)));
   final isKitchenDesignation = designation.contains('chef') ||
       designation.contains('cook') ||
       designation.contains('baker') ||
@@ -76,8 +81,18 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
       department.contains('kitchen') ||
       department.contains('culinary');
 
+  if (isKitchenDesignation || isKitchenRole) {
+    return const KdsAccessInfo(
+      category: KdsCategory.kitchen,
+      canViewCook: true,
+      canViewWaiter: false,
+      canToggle: false,
+    );
+  }
+
   // 3. Front of House & Guest Service
-  final isFohRole = ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY_RIDER'].contains(role);
+  final isFohRole = userRoles.any((r) =>
+      ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'BARISTA', 'BARTENDER', 'FOH'].any((f) => r.contains(f)));
   final isFohDesignation = designation.contains('waiter') ||
       designation.contains('waitress') ||
       designation.contains('captain') ||
@@ -97,9 +112,21 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
       designation.contains('clean') ||
       department.contains('front') ||
       department.contains('service') ||
-      department.contains('guest');
+      department.contains('guest') ||
+      department.contains('bar') ||
+      department.contains('cashier');
 
-  if (isKitchenDesignation || isKitchenRole) {
+  if (isFohDesignation || isFohRole) {
+    return const KdsAccessInfo(
+      category: KdsCategory.foh,
+      canViewCook: false,
+      canViewWaiter: true,
+      canToggle: false,
+    );
+  }
+
+  // Fallback check by department
+  if (department.contains('kitchen')) {
     return const KdsAccessInfo(
       category: KdsCategory.kitchen,
       canViewCook: true,
@@ -107,8 +134,7 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
       canToggle: false,
     );
   }
-
-  if (isFohDesignation || isFohRole) {
+  if (department.contains('service') || department.contains('bar') || department.contains('cashier')) {
     return const KdsAccessInfo(
       category: KdsCategory.foh,
       canViewCook: false,
@@ -538,6 +564,12 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
     final user = ref.watch(authProvider).user;
     final access = getKdsAccess(user);
 
+    final effectiveRole = access.category == KdsCategory.kitchen
+        ? 'COOK'
+        : access.category == KdsCategory.foh
+            ? 'WAITER'
+            : _activeRole;
+
     // 1. Cook View Lists
     final cookNewKots = _kots
         .where((k) =>
@@ -574,13 +606,13 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: (_activeRole == 'COOK' ? RosTheme.warning : RosTheme.secondary)
+                color: (effectiveRole == 'COOK' ? RosTheme.warning : RosTheme.secondary)
                     .withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                _activeRole == 'COOK' ? Icons.soup_kitchen_rounded : Icons.room_service_rounded,
-                color: _activeRole == 'COOK' ? RosTheme.warning : RosTheme.secondary,
+                effectiveRole == 'COOK' ? Icons.soup_kitchen_rounded : Icons.room_service_rounded,
+                color: effectiveRole == 'COOK' ? RosTheme.warning : RosTheme.secondary,
                 size: 20,
               ),
             ),
@@ -597,7 +629,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                   ),
                 ),
                 Text(
-                  _activeRole == 'COOK'
+                  effectiveRole == 'COOK'
                       ? (access.canViewWaiter
                           ? '${cookNewKots.length} in kitchen • ${cookReadyKots.length} ready'
                           : '${cookNewKots.length} in kitchen (Cooking)')
@@ -685,9 +717,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         decoration: BoxDecoration(
-                          color: _activeRole == 'COOK' ? RosTheme.warning : Colors.transparent,
+                          color: effectiveRole == 'COOK' ? RosTheme.warning : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: _activeRole == 'COOK'
+                          boxShadow: effectiveRole == 'COOK'
                               ? [
                                   BoxShadow(
                                     color: RosTheme.warning.withValues(alpha: 0.3),
@@ -703,7 +735,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                             Icon(
                               Icons.soup_kitchen_rounded,
                               size: 16,
-                              color: _activeRole == 'COOK' ? Colors.black : RosTheme.textMuted,
+                              color: effectiveRole == 'COOK' ? Colors.black : RosTheme.textMuted,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -711,7 +743,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: _activeRole == 'COOK' ? Colors.black : RosTheme.textMuted,
+                                color: effectiveRole == 'COOK' ? Colors.black : RosTheme.textMuted,
                               ),
                             ),
                           ],
@@ -729,9 +761,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         decoration: BoxDecoration(
-                          color: _activeRole == 'WAITER' ? RosTheme.secondary : Colors.transparent,
+                          color: effectiveRole == 'WAITER' ? RosTheme.secondary : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: _activeRole == 'WAITER'
+                          boxShadow: effectiveRole == 'WAITER'
                               ? [
                                   BoxShadow(
                                     color: RosTheme.secondary.withValues(alpha: 0.3),
@@ -747,7 +779,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                             Icon(
                               Icons.room_service_rounded,
                               size: 16,
-                              color: _activeRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
+                              color: effectiveRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -755,7 +787,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: _activeRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
+                                color: effectiveRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
                               ),
                             ),
                           ],
@@ -810,6 +842,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
           // ── 3. 2-Section Tabs Bar ───────────────────────────────────────────
           _buildTwoSectionTabBar(
             access: access,
+            effectiveRole: effectiveRole,
             cookNewCount: cookNewKots.length,
             cookReadyCount: cookReadyKots.length,
             waiterReadyCount: waiterReadyKots.length,
@@ -822,7 +855,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                 ? const Center(
                     child: CircularProgressIndicator(color: RosTheme.primary),
                   )
-                : _activeRole == 'COOK'
+                : effectiveRole == 'COOK'
                     ? (_cookTab == 'NEW'
                         ? _buildKotsList(
                             kots: cookNewKots,
@@ -930,12 +963,13 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   // ── 2-Section Tabs Bar ──────────────────────────────────────────────────────
   Widget _buildTwoSectionTabBar({
     required KdsAccessInfo access,
+    required String effectiveRole,
     required int cookNewCount,
     required int cookReadyCount,
     required int waiterReadyCount,
     required int waiterServedCount,
   }) {
-    if (_activeRole == 'COOK') {
+    if (effectiveRole == 'COOK') {
       if (!access.canViewWaiter) {
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
