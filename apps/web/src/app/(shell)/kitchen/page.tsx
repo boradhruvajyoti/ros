@@ -300,26 +300,36 @@ export default function KitchenPage() {
     return off;
   }, [queryClient, soundEnabled]);
 
+  // Chronological sorting: Oldest KOTs at the top (first), newly created / running KOTs append below
+  const sortedKots = [...kots].sort((a, b) => {
+    return (b.ageMinutes || 0) - (a.ageMinutes || 0);
+  });
+
   // Filtering KOTs based on items status for Cook & Waiter views
   // COOK NEW ORDERS: KOTs that have at least one item with status NEW, PENDING, ACCEPTED, or PREPARING
-  const cookNewKots = kots.filter((k) =>
+  const cookNewKots = sortedKots.filter((k) =>
     k.status !== 'CANCELLED' &&
     k.status !== 'SERVED' &&
     k.items.some((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(i.status))
   );
 
   // COOK READY TO SERVE: KOTs that have at least one item with status READY
-  const cookReadyKots = kots.filter((k) =>
+  const cookReadyKots = sortedKots.filter((k) =>
     k.status !== 'CANCELLED' &&
     k.items.some((i) => i.status === 'READY')
   );
 
-  // WAITER READY TO SERVE: Same as Cook Ready to Serve
-  const waiterReadyKots = cookReadyKots;
+  // WAITER READY TO SERVE: All active KOTs sent to kitchen (containing items cooking or ready)
+  const waiterReadyKots = sortedKots.filter((k) =>
+    k.status !== 'CANCELLED' &&
+    k.items.some((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(i.status))
+  );
 
-  // WAITER SERVED: KOTs where items are SERVED
-  const waiterServedKots = kots.filter((k) =>
-    k.items.some((i) => i.status === 'SERVED')
+  // WAITER SERVED: KOTs where all active items are SERVED
+  const waiterServedKots = sortedKots.filter((k) =>
+    k.status !== 'CANCELLED' &&
+    k.items.some((i) => i.status === 'SERVED') &&
+    k.items.every((i) => i.status === 'SERVED' || i.status === 'CANCELLED')
   );
 
   return (
@@ -452,203 +462,209 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      {/* ── 2-Section Tabs Bar (Role & Access Dependent) ────────────────────────── */}
-      <div className="flex items-center gap-3">
-        {activeRole === 'COOK' ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setCookTab('NEW')}
-              className={cn(
-                'flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-black text-sm sm:text-base transition-all cursor-pointer border shadow-sm',
-                cookTab === 'NEW'
-                  ? 'bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 text-slate-950 border-amber-400 shadow-amber-500/20 ring-2 ring-amber-400/30'
-                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
-              )}
-            >
-              <Flame className="w-5 h-5" />
-              <span>🔥 New Orders (Cooking)</span>
-              <span className={cn(
-                'px-2.5 py-0.5 rounded-full text-xs font-black',
-                cookTab === 'NEW' ? 'bg-slate-950/20 text-slate-950' : 'bg-muted text-muted-foreground'
-              )}>
-                {cookNewKots.length}
-              </span>
-            </button>
-
-            {kdsAccess.canViewWaiter && (
-              <button
-                type="button"
-                onClick={() => setCookTab('READY')}
-                className={cn(
-                  'flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-black text-sm sm:text-base transition-all cursor-pointer border shadow-sm',
-                  cookTab === 'READY'
-                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-emerald-400 shadow-emerald-500/20 ring-2 ring-emerald-400/30'
-                    : 'bg-card text-muted-foreground border-border hover:text-foreground'
-                )}
-              >
-                <CheckCircle2 className="w-5 h-5" />
-                <span>🛎️ Complete & Ready to Serve</span>
-                <span className={cn(
-                  'px-2.5 py-0.5 rounded-full text-xs font-black',
-                  cookTab === 'READY' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
-                )}>
-                  {cookReadyKots.length}
-                </span>
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => setWaiterTab('READY')}
-              className={cn(
-                'flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-black text-sm sm:text-base transition-all cursor-pointer border shadow-sm',
-                waiterTab === 'READY'
-                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-emerald-400 shadow-emerald-500/20 ring-2 ring-emerald-400/30'
-                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
-              )}
-            >
-              <CheckCircle2 className="w-5 h-5" />
-              <span>🛎️ Complete & Ready to Serve</span>
-              <span className={cn(
-                'px-2.5 py-0.5 rounded-full text-xs font-black',
-                waiterTab === 'READY' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
-              )}>
-                {waiterReadyKots.length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setWaiterTab('SERVED')}
-              className={cn(
-                'flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-black text-sm sm:text-base transition-all cursor-pointer border shadow-sm',
-                waiterTab === 'SERVED'
-                  ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white border-blue-400 shadow-blue-500/20 ring-2 ring-blue-400/30'
-                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
-              )}
-            >
-              <Utensils className="w-5 h-5" />
-              <span>✅ Served Orders</span>
-              <span className={cn(
-                'px-2.5 py-0.5 rounded-full text-xs font-black',
-                waiterTab === 'SERVED' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
-              )}>
-                {waiterServedKots.length}
-              </span>
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* ── Cards Grid ──────────────────────────────────────────────────────────── */}
+      {/* ── 2-Column Side-by-Side KDS Layout ──────────────────────────────────── */}
       {isLoading ? (
         <div className="py-20 flex flex-col items-center justify-center text-muted-foreground gap-3">
           <ChefHat className="w-10 h-10 animate-bounce text-primary" />
           <p className="font-semibold text-sm">Loading Kitchen Queue...</p>
         </div>
       ) : activeRole === 'COOK' ? (
-        cookTab === 'NEW' ? (
-          cookNewKots.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[300px]">
-              <Sparkles className="w-12 h-12 text-amber-500/40 mb-3" />
-              <h3 className="text-xl font-bold text-foreground">All Caught Up!</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                No active cooking items right now. New KOTs sent from tables or POS will appear here instantly.
-              </p>
+        /* 👨‍🍳 COOK VIEW: 2 COLUMNS (NEW ORDERS + COMPLETE & READY TO SERVE) */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Column 1: 🔥 New Orders (Cooking) */}
+          <div className="space-y-4 rounded-3xl bg-card/60 border border-amber-500/30 p-4 sm:p-5 shadow-sm">
+            {/* Column Header */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-sm">
+                  <Flame className="w-5 h-5 animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-black text-foreground truncate">
+                    🔥 New Orders (Cooking)
+                  </h2>
+                  <p className="text-[11px] font-semibold text-muted-foreground truncate">
+                    Active cooking queue &bull; Mark dishes complete
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-amber-500 text-slate-950 text-xs font-black shrink-0 shadow-sm">
+                {cookNewKots.length} Active
+              </span>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {cookNewKots.map((kot) => (
-                <CookKotCard
-                  key={kot.id}
-                  kot={kot}
-                  targetItemStatus="NEW_OR_COOKING"
-                  onCompleteItem={(itemId) =>
-                    updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'READY' })
-                  }
-                  onCompleteKot={() =>
-                    updateKotStatus.mutate({ kotId: kot.id, status: 'READY' })
-                  }
-                  onRequestCancelItem={(itemId, itemName) =>
-                    setCancelModalItem({ kotId: kot.id, itemId, itemName })
-                  }
-                  onRequestCancelKot={() =>
-                    setCancelModalKot({ kotId: kot.id, kotNumber: kot.kotNumber })
-                  }
-                />
-              ))}
+
+            {/* Cards List */}
+            {cookNewKots.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[220px]">
+                <Sparkles className="w-10 h-10 text-amber-500/40 mb-2" />
+                <h3 className="text-base font-bold text-foreground">All Caught Up!</h3>
+                <p className="text-xs text-muted-foreground max-w-xs mt-0.5">
+                  No active cooking items right now. New KOTs sent from tables or POS will appear here instantly.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
+                {cookNewKots.map((kot) => (
+                  <CookKotCard
+                    key={kot.id}
+                    kot={kot}
+                    targetItemStatus="NEW_OR_COOKING"
+                    onCompleteItem={(itemId) =>
+                      updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'READY' })
+                    }
+                    onCompleteKot={() =>
+                      updateKotStatus.mutate({ kotId: kot.id, status: 'READY' })
+                    }
+                    onRequestCancelItem={(itemId, itemName) =>
+                      setCancelModalItem({ kotId: kot.id, itemId, itemName })
+                    }
+                    onRequestCancelKot={() =>
+                      setCancelModalKot({ kotId: kot.id, kotNumber: kot.kotNumber })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Column 2: 🛎️ Complete & Ready to Serve (Pass Counter) */}
+          <div className="space-y-4 rounded-3xl bg-card/60 border border-emerald-500/30 p-4 sm:p-5 shadow-sm">
+            {/* Column Header */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-transparent border border-emerald-500/40">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-black text-foreground truncate">
+                    🛎️ Complete &amp; Ready to Serve
+                  </h2>
+                  <p className="text-[11px] font-semibold text-muted-foreground truncate">
+                    At pass counter &bull; Ready for waiter pickup
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-black shrink-0 shadow-sm">
+                {cookReadyKots.length} Ready
+              </span>
             </div>
-          )
-        ) : (
-          cookReadyKots.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[300px]">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500/40 mb-3" />
-              <h3 className="text-xl font-bold text-foreground">Pass Counter is Clear</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                Dishes marked Complete will sit here until picked up and served by waiters.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {cookReadyKots.map((kot) => (
-                <CookReadyKotCard
-                  key={kot.id}
-                  kot={kot}
-                  onUndoItem={(itemId) =>
-                    updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'PREPARING' })
-                  }
-                />
-              ))}
-            </div>
-          )
-        )
+
+            {/* Cards List */}
+            {cookReadyKots.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[220px]">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500/40 mb-2" />
+                <h3 className="text-base font-bold text-foreground">Pass Counter is Clear</h3>
+                <p className="text-xs text-muted-foreground max-w-xs mt-0.5">
+                  Dishes marked Complete by chefs will sit here until picked up and served by waiters.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
+                {cookReadyKots.map((kot) => (
+                  <CookReadyKotCard
+                    key={kot.id}
+                    kot={kot}
+                    onUndoItem={(itemId) =>
+                      updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'PREPARING' })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
-        /* WAITER / RUNNER VIEW */
-        waiterTab === 'READY' ? (
-          waiterReadyKots.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[300px]">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500/40 mb-3" />
-              <h3 className="text-xl font-bold text-foreground">Nothing Ready at Pass Counter</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                When chefs mark dishes Complete, they appear here immediately for runners to serve to tables.
-              </p>
+        /* 🍽️ WAITER VIEW: 2 COLUMNS (READY TO SERVE + SERVED HISTORY) */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Column 1: 🛎️ Ready to Serve (All Active KOTs) */}
+          <div className="space-y-4 rounded-3xl bg-card/60 border border-emerald-500/30 p-4 sm:p-5 shadow-sm">
+            {/* Column Header */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-transparent border border-emerald-500/40">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Utensils className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-black text-foreground truncate">
+                    🛎️ Ready to Serve (Active KOTs)
+                  </h2>
+                  <p className="text-[11px] font-semibold text-muted-foreground truncate">
+                    Live table queue &bull; Tap &apos;Serve&apos; when dishes arrive at table
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-black shrink-0 shadow-sm">
+                {waiterReadyKots.length} Active
+              </span>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {waiterReadyKots.map((kot) => (
-                <WaiterReadyKotCard
-                  key={kot.id}
-                  kot={kot}
-                  onServeItem={(itemId) =>
-                    updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'SERVED' })
-                  }
-                  onServeKot={() =>
-                    updateKotStatus.mutate({ kotId: kot.id, status: 'SERVED' })
-                  }
-                />
-              ))}
+
+            {/* Cards List */}
+            {waiterReadyKots.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[220px]">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500/40 mb-2" />
+                <h3 className="text-base font-bold text-foreground">No Active Orders</h3>
+                <p className="text-xs text-muted-foreground max-w-xs mt-0.5">
+                  When new orders are sent to kitchen, they appear here live. Ready items become clickable for runners.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
+                {waiterReadyKots.map((kot) => (
+                  <WaiterReadyKotCard
+                    key={kot.id}
+                    kot={kot}
+                    onServeItem={(itemId) =>
+                      updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'SERVED' })
+                    }
+                    onServeKot={() =>
+                      updateKotStatus.mutate({ kotId: kot.id, status: 'SERVED' })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Column 2: ✅ Served Orders History */}
+          <div className="space-y-4 rounded-3xl bg-card/60 border border-blue-500/30 p-4 sm:p-5 shadow-sm">
+            {/* Column Header */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/20 via-indigo-500/15 to-transparent border border-blue-500/40">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Check className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-black text-foreground truncate">
+                    ✅ Served Orders History
+                  </h2>
+                  <p className="text-[11px] font-semibold text-muted-foreground truncate">
+                    Completed round deliveries &bull; Ready for customer billing
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-blue-600 text-white text-xs font-black shrink-0 shadow-sm">
+                {waiterServedKots.length} Served
+              </span>
             </div>
-          )
-        ) : (
-          waiterServedKots.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[300px]">
-              <Utensils className="w-12 h-12 text-blue-500/40 mb-3" />
-              <h3 className="text-xl font-bold text-foreground">No Served Orders</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                Served dishes will appear here for reference.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {waiterServedKots.map((kot) => (
-                <WaiterServedKotCard key={kot.id} kot={kot} />
-              ))}
-            </div>
-          )
-        )
+
+            {/* Cards List */}
+            {waiterServedKots.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[220px]">
+                <Utensils className="w-10 h-10 text-blue-500/40 mb-2" />
+                <h3 className="text-base font-bold text-foreground">No Served Orders Yet</h3>
+                <p className="text-xs text-muted-foreground max-w-xs mt-0.5">
+                  Delivered orders will appear here for verification and billing.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
+                {waiterServedKots.map((kot) => (
+                  <WaiterServedKotCard key={kot.id} kot={kot} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Cancel Item Confirmation Modal ───────────────────────────────────── */}
@@ -1060,12 +1076,25 @@ function WaiterReadyKotCard({
   onServeKot: () => void;
 }) {
   const tableName = kot.order.table?.name;
-  const readyItems = kot.items.filter((i) => i.status === 'READY');
+  const activeItems = kot.items.filter((i) => i.status !== 'CANCELLED');
+  const readyItems = activeItems.filter((i) => i.status === 'READY');
+  const cookingItems = activeItems.filter((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(i.status));
+  const hasReady = readyItems.length > 0;
 
   return (
-    <div className="flex flex-col justify-between rounded-3xl border-2 border-emerald-500/60 bg-card shadow-xl shadow-emerald-500/10 overflow-hidden">
+    <div className={cn(
+      'flex flex-col justify-between rounded-3xl border-2 bg-card shadow-xl transition-all overflow-hidden',
+      hasReady
+        ? 'border-emerald-500/60 shadow-emerald-500/10'
+        : 'border-border/80 shadow-black/5 opacity-90'
+    )}>
       {/* Header with High-Contrast Table Tag */}
-      <div className="p-4 border-b border-border bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between">
+      <div className={cn(
+        'p-4 border-b border-border flex items-center justify-between text-white',
+        hasReady
+          ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700'
+          : 'bg-gradient-to-r from-slate-800 via-zinc-800 to-slate-900'
+      )}>
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <span className="text-3xl font-black font-mono tracking-tight text-white">
@@ -1081,9 +1110,18 @@ function WaiterReadyKotCard({
               </Badge>
             )}
           </div>
-          <p className="text-xs font-bold text-emerald-100">
-            Order #{kot.order.orderNumber}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-bold text-white/80">
+              Order #{kot.order.orderNumber}
+            </p>
+            <span className="text-xs font-semibold text-white/60">&bull;</span>
+            <span className={cn(
+              'text-[11px] font-black px-2 py-0.5 rounded-md',
+              hasReady ? 'bg-emerald-400 text-emerald-950' : 'bg-amber-400/20 text-amber-300'
+            )}>
+              {hasReady ? `${readyItems.length} Ready for Pickup` : `${cookingItems.length} Cooking`}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 text-white text-xs font-black">
@@ -1092,9 +1130,12 @@ function WaiterReadyKotCard({
         </div>
       </div>
 
-      {/* Ready Items List with 1-Tap "Mark Served" */}
+      {/* Complete Items List: Cooking items dimmed/disabled, Ready items highlighted with Serve button */}
       <div className="p-4 sm:p-5 flex-1 space-y-3.5">
-        {readyItems.map((item) => {
+        {activeItems.map((item) => {
+          const isReady = item.status === 'READY';
+          const isServed = item.status === 'SERVED';
+          const isCooking = ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(item.status);
           const qty = item.orderItem?.quantity || 1;
           const isMultiQty = qty > 1;
           const baseName = item.orderItem?.menuItem?.name || 'Dish';
@@ -1106,56 +1147,109 @@ function WaiterReadyKotCard({
           return (
             <div
               key={item.id}
-              className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-sm"
+              className={cn(
+                'flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all',
+                isReady
+                  ? 'bg-emerald-500/15 border-emerald-500/40 shadow-sm'
+                  : isCooking
+                  ? 'bg-muted/40 border-border/50 opacity-60'
+                  : 'bg-muted/20 border-border/30 opacity-75'
+              )}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className={cn(
                   'w-11 h-11 rounded-xl flex items-center justify-center text-xl font-black font-mono shrink-0 shadow-sm',
-                  isMultiQty ? 'bg-amber-400 text-amber-950' : 'bg-emerald-600 text-white'
+                  isReady
+                    ? (isMultiQty ? 'bg-amber-400 text-amber-950' : 'bg-emerald-600 text-white')
+                    : 'bg-muted text-muted-foreground'
                 )}>
                   {qty}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-black text-base sm:text-lg leading-tight truncate text-foreground">
-                    {fullItemTitle}
-                  </p>
-                  {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
-                    <p className="text-xs font-semibold text-indigo-400">
-                      + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
+                  <div className="flex items-center gap-2">
+                    <p className={cn(
+                      'font-black text-base sm:text-lg leading-tight truncate',
+                      isReady ? 'text-foreground' : 'text-muted-foreground'
+                    )}>
+                      {fullItemTitle}
                     </p>
-                  )}
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {isReady ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-md">
+                        <CheckCircle2 className="w-3 h-3" /> Ready to Serve
+                      </span>
+                    ) : isCooking ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400/90 bg-amber-500/15 px-2 py-0.5 rounded-md">
+                        <Flame className="w-3 h-3 text-amber-500 animate-pulse" /> In Kitchen (Cooking)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-400 bg-blue-500/15 px-2 py-0.5 rounded-md">
+                        ✅ Served
+                      </span>
+                    )}
+
+                    {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
+                      <p className="text-xs font-semibold text-indigo-400">
+                        + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
+                      </p>
+                    )}
+                  </div>
+
                   {item.orderItem?.notes && (
-                    <p className="text-xs font-bold text-rose-400">
+                    <p className="text-xs font-bold text-rose-400 mt-1">
                       ⚠️ {item.orderItem.notes}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Item-Level "Mark Served" Button */}
-              <button
-                type="button"
-                onClick={() => onServeItem(item.id)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer shrink-0"
-              >
-                <Utensils className="w-3.5 h-3.5" />
-                <span>Serve</span>
-              </button>
+              {/* Action: Serve button if ready, disabled badge if cooking, served badge if served */}
+              {isReady ? (
+                <button
+                  type="button"
+                  onClick={() => onServeItem(item.id)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-md hover:shadow-emerald-600/30 active:scale-95 cursor-pointer shrink-0"
+                >
+                  <Utensils className="w-4 h-4" />
+                  <span>Serve</span>
+                </button>
+              ) : isCooking ? (
+                <div
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/80 text-muted-foreground font-bold text-xs opacity-60 cursor-not-allowed shrink-0 select-none border border-border/40"
+                  title="Dish is still being prepared by kitchen staff"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Cooking</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-400 font-bold text-xs shrink-0 select-none">
+                  <span>Served</span>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      {/* Whole KOT "Serve All" Giant Button */}
+      {/* Whole KOT Footer Action */}
       <div className="p-3 border-t border-border bg-muted/30">
-        <button
-          type="button"
-          onClick={onServeKot}
-          className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-95 cursor-pointer"
-        >
-          <Utensils className="w-5 h-5" />
-          <span>MARK ENTIRE KOT SERVED ({readyItems.length})</span>
-        </button>
+        {hasReady ? (
+          <button
+            type="button"
+            onClick={onServeKot}
+            className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-95 cursor-pointer"
+          >
+            <Utensils className="w-5 h-5" />
+            <span>MARK ALL READY DISHES SERVED ({readyItems.length})</span>
+          </button>
+        ) : (
+          <div className="w-full h-12 rounded-2xl bg-muted/60 text-muted-foreground font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-border/50 select-none">
+            <Clock className="w-4 h-4 text-amber-500/80" />
+            <span>Awaiting Kitchen ({cookingItems.length} Dishes Cooking)</span>
+          </div>
+        )}
       </div>
     </div>
   );

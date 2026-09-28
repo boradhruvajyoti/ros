@@ -255,6 +255,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
           .map((e) => OrderKot.fromJson(e as Map<String, dynamic>))
           .toList();
 
+      // Chronological sort: oldest KOTs first at top, newly created / running KOTs append below
+      parsed.sort((a, b) => b.ageMinutes.compareTo(a.ageMinutes));
+
       if (mounted) {
         setState(() {
           _kots = parsed;
@@ -549,10 +552,18 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             k.items.any((i) => i.status == 'READY'))
         .toList();
 
-    // 2. Waiter View Lists
-    final waiterReadyKots = cookReadyKots;
+    // 2. Waiter View Lists (All active KOTs in kitchen or ready to serve)
+    final waiterReadyKots = _kots
+        .where((k) =>
+            k.status != 'CANCELLED' &&
+            k.items.any((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY'].contains(i.status)))
+        .toList();
+
     final waiterServedKots = _kots
-        .where((k) => k.items.any((i) => i.status == 'SERVED'))
+        .where((k) =>
+            k.status != 'CANCELLED' &&
+            k.items.any((i) => i.status == 'SERVED') &&
+            k.items.every((i) => i.status == 'SERVED' || i.status == 'CANCELLED'))
         .toList();
 
     return Scaffold(
@@ -1670,16 +1681,22 @@ class _WaiterReadyKotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tableName = kot.tableName;
     final isTakeaway = tableName == null || kot.orderType == 'TAKEAWAY' || kot.orderType == 'DELIVERY';
-    final readyItems = kot.items.where((i) => i.status == 'READY').toList();
+    final activeItems = kot.items.where((i) => i.status != 'CANCELLED').toList();
+    final readyItems = activeItems.where((i) => i.status == 'READY').toList();
+    final cookingItems = activeItems.where((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(i.status)).toList();
+    final hasReady = readyItems.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: RosTheme.secondary, width: 1.5),
+        border: Border.all(
+          color: hasReady ? RosTheme.secondary : RosTheme.bgBorder,
+          width: hasReady ? 1.8 : 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: RosTheme.secondary.withValues(alpha: 0.15),
+            color: (hasReady ? RosTheme.secondary : Colors.black).withValues(alpha: hasReady ? 0.15 : 0.08),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -1692,9 +1709,11 @@ class _WaiterReadyKotCard extends StatelessWidget {
           // ── Header with Bold Table Tag ────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [RosTheme.secondary, Color(0xFF0D9488)],
+                colors: hasReady
+                    ? [RosTheme.secondary, const Color(0xFF0D9488)]
+                    : [const Color(0xFF334155), const Color(0xFF1E293B)],
               ),
             ),
             child: Row(
@@ -1734,6 +1753,23 @@ class _WaiterReadyKotCard extends StatelessWidget {
                   ),
                 ),
 
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    hasReady ? '${readyItems.length} Ready' : '${cookingItems.length} Cooking',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+
                 const Spacer(),
 
                 // Elapsed timer
@@ -1763,11 +1799,13 @@ class _WaiterReadyKotCard extends StatelessWidget {
             ),
           ),
 
-          // ── Ready Dishes List with 1-Tap "Serve" ──────────────────────────
+          // ── Complete Items List (Ready enabled, Cooking dimmed) ───────────
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
-              children: readyItems.map((item) {
+              children: activeItems.map((item) {
+                final isReady = item.status == 'READY';
+                final isCooking = ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(item.status);
                 final isMulti = item.quantity > 1;
                 final itemName = item.menuItemName ?? 'Dish';
                 final variant = item.variantName;
@@ -1779,10 +1817,16 @@ class _WaiterReadyKotCard extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: RosTheme.secondary.withValues(alpha: 0.1),
+                    color: isReady
+                        ? RosTheme.secondary.withValues(alpha: 0.12)
+                        : (isCooking
+                            ? RosTheme.bgElevated.withValues(alpha: 0.4)
+                            : RosTheme.bgElevated.withValues(alpha: 0.2)),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: RosTheme.secondary.withValues(alpha: 0.3),
+                      color: isReady
+                          ? RosTheme.secondary.withValues(alpha: 0.4)
+                          : RosTheme.bgBorder.withValues(alpha: 0.5),
                     ),
                   ),
                   child: Row(
@@ -1792,7 +1836,9 @@ class _WaiterReadyKotCard extends StatelessWidget {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          color: isMulti ? RosTheme.warning : RosTheme.secondary,
+                          color: isReady
+                              ? (isMulti ? RosTheme.warning : RosTheme.secondary)
+                              : RosTheme.bgBorder,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,
@@ -1802,41 +1848,102 @@ class _WaiterReadyKotCard extends StatelessWidget {
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'monospace',
-                            color: isMulti ? Colors.black : Colors.white,
+                            color: isReady
+                                ? (isMulti ? Colors.black : Colors.white)
+                                : RosTheme.textMuted,
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
 
-                      // Title & Notes
+                      // Title, status badge & Notes
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               fullTitle,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
-                                color: RosTheme.textPrimary,
+                                color: isReady ? RosTheme.textPrimary : RosTheme.textMuted,
                               ),
                             ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                if (isReady)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: RosTheme.secondary.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      '🛎️ Ready to Serve',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        color: RosTheme.secondary,
+                                      ),
+                                    ),
+                                  )
+                                else if (isCooking)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: RosTheme.warning.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      '🔥 In Kitchen (Cooking)',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: RosTheme.warning,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: RosTheme.primary.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      '✅ Served',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: RosTheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                             if (item.modifiers.isNotEmpty)
-                              Text(
-                                '+ ${item.modifiers.join(', ')}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: RosTheme.accent,
-                                  fontWeight: FontWeight.w600,
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  '+ ${item.modifiers.join(', ')}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: RosTheme.accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             if (item.notes != null && item.notes!.isNotEmpty)
-                              Text(
-                                '⚠️ ${item.notes}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: RosTheme.danger,
-                                  fontWeight: FontWeight.w700,
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  '⚠️ ${item.notes}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: RosTheme.danger,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                           ],
@@ -1844,22 +1951,48 @@ class _WaiterReadyKotCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
 
-                      // Item-Level "Serve" Button
-                      ElevatedButton.icon(
-                        onPressed: () => onServeItem(item.id),
-                        icon: const Icon(Icons.room_service_rounded, size: 14),
-                        label: const Text(
-                          'Serve',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: RosTheme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          elevation: 2,
-                        ),
-                      ),
+                      // Action Button: Clickable Serve if Ready, Disabled if cooking
+                      if (isReady)
+                        ElevatedButton.icon(
+                          onPressed: () => onServeItem(item.id),
+                          icon: const Icon(Icons.room_service_rounded, size: 14),
+                          label: const Text(
+                            'Serve',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: RosTheme.secondary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 2,
+                          ),
+                        )
+                      else if (isCooking)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: RosTheme.bgBorder.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.hourglass_empty_rounded, size: 12, color: RosTheme.textMuted),
+                              SizedBox(width: 4),
+                              Text(
+                                'Cooking',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: RosTheme.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        const Icon(Icons.check_circle_rounded, size: 18, color: RosTheme.primary),
                     ],
                   ),
                 );
@@ -1867,31 +2000,55 @@ class _WaiterReadyKotCard extends StatelessWidget {
             ),
           ),
 
-          // ── Whole KOT "Serve All" Button ──────────────────────────────────
-          if (readyItems.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: ElevatedButton.icon(
-                onPressed: onServeAll,
-                icon: const Icon(Icons.room_service_rounded, size: 20),
-                label: Text(
-                  'MARK ENTIRE KOT SERVED (${readyItems.length})',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
+          // ── Whole KOT Footer Action ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            child: hasReady
+                ? ElevatedButton.icon(
+                    onPressed: onServeAll,
+                    icon: const Icon(Icons.room_service_rounded, size: 20),
+                    label: Text(
+                      'MARK ALL READY DISHES SERVED (${readyItems.length})',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RosTheme.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 4,
+                      shadowColor: RosTheme.secondary.withValues(alpha: 0.4),
+                    ),
+                  )
+                : Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: RosTheme.bgElevated,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: RosTheme.bgBorder),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.access_time_rounded, size: 15, color: RosTheme.warning),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Awaiting Kitchen (${cookingItems.length} Dishes Cooking)',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: RosTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: RosTheme.secondary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 4,
-                  shadowColor: RosTheme.secondary.withValues(alpha: 0.4),
-                ),
-              ),
-            ),
+          ),
         ],
       ),
     );

@@ -1003,29 +1003,48 @@ export default function TablesPage() {
             const orderCfg = activeOrder ? (ORDER_STATUS_CONFIG[activeOrder.status] || ORDER_STATUS_CONFIG.DRAFT) : null;
             const validItems = activeOrder ? (activeOrder.items || []).filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status)) : [];
 
+            const isOccupied = table.status === 'OCCUPIED' || Boolean(activeOrder);
+
             return (
               <div
                 key={table.id}
                 onClick={() => handleTableClick(table)}
                 className={cn(
-                  'group relative flex flex-col justify-between p-4 rounded-3xl border-2 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5 space-y-3',
+                  'group relative flex flex-col justify-between p-4 rounded-3xl border-2 transition-all duration-200 cursor-pointer space-y-3',
                   meta.bg,
-                  meta.border
+                  isOccupied
+                    ? 'border-rose-500 shadow-xl shadow-rose-500/15 ring-2 ring-rose-500/30 -translate-y-0.5'
+                    : cn(meta.border, 'shadow-sm hover:shadow-lg hover:-translate-y-0.5')
                 )}
               >
                 {/* Header: Giant Bold Table Number + Status Badge + Capacity + Quick Icons */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-card border-2 border-border/80 shadow-xs flex items-center justify-center shrink-0 group-hover:border-primary/50 group-hover:bg-primary/5 transition-all">
-                      <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-mono group-hover:text-primary transition-colors">
+                    <div className={cn(
+                      'w-13 h-13 sm:w-14 sm:h-14 rounded-2xl border-2 shadow-xs flex items-center justify-center shrink-0 transition-all font-mono',
+                      isOccupied
+                        ? 'bg-gradient-to-br from-rose-600 to-red-700 text-white border-rose-400 shadow-md shadow-rose-600/30'
+                        : 'bg-card border-border/80 text-foreground group-hover:border-primary/50 group-hover:bg-primary/5'
+                    )}>
+                      <span className={cn(
+                        'text-2xl sm:text-3xl font-black tracking-tight',
+                        isOccupied ? 'text-white' : 'text-foreground group-hover:text-primary transition-colors'
+                      )}>
                         {table.name}
                       </span>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border inline-block w-fit', meta.bg, meta.text, meta.border)}>
-                          {meta.shortLabel}
-                        </span>
+                        {isOccupied ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border inline-flex items-center gap-1 bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                            ACTIVE DINING
+                          </span>
+                        ) : (
+                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border inline-block w-fit', meta.bg, meta.text, meta.border)}>
+                            {meta.shortLabel}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
                         <Users className="w-3.5 h-3.5" /> {table.capacity} Seats

@@ -585,8 +585,8 @@ class _WebMatchingTableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOccupied = table.status == 'OCCUPIED';
-    final isAvailable = table.status == 'AVAILABLE';
+    final isOccupied = table.status == 'OCCUPIED' || activeOrder != null;
+    final isAvailable = table.status == 'AVAILABLE' && activeOrder == null;
 
     // Elapsed minutes
     int elapsedMinutes = 0;
@@ -618,17 +618,19 @@ class _WebMatchingTableCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: RosTheme.bgCard,
+          color: isOccupied
+              ? RosTheme.danger.withValues(alpha: 0.08)
+              : RosTheme.bgCard,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: _statusColor.withValues(alpha: isOccupied ? 0.8 : 0.4),
-            width: isOccupied ? 1.8 : 1.2,
+            color: isOccupied ? RosTheme.danger : _statusColor.withValues(alpha: 0.4),
+            width: isOccupied ? 2.2 : 1.2,
           ),
           boxShadow: isOccupied
               ? [
                   BoxShadow(
-                    color: _statusColor.withValues(alpha: 0.15),
-                    blurRadius: 10,
+                    color: RosTheme.danger.withValues(alpha: 0.25),
+                    blurRadius: 12,
                     offset: const Offset(0, 3),
                   ),
                 ]
@@ -644,10 +646,14 @@ class _WebMatchingTableCard extends StatelessWidget {
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                   decoration: BoxDecoration(
-                    color: _statusColor.withValues(alpha: 0.15),
+                    color: (isOccupied ? RosTheme.danger : _statusColor).withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (isOccupied ? RosTheme.danger : _statusColor).withValues(alpha: 0.5),
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -656,17 +662,18 @@ class _WebMatchingTableCard extends StatelessWidget {
                         width: 6,
                         height: 6,
                         decoration: BoxDecoration(
-                          color: _statusColor,
+                          color: isOccupied ? RosTheme.danger : _statusColor,
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 4.5),
                       Text(
-                        _statusLabel,
+                        isOccupied ? 'ACTIVE DINING' : _statusLabel,
                         style: TextStyle(
-                          color: _statusColor,
+                          color: isOccupied ? RosTheme.danger : _statusColor,
                           fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ],

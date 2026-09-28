@@ -90,7 +90,7 @@ export class KitchenController {
           },
         },
       },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
       take: limit ? parseInt(limit as string, 10) : 100,
     });
 
