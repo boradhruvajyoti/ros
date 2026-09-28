@@ -512,6 +512,9 @@ export default function KitchenPage() {
                     onCompleteItem={(itemId) =>
                       updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'READY' })
                     }
+                    onUndoItem={(itemId) =>
+                      updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'PREPARING' })
+                    }
                     onCompleteKot={() =>
                       updateKotStatus.mutate({ kotId: kot.id, status: 'READY' })
                     }
@@ -791,6 +794,7 @@ export default function KitchenPage() {
 function CookKotCard({
   kot,
   onCompleteItem,
+  onUndoItem,
   onCompleteKot,
   onRequestCancelItem,
   onRequestCancelKot,
@@ -798,6 +802,7 @@ function CookKotCard({
   kot: Kot;
   targetItemStatus: string;
   onCompleteItem: (itemId: string) => void;
+  onUndoItem?: (itemId: string) => void;
   onCompleteKot: () => void;
   onRequestCancelItem: (itemId: string, itemName: string) => void;
   onRequestCancelKot: () => void;
@@ -809,9 +814,10 @@ function CookKotCard({
 
   // Active cooking items
   const activeItems = kot.items.filter((i) => i.status !== 'CANCELLED');
-  const pendingItems = kot.items.filter((i) =>
+  const pendingItems = activeItems.filter((i) =>
     ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(i.status)
   );
+  const readyItems = activeItems.filter((i) => i.status === 'READY' || i.status === 'SERVED');
 
   return (
     <div className="flex flex-col justify-between rounded-3xl border-2 border-amber-500/50 bg-card shadow-lg shadow-amber-500/5 overflow-hidden">
@@ -833,9 +839,19 @@ function CookKotCard({
               </Badge>
             )}
           </div>
-          <p className="text-xs font-semibold text-muted-foreground">
-            Order #{kot.order.orderNumber}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Order #{kot.order.orderNumber}
+            </p>
+            {readyItems.length > 0 && (
+              <>
+                <span className="text-xs font-semibold text-muted-foreground">&bull;</span>
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
+                  {readyItems.length}/{activeItems.length} Completed
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -860,9 +876,9 @@ function CookKotCard({
         </div>
       </div>
 
-      {/* Dishes List with Item-Level Complete & Cancel */}
+      {/* Dishes List with Item-Level Complete, Cancel & Undo */}
       <div className="p-4 sm:p-5 flex-1 space-y-3.5">
-        {pendingItems.map((item) => {
+        {activeItems.map((item) => {
           const isItemCancelled = item.status === 'CANCELLED';
           const isItemReady = item.status === 'READY' || item.status === 'SERVED';
           const qty = item.orderItem?.quantity || 1;
@@ -877,11 +893,11 @@ function CookKotCard({
             <div
               key={item.id}
               className={cn(
-                'flex items-start gap-3 p-2.5 rounded-2xl border transition-all',
+                'flex items-start gap-3 p-3 rounded-2xl border transition-all',
                 isItemCancelled
                   ? 'opacity-40 border-border/40 bg-muted/20 line-through'
                   : isItemReady
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
+                  ? 'bg-muted/40 border-border/50 opacity-60'
                   : 'bg-card border-border/80 shadow-sm'
               )}
             >
@@ -891,7 +907,7 @@ function CookKotCard({
                 isItemCancelled
                   ? 'bg-muted text-muted-foreground'
                   : isItemReady
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-emerald-600/70 text-white'
                   : isMultiQty
                   ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-400/40'
                   : 'bg-primary text-primary-foreground'
@@ -903,8 +919,8 @@ function CookKotCard({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-1">
                   <p className={cn(
-                    'font-black text-base sm:text-lg leading-tight tracking-tight',
-                    isItemCancelled ? 'text-muted-foreground line-through' : 'text-foreground'
+                    'font-black text-base sm:text-lg leading-tight tracking-tight truncate',
+                    isItemCancelled ? 'text-muted-foreground line-through' : isItemReady ? 'text-muted-foreground line-clamp-1' : 'text-foreground'
                   )}>
                     {fullItemTitle}
                   </p>
@@ -923,7 +939,7 @@ function CookKotCard({
                 </div>
 
                 {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
-                  <p className="text-xs font-semibold text-indigo-400 mt-0.5">
+                  <p className="text-xs font-semibold text-indigo-400 mt-0.5 truncate">
                     + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
                   </p>
                 )}
@@ -938,9 +954,22 @@ function CookKotCard({
                 {!isItemCancelled && (
                   <div className="mt-2 flex items-center justify-between gap-2">
                     {isItemReady ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-400 bg-emerald-500/15 px-2.5 py-1 rounded-lg">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Ready for Pickup
-                      </span>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-500/15 px-2.5 py-1 rounded-lg">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Done (Ready at Pass)
+                        </span>
+                        {onUndoItem && (
+                          <button
+                            type="button"
+                            onClick={() => onUndoItem(item.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold text-xs transition-all border border-border shadow-sm active:scale-95 cursor-pointer ml-auto"
+                            title="Undo complete - return dish to cooking status"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Undo</span>
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <button
                         type="button"

@@ -1141,6 +1141,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             return _CookNewKotCard(
               kot: kot,
               onCompleteItem: (itemId) => _updateKotItemStatus(kot.id, itemId, 'READY'),
+              onUndoItem: (itemId) => _updateKotItemStatus(kot.id, itemId, 'PREPARING'),
               onCompleteAll: () => _updateKotStatus(kot.id, 'READY'),
               onRequestCancelItem: (itemId, itemName) =>
                   _showCancelItemDialog(kot.id, itemId, itemName),
@@ -1171,6 +1172,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
 class _CookNewKotCard extends StatelessWidget {
   final OrderKot kot;
   final Function(String itemId) onCompleteItem;
+  final Function(String itemId)? onUndoItem;
   final VoidCallback onCompleteAll;
   final Function(String itemId, String itemName) onRequestCancelItem;
   final VoidCallback onRequestCancelKot;
@@ -1178,6 +1180,7 @@ class _CookNewKotCard extends StatelessWidget {
   const _CookNewKotCard({
     required this.kot,
     required this.onCompleteItem,
+    this.onUndoItem,
     required this.onCompleteAll,
     required this.onRequestCancelItem,
     required this.onRequestCancelKot,
@@ -1190,8 +1193,10 @@ class _CookNewKotCard extends StatelessWidget {
     final tableName = kot.tableName;
     final isTakeaway = tableName == null || kot.orderType == 'TAKEAWAY' || kot.orderType == 'DELIVERY';
 
-    final pendingItems = kot.items.where((i) =>
+    final activeItems = kot.items.where((i) => i.status != 'CANCELLED').toList();
+    final pendingItems = activeItems.where((i) =>
         ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(i.status)).toList();
+    final readyItems = activeItems.where((i) => i.status == 'READY' || i.status == 'SERVED').toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -1255,6 +1260,25 @@ class _CookNewKotCard extends StatelessWidget {
                   ),
                 ),
 
+                if (readyItems.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: RosTheme.secondary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${readyItems.length}/${activeItems.length} Done',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: RosTheme.secondary,
+                      ),
+                    ),
+                  ),
+                ],
+
                 const Spacer(),
 
                 // Elapsed timer
@@ -1301,11 +1325,11 @@ class _CookNewKotCard extends StatelessWidget {
             ),
           ),
 
-          // ── Items List with Item-Level Complete & Cancel ──────────────────
+          // ── Items List with Item-Level Complete, Cancel & Undo ───────────
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
-              children: pendingItems.map((item) {
+              children: activeItems.map((item) {
                 final isCancelled = item.status == 'CANCELLED';
                 final isReady = item.status == 'READY' || item.status == 'SERVED';
                 final isMulti = item.quantity > 1;
@@ -1322,12 +1346,12 @@ class _CookNewKotCard extends StatelessWidget {
                     color: isCancelled
                         ? RosTheme.bgElevated.withValues(alpha: 0.3)
                         : (isReady
-                            ? RosTheme.secondary.withValues(alpha: 0.1)
+                            ? RosTheme.bgElevated.withValues(alpha: 0.4)
                             : RosTheme.bgElevated),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isReady
-                          ? RosTheme.secondary.withValues(alpha: 0.3)
+                          ? RosTheme.bgBorder.withValues(alpha: 0.5)
                           : RosTheme.bgBorder,
                     ),
                   ),
@@ -1342,7 +1366,7 @@ class _CookNewKotCard extends StatelessWidget {
                           color: isCancelled
                               ? RosTheme.bgBorder
                               : (isReady
-                                  ? RosTheme.secondary
+                                  ? RosTheme.secondary.withValues(alpha: 0.6)
                                   : (isMulti ? RosTheme.warning : RosTheme.primary)),
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -1369,7 +1393,9 @@ class _CookNewKotCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
-                                color: isCancelled ? RosTheme.textMuted : RosTheme.textPrimary,
+                                color: isCancelled
+                                    ? RosTheme.textMuted
+                                    : (isReady ? RosTheme.textMuted : RosTheme.textPrimary),
                                 decoration: isCancelled ? TextDecoration.lineThrough : null,
                               ),
                             ),
@@ -1410,11 +1436,11 @@ class _CookNewKotCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
 
-                      // Actions
+                      // Actions: Complete, Undo, or Cancel
                       if (!isCancelled) ...[
-                        if (isReady)
+                        if (isReady) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                             decoration: BoxDecoration(
                               color: RosTheme.secondary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
@@ -1434,8 +1460,19 @@ class _CookNewKotCard extends StatelessWidget {
                                 ),
                               ],
                             ),
-                          )
-                        else ...[
+                          ),
+                          if (onUndoItem != null) ...[
+                            const SizedBox(width: 6),
+                            IconButton(
+                              onPressed: () => onUndoItem!(item.id),
+                              icon: const Icon(Icons.undo_rounded, size: 16, color: RosTheme.warning),
+                              tooltip: 'Undo complete - mark back as cooking',
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ] else ...[
                           // Complete Item Button
                           ElevatedButton.icon(
                             onPressed: () => onCompleteItem(item.id),
