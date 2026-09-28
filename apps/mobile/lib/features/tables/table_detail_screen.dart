@@ -360,14 +360,6 @@ class _DetailActiveOrderCardState extends ConsumerState<_DetailActiveOrderCard> 
         'amount': widget.order.total,
       });
 
-      await api.patch('/orders/${widget.order.id}/status', data: {
-        'status': 'PAID',
-      });
-
-      await api.patch('/tables/${widget.table.id}', data: {
-        'status': 'AVAILABLE',
-      });
-
       widget.onRefresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -907,21 +907,11 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
           ? _currentOrder!.total
           : calcTotal;
 
-      // 1. Post Payment
+      // Post Payment (backend handles payment, order status PAID, and table release)
       await api.post('/payments', data: {
         'orderId': _currentOrder!.id,
         'method': method,
         'amount': settleAmount,
-      });
-
-      // 2. Mark order PAID
-      await api.patch('/orders/${_currentOrder!.id}/status', data: {
-        'status': 'PAID',
-      });
-
-      // 3. Mark table AVAILABLE
-      await api.patch('/tables/${_currentTable.id}', data: {
-        'status': 'AVAILABLE',
       });
 
       widget.onRefresh();

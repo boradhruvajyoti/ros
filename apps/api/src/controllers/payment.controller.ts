@@ -12,7 +12,7 @@ import { prisma } from '../lib/prisma';
 const addPaymentSchema = z.object({
   orderId: z.string(),
   method: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'WALLET', 'CREDIT']),
-  amount: z.number().positive(),
+  amount: z.number().nonnegative(),
   referenceNumber: z.string().max(255).optional(),
 });
 

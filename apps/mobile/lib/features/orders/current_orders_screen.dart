@@ -544,24 +544,12 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
           ? widget.order.total
           : calcTotal;
 
-      // 1. Post Payment
+      // Post Payment (backend handles payment, order status PAID, and table release)
       await api.post('/payments', data: {
         'orderId': widget.order.id,
         'method': method,
         'amount': settleAmount,
       });
-
-      // 2. Mark order PAID
-      await api.patch('/orders/${widget.order.id}/status', data: {
-        'status': 'PAID',
-      });
-
-      // 3. Mark table AVAILABLE if dine-in
-      if (widget.order.tableId != null && widget.order.tableId!.isNotEmpty) {
-        await api.patch('/tables/${widget.order.tableId}', data: {
-          'status': 'AVAILABLE',
-        });
-      }
 
       widget.onRefresh();
       if (mounted) {

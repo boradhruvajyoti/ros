@@ -591,6 +591,9 @@ export class OrderService {
     if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
 
     const currentStatus = order.status as OrderStatus;
+    if (dto.status === currentStatus) {
+      return order;
+    }
     const allowedNext = ORDER_STATE_TRANSITIONS[currentStatus];
 
     if (!allowedNext || !allowedNext.includes(dto.status)) {
