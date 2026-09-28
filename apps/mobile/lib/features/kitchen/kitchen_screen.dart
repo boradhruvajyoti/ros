@@ -1263,187 +1263,200 @@ class _CookNewKotCard extends StatelessWidget {
             ),
           ),
 
-          // ── Items List with Item-Level Complete, Cancel & Undo ───────────
+          // ── Items List in 2 Columns with Item-Level Complete, Cancel & Undo ───────────
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Column(
-              children: activeItems.map((item) {
-                final isCancelled = item.status == 'CANCELLED';
-                final isReady = item.status == 'READY' || item.status == 'SERVED';
-                final isMulti = item.quantity > 1;
-                final itemName = item.menuItemName ?? 'Dish';
-                final variant = item.variantName;
-                final fullTitle = variant != null && !variant.toLowerCase().contains('regular')
-                    ? '$itemName ($variant)'
-                    : itemName;
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isTwoColumn = constraints.maxWidth >= 500;
+                final itemWidth = isTwoColumn
+                    ? (constraints.maxWidth - 10) / 2
+                    : constraints.maxWidth;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isCancelled
-                        ? RosTheme.bgElevated.withValues(alpha: 0.3)
-                        : (isReady
-                            ? RosTheme.bgElevated.withValues(alpha: 0.4)
-                            : RosTheme.bgElevated),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isReady
-                          ? RosTheme.bgBorder.withValues(alpha: 0.5)
-                          : RosTheme.bgBorder,
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Quantity Box
-                      Container(
-                        width: 38,
-                        height: 38,
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: activeItems.map((item) {
+                    final isCancelled = item.status == 'CANCELLED';
+                    final isReady = item.status == 'READY' || item.status == 'SERVED';
+                    final isMulti = item.quantity > 1;
+                    final itemName = item.menuItemName ?? 'Dish';
+                    final variant = item.variantName;
+                    final fullTitle = variant != null && !variant.toLowerCase().contains('regular')
+                        ? '$itemName ($variant)'
+                        : itemName;
+
+                    return SizedBox(
+                      width: itemWidth,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isCancelled
-                              ? RosTheme.bgBorder
+                              ? RosTheme.bgElevated.withValues(alpha: 0.3)
                               : (isReady
-                                  ? RosTheme.secondary.withValues(alpha: 0.6)
-                                  : (isMulti ? RosTheme.warning : RosTheme.primary)),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${item.quantity}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            fontFamily: 'monospace',
-                            color: isMulti && !isReady ? Colors.black : Colors.white,
+                                  ? RosTheme.bgElevated.withValues(alpha: 0.4)
+                                  : RosTheme.bgElevated),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isReady
+                                ? RosTheme.bgBorder.withValues(alpha: 0.5)
+                                : RosTheme.bgBorder,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-
-                      // Title & Notes
-                      Expanded(
-                        child: Column(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              fullTitle,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
+                            // Quantity Box
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
                                 color: isCancelled
-                                    ? RosTheme.textMuted
-                                    : (isReady ? RosTheme.textMuted : RosTheme.textPrimary),
-                                decoration: isCancelled ? TextDecoration.lineThrough : null,
+                                    ? RosTheme.bgBorder
+                                    : (isReady
+                                        ? RosTheme.secondary.withValues(alpha: 0.6)
+                                        : (isMulti ? RosTheme.warning : RosTheme.primary)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '${item.quantity}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'monospace',
+                                  color: isMulti && !isReady ? Colors.black : Colors.white,
+                                ),
                               ),
                             ),
-                            if (item.modifiers.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  '+ ${item.modifiers.join(', ')}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: RosTheme.accent,
-                                    fontWeight: FontWeight.w600,
+                            const SizedBox(width: 10),
+
+                            // Title, Modifiers & Special Instruction
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fullTitle,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: isCancelled
+                                          ? RosTheme.textMuted
+                                          : (isReady ? RosTheme.textMuted : RosTheme.textPrimary),
+                                      decoration: isCancelled ? TextDecoration.lineThrough : null,
+                                    ),
                                   ),
-                                ),
+                                  if (item.modifiers.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        '+ ${item.modifiers.join(', ')}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: RosTheme.accent,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  if (item.notes != null && item.notes!.isNotEmpty && !isCancelled)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 5),
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: RosTheme.danger.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: RosTheme.danger.withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '⚠️ Special Instruction: ${item.notes}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: RosTheme.danger,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                            if (item.notes != null && item.notes!.isNotEmpty && !isCancelled)
-                              Container(
-                                margin: const EdgeInsets.only(top: 4),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: RosTheme.danger.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: RosTheme.danger.withValues(alpha: 0.3),
+                            ),
+                            const SizedBox(width: 6),
+
+                            // Actions: Complete, Undo, or Cancel
+                            if (!isCancelled) ...[
+                              if (isReady) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: RosTheme.secondary.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, size: 13, color: RosTheme.secondary),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Ready',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w900,
+                                          color: RosTheme.secondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                child: Text(
-                                  '⚠️ ${item.notes}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: RosTheme.danger,
-                                    fontWeight: FontWeight.w700,
+                                if (onUndoItem != null) ...[
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    onPressed: () => onUndoItem!(item.id),
+                                    icon: const Icon(Icons.undo_rounded, size: 16, color: RosTheme.warning),
+                                    tooltip: 'Undo complete - mark back as cooking',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
+                              ] else ...[
+                                // Complete Item Button
+                                ElevatedButton.icon(
+                                  onPressed: () => onCompleteItem(item.id),
+                                  icon: const Icon(Icons.check_rounded, size: 14),
+                                  label: const Text(
+                                    'Complete',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: RosTheme.secondary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(width: 4),
+                                // Cancel Item Icon
+                                IconButton(
+                                  icon: const Icon(Icons.close_rounded, size: 18, color: RosTheme.textMuted),
+                                  tooltip: 'Cancel item',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => onRequestCancelItem(item.id, fullTitle),
+                                ),
+                              ],
+                            ],
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-
-                      // Actions: Complete, Undo, or Cancel
-                      if (!isCancelled) ...[
-                        if (isReady) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: RosTheme.secondary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.check_circle_rounded, size: 13, color: RosTheme.secondary),
-                                SizedBox(width: 3),
-                                Text(
-                                  'Ready',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    color: RosTheme.secondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (onUndoItem != null) ...[
-                            const SizedBox(width: 6),
-                            IconButton(
-                              onPressed: () => onUndoItem!(item.id),
-                              icon: const Icon(Icons.undo_rounded, size: 16, color: RosTheme.warning),
-                              tooltip: 'Undo complete - mark back as cooking',
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.all(4),
-                              constraints: const BoxConstraints(),
-                            ),
-                          ],
-                        ] else ...[
-                          // Complete Item Button
-                          ElevatedButton.icon(
-                            onPressed: () => onCompleteItem(item.id),
-                            icon: const Icon(Icons.check_rounded, size: 14),
-                            label: const Text(
-                              'Complete',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: RosTheme.secondary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          // Cancel Item Icon
-                          IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 18, color: RosTheme.textMuted),
-                            tooltip: 'Cancel item',
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => onRequestCancelItem(item.id, fullTitle),
-                          ),
-                        ],
-                      ],
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             ),
           ),
 
@@ -1634,204 +1647,226 @@ class _WaiterReadyKotCard extends StatelessWidget {
             ),
           ),
 
-          // ── Complete Items List (Ready enabled, Cooking dimmed) ───────────
+          // ── Complete Items List in 2 Columns (Ready enabled, Cooking dimmed) ───────────
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Column(
-              children: activeItems.map((item) {
-                final isReady = item.status == 'READY';
-                final isCooking = ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(item.status);
-                final isMulti = item.quantity > 1;
-                final itemName = item.menuItemName ?? 'Dish';
-                final variant = item.variantName;
-                final fullTitle = variant != null && !variant.toLowerCase().contains('regular')
-                    ? '$itemName ($variant)'
-                    : itemName;
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isTwoColumn = constraints.maxWidth >= 500;
+                final itemWidth = isTwoColumn
+                    ? (constraints.maxWidth - 10) / 2
+                    : constraints.maxWidth;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isReady
-                        ? RosTheme.secondary.withValues(alpha: 0.12)
-                        : (isCooking
-                            ? RosTheme.bgElevated.withValues(alpha: 0.4)
-                            : RosTheme.bgElevated.withValues(alpha: 0.2)),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isReady
-                          ? RosTheme.secondary.withValues(alpha: 0.4)
-                          : RosTheme.bgBorder.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Quantity Box
-                      Container(
-                        width: 38,
-                        height: 38,
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: activeItems.map((item) {
+                    final isReady = item.status == 'READY';
+                    final isCooking = ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(item.status);
+                    final isMulti = item.quantity > 1;
+                    final itemName = item.menuItemName ?? 'Dish';
+                    final variant = item.variantName;
+                    final fullTitle = variant != null && !variant.toLowerCase().contains('regular')
+                        ? '$itemName ($variant)'
+                        : itemName;
+
+                    return SizedBox(
+                      width: itemWidth,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isReady
-                              ? (isMulti ? RosTheme.warning : RosTheme.secondary)
-                              : RosTheme.bgBorder,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${item.quantity}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            fontFamily: 'monospace',
+                              ? RosTheme.secondary.withValues(alpha: 0.12)
+                              : (isCooking
+                                  ? RosTheme.bgElevated.withValues(alpha: 0.4)
+                                  : RosTheme.bgElevated.withValues(alpha: 0.2)),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
                             color: isReady
-                                ? (isMulti ? Colors.black : Colors.white)
-                                : RosTheme.textMuted,
+                                ? RosTheme.secondary.withValues(alpha: 0.4)
+                                : RosTheme.bgBorder.withValues(alpha: 0.5),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-
-                      // Title, status badge & Notes
-                      Expanded(
-                        child: Column(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              fullTitle,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: isReady ? RosTheme.textPrimary : RosTheme.textMuted,
+                            // Quantity Box
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: isReady
+                                    ? (isMulti ? RosTheme.warning : RosTheme.secondary)
+                                    : RosTheme.bgBorder,
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                if (isReady)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: RosTheme.secondary.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      '🛎️ Ready to Serve',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                        color: RosTheme.secondary,
-                                      ),
-                                    ),
-                                  )
-                                else if (isCooking)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: RosTheme.warning.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      '🔥 In Kitchen (Cooking)',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: RosTheme.warning,
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: RosTheme.primary.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      '✅ Served',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: RosTheme.primary,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            if (item.modifiers.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  '+ ${item.modifiers.join(', ')}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: RosTheme.accent,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '${item.quantity}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'monospace',
+                                  color: isReady
+                                      ? (isMulti ? Colors.black : Colors.white)
+                                      : RosTheme.textMuted,
                                 ),
                               ),
-                            if (item.notes != null && item.notes!.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  '⚠️ ${item.notes}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: RosTheme.danger,
-                                    fontWeight: FontWeight.w700,
+                            ),
+                            const SizedBox(width: 10),
+
+                            // Title, status badge & Notes
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fullTitle,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: isReady ? RosTheme.textPrimary : RosTheme.textMuted,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      if (isReady)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: RosTheme.secondary.withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            '🛎️ Ready to Serve',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w900,
+                                              color: RosTheme.secondary,
+                                            ),
+                                          ),
+                                        )
+                                      else if (isCooking)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: RosTheme.warning.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            '🔥 In Kitchen',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: RosTheme.warning,
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: RosTheme.primary.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            '✅ Served',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: RosTheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  if (item.modifiers.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        '+ ${item.modifiers.join(', ')}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: RosTheme.accent,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  if (item.notes != null && item.notes!.isNotEmpty)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 5),
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: RosTheme.danger.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: RosTheme.danger.withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '⚠️ Special Instruction: ${item.notes}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: RosTheme.danger,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
+                            ),
+                            const SizedBox(width: 8),
+
+                            // Action Button: Clickable Serve if Ready
+                            if (isReady)
+                              ElevatedButton.icon(
+                                onPressed: () => onServeItem(item.id),
+                                icon: const Icon(Icons.room_service_rounded, size: 14),
+                                label: const Text(
+                                  'Serve',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: RosTheme.secondary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  elevation: 2,
+                                ),
+                              )
+                            else if (isCooking)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: RosTheme.bgBorder.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.hourglass_empty_rounded, size: 12, color: RosTheme.textMuted),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Cooking',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: RosTheme.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              const Icon(Icons.check_circle_rounded, size: 18, color: RosTheme.primary),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-
-                      // Action Button: Clickable Serve if Ready
-                      if (isReady)
-                        ElevatedButton.icon(
-                          onPressed: () => onServeItem(item.id),
-                          icon: const Icon(Icons.room_service_rounded, size: 14),
-                          label: const Text(
-                            'Serve',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: RosTheme.secondary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            elevation: 2,
-                          ),
-                        )
-                      else if (isCooking)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: RosTheme.bgBorder.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.hourglass_empty_rounded, size: 12, color: RosTheme.textMuted),
-                              SizedBox(width: 4),
-                              Text(
-                                'Cooking',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: RosTheme.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        const Icon(Icons.check_circle_rounded, size: 18, color: RosTheme.primary),
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             ),
           ),
 

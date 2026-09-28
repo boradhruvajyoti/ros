@@ -7,7 +7,8 @@ import {
   ShoppingCart, Receipt, CreditCard, Printer, RotateCcw,
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
-  Volume2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X
+  Volume2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X,
+  MessageSquarePlus, Edit2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,12 +164,29 @@ export default function POSPage() {
   const [notes, setNotes] = useState('');
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
+  const [noteModalItemKey, setNoteModalItemKey] = useState<string | null>(null);
+  const [itemNoteText, setItemNoteText] = useState('');
   const [mobileTab, setMobileTab] = useState<'menu' | 'cart'>('menu');
   const [showMobileCategories, setShowMobileCategories] = useState(false);
   const [isMobileCartDrawerOpen, setIsMobileCartDrawerOpen] = useState(false);
   const [mobileSideRailCollapsed, setMobileSideRailCollapsed] = useState(false);
   const loadedOrderIdRef = useRef<string | null>(null);
   const initialParamProcessedRef = useRef(false);
+
+  const openItemNoteModal = (item: CartItem) => {
+    setNoteModalItemKey(item.key);
+    setItemNoteText(item.notes || '');
+  };
+
+  const saveItemNote = () => {
+    if (!noteModalItemKey) return;
+    const trimmed = itemNoteText.trim();
+    setCart((prev) =>
+      prev.map((c) => (c.key === noteModalItemKey ? { ...c, notes: trimmed || undefined } : c))
+    );
+    setNoteModalItemKey(null);
+    setItemNoteText('');
+  };
 
   // Helper to map backend order items into POS CartItem interface
   const mapOrderItemsToCart = useCallback((order: any): CartItem[] => {
@@ -1506,6 +1524,27 @@ export default function POSPage() {
                           ₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}{' '}
                           <span className="text-[10px] text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
                         </p>
+
+                        {/* Special Instruction Badge / Button */}
+                        {item.notes ? (
+                          <button
+                            type="button"
+                            onClick={() => openItemNoteModal(item)}
+                            className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/25 transition-all text-left max-w-full"
+                          >
+                            <span className="truncate">⚠️ {item.notes}</span>
+                            <Edit2 className="w-2.5 h-2.5 shrink-0 ml-1 opacity-70" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openItemNoteModal(item)}
+                            className="mt-1 flex items-center gap-1 text-[10.5px] font-semibold text-muted-foreground hover:text-amber-400 transition-colors cursor-pointer"
+                          >
+                            <MessageSquarePlus className="w-3 h-3" />
+                            <span>+ Special Instruction</span>
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl border border-border shrink-0">
@@ -1749,6 +1788,27 @@ export default function POSPage() {
                     ₹{(Number(item.unitPrice) * item.quantity).toFixed(0)}{' '}
                     <span className="text-xs text-muted-foreground font-normal">(@ ₹{item.unitPrice})</span>
                   </p>
+
+                  {/* Special Instruction Badge / Button */}
+                  {item.notes ? (
+                    <button
+                      type="button"
+                      onClick={() => openItemNoteModal(item)}
+                      className="mt-1 flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300 hover:bg-amber-500/25 transition-all text-left max-w-full"
+                    >
+                      <span className="truncate">⚠️ {item.notes}</span>
+                      <Edit2 className="w-3 h-3 shrink-0 ml-1 opacity-75" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openItemNoteModal(item)}
+                      className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-amber-400 transition-colors cursor-pointer"
+                    >
+                      <MessageSquarePlus className="w-3.5 h-3.5" />
+                      <span>+ Special Instruction</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Giant Counter Buttons */}
@@ -1936,6 +1996,124 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────
+          MODAL: ITEM SPECIAL INSTRUCTION / CHEF NOTES
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {noteModalItemKey && (() => {
+        const targetItem = cart.find((c) => c.key === noteModalItemKey);
+        const presetNotes = [
+          'Less Spicy',
+          'Extra Spicy',
+          'No Onion / Garlic',
+          'Less Oil / Healthy',
+          'Make it Crispy',
+          'Serve Extra Hot',
+          'Pack Separately',
+          'No Salt',
+          'Well Done',
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="w-full max-w-md bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                    <MessageSquarePlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-foreground">Special Instruction</h3>
+                    <p className="text-xs text-muted-foreground truncate max-w-[220px]">
+                      {targetItem?.name || 'Item'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNoteModalItemKey(null);
+                    setItemNoteText('');
+                  }}
+                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Input Box */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-foreground">Kitchen / Chef Instructions:</label>
+                <textarea
+                  value={itemNoteText}
+                  onChange={(e) => setItemNoteText(e.target.value)}
+                  placeholder="e.g., Less spicy, no butter on naan, make it extra crispy..."
+                  rows={3}
+                  className="w-full rounded-2xl bg-muted/50 border border-border p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  autoFocus
+                />
+              </div>
+
+              {/* Quick Suggestion Chips */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Quick Suggestions:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {presetNotes.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setItemNoteText((prev) => (prev ? `${prev}, ${preset}` : preset));
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-muted hover:bg-amber-500/20 hover:text-amber-300 hover:border-amber-500/40 text-xs font-semibold text-foreground border border-border transition-all cursor-pointer"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center gap-2 pt-2">
+                {targetItem?.notes && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setItemNoteText('');
+                      setCart((prev) =>
+                        prev.map((c) => (c.key === noteModalItemKey ? { ...c, notes: undefined } : c))
+                      );
+                      setNoteModalItemKey(null);
+                    }}
+                    className="h-11 rounded-2xl border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-xs cursor-pointer"
+                  >
+                    Remove
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setNoteModalItemKey(null);
+                    setItemNoteText('');
+                  }}
+                  className="flex-1 h-11 rounded-2xl font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={saveItemNote}
+                  className="flex-1 h-11 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Instruction</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

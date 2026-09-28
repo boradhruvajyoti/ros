@@ -838,9 +838,9 @@ function CookKotCard({
         </div>
       </div>
 
-      {/* Middle Dishes Section */}
+      {/* Middle Dishes Section - Exactly 2 columns */}
       <div className="p-4 sm:p-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {activeItems.map((item) => {
             const isItemCancelled = item.status === 'CANCELLED';
             const isItemReady = item.status === 'READY' || item.status === 'SERVED';
@@ -906,9 +906,11 @@ function CookKotCard({
                       </p>
                     )}
 
+                    {/* Special Instruction */}
                     {item.orderItem?.notes && !isItemCancelled && (
-                      <div className="mt-1.5 p-1 px-2 rounded-lg bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-400 inline-block">
-                        ⚠️ {item.orderItem.notes}
+                      <div className="mt-2 p-1.5 px-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-300 flex items-start gap-1.5 break-words">
+                        <span className="shrink-0">⚠️</span>
+                        <span>Special Instruction: {item.orderItem.notes}</span>
                       </div>
                     )}
                   </div>
@@ -920,7 +922,7 @@ function CookKotCard({
                     {isItemReady ? (
                       <div className="flex items-center gap-1.5">
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 rounded-lg">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Done
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Completed
                         </span>
                         {onUndoItem && (
                           <button
@@ -937,10 +939,10 @@ function CookKotCard({
                       <button
                         type="button"
                         onClick={() => onCompleteItem(item.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
                       >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Done</span>
+                        <Check className="w-4 h-4" />
+                        <span>Complete</span>
                       </button>
                     )}
                   </div>
@@ -1036,9 +1038,9 @@ function WaiterReadyKotCard({
         </div>
       </div>
 
-      {/* Middle Dishes Section */}
+      {/* Middle Dishes Section - Exactly 2 columns */}
       <div className="p-4 sm:p-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {activeItems.map((item) => {
             const isReady = item.status === 'READY';
             const isCooking = ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(item.status);
@@ -1105,9 +1107,10 @@ function WaiterReadyKotCard({
                     </div>
 
                     {item.orderItem?.notes && (
-                      <p className="text-xs font-bold text-rose-400 mt-1">
-                        ⚠️ {item.orderItem.notes}
-                      </p>
+                      <div className="mt-2 p-1.5 px-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-300 flex items-start gap-1.5 break-words">
+                        <span className="shrink-0">⚠️</span>
+                        <span>Special Instruction: {item.orderItem.notes}</span>
+                      </div>
                     )}
                   </div>
                 </div>

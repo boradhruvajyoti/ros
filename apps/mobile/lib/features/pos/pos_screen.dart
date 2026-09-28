@@ -1394,6 +1394,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                     itemBuilder: (ctx, index) {
                       final item = cart.items[index];
                       return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Column(
@@ -1416,6 +1417,83 @@ class _OrderTicketDrawer extends ConsumerWidget {
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
+                                const SizedBox(height: 3),
+                                // Special Instruction Badge or Button
+                                if (item.notes != null && item.notes!.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      _showSpecialInstructionDialog(
+                                          context, ref, index, item);
+                                    },
+                                    child: Container(
+                                      margin: const EdgeInsets.only(top: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: RosTheme.warning
+                                            .withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: RosTheme.warning
+                                              .withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              '⚠️ ${item.notes}',
+                                              style: const TextStyle(
+                                                color: RosTheme.warning,
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.edit_rounded,
+                                              size: 10,
+                                              color: RosTheme.warning),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  GestureDetector(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      _showSpecialInstructionDialog(
+                                          context, ref, index, item);
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.edit_note_rounded,
+                                            size: 13,
+                                            color: RosTheme.warning
+                                                .withValues(alpha: 0.9),
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            'Special Instruction',
+                                            style: TextStyle(
+                                              color: RosTheme.warning
+                                                  .withValues(alpha: 0.9),
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -1664,6 +1742,253 @@ class _OrderTicketDrawer extends ConsumerWidget {
         );
       }
     }
+  }
+
+  void _showSpecialInstructionDialog(
+    BuildContext context,
+    WidgetRef ref,
+    int index,
+    CartItem item,
+  ) {
+    final textController = TextEditingController(text: item.notes ?? '');
+    const presetNotes = [
+      'Less Spicy',
+      'Extra Spicy',
+      'No Onion / Garlic',
+      'Less Oil / Healthy',
+      'Make it Crispy',
+      'Serve Extra Hot',
+      'Pack Separately',
+      'No Salt',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: RosTheme.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: RosTheme.textMuted.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Title
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: RosTheme.warning.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.edit_note_rounded,
+                          color: RosTheme.warning,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Special Instruction',
+                              style: TextStyle(
+                                color: RosTheme.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              item.menuItemName,
+                              style: const TextStyle(
+                                color: RosTheme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded,
+                            color: RosTheme.textMuted),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Text field
+                  TextField(
+                    controller: textController,
+                    autofocus: true,
+                    style: const TextStyle(
+                      color: RosTheme.textPrimary,
+                      fontSize: 13.5,
+                    ),
+                    decoration: InputDecoration(
+                      hintText:
+                          'e.g., Less spicy, no butter on naan, crispy...',
+                      hintStyle: const TextStyle(
+                        color: RosTheme.textMuted,
+                        fontSize: 12.5,
+                      ),
+                      filled: true,
+                      fillColor: RosTheme.bgElevated,
+                      contentPadding: const EdgeInsets.all(12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: RosTheme.bgBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: RosTheme.bgBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                            color: RosTheme.warning, width: 1.5),
+                      ),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Preset Chips
+                  const Text(
+                    'Quick Suggestions:',
+                    style: TextStyle(
+                      color: RosTheme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: presetNotes.map((preset) {
+                      return InkWell(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            final current = textController.text.trim();
+                            if (current.isEmpty) {
+                              textController.text = preset;
+                            } else if (!current.contains(preset)) {
+                              textController.text = '$current, $preset';
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: RosTheme.bgElevated,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: RosTheme.bgBorder),
+                          ),
+                          child: Text(
+                            '+ $preset',
+                            style: const TextStyle(
+                              color: RosTheme.textPrimary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Buttons
+                  Row(
+                    children: [
+                      if (item.notes != null && item.notes!.isNotEmpty) ...[
+                        OutlinedButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            ref
+                                .read(cartProvider.notifier)
+                                .updateItemNotes(index, null);
+                            Navigator.pop(ctx);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: RosTheme.danger,
+                            side: const BorderSide(color: RosTheme.danger),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Clear',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(cartProvider.notifier).updateItemNotes(
+                                  index,
+                                  textController.text.trim(),
+                                );
+                            Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: RosTheme.warning,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text(
+                            'Save Instruction',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }
 

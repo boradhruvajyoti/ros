@@ -624,6 +624,15 @@ class CartNotifier extends StateNotifier<CartState> {
 
   void setNotes(String? notes) => state = state.copyWith(notes: notes);
 
+  void updateItemNotes(int index, String? notes) {
+    if (index < 0 || index >= state.items.length) return;
+    final updated = List<CartItem>.from(state.items);
+    updated[index] = updated[index].copyWith(
+      notes: (notes != null && notes.trim().isNotEmpty) ? notes.trim() : null,
+    );
+    state = state.copyWith(items: updated);
+  }
+
   void applyDiscount(String type, double value) {
     final amount = type == 'PERCENTAGE'
         ? (state.subtotal * value) / 100
