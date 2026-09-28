@@ -37,6 +37,11 @@ export const TELEGRAM_NOTIFICATION_META = [
         label: '5. Food Served to Table',
         description: 'Waiter or runner delivers order to guest table',
       },
+      {
+        id: 'TABLE_RESERVATION_NEW',
+        label: '6. Table Reservation Confirmed',
+        description: 'New guest table reservation booked with party size and time slot',
+      },
     ],
   },
   {
@@ -44,17 +49,22 @@ export const TELEGRAM_NOTIFICATION_META = [
     items: [
       {
         id: 'BILL_PAID',
-        label: '6. Bill Settled & Paid',
+        label: '7. Bill Settled & Paid',
         description: 'Customer bill settled via Cash, UPI, Card with itemized summary',
       },
       {
+        id: 'EXPENSE_RECORDED',
+        label: '8. Expense / Payout Logged',
+        description: 'Daily operational expenses or petty cash vouchers recorded',
+      },
+      {
         id: 'ORDER_CANCELLED_TABLES',
-        label: '7. Order Cancelled (Tables)',
+        label: '9. Order Cancelled (Tables)',
         description: 'Partial or full order cancellation from floor tables section',
       },
       {
         id: 'ORDER_CANCELLED_KITCHEN',
-        label: '8. Order Cancelled (Kitchen)',
+        label: '10. Order Cancelled (Kitchen)',
         description: 'Partial or full order cancellation inside kitchen display',
       },
     ],
@@ -64,17 +74,17 @@ export const TELEGRAM_NOTIFICATION_META = [
     items: [
       {
         id: 'DAILY_SALES_REPORT',
-        label: '9. Daily Tablewise & Top Seller Sales Report',
+        label: '11. Daily Tablewise & Top Seller Sales Report',
         description: 'End-of-day revenue breakdown, table performance & bestsellers',
       },
       {
         id: 'DAILY_EXPENSES_REPORT',
-        label: '10. Daily Expense Summary',
+        label: '12. Daily Expense Summary',
         description: 'Daily operational expenses logged across all departments',
       },
       {
         id: 'MONTHLY_REPORT',
-        label: '12. Monthly Performance Report',
+        label: '13. Monthly Performance Report',
         description: 'Comprehensive month-end P&L, revenue vs expenses summary',
       },
     ],
@@ -84,17 +94,22 @@ export const TELEGRAM_NOTIFICATION_META = [
     items: [
       {
         id: 'STAFF_MODIFIED',
-        label: '11. Staff Member Added / Modified',
+        label: '14. Staff Member Added / Modified',
         description: 'Staff enrollment, salary adjustment, permission updates',
       },
       {
+        id: 'LOW_STOCK_ALERT',
+        label: '15. Low Stock Alert',
+        description: 'Immediate warning when ingredient stock drops below threshold',
+      },
+      {
         id: 'INVENTORY_MODIFIED',
-        label: '13. Stock & Inventory Changes',
+        label: '16. Stock & Inventory Changes',
         description: 'Stock additions, adjustments, transfers, and inventory counts',
       },
       {
         id: 'MENU_MODIFIED',
-        label: '14. Menu Items Added / Updated / Deleted',
+        label: '17. Menu Items Added / Updated / Deleted',
         description: 'Changes to dishes, prices, variants, or categories',
       },
     ],

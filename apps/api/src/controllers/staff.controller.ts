@@ -238,6 +238,12 @@ export const TELEGRAM_NOTIFICATION_CATALOG = [
     description: 'Real-time billing alert with table info, ordered items, amount, and item count',
   },
   {
+    id: 'EXPENSE_RECORDED',
+    category: 'Billing & Cash',
+    name: 'Expense Recorded',
+    description: 'Alert when operational expenses, petty cash, or payout vouchers are logged',
+  },
+  {
     id: 'ORDER_CANCELLED_TABLES',
     category: 'Cancellations & Voids',
     name: 'Order Cancelled (Floor / Tables)',
@@ -248,6 +254,30 @@ export const TELEGRAM_NOTIFICATION_CATALOG = [
     category: 'Cancellations & Voids',
     name: 'Order Cancelled (Kitchen Display)',
     description: 'Alert when chef or kitchen supervisor voids/cancels items in KDS',
+  },
+  {
+    id: 'TABLE_RESERVATION_NEW',
+    category: 'Reservations & Service',
+    name: 'New Table Reservation',
+    description: 'Alert when a guest books a table reservation with guest details & time slot',
+  },
+  {
+    id: 'LOW_STOCK_ALERT',
+    category: 'Inventory & Stock',
+    name: 'Low Stock Alert',
+    description: 'Immediate alert when ingredient or item stock falls below safe threshold',
+  },
+  {
+    id: 'INVENTORY_MODIFIED',
+    category: 'Inventory & Stock',
+    name: 'Stock & Inventory Updates',
+    description: 'Alert when ingredient stocks, batches, or purchase adjustments occur',
+  },
+  {
+    id: 'MENU_MODIFIED',
+    category: 'Menu Management',
+    name: 'Menu Item Add / Edit / Delete',
+    description: 'Alert when dishes, prices, modifier groups, or category items are changed',
   },
   {
     id: 'DAILY_SALES_REPORT',
@@ -272,18 +302,6 @@ export const TELEGRAM_NOTIFICATION_CATALOG = [
     category: 'Administration',
     name: 'Staff Added / Modified',
     description: 'Alert when an employee profile, role, or access permission is modified',
-  },
-  {
-    id: 'INVENTORY_MODIFIED',
-    category: 'Inventory & Stock',
-    name: 'Stock & Inventory Updates',
-    description: 'Alert when ingredient stocks, batches, or purchase adjustments occur',
-  },
-  {
-    id: 'MENU_MODIFIED',
-    category: 'Menu Management',
-    name: 'Menu Item Add / Edit / Delete',
-    description: 'Alert when dishes, prices, modifier groups, or category items are changed',
   },
 ];
 

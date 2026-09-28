@@ -328,6 +328,12 @@ const TELEGRAM_NOTIFICATION_OPTIONS = [
     description: 'Instant notification with table, bill items, total amount and item count',
   },
   {
+    id: 'EXPENSE_RECORDED',
+    category: 'Billing & Cash',
+    name: '💰 Expense / Payout Logged',
+    description: 'Alert when operational expenses, petty cash, or payout vouchers are recorded',
+  },
+  {
     id: 'ORDER_CANCELLED_TABLES',
     category: 'Cancellations & Voids',
     name: '❌ Cancelled on Tables View',
@@ -338,6 +344,30 @@ const TELEGRAM_NOTIFICATION_OPTIONS = [
     category: 'Cancellations & Voids',
     name: '🚫 Cancelled on Kitchen Display',
     description: 'Alert when chef cancels or voids items on the KDS display',
+  },
+  {
+    id: 'TABLE_RESERVATION_NEW',
+    category: 'Reservations & Service',
+    name: '📅 New Table Reservation',
+    description: 'Alert when a guest books a table reservation with guest details & time slot',
+  },
+  {
+    id: 'LOW_STOCK_ALERT',
+    category: 'Inventory & Stock',
+    name: '⚠️ Low Stock Warning',
+    description: 'Immediate alert when ingredient stock falls below safe threshold',
+  },
+  {
+    id: 'INVENTORY_MODIFIED',
+    category: 'Inventory & Stock',
+    name: '📦 Stock & Inventory Changes',
+    description: 'Alert on inventory adjustments, stock updates and purchases',
+  },
+  {
+    id: 'MENU_MODIFIED',
+    category: 'Menu Management',
+    name: '🍽️ Menu Dish Add / Edit / Delete',
+    description: 'Alert when dish catalog, pricing or availability changes',
   },
   {
     id: 'DAILY_SALES_REPORT',
@@ -362,18 +392,6 @@ const TELEGRAM_NOTIFICATION_OPTIONS = [
     category: 'Administration',
     name: '👤 Staff Added / Modified',
     description: 'Alert when staff roster, role permissions or accounts are changed',
-  },
-  {
-    id: 'INVENTORY_MODIFIED',
-    category: 'Inventory & Stock',
-    name: '📦 Stock & Inventory Changes',
-    description: 'Alert on inventory adjustments, low-stock updates and purchases',
-  },
-  {
-    id: 'MENU_MODIFIED',
-    category: 'Menu Management',
-    name: '🍽️ Menu Dish Add / Edit / Delete',
-    description: 'Alert when dish catalog, pricing or availability changes',
   },
 ];
 

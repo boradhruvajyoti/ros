@@ -146,6 +146,18 @@ export class InventoryController {
         'INVENTORY_MODIFIED',
         `📦 <b>Inventory Stock Adjusted</b>\n\n• <b>Item:</b> ${result.ingredient.name}\n• <b>Movement:</b> ${data.movementType}\n• <b>Change:</b> ${data.quantity} ${result.ingredient.unit}\n• <b>New Level:</b> ${result.ingredient.currentStock} ${result.ingredient.unit}\n• <b>Notes:</b> ${data.notes || 'None'}\n• <b>By:</b> ${userName}`
       ).catch((e) => console.error('[Telegram Inventory Alert Error]:', e));
+
+      if (
+        result.ingredient.lowStockThreshold &&
+        Number(result.ingredient.lowStockThreshold) > 0 &&
+        Number(result.ingredient.currentStock) <= Number(result.ingredient.lowStockThreshold)
+      ) {
+        TelegramService.sendNotificationToTenant(
+          req.user!.tid,
+          'LOW_STOCK_ALERT',
+          `⚠️ <b>LOW STOCK ALERT!</b>\n\n• <b>Item:</b> ${result.ingredient.name}\n• <b>Current Stock:</b> ${result.ingredient.currentStock} ${result.ingredient.unit}\n• <b>Threshold:</b> ${result.ingredient.lowStockThreshold} ${result.ingredient.unit}\n• <i>Please reorder stock immediately.</i>`
+        ).catch((e) => console.error('[Telegram Low Stock Alert Error]:', e));
+      }
     });
 
     sendSuccess(res, result, 201);

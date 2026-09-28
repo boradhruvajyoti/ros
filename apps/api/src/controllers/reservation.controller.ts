@@ -5,6 +5,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { sendSuccess } from '../middlewares/error.middleware';
+import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 
 const createReservationSchema = z.object({
@@ -57,6 +58,16 @@ export class ReservationController {
       },
       include: { table: true },
     });
+
+    // Dispatch Telegram Bot Notification (TABLE_RESERVATION_NEW)
+    TelegramService.getUserName(req.user, 'Staff').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'TABLE_RESERVATION_NEW',
+        `📅 <b>New Table Reservation Confirmed!</b>\n\n• <b>Guest:</b> ${reservation.customerName} (${reservation.customerPhone})\n• <b>Party Size:</b> ${reservation.partySize} Guests\n• <b>Date & Time:</b> ${new Date(reservation.date).toLocaleDateString()} at ${reservation.timeSlot}\n• <b>Table:</b> ${reservation.table?.name || 'Unassigned'}\n• <b>Occasion:</b> ${reservation.occasion || 'General Dining'}\n• <b>Booked By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Reservation Alert Error]:', e));
+    });
+
     sendSuccess(res, reservation, 201);
   }
 

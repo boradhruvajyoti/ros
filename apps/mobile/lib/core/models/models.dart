@@ -962,6 +962,11 @@ class StaffMember {
   final String? designation;
   final String? department;
   final double? salary;
+  final String? userId;
+  final String? telegramChatId;
+  final String? telegramUsername;
+  final List<String> telegramNotifications;
+  final List<String> permissions;
   final List<String> roles;
   final bool isActive;
   final DateTime? lastLoginAt;
@@ -975,29 +980,66 @@ class StaffMember {
     this.designation,
     this.department,
     this.salary,
+    this.userId,
+    this.telegramChatId,
+    this.telegramUsername,
+    this.telegramNotifications = const [],
+    this.permissions = const [],
     required this.roles,
     required this.isActive,
     this.lastLoginAt,
   });
 
-  factory StaffMember.fromJson(Map<String, dynamic> json) => StaffMember(
-    id: json['id'] as String? ?? '',
-    employeeCode: json['employeeCode'] as String?,
-    name: json['name'] as String? ?? 'Staff',
-    email: json['email'] as String? ?? '',
-    phone: json['phone'] as String?,
-    designation: json['designation'] as String?,
-    department: json['department'] as String?,
-    salary: json['salary'] != null ? parseDouble(json['salary'], 0.0) : null,
-    roles: (json['branchRoles'] as List<dynamic>?)
-        ?.map((e) => e['role']?['name'] as String? ?? '')
-        .where((r) => r.isNotEmpty)
-        .toList() ?? (json['roles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-    isActive: json['isActive'] as bool? ?? true,
-    lastLoginAt: json['lastLoginAt'] != null
-        ? DateTime.tryParse(json['lastLoginAt'].toString())
-        : null,
-  );
+  factory StaffMember.fromJson(Map<String, dynamic> json) {
+    final user = json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : null;
+    final userRoles = <String>[];
+    if (user != null && user['roles'] is List) {
+      userRoles.addAll((user['roles'] as List).map((e) => e.toString()));
+    } else if (json['branchRoles'] is List) {
+      userRoles.addAll(
+        (json['branchRoles'] as List)
+            .map((e) => e['role']?['name'] as String? ?? '')
+            .where((r) => r.isNotEmpty),
+      );
+    } else if (json['roles'] is List) {
+      userRoles.addAll((json['roles'] as List).map((e) => e.toString()));
+    }
+
+    final userPerms = <String>[];
+    if (user != null && user['permissions'] is List) {
+      userPerms.addAll((user['permissions'] as List).map((e) => e.toString()));
+    } else if (json['permissions'] is List) {
+      userPerms.addAll((json['permissions'] as List).map((e) => e.toString()));
+    }
+
+    final notifs = <String>[];
+    if (user != null && user['telegramNotifications'] is List) {
+      notifs.addAll((user['telegramNotifications'] as List).map((e) => e.toString()));
+    } else if (json['telegramNotifications'] is List) {
+      notifs.addAll((json['telegramNotifications'] as List).map((e) => e.toString()));
+    }
+
+    return StaffMember(
+      id: json['id'] as String? ?? '',
+      employeeCode: json['employeeCode'] as String?,
+      name: json['name'] as String? ?? 'Staff',
+      email: json['email'] as String? ?? (user?['email'] as String? ?? ''),
+      phone: json['phone'] as String?,
+      designation: json['designation'] as String?,
+      department: json['department'] as String?,
+      salary: json['salary'] != null ? parseDouble(json['salary'], 0.0) : null,
+      userId: json['userId'] as String? ?? (user?['id'] as String?),
+      telegramChatId: user?['telegramChatId'] as String? ?? json['telegramChatId'] as String?,
+      telegramUsername: user?['telegramUsername'] as String? ?? json['telegramUsername'] as String?,
+      telegramNotifications: notifs,
+      permissions: userPerms,
+      roles: userRoles,
+      isActive: json['isActive'] as bool? ?? true,
+      lastLoginAt: json['lastLoginAt'] != null
+          ? DateTime.tryParse(json['lastLoginAt'].toString())
+          : null,
+    );
+  }
 }
 
 // ── Inventory ────────────────────────────────────────────────────────────────

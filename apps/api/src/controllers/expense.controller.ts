@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { sendSuccess } from '../middlewares/error.middleware';
 import { generateULID } from '@ros/utils';
+import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 
 const createExpenseSchema = z.object({
@@ -63,6 +64,15 @@ export class ExpenseController {
         status: 'APPROVED',
         createdBy: req.user!.sub,
       },
+    });
+
+    // Dispatch Telegram Bot Notification (EXPENSE_RECORDED)
+    TelegramService.getUserName(req.user, 'Cashier').then((userName) => {
+      TelegramService.sendNotificationToTenant(
+        req.user!.tid,
+        'EXPENSE_RECORDED',
+        `💰 <b>New Expense Logged</b>\n\n• <b>Amount:</b> ₹${Number(expense.amount).toFixed(2)}\n• <b>Description:</b> ${expense.description}\n• <b>Payment Mode:</b> ${expense.paymentMode}\n• <b>Vendor:</b> ${expense.vendor || 'N/A'}\n• <b>Recorded By:</b> ${userName}`
+      ).catch((e) => console.error('[Telegram Expense Alert Error]:', e));
     });
 
     sendSuccess(res, expense, 201);
