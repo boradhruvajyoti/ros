@@ -790,56 +790,48 @@ function CookKotCard({
   const readyItems = activeItems.filter((i) => i.status === 'READY' || i.status === 'SERVED');
 
   return (
-    <div className="rounded-3xl border-2 border-amber-500/40 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col lg:flex-row items-stretch">
-      {/* Left Info Column */}
-      <div className="lg:w-64 p-5 bg-gradient-to-b from-amber-500/15 via-orange-500/10 to-transparent border-b lg:border-b-0 lg:border-r border-border/80 flex flex-col justify-between gap-3 shrink-0">
-        <div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-3xl font-black font-mono tracking-tight text-foreground">
-              #{kot.kotNumber}
-            </span>
-            <div className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold tabular-nums font-mono',
-              isOverdue ? 'bg-red-600 text-white animate-pulse' :
-              isWarning ? 'bg-amber-500 text-slate-950' :
-              'bg-muted text-foreground'
-            )}>
-              <Clock className="w-3.5 h-3.5" />
-              <span>{kot.ageMinutes}m</span>
-            </div>
-          </div>
-
-          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-            {tableName ? (
-              <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow-xs">
-                TABLE: {tableName}
-              </Badge>
-            ) : (
-              <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow-xs">
-                📦 TAKEAWAY
-              </Badge>
-            )}
-            <span className="text-xs font-semibold text-muted-foreground font-mono">
-              Order #{kot.order.orderNumber}
-            </span>
-          </div>
-
+    <div className="rounded-2xl border-2 border-amber-500/40 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+      {/* Top Ticket Header Bar */}
+      <div className="px-5 py-3.5 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border-b border-border/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-foreground">
+            #{kot.kotNumber}
+          </span>
+          {tableName ? (
+            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+              TABLE: {tableName}
+            </Badge>
+          ) : (
+            <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+              📦 TAKEAWAY
+            </Badge>
+          )}
+          <span className="text-xs font-semibold text-muted-foreground font-mono">
+            Order #{kot.order.orderNumber}
+          </span>
           {readyItems.length > 0 && (
-            <div className="mt-2">
-              <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                {readyItems.length}/{activeItems.length} Completed
-              </span>
-            </div>
+            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg">
+              {readyItems.length}/{activeItems.length} Done
+            </span>
           )}
         </div>
 
-        <div className="pt-2 flex items-center justify-between border-t border-border/40">
-          <span className="text-[11px] font-semibold text-muted-foreground">Cancel Ticket:</span>
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold tabular-nums font-mono',
+            isOverdue ? 'bg-red-600 text-white animate-pulse' :
+            isWarning ? 'bg-amber-500 text-slate-950 font-black' :
+            'bg-muted text-foreground border border-border'
+          )}>
+            <Clock className="w-3.5 h-3.5" />
+            <span>{kot.ageMinutes}m elapsed</span>
+          </div>
+
           <button
             type="button"
             onClick={onRequestCancelKot}
             title="Cancel Entire KOT Ticket"
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer border border-transparent hover:border-rose-500/20"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -847,8 +839,8 @@ function CookKotCard({
       </div>
 
       {/* Middle Dishes Section */}
-      <div className="flex-1 p-4 sm:p-5 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+      <div className="p-4 sm:p-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3.5">
           {activeItems.map((item) => {
             const isItemCancelled = item.status === 'CANCELLED';
             const isItemReady = item.status === 'READY' || item.status === 'SERVED';
@@ -864,117 +856,117 @@ function CookKotCard({
               <div
                 key={item.id}
                 className={cn(
-                  'flex items-start gap-3 p-3 rounded-2xl border transition-all',
+                  'flex items-start justify-between gap-3 p-3.5 rounded-xl border transition-all',
                   isItemCancelled
                     ? 'opacity-40 border-border/40 bg-muted/20 line-through'
                     : isItemReady
-                    ? 'bg-muted/40 border-border/50 opacity-70'
-                    : 'bg-card border-border shadow-xs hover:border-amber-500/50'
+                    ? 'bg-muted/30 border-border/50 opacity-75'
+                    : 'bg-card border-border/80 shadow-xs hover:border-amber-500/40'
                 )}
               >
-                {/* Quantity Box */}
-                <div className={cn(
-                  'w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black font-mono shrink-0 shadow-xs',
-                  isItemCancelled
-                    ? 'bg-muted text-muted-foreground'
-                    : isItemReady
-                    ? 'bg-emerald-600/70 text-white'
-                    : isMultiQty
-                    ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-400/40'
-                    : 'bg-primary text-primary-foreground'
-                )}>
-                  {qty}
-                </div>
-
-                {/* Title & Actions */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-1">
-                    <p className={cn(
-                      'font-black text-sm sm:text-base leading-snug tracking-tight break-words whitespace-normal',
-                      isItemCancelled ? 'text-muted-foreground line-through' : isItemReady ? 'text-muted-foreground' : 'text-foreground'
-                    )}>
-                      {fullItemTitle}
-                    </p>
-
-                    {!isItemCancelled && !isItemReady && (
-                      <button
-                        type="button"
-                        onClick={() => onRequestCancelItem(item.id, fullItemTitle)}
-                        title="Cancel this item"
-                        className="p-1 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0 cursor-pointer"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {/* Quantity Box */}
+                  <div className={cn(
+                    'w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black font-mono shrink-0 shadow-xs',
+                    isItemCancelled
+                      ? 'bg-muted text-muted-foreground'
+                      : isItemReady
+                      ? 'bg-emerald-600/70 text-white'
+                      : isMultiQty
+                      ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-400/40'
+                      : 'bg-primary text-primary-foreground'
+                  )}>
+                    {qty}
                   </div>
 
-                  {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
-                    <p className="text-xs font-semibold text-indigo-400 mt-0.5 break-words whitespace-normal">
-                      + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
-                    </p>
-                  )}
-
-                  {item.orderItem?.notes && !isItemCancelled && (
-                    <div className="mt-1.5 p-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-400">
-                      ⚠️ {item.orderItem.notes}
-                    </div>
-                  )}
-
-                  {/* Item Action Button */}
-                  {!isItemCancelled && (
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      {isItemReady ? (
-                        <div className="flex items-center justify-between w-full">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Done
-                          </span>
-                          {onUndoItem && (
-                            <button
-                              type="button"
-                              onClick={() => onUndoItem(item.id)}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold text-xs transition-all border border-border shadow-xs active:scale-95 cursor-pointer ml-auto"
-                              title="Undo complete - return dish to cooking status"
-                            >
-                              <RotateCcw className="w-3 h-3 text-amber-500" />
-                              <span>Undo</span>
-                            </button>
-                          )}
-                        </div>
-                      ) : (
+                  {/* Title & Notes */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className={cn(
+                        'font-bold text-sm sm:text-base leading-snug break-words',
+                        isItemCancelled ? 'text-muted-foreground line-through' : isItemReady ? 'text-muted-foreground' : 'text-foreground'
+                      )}>
+                        {fullItemTitle}
+                      </p>
+                      {!isItemCancelled && !isItemReady && (
                         <button
                           type="button"
-                          onClick={() => onCompleteItem(item.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer ml-auto"
+                          onClick={() => onRequestCancelItem(item.id, fullItemTitle)}
+                          title="Cancel this item"
+                          className="text-muted-foreground/60 hover:text-rose-500 transition-colors shrink-0 p-0.5"
                         >
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Done</span>
+                          <XCircle className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
-                  )}
+
+                    {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
+                      <p className="text-xs font-semibold text-indigo-400 mt-0.5 break-words">
+                        + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
+                      </p>
+                    )}
+
+                    {item.orderItem?.notes && !isItemCancelled && (
+                      <div className="mt-1.5 p-1 px-2 rounded-lg bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-400 inline-block">
+                        ⚠️ {item.orderItem.notes}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* Item Action Button */}
+                {!isItemCancelled && (
+                  <div className="shrink-0 flex items-center gap-1.5 pt-0.5">
+                    {isItemReady ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 rounded-lg">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Done
+                        </span>
+                        {onUndoItem && (
+                          <button
+                            type="button"
+                            onClick={() => onUndoItem(item.id)}
+                            className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all border border-border cursor-pointer"
+                            title="Undo complete - return dish to cooking status"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onCompleteItem(item.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Done</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
         {kot.order.notes && (
-          <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-300">
+          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-300">
             📝 Order Note: {kot.order.notes}
           </div>
         )}
       </div>
 
-      {/* Right Column: Complete All Button */}
+      {/* Footer: Complete All Button */}
       {pendingItems.length > 0 && (
-        <div className="lg:w-48 p-4 bg-muted/15 border-t lg:border-t-0 lg:border-l border-border/80 flex items-center justify-center shrink-0">
+        <div className="px-5 py-3 bg-muted/20 border-t border-border/70 flex items-center justify-end">
           <button
             type="button"
             onClick={onCompleteKot}
-            className="w-full h-12 lg:h-full min-h-[52px] rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>COMPLETE ALL ({pendingItems.length})</span>
+            <span>COMPLETE ALL ITEMS ({pendingItems.length})</span>
           </button>
         </div>
       )}
@@ -997,60 +989,56 @@ function WaiterReadyKotCard({
   const readyItems = activeItems.filter((i) => i.status === 'READY');
   const cookingItems = activeItems.filter((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(i.status));
   const hasReady = readyItems.length > 0;
-  const isAllCompleted = cookingItems.length === 0 && readyItems.length > 0;
 
   return (
     <div className={cn(
-      'rounded-3xl border-2 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col lg:flex-row items-stretch',
-      hasReady ? 'border-emerald-500/60 shadow-emerald-500/5' : 'border-border/80 opacity-90'
+      'rounded-2xl border-2 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col',
+      hasReady ? 'border-emerald-500/50 shadow-emerald-500/5' : 'border-border/80 opacity-90'
     )}>
-      {/* Left Info Column */}
+      {/* Top Header Bar */}
       <div className={cn(
-        'lg:w-64 p-5 text-white border-b lg:border-b-0 lg:border-r border-border/80 flex flex-col justify-between gap-3 shrink-0',
+        'px-5 py-3.5 border-b border-border/80 flex flex-wrap items-center justify-between gap-3',
         hasReady
-          ? 'bg-gradient-to-b from-emerald-600 via-teal-600 to-emerald-700'
-          : 'bg-gradient-to-b from-slate-800 via-zinc-800 to-slate-900'
+          ? 'bg-gradient-to-r from-emerald-600/15 via-teal-600/10 to-transparent'
+          : 'bg-muted/40'
       )}>
-        <div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-3xl font-black font-mono tracking-tight text-white">
-              #{kot.kotNumber}
-            </span>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/20 text-white text-xs font-black">
-              <Clock className="w-3.5 h-3.5" />
-              <span>{kot.ageMinutes}m</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-foreground">
+            #{kot.kotNumber}
+          </span>
+          {tableName ? (
+            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+              TABLE: {tableName}
+            </Badge>
+          ) : (
+            <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+              📦 TAKEAWAY
+            </Badge>
+          )}
+          <span className="text-xs font-semibold text-muted-foreground font-mono">
+            Order #{kot.order.orderNumber}
+          </span>
+          <span className={cn(
+            'text-xs font-black px-2.5 py-0.5 rounded-lg border',
+            hasReady
+              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+              : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+          )}>
+            {hasReady ? `${readyItems.length} Ready for Pickup` : `${cookingItems.length} Cooking`}
+          </span>
+        </div>
 
-          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-            {tableName ? (
-              <Badge className="bg-white text-slate-950 font-black text-xs px-2.5 py-1 rounded-xl shadow-xs">
-                TABLE: {tableName}
-              </Badge>
-            ) : (
-              <Badge className="bg-amber-400 text-slate-950 font-black text-xs px-2.5 py-1 rounded-xl shadow-xs">
-                📦 TAKEAWAY
-              </Badge>
-            )}
-            <span className="text-xs font-semibold text-white/80 font-mono">
-              Order #{kot.order.orderNumber}
-            </span>
-          </div>
-
-          <div className="mt-2">
-            <span className={cn(
-              'text-[11px] font-black px-2 py-0.5 rounded-md',
-              hasReady ? 'bg-emerald-400 text-emerald-950' : 'bg-amber-400/20 text-amber-300'
-            )}>
-              {hasReady ? `${readyItems.length} Ready for Pickup` : `${cookingItems.length} Cooking`}
-            </span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-bold tabular-nums font-mono">
+            <Clock className="w-3.5 h-3.5" />
+            <span>{kot.ageMinutes}m elapsed</span>
           </div>
         </div>
       </div>
 
       {/* Middle Dishes Section */}
-      <div className="flex-1 p-4 sm:p-5 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+      <div className="p-4 sm:p-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3.5">
           {activeItems.map((item) => {
             const isReady = item.status === 'READY';
             const isCooking = ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(item.status);
@@ -1066,15 +1054,16 @@ function WaiterReadyKotCard({
               <div
                 key={item.id}
                 className={cn(
-                  'flex items-start justify-between gap-3 p-3 rounded-2xl border transition-all',
+                  'flex items-start justify-between gap-3 p-3.5 rounded-xl border transition-all',
                   isReady
-                    ? 'bg-emerald-500/15 border-emerald-500/40 shadow-xs'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 shadow-xs'
                     : isCooking
-                    ? 'bg-muted/40 border-border/50 opacity-60'
+                    ? 'bg-muted/30 border-border/50 opacity-70'
                     : 'bg-muted/20 border-border/30 opacity-75'
                 )}
               >
-                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {/* Quantity Box */}
                   <div className={cn(
                     'w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black font-mono shrink-0 shadow-xs',
                     isReady
@@ -1083,33 +1072,35 @@ function WaiterReadyKotCard({
                   )}>
                     {qty}
                   </div>
+
+                  {/* Title & Details */}
                   <div className="min-w-0 flex-1">
                     <p className={cn(
-                      'font-black text-sm sm:text-base leading-snug break-words whitespace-normal',
+                      'font-bold text-sm sm:text-base leading-snug break-words',
                       isReady ? 'text-foreground' : 'text-muted-foreground'
                     )}>
                       {fullItemTitle}
                     </p>
 
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {isReady ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-md">
-                          <CheckCircle2 className="w-3 h-3" /> Ready
+                        <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Ready to Serve
                         </span>
                       ) : isCooking ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">
-                          <Flame className="w-3 h-3 text-amber-500" /> Cooking
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400">
+                          <Flame className="w-3.5 h-3.5 text-amber-500" /> In Kitchen
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded-md">
+                        <span className="text-[11px] font-bold text-blue-400">
                           ✅ Served
                         </span>
                       )}
 
                       {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
-                        <p className="text-xs font-semibold text-indigo-400">
+                        <span className="text-xs font-semibold text-indigo-400">
                           + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
-                        </p>
+                        </span>
                       )}
                     </div>
 
@@ -1121,6 +1112,7 @@ function WaiterReadyKotCard({
                   </div>
                 </div>
 
+                {/* Serve Button */}
                 {isReady && (
                   <button
                     type="button"
@@ -1137,13 +1129,13 @@ function WaiterReadyKotCard({
         </div>
       </div>
 
-      {/* Right Column: Serve Entire KOT button */}
+      {/* Footer Action */}
       {readyItems.length > 0 && (
-        <div className="lg:w-48 p-4 bg-muted/15 border-t lg:border-t-0 lg:border-l border-border/80 flex items-center justify-center shrink-0">
+        <div className="px-5 py-3 bg-muted/20 border-t border-border/70 flex items-center justify-end">
           <button
             type="button"
             onClick={onServeKot}
-            className="w-full h-12 lg:h-full min-h-[52px] rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
           >
             <Utensils className="w-4 h-4" />
             <span>SERVE ALL READY ({readyItems.length})</span>
@@ -1153,4 +1145,5 @@ function WaiterReadyKotCard({
     </div>
   );
 }
+
 
