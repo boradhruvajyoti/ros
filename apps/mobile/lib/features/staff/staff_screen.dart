@@ -108,6 +108,18 @@ const List<String> kDepartments = [
 ];
 
 // ── Feature Modules Definition (Categorized Platform Features) ───────────────
+class FeatureSubmoduleItem {
+  final String id;
+  final String name;
+  final String description;
+
+  const FeatureSubmoduleItem({
+    required this.id,
+    required this.name,
+    required this.description,
+  });
+}
+
 class FeatureModuleItem {
   final String id;
   final String category;
@@ -115,6 +127,7 @@ class FeatureModuleItem {
   final String icon;
   final String description;
   final List<String> permissions;
+  final List<FeatureSubmoduleItem> submodules;
 
   const FeatureModuleItem({
     required this.id,
@@ -123,6 +136,7 @@ class FeatureModuleItem {
     required this.icon,
     required this.description,
     required this.permissions,
+    this.submodules = const [],
   });
 }
 
@@ -135,6 +149,26 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📊',
     description: 'Executive dashboard, real-time live revenue counters & feed',
     permissions: ['reports:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'dashboard_revenue', name: 'Live Revenue & Sales KPIs', description: 'Real-time gross/net sales, average check size, and hourly revenue curves'),
+      FeatureSubmoduleItem(id: 'dashboard_activity', name: 'Floor Activity Feed', description: 'Live log of newly seated tables, open KOTs, and pending customer bills'),
+      FeatureSubmoduleItem(id: 'dashboard_velocity', name: 'Dish Velocity & Fast Movers', description: 'Top performing dishes, category proportions, and table turnover pace'),
+      FeatureSubmoduleItem(id: 'dashboard_actions', name: 'Quick Operations Jump', description: 'Instant shortcuts to KDS station, POS checkout, and table seating'),
+    ],
+  ),
+  FeatureModuleItem(
+    id: 'orders',
+    category: '🍽️ Dining & Floor Operations',
+    name: 'Current Orders',
+    icon: '🛍️',
+    description: 'Live active orders queue, running KOT progress, and dining ticket advancement',
+    permissions: ['orders:create', 'orders:view', 'orders:edit', 'tables:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'orders_live_queue', name: 'Live Orders Monitor', description: 'Real-time queue of all open Dine-In, Takeaway, and Delivery orders'),
+      FeatureSubmoduleItem(id: 'orders_kot_progress', name: 'Running KOT Progress', description: 'Per-dish cooking status, preparation timers, and delay indicators'),
+      FeatureSubmoduleItem(id: 'orders_status_bump', name: 'Order Status Advancement', description: 'Advance orders between Confirmed, Preparing, Ready, and Completed'),
+      FeatureSubmoduleItem(id: 'orders_quick_settle', name: 'Quick Bill Settlement', description: 'Instant invoice generation, split payments, and receipt printing'),
+    ],
   ),
   FeatureModuleItem(
     id: 'tables',
@@ -143,6 +177,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🍽️',
     description: 'Floor view, live table orders, KOT status & billing preview',
     permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'tables_floor_map', name: 'Interactive Floor Map', description: 'Visual table layout across zones: Main Hall, AC Room, Outdoor, Rooftop'),
+      FeatureSubmoduleItem(id: 'tables_occupancy', name: 'Table Occupancy & Status', description: 'Live status: Available, Occupied, Reserved, Billed, Cleaning'),
+      FeatureSubmoduleItem(id: 'tables_active_kots', name: 'Table Order & KOT Preview', description: 'View active order items, add dishes, reprint KOTs, and live bill estimate'),
+      FeatureSubmoduleItem(id: 'tables_transfer', name: 'Table Transfer & Merge', description: 'Shift guests between tables, merge party tables, or split group checks'),
+    ],
   ),
   FeatureModuleItem(
     id: 'pos',
@@ -151,6 +191,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🛒',
     description: 'Touch order billing, table orders, cart modifiers & fast pay',
     permissions: ['orders:create', 'orders:edit', 'payments:create', 'discount:apply', 'menu:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'pos_touch_entry', name: 'Touch Order Entry Terminal', description: 'Visual menu grid with instant search, category tabs, and favorite dishes'),
+      FeatureSubmoduleItem(id: 'pos_modifiers', name: 'Modifiers & Cooking Notes', description: 'Portion variants, spice level notes, extra toppings, and custom instructions'),
+      FeatureSubmoduleItem(id: 'pos_split_pay', name: 'Multi-Mode Split Pay', description: 'Split bills across Cash, UPI QR, Credit Card, Gift Card, and Ledger'),
+      FeatureSubmoduleItem(id: 'pos_discounts', name: 'Discounts & Promo Vouchers', description: 'Manager discount overrides, coupon redemption, and tax exemptions'),
+    ],
   ),
   FeatureModuleItem(
     id: 'kitchen',
@@ -159,6 +205,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '👨‍🍳',
     description: 'Live KOT tickets, cooking bump, partial/full items cancel',
     permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'kds_cook_station', name: 'Chef & Cook Station', description: 'Incoming KOT ticket queue, item prep status bump, and kitchen timer'),
+      FeatureSubmoduleItem(id: 'kds_runner_station', name: 'Waiter & Runner Station', description: 'Ready to serve dish queue, table notifications, and served dish bump'),
+      FeatureSubmoduleItem(id: 'kds_archive_undo', name: 'Served Archive & Undo', description: 'History of completed tickets with accidental complete undo restoration'),
+      FeatureSubmoduleItem(id: 'kds_routing', name: 'Station Filtering & Routing', description: 'Filter orders by station: Grill, Bar, Tandoor, Dessert, Main Kitchen'),
+    ],
   ),
   FeatureModuleItem(
     id: 'history',
@@ -167,6 +219,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📜',
     description: 'View past orders, reprint receipts, audit customer bills',
     permissions: ['orders:view', 'payments:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'history_ledger', name: 'Closed Invoices Ledger', description: 'Searchable ledger of all historical, paid, and closed customer orders'),
+      FeatureSubmoduleItem(id: 'history_reprint', name: 'Invoice & Receipt Reprint', description: 'Reprint thermal receipts, customer tax invoices, and payment slips'),
+      FeatureSubmoduleItem(id: 'history_void_audit', name: 'Void & Cancel Audit Trail', description: 'Detailed records of bill voids, item cancellations, and refund reasons'),
+      FeatureSubmoduleItem(id: 'history_filter', name: 'Payment Breakdown Filter', description: 'Filter past transactions by Cash, Card, UPI, Swiggy, Zomato, or Delivery'),
+    ],
   ),
   FeatureModuleItem(
     id: 'reservations',
@@ -175,6 +233,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📅',
     description: 'Book tables, manage calendar, guest arrivals & schedule',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'res_calendar', name: 'Reservation Calendar & Slots', description: 'Daily booking calendar, lunch/dinner shift capacities, and table allocations'),
+      FeatureSubmoduleItem(id: 'res_booking_mgmt', name: 'Guest Booking Management', description: 'Record guest contact, special dietary notes, advance deposit, and party size'),
+      FeatureSubmoduleItem(id: 'res_checkin', name: 'Arrival Check-In & Seating', description: 'Instant guest check-in, auto-seat to table, or mark as No-Show / Cancelled'),
+      FeatureSubmoduleItem(id: 'res_alerts', name: 'SMS & WhatsApp Confirmations', description: 'Automated booking confirmation and reminder alerts sent to guests'),
+    ],
   ),
 
   // Inventory & Kitchen Supply
@@ -185,6 +249,13 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📖',
     description: 'Create dishes, prices, half/full variants, modifier groups',
     permissions: ['menu:view', 'menu:create', 'menu:edit', 'menu:delete'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'menu_dish_master', name: 'Dish & Item Catalog Master', description: 'Create/edit dishes, short codes, descriptions, and dietary badges'),
+      FeatureSubmoduleItem(id: 'menu_categories', name: 'Category & Sub-Category Tree', description: 'Organize menu into Starters, Mains, Breads, Beverages, Desserts'),
+      FeatureSubmoduleItem(id: 'menu_variants', name: 'Variants & Portion Pricing', description: 'Configure regular, large, half, full, combo portion sizes and custom prices'),
+      FeatureSubmoduleItem(id: 'menu_modifiers', name: 'Modifier Groups & Add-ons', description: 'Create modifier groups with min/max selection rules and price additions'),
+      FeatureSubmoduleItem(id: 'menu_86_toggle', name: 'Real-Time 86 / Out of Stock', description: 'Instantly mark dishes available or sold out across POS, Kiosk, and QR menu'),
+    ],
   ),
   FeatureModuleItem(
     id: 'inventory',
@@ -193,6 +264,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📦',
     description: 'Track ingredient stocks, low stock alerts, stock physical counts',
     permissions: ['inventory:view', 'inventory:adjust', 'inventory:count'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'inv_live_balance', name: 'Raw Ingredient Stock Levels', description: 'Live balances of grocery, dairy, meat, spices, beverages, and packaging'),
+      FeatureSubmoduleItem(id: 'inv_low_alerts', name: 'Low Stock & Wastage Alerts', description: 'Automated warnings when ingredients fall below minimum safety thresholds'),
+      FeatureSubmoduleItem(id: 'inv_adjustments', name: 'Stock Adjustments & Write-offs', description: 'Record damaged items, expired ingredients, spoilage, and manual adjustments'),
+      FeatureSubmoduleItem(id: 'inv_reconciliation', name: 'Physical Count & Stock Take', description: 'Periodic stock-take reconciliation comparing physical count against book balance'),
+    ],
   ),
   FeatureModuleItem(
     id: 'production',
@@ -201,6 +278,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🔥',
     description: 'Batch production, sub-recipes, kitchen prep batch conversions',
     permissions: ['inventory:view', 'inventory:write-off'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'prod_bom', name: 'Recipe Bill of Materials (BOM)', description: 'Attach raw ingredients and gram weights for automatic stock deduction'),
+      FeatureSubmoduleItem(id: 'prod_batch_prep', name: 'Batch Prep & Sub-Recipes', description: 'Record kitchen prep conversions: sauces, gravies, dough, bulk marinades'),
+      FeatureSubmoduleItem(id: 'prod_yield_tracking', name: 'Yield & Shrinkage Factors', description: 'Track raw-to-cooked yield percentages and shrinkage during preparation'),
+      FeatureSubmoduleItem(id: 'prod_auto_deduct', name: 'Auto Ingredient Deduction', description: 'Real-time deduction of raw stock whenever a dish is ordered and bumped'),
+    ],
   ),
   FeatureModuleItem(
     id: 'procurement',
@@ -209,6 +292,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🚚',
     description: 'Purchase orders, supplier bills, goods receipt notes (GRN)',
     permissions: ['procurement:view', 'procurement:create', 'procurement:receive', 'procurement:approve'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'proc_vendors', name: 'Supplier & Vendor Directory', description: 'Manage vendor contacts, GSTIN numbers, payment terms, and catalogs'),
+      FeatureSubmoduleItem(id: 'proc_po', name: 'Purchase Orders (PO) Workflow', description: 'Draft, submit, approve, and send purchase orders directly to suppliers'),
+      FeatureSubmoduleItem(id: 'proc_grn', name: 'Goods Receipt Notes (GRN)', description: 'Receive inward shipments, record quantity delivered vs ordered, and batch numbers'),
+      FeatureSubmoduleItem(id: 'proc_invoices', name: 'Supplier Invoices & Payables', description: 'Track supplier bills, outstanding balances, payment status, and due dates'),
+    ],
   ),
   FeatureModuleItem(
     id: 'transfers',
@@ -217,6 +306,11 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🔄',
     description: 'Inter-branch stock transfers and central warehouse dispatch',
     permissions: ['inventory:view', 'inventory:transfer'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'transfer_requisitions', name: 'Inter-Branch Stock Requests', description: 'Request raw ingredients and supplies from central commissary or sister outlets'),
+      FeatureSubmoduleItem(id: 'transfer_dispatch', name: 'Dispatch & Transit Tracking', description: 'Approve, pack, and dispatch stock transfers with gate pass and transit tracking'),
+      FeatureSubmoduleItem(id: 'transfer_receive', name: 'Inward Receiving & Verification', description: 'Accept incoming stock transfers, verify damaged goods, and update inventory'),
+    ],
   ),
 
   // Finance, HR & Management
@@ -227,6 +321,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '👥',
     description: 'Guest contacts, visit frequency, loyalty reward points',
     permissions: ['customers:view', 'customers:create', 'loyalty:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'cust_directory', name: 'Guest Directory & Profiles', description: 'Customer contact book, anniversary/birthday tracking, and dining preferences'),
+      FeatureSubmoduleItem(id: 'cust_history', name: 'Visit Frequency & Lifetime Spend', description: 'Detailed visit timeline, total orders placed, average check size, and VIP tier'),
+      FeatureSubmoduleItem(id: 'cust_loyalty', name: 'Loyalty Points Ledger', description: 'Automated points earn rules on spend, points balance check, and manual bonus grants'),
+      FeatureSubmoduleItem(id: 'cust_segments', name: 'Tags & Customer Segmentation', description: 'Categorize guests: VIP, Regular, Family, Corporate, High Spender, At Risk'),
+    ],
   ),
   FeatureModuleItem(
     id: 'staff',
@@ -235,6 +335,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '👤',
     description: 'Employee roster, attendance check-ins, staff accounts & RBAC',
     permissions: ['staff:view', 'staff:create', 'staff:edit', 'attendance:view', 'attendance:manage'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'staff_roster', name: 'Employee Directory & Profiles', description: 'Staff directory, designations, contact details, salary, and emergency info'),
+      FeatureSubmoduleItem(id: 'staff_attendance', name: 'Attendance & Shift Clocking', description: 'Daily biometric / PIN check-in, working hours, and monthly attendance sheets'),
+      FeatureSubmoduleItem(id: 'staff_rbac', name: 'Role-Based Access Control (RBAC)', description: 'Assign module and submodule permissions, custom roles, and security restrictions'),
+      FeatureSubmoduleItem(id: 'staff_telegram', name: 'Telegram Notification Triggers', description: 'Configure automated real-time alert triggers delivered to staff Telegram bots'),
+    ],
   ),
   FeatureModuleItem(
     id: 'expenses',
@@ -243,6 +349,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '💰',
     description: 'Daily operational expenses, petty cash, payout vouchers',
     permissions: ['expenses:view', 'expenses:create', 'expenses:approve'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'exp_daily_entry', name: 'Operational Expense Entry', description: 'Record daily out-of-pocket expenses: gas, ice, cleaning, local purchases'),
+      FeatureSubmoduleItem(id: 'exp_petty_cash', name: 'Petty Cash & Drawer Register', description: 'Track petty cash opening float, cash payouts, and end-of-shift reconciliation'),
+      FeatureSubmoduleItem(id: 'exp_categories', name: 'Categories & Cost Centers', description: 'Categorize expenses by Utilities, Kitchen, Logistics, Marketing, Repairs'),
+      FeatureSubmoduleItem(id: 'exp_approvals', name: 'Receipts & Approval Workflow', description: 'Attach receipt photos, submit for manager approval, and export vouchers'),
+    ],
   ),
   FeatureModuleItem(
     id: 'reports',
@@ -251,6 +363,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📊',
     description: 'Sales summaries, tax reports, item performance, profit & loss',
     permissions: ['reports:view', 'reports:export'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'rep_sales_summary', name: 'Sales & Revenue Summaries', description: 'Daily, weekly, monthly gross/net revenue, discounts, and net collection'),
+      FeatureSubmoduleItem(id: 'rep_item_performance', name: 'Item & Category Performance', description: 'Rank best sellers, slow moving items, category profit margins, and peak hours'),
+      FeatureSubmoduleItem(id: 'rep_tax_gst', name: 'Tax, GST & VAT Compliance', description: 'Output tax breakdown, CGST, SGST, IGST, VAT summary for accountant filing'),
+      FeatureSubmoduleItem(id: 'rep_pnl_statement', name: 'Profit & Loss (P&L) Statement', description: 'Revenue vs COGS vs operational expenses breakdown for net profit calculation'),
+    ],
   ),
 
   // Growth, Marketing & Digital
@@ -261,6 +379,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '✨',
     description: 'AI revenue forecast, demand prediction, inventory wastage alerts',
     permissions: ['reports:view', 'loyalty:adjust'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'ai_revenue_forecast', name: 'Revenue & Demand Forecast', description: 'Machine learning forecast of next week sales volume and guest covers'),
+      FeatureSubmoduleItem(id: 'ai_wastage_alerts', name: 'Wastage & Overstock Alerts', description: 'Smart anomaly detection for ingredients nearing expiration or excessive shrinkage'),
+      FeatureSubmoduleItem(id: 'ai_menu_engineering', name: 'Menu Engineering & Pricing', description: 'Identify Stars, Plowhorses, Puzzles, and Dogs to optimize menu profitability'),
+      FeatureSubmoduleItem(id: 'ai_staffing_recom', name: 'Rush Hour Staffing Recommendations', description: 'AI recommended staffing levels based on historical rush hour patterns'),
+    ],
   ),
   FeatureModuleItem(
     id: 'marketing',
@@ -269,6 +393,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🏷️',
     description: 'Coupon codes, happy hour discounts, customer campaigns',
     permissions: ['customers:view', 'price:override'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'mktg_coupons', name: 'Coupon Codes & Promo Rules', description: 'Create fixed amount / percentage discount codes with min spend and usage limits'),
+      FeatureSubmoduleItem(id: 'mktg_happy_hours', name: 'Happy Hours & Timed Specials', description: 'Automate time-restricted discounts: weekday lunches, late night specials'),
+      FeatureSubmoduleItem(id: 'mktg_broadcasts', name: 'SMS & WhatsApp Broadcasts', description: 'Send targeted promotional messages to customer segments and inactive diners'),
+      FeatureSubmoduleItem(id: 'mktg_roi_tracker', name: 'Campaign Performance & ROI', description: 'Measure redemption counts, incremental sales generated, and promo ROI'),
+    ],
   ),
   FeatureModuleItem(
     id: 'gift-cards',
@@ -277,6 +407,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🎁',
     description: 'Issue gift vouchers, redeem prepaid cards, customer balances',
     permissions: ['customers:view', 'payments:refund'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'gc_issuance', name: 'Prepaid Gift Card Issuance', description: 'Create physical or digital gift cards with unique barcode/QR and prepaid balance'),
+      FeatureSubmoduleItem(id: 'gc_balance_topup', name: 'Balance Check & Top-Up', description: 'Instant balance inquiry at POS, reload card balance with cash or UPI payment'),
+      FeatureSubmoduleItem(id: 'gc_redemption', name: 'Redemption & Split Settlement', description: 'Accept gift card payments at checkout with PIN verification and receipt balance print'),
+      FeatureSubmoduleItem(id: 'gc_liability', name: 'Liability & Audit Ledger', description: 'Track unredeemed liability, total card sales, and expired balance forfeiture'),
+    ],
   ),
   FeatureModuleItem(
     id: 'feedback',
@@ -285,6 +421,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '⭐',
     description: 'Customer ratings, food quality reviews, dining experience surveys',
     permissions: ['customers:view', 'customers:edit'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'fb_qr_surveys', name: 'Digital QR Feedback Forms', description: 'Table QR code enabling guests to submit ratings on food, service, and ambiance'),
+      FeatureSubmoduleItem(id: 'fb_rating_dashboard', name: 'Rating & Review Analytics', description: 'Aggregate Net Promoter Score (NPS), 5-star ratings, and sentiment distribution'),
+      FeatureSubmoduleItem(id: 'fb_instant_alerts', name: 'Negative Feedback Alerts', description: 'Immediate Telegram alert to floor manager when a customer rates below 3 stars'),
+      FeatureSubmoduleItem(id: 'fb_dish_quality', name: 'Dish & Service Quality Trends', description: 'Identify dishes and staff members with consistently low or high satisfaction ratings'),
+    ],
   ),
   FeatureModuleItem(
     id: 'integrations',
@@ -293,6 +435,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📻',
     description: 'Zomato, Swiggy, UberEats, WhatsApp ordering channel integrations',
     permissions: ['settings:view', 'branches:view'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'int_aggregators', name: 'Food Aggregators (Zomato / Swiggy)', description: 'Centralized menu sync, store toggle, and incoming online orders acceptance'),
+      FeatureSubmoduleItem(id: 'int_whatsapp', name: 'WhatsApp Conversational Ordering', description: 'Direct guest menu ordering, KOT generation, and payment via WhatsApp chat bot'),
+      FeatureSubmoduleItem(id: 'int_riders', name: 'Delivery Fleet & Rider Dispatch', description: 'Assign in-house delivery drivers, track live delivery status, and capture COD'),
+      FeatureSubmoduleItem(id: 'int_webhooks', name: 'Webhooks & Third-Party APIs', description: 'Webhook triggers for third-party accounting, CRM, and ERP integrations'),
+    ],
   ),
 
   // System, Tech & Administration
@@ -303,6 +451,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '📱',
     description: 'Self-ordering guest kiosk mode with touch menu interface',
     permissions: ['orders:create', 'orders:void'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'kiosk_touch_ui', name: 'Self-Ordering Kiosk Mode', description: 'Guest-facing touch UI for ordering with visual food photography and modifiers'),
+      FeatureSubmoduleItem(id: 'kiosk_showcase', name: 'Menu & Category Showcase', description: 'Highlight combos, chef specials, upsell prompts, and dietary preferences'),
+      FeatureSubmoduleItem(id: 'kiosk_self_checkout', name: 'Self-Checkout UPI QR & Pay', description: 'Instant dynamic on-screen UPI QR generation and integrated POS terminal trigger'),
+      FeatureSubmoduleItem(id: 'kiosk_device_lock', name: 'Kiosk Device Locks & PIN', description: 'Admin passkey lock to prevent guests from closing or exiting kiosk application'),
+    ],
   ),
   FeatureModuleItem(
     id: 'franchise',
@@ -311,6 +465,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🏢',
     description: 'Franchise royalty fee tracking and central brand controls',
     permissions: ['branches:view', 'branches:create'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'fran_overview', name: 'Multi-Outlet Master Overview', description: 'Live bird\'s eye view of all franchise locations, revenue, and active tickets'),
+      FeatureSubmoduleItem(id: 'fran_royalties', name: 'Royalty & Fee Share Ledger', description: 'Automated calculation and billing of franchise royalty fees and contributions'),
+      FeatureSubmoduleItem(id: 'fran_central_menu', name: 'Central Master Menu Push', description: 'Push standardized master recipes, dishes, and brand assets to all franchise outlets'),
+      FeatureSubmoduleItem(id: 'fran_benchmarks', name: 'Cross-Outlet Benchmarking', description: 'Compare outlet revenue, average check, table turnover, and customer satisfaction'),
+    ],
   ),
   FeatureModuleItem(
     id: 'settings',
@@ -319,6 +479,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '⚙️',
     description: 'Restaurant taxes (GST/VAT), service charge, operating hours',
     permissions: ['settings:view', 'settings:edit'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'set_profile', name: 'Profile & Invoice Branding', description: 'Restaurant legal name, FSSAI / Tax ID, logo, address, and receipt header/footer'),
+      FeatureSubmoduleItem(id: 'set_tax_service', name: 'Taxes, GST & Service Charge', description: 'Configure CGST, SGST, VAT rates, service charge percentage, and roundoff rules'),
+      FeatureSubmoduleItem(id: 'set_hours_shifts', name: 'Operating Hours & Shifts', description: 'Set open/close hours, lunch/dinner break shifts, and auto-close business day time'),
+      FeatureSubmoduleItem(id: 'set_gateways', name: 'Payment Gateways & UPI QR', description: 'Configure merchant UPI IDs, Razorpay / Stripe keys, and bank account details'),
+    ],
   ),
   FeatureModuleItem(
     id: 'hardware',
@@ -327,6 +493,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🖨️',
     description: 'Network thermal printers, cash drawer triggers, barcode scanners',
     permissions: ['settings:view', 'cash:open'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'hw_bill_printers', name: 'Thermal Receipt & Bill Printers', description: 'Configure network LAN, Wi-Fi, USB, and Bluetooth ESC/POS receipt printers'),
+      FeatureSubmoduleItem(id: 'hw_kot_printers', name: 'Kitchen KOT Section Printers', description: 'Route order tickets to dedicated kitchen section printers: Kitchen, Bar, Grill'),
+      FeatureSubmoduleItem(id: 'hw_cash_drawers', name: 'Cash Drawer Kick Triggers', description: 'Configure pulse trigger on bill print or manual manager drawer pop'),
+      FeatureSubmoduleItem(id: 'hw_scanners', name: 'Barcode & QR Code Scanners', description: 'Configure USB/Bluetooth 2D barcode scanners for fast menu and voucher lookup'),
+    ],
   ),
   FeatureModuleItem(
     id: 'audit-vault',
@@ -335,6 +507,12 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
     icon: '🛡️',
     description: 'Immutable ledger of staff logins, bill voids, and sensitive actions',
     permissions: ['settings:view', 'cash:close'],
+    submodules: [
+      FeatureSubmoduleItem(id: 'audit_login_ledger', name: 'Staff Login & Session Ledger', description: 'Immutable record of user logins, device fingerprints, IP addresses, and session times'),
+      FeatureSubmoduleItem(id: 'audit_overrides', name: 'Sensitive Actions & Overrides', description: 'Audit logs for bill voids, item cancellations, discount overrides, and drawer opens'),
+      FeatureSubmoduleItem(id: 'audit_reprints', name: 'Bill Reprint & Change Trail', description: 'Detailed log of every receipt reprint with user ID and timestamp'),
+      FeatureSubmoduleItem(id: 'audit_security_log', name: 'Security & Permission Logs', description: 'Log of permission changes, password resets, export operations, and config edits'),
+    ],
   ),
 ];
 
@@ -356,7 +534,7 @@ final List<RolePreset> kRolePresets = [
   const RolePreset(
     id: 'WAITER',
     label: '🍽️ Waiter / Server',
-    modules: ['pos', 'tables', 'history'],
+    modules: ['pos', 'tables', 'orders', 'history'],
   ),
   const RolePreset(
     id: 'CHEF',
@@ -366,19 +544,19 @@ final List<RolePreset> kRolePresets = [
   const RolePreset(
     id: 'CASHIER',
     label: '💳 Cashier / Billing',
-    modules: ['pos', 'history', 'expenses', 'gift-cards'],
+    modules: ['pos', 'orders', 'history', 'expenses', 'gift-cards'],
   ),
   const RolePreset(
     id: 'MANAGER',
     label: '📋 Floor Manager',
     modules: [
-      'dashboard', 'pos', 'tables', 'history', 'reservations', 'menu',
+      'dashboard', 'orders', 'pos', 'tables', 'history', 'reservations', 'menu',
       'inventory', 'customers', 'expenses', 'reports', 'feedback'
     ],
   ),
   RolePreset(
     id: 'ADMIN',
-    label: '⚡ Full Administrator',
+    label: '👑 Full Administrator',
     modules: kPlatformFeatureModules.map((m) => m.id).toList(),
   ),
 ];
@@ -1672,9 +1850,45 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                 ),
                                               ],
                                             ),
-                                            subtitle: Text(
-                                              mod.description,
-                                              style: const TextStyle(fontSize: 10, color: RosTheme.textMuted),
+                                            subtitle: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  mod.description,
+                                                  style: const TextStyle(fontSize: 10, color: RosTheme.textMuted),
+                                                ),
+                                                if (mod.submodules.isNotEmpty) ...[
+                                                  const SizedBox(height: 5),
+                                                  Wrap(
+                                                    spacing: 4,
+                                                    runSpacing: 4,
+                                                    children: mod.submodules.map((sub) {
+                                                      return Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: isChecked
+                                                              ? RosTheme.primary.withValues(alpha: 0.15)
+                                                              : RosTheme.bgElevated,
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          border: Border.all(
+                                                            color: isChecked
+                                                                ? RosTheme.primary.withValues(alpha: 0.3)
+                                                                : RosTheme.bgBorder,
+                                                          ),
+                                                        ),
+                                                        child: Text(
+                                                          '• ${sub.name}',
+                                                          style: TextStyle(
+                                                            fontSize: 9,
+                                                            fontWeight: isChecked ? FontWeight.w700 : FontWeight.w500,
+                                                            color: isChecked ? RosTheme.textPrimary : RosTheme.textMuted,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                             onChanged: (val) {
                                               setState(() {

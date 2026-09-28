@@ -55,6 +55,27 @@ const FEATURE_MODULES = [
     description: 'Executive dashboard, real-time live revenue counters and activity feed',
     keyPermission: 'reports:view',
     permissions: ['reports:view'],
+    submodules: [
+      { id: 'dashboard_revenue', name: 'Live Revenue & Sales KPIs', description: 'Real-time gross/net sales, average check size, and hourly revenue curves' },
+      { id: 'dashboard_activity', name: 'Floor Activity Feed', description: 'Live log of newly seated tables, open KOTs, and pending customer bills' },
+      { id: 'dashboard_velocity', name: 'Dish Velocity & Fast Movers', description: 'Top performing dishes, category proportions, and table turnover pace' },
+      { id: 'dashboard_actions', name: 'Quick Operations Jump', description: 'Instant shortcuts to KDS station, POS checkout, and table seating' },
+    ],
+  },
+  {
+    id: 'orders',
+    category: '🍽️ Dining & Floor Operations',
+    name: 'Current Orders',
+    icon: '🛍️',
+    description: 'Live active orders queue, running KOT progress, and dining ticket advancement',
+    keyPermission: 'orders:create',
+    permissions: ['orders:create', 'orders:view', 'orders:edit', 'tables:view'],
+    submodules: [
+      { id: 'orders_live_queue', name: 'Live Orders Monitor', description: 'Real-time queue of all open Dine-In, Takeaway, and Delivery orders' },
+      { id: 'orders_kot_progress', name: 'Running KOT Progress', description: 'Per-dish cooking status, preparation timers, and delay indicators' },
+      { id: 'orders_status_bump', name: 'Order Status Advancement', description: 'Advance orders between Confirmed, Preparing, Ready, and Completed' },
+      { id: 'orders_quick_settle', name: 'Quick Bill Settlement', description: 'Instant invoice generation, split payments, and receipt printing' },
+    ],
   },
   {
     id: 'tables',
@@ -64,6 +85,12 @@ const FEATURE_MODULES = [
     description: 'Floor view, live table orders, KOT status advance, billing preview',
     keyPermission: 'tables:view',
     permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
+    submodules: [
+      { id: 'tables_floor_map', name: 'Interactive Floor Map', description: 'Visual table layout across zones: Main Hall, AC Room, Outdoor, Rooftop' },
+      { id: 'tables_occupancy', name: 'Table Occupancy & Status', description: 'Live status: Available, Occupied, Reserved, Billed, Cleaning' },
+      { id: 'tables_active_kots', name: 'Table Order & KOT Preview', description: 'View active order items, add dishes, reprint KOTs, and live bill estimate' },
+      { id: 'tables_transfer', name: 'Table Transfer & Merge', description: 'Shift guests between tables, merge party tables, or split group checks' },
+    ],
   },
   {
     id: 'pos',
@@ -73,6 +100,12 @@ const FEATURE_MODULES = [
     description: 'Touch order billing, table orders, cart modifiers, fast pay',
     keyPermission: 'orders:create',
     permissions: ['orders:create', 'orders:edit', 'payments:create', 'discount:apply', 'menu:view'],
+    submodules: [
+      { id: 'pos_touch_entry', name: 'Touch Order Entry Terminal', description: 'Visual menu grid with instant search, category tabs, and favorite dishes' },
+      { id: 'pos_modifiers', name: 'Modifiers & Cooking Notes', description: 'Portion variants, spice level notes, extra toppings, and custom instructions' },
+      { id: 'pos_split_pay', name: 'Multi-Mode Split Pay', description: 'Split bills across Cash, UPI QR, Credit Card, Gift Card, and Ledger' },
+      { id: 'pos_discounts', name: 'Discounts & Promo Vouchers', description: 'Manager discount overrides, coupon redemption, and tax exemptions' },
+    ],
   },
   {
     id: 'kitchen',
@@ -82,6 +115,12 @@ const FEATURE_MODULES = [
     description: 'Live KOT tickets, accept orders, cooking bump, partial/full cancel',
     keyPermission: 'kitchen:view',
     permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
+    submodules: [
+      { id: 'kds_cook_station', name: 'Chef & Cook Station', description: 'Incoming KOT ticket queue, item prep status bump, and kitchen timer' },
+      { id: 'kds_runner_station', name: 'Waiter & Runner Station', description: 'Ready to serve dish queue, table notifications, and served dish bump' },
+      { id: 'kds_archive_undo', name: 'Served Archive & Undo', description: 'History of completed tickets with accidental complete undo restoration' },
+      { id: 'kds_routing', name: 'Station Filtering & Routing', description: 'Filter orders by station: Grill, Bar, Tandoor, Dessert, Main Kitchen' },
+    ],
   },
   {
     id: 'history',
@@ -91,6 +130,12 @@ const FEATURE_MODULES = [
     description: 'View previous orders, reprint receipts, audit customer bills',
     keyPermission: 'payments:view',
     permissions: ['orders:view', 'payments:view'],
+    submodules: [
+      { id: 'history_ledger', name: 'Closed Invoices Ledger', description: 'Searchable ledger of all historical, paid, and closed customer orders' },
+      { id: 'history_reprint', name: 'Invoice & Receipt Reprint', description: 'Reprint thermal receipts, customer tax invoices, and payment slips' },
+      { id: 'history_void_audit', name: 'Void & Cancel Audit Trail', description: 'Detailed records of bill voids, item cancellations, and refund reasons' },
+      { id: 'history_filter', name: 'Payment Breakdown Filter', description: 'Filter past transactions by Cash, Card, UPI, Swiggy, Zomato, or Delivery' },
+    ],
   },
   {
     id: 'reservations',
@@ -100,6 +145,12 @@ const FEATURE_MODULES = [
     description: 'Book tables, manage calendar, guest arrivals',
     keyPermission: 'reservations:view',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
+    submodules: [
+      { id: 'res_calendar', name: 'Reservation Calendar & Slots', description: 'Daily booking calendar, lunch/dinner shift capacities, and table allocations' },
+      { id: 'res_booking_mgmt', name: 'Guest Booking Management', description: 'Record guest contact, special dietary notes, advance deposit, and party size' },
+      { id: 'res_checkin', name: 'Arrival Check-In & Seating', description: 'Instant guest check-in, auto-seat to table, or mark as No-Show / Cancelled' },
+      { id: 'res_alerts', name: 'SMS & WhatsApp Confirmations', description: 'Automated booking confirmation and reminder alerts sent to guests' },
+    ],
   },
 
   // Inventory & Kitchen Supply
@@ -111,6 +162,13 @@ const FEATURE_MODULES = [
     description: 'Create dishes, prices, half/full variants, modifier groups',
     keyPermission: 'menu:create',
     permissions: ['menu:view', 'menu:create', 'menu:edit', 'menu:delete'],
+    submodules: [
+      { id: 'menu_dish_master', name: 'Dish & Item Catalog Master', description: 'Create/edit dishes, short codes, descriptions, and dietary badges' },
+      { id: 'menu_categories', name: 'Category & Sub-Category Tree', description: 'Organize menu into Starters, Mains, Breads, Beverages, Desserts' },
+      { id: 'menu_variants', name: 'Variants & Portion Pricing', description: 'Configure regular, large, half, full, combo portion sizes and custom prices' },
+      { id: 'menu_modifiers', name: 'Modifier Groups & Add-ons', description: 'Create modifier groups with min/max selection rules and price additions' },
+      { id: 'menu_86_toggle', name: 'Real-Time 86 / Out of Stock', description: 'Instantly mark dishes available or sold out across POS, Kiosk, and QR menu' },
+    ],
   },
   {
     id: 'inventory',
@@ -120,6 +178,12 @@ const FEATURE_MODULES = [
     description: 'Track ingredient stocks, low stock alerts, stock physical counts',
     keyPermission: 'inventory:view',
     permissions: ['inventory:view', 'inventory:adjust', 'inventory:count'],
+    submodules: [
+      { id: 'inv_live_balance', name: 'Raw Ingredient Stock Levels', description: 'Live balances of grocery, dairy, meat, spices, beverages, and packaging' },
+      { id: 'inv_low_alerts', name: 'Low Stock & Wastage Alerts', description: 'Automated warnings when ingredients fall below minimum safety thresholds' },
+      { id: 'inv_adjustments', name: 'Stock Adjustments & Write-offs', description: 'Record damaged items, expired ingredients, spoilage, and manual adjustments' },
+      { id: 'inv_reconciliation', name: 'Physical Count & Stock Take', description: 'Periodic stock-take reconciliation comparing physical count against book balance' },
+    ],
   },
   {
     id: 'production',
@@ -129,6 +193,12 @@ const FEATURE_MODULES = [
     description: 'Batch production, sub-recipes, kitchen prep batch conversions',
     keyPermission: 'inventory:write-off',
     permissions: ['inventory:view', 'inventory:write-off'],
+    submodules: [
+      { id: 'prod_bom', name: 'Recipe Bill of Materials (BOM)', description: 'Attach raw ingredients and gram weights for automatic stock deduction' },
+      { id: 'prod_batch_prep', name: 'Batch Prep & Sub-Recipes', description: 'Record kitchen prep conversions: sauces, gravies, dough, bulk marinades' },
+      { id: 'prod_yield_tracking', name: 'Yield & Shrinkage Factors', description: 'Track raw-to-cooked yield percentages and shrinkage during preparation' },
+      { id: 'prod_auto_deduct', name: 'Auto Ingredient Deduction', description: 'Real-time deduction of raw stock whenever a dish is ordered and bumped' },
+    ],
   },
   {
     id: 'procurement',
@@ -138,6 +208,12 @@ const FEATURE_MODULES = [
     description: 'Purchase orders, supplier bills, goods receipt notes (GRN)',
     keyPermission: 'procurement:view',
     permissions: ['procurement:view', 'procurement:create', 'procurement:receive', 'procurement:approve'],
+    submodules: [
+      { id: 'proc_vendors', name: 'Supplier & Vendor Directory', description: 'Manage vendor contacts, GSTIN numbers, payment terms, and catalogs' },
+      { id: 'proc_po', name: 'Purchase Orders (PO) Workflow', description: 'Draft, submit, approve, and send purchase orders directly to suppliers' },
+      { id: 'proc_grn', name: 'Goods Receipt Notes (GRN)', description: 'Receive inward shipments, record quantity delivered vs ordered, and batch numbers' },
+      { id: 'proc_invoices', name: 'Supplier Invoices & Payables', description: 'Track supplier bills, outstanding balances, payment status, and due dates' },
+    ],
   },
   {
     id: 'transfers',
@@ -147,6 +223,11 @@ const FEATURE_MODULES = [
     description: 'Inter-branch stock transfers and central warehouse dispatch',
     keyPermission: 'inventory:transfer',
     permissions: ['inventory:view', 'inventory:transfer'],
+    submodules: [
+      { id: 'transfer_requisitions', name: 'Inter-Branch Stock Requests', description: 'Request raw ingredients and supplies from central commissary or sister outlets' },
+      { id: 'transfer_dispatch', name: 'Dispatch & Transit Tracking', description: 'Approve, pack, and dispatch stock transfers with gate pass and transit tracking' },
+      { id: 'transfer_receive', name: 'Inward Receiving & Verification', description: 'Accept incoming stock transfers, verify damaged goods, and update inventory' },
+    ],
   },
 
   // Finance, HR & Management
@@ -158,6 +239,12 @@ const FEATURE_MODULES = [
     description: 'Guest contacts, visit frequency, loyalty reward points',
     keyPermission: 'customers:view',
     permissions: ['customers:view', 'customers:create', 'loyalty:view'],
+    submodules: [
+      { id: 'cust_directory', name: 'Guest Directory & Profiles', description: 'Customer contact book, anniversary/birthday tracking, and dining preferences' },
+      { id: 'cust_history', name: 'Visit Frequency & Lifetime Spend', description: 'Detailed visit timeline, total orders placed, average check size, and VIP tier' },
+      { id: 'cust_loyalty', name: 'Loyalty Points Ledger', description: 'Automated points earn rules on spend, points balance check, and manual bonus grants' },
+      { id: 'cust_segments', name: 'Tags & Customer Segmentation', description: 'Categorize guests: VIP, Regular, Family, Corporate, High Spender, At Risk' },
+    ],
   },
   {
     id: 'staff',
@@ -167,6 +254,12 @@ const FEATURE_MODULES = [
     description: 'Employee roster, attendance check-ins, staff accounts & access control',
     keyPermission: 'staff:view',
     permissions: ['staff:view', 'staff:create', 'staff:edit', 'attendance:view', 'attendance:manage'],
+    submodules: [
+      { id: 'staff_roster', name: 'Employee Directory & Profiles', description: 'Staff directory, designations, contact details, salary, and emergency info' },
+      { id: 'staff_attendance', name: 'Attendance & Shift Clocking', description: 'Daily biometric / PIN check-in, working hours, and monthly attendance sheets' },
+      { id: 'staff_rbac', name: 'Role-Based Access Control (RBAC)', description: 'Assign module and submodule permissions, custom roles, and security restrictions' },
+      { id: 'staff_telegram', name: 'Telegram Notification Triggers', description: 'Configure automated real-time alert triggers delivered to staff Telegram bots' },
+    ],
   },
   {
     id: 'expenses',
@@ -176,6 +269,12 @@ const FEATURE_MODULES = [
     description: 'Daily operational expenses, petty cash, payout vouchers',
     keyPermission: 'expenses:view',
     permissions: ['expenses:view', 'expenses:create', 'expenses:approve'],
+    submodules: [
+      { id: 'exp_daily_entry', name: 'Operational Expense Entry', description: 'Record daily out-of-pocket expenses: gas, ice, cleaning, local purchases' },
+      { id: 'exp_petty_cash', name: 'Petty Cash & Drawer Register', description: 'Track petty cash opening float, cash payouts, and end-of-shift reconciliation' },
+      { id: 'exp_categories', name: 'Categories & Cost Centers', description: 'Categorize expenses by Utilities, Kitchen, Logistics, Marketing, Repairs' },
+      { id: 'exp_approvals', name: 'Receipts & Approval Workflow', description: 'Attach receipt photos, submit for manager approval, and export vouchers' },
+    ],
   },
   {
     id: 'reports',
@@ -185,6 +284,12 @@ const FEATURE_MODULES = [
     description: 'Sales summaries, tax reports, item performance, profit & loss',
     keyPermission: 'reports:export',
     permissions: ['reports:view', 'reports:export'],
+    submodules: [
+      { id: 'rep_sales_summary', name: 'Sales & Revenue Summaries', description: 'Daily, weekly, monthly gross/net revenue, discounts, and net collection' },
+      { id: 'rep_item_performance', name: 'Item & Category Performance', description: 'Rank best sellers, slow moving items, category profit margins, and peak hours' },
+      { id: 'rep_tax_gst', name: 'Tax, GST & VAT Compliance', description: 'Output tax breakdown, CGST, SGST, IGST, VAT summary for accountant filing' },
+      { id: 'rep_pnl_statement', name: 'Profit & Loss (P&L) Statement', description: 'Revenue vs COGS vs operational expenses breakdown for net profit calculation' },
+    ],
   },
 
   // Growth, Marketing & Digital
@@ -196,6 +301,12 @@ const FEATURE_MODULES = [
     description: 'AI revenue forecast, demand prediction, inventory wastage alerts',
     keyPermission: 'loyalty:adjust',
     permissions: ['reports:view', 'loyalty:adjust'],
+    submodules: [
+      { id: 'ai_revenue_forecast', name: 'Revenue & Demand Forecast', description: 'Machine learning forecast of next week sales volume and guest covers' },
+      { id: 'ai_wastage_alerts', name: 'Wastage & Overstock Alerts', description: 'Smart anomaly detection for ingredients nearing expiration or excessive shrinkage' },
+      { id: 'ai_menu_engineering', name: 'Menu Engineering & Pricing', description: 'Identify Stars, Plowhorses, Puzzles, and Dogs to optimize menu profitability' },
+      { id: 'ai_staffing_recom', name: 'Rush Hour Staffing Recommendations', description: 'AI recommended staffing levels based on historical rush hour patterns' },
+    ],
   },
   {
     id: 'marketing',
@@ -205,6 +316,12 @@ const FEATURE_MODULES = [
     description: 'Coupon codes, happy hour discounts, customer campaigns',
     keyPermission: 'price:override',
     permissions: ['customers:view', 'price:override'],
+    submodules: [
+      { id: 'mktg_coupons', name: 'Coupon Codes & Promo Rules', description: 'Create fixed amount / percentage discount codes with min spend and usage limits' },
+      { id: 'mktg_happy_hours', name: 'Happy Hours & Timed Specials', description: 'Automate time-restricted discounts: weekday lunches, late night specials' },
+      { id: 'mktg_broadcasts', name: 'SMS & WhatsApp Broadcasts', description: 'Send targeted promotional messages to customer segments and inactive diners' },
+      { id: 'mktg_roi_tracker', name: 'Campaign Performance & ROI', description: 'Measure redemption counts, incremental sales generated, and promo ROI' },
+    ],
   },
   {
     id: 'gift-cards',
@@ -214,6 +331,12 @@ const FEATURE_MODULES = [
     description: 'Issue gift vouchers, redeem prepaid cards, customer balances',
     keyPermission: 'payments:refund',
     permissions: ['customers:view', 'payments:refund'],
+    submodules: [
+      { id: 'gc_issuance', name: 'Prepaid Gift Card Issuance', description: 'Create physical or digital gift cards with unique barcode/QR and prepaid balance' },
+      { id: 'gc_balance_topup', name: 'Balance Check & Top-Up', description: 'Instant balance inquiry at POS, reload card balance with cash or UPI payment' },
+      { id: 'gc_redemption', name: 'Redemption & Split Settlement', description: 'Accept gift card payments at checkout with PIN verification and receipt balance print' },
+      { id: 'gc_liability', name: 'Liability & Audit Ledger', description: 'Track unredeemed liability, total card sales, and expired balance forfeiture' },
+    ],
   },
   {
     id: 'feedback',
@@ -223,6 +346,12 @@ const FEATURE_MODULES = [
     description: 'Customer ratings, food quality reviews, dining experience surveys',
     keyPermission: 'customers:edit',
     permissions: ['customers:view', 'customers:edit'],
+    submodules: [
+      { id: 'fb_qr_surveys', name: 'Digital QR Feedback Forms', description: 'Table QR code enabling guests to submit ratings on food, service, and ambiance' },
+      { id: 'fb_rating_dashboard', name: 'Rating & Review Analytics', description: 'Aggregate Net Promoter Score (NPS), 5-star ratings, and sentiment distribution' },
+      { id: 'fb_instant_alerts', name: 'Negative Feedback Alerts', description: 'Immediate Telegram alert to floor manager when a customer rates below 3 stars' },
+      { id: 'fb_dish_quality', name: 'Dish & Service Quality Trends', description: 'Identify dishes and staff members with consistently low or high satisfaction ratings' },
+    ],
   },
   {
     id: 'integrations',
@@ -232,6 +361,12 @@ const FEATURE_MODULES = [
     description: 'Zomato, Swiggy, UberEats, WhatsApp ordering channel integrations',
     keyPermission: 'branches:view',
     permissions: ['settings:view', 'branches:view'],
+    submodules: [
+      { id: 'int_aggregators', name: 'Food Aggregators (Zomato / Swiggy)', description: 'Centralized menu sync, store toggle, and incoming online orders acceptance' },
+      { id: 'int_whatsapp', name: 'WhatsApp Conversational Ordering', description: 'Direct guest menu ordering, KOT generation, and payment via WhatsApp chat bot' },
+      { id: 'int_riders', name: 'Delivery Fleet & Rider Dispatch', description: 'Assign in-house delivery drivers, track live delivery status, and capture COD' },
+      { id: 'int_webhooks', name: 'Webhooks & Third-Party APIs', description: 'Webhook triggers for third-party accounting, CRM, and ERP integrations' },
+    ],
   },
 
   // System, Tech & Administration
@@ -243,6 +378,12 @@ const FEATURE_MODULES = [
     description: 'Self-ordering guest kiosk mode with touch menu interface',
     keyPermission: 'orders:void',
     permissions: ['orders:create', 'orders:void'],
+    submodules: [
+      { id: 'kiosk_touch_ui', name: 'Self-Ordering Kiosk Mode', description: 'Guest-facing touch UI for ordering with visual food photography and modifiers' },
+      { id: 'kiosk_showcase', name: 'Menu & Category Showcase', description: 'Highlight combos, chef specials, upsell prompts, and dietary preferences' },
+      { id: 'kiosk_self_checkout', name: 'Self-Checkout UPI QR & Pay', description: 'Instant dynamic on-screen UPI QR generation and integrated POS terminal trigger' },
+      { id: 'kiosk_device_lock', name: 'Kiosk Device Locks & PIN', description: 'Admin passkey lock to prevent guests from closing or exiting kiosk application' },
+    ],
   },
   {
     id: 'franchise',
@@ -252,6 +393,12 @@ const FEATURE_MODULES = [
     description: 'Franchise royalty fee tracking and central brand controls',
     keyPermission: 'branches:create',
     permissions: ['branches:view', 'branches:create'],
+    submodules: [
+      { id: 'fran_overview', name: 'Multi-Outlet Master Overview', description: 'Live bird\'s eye view of all franchise locations, revenue, and active tickets' },
+      { id: 'fran_royalties', name: 'Royalty & Fee Share Ledger', description: 'Automated calculation and billing of franchise royalty fees and contributions' },
+      { id: 'fran_central_menu', name: 'Central Master Menu Push', description: 'Push standardized master recipes, dishes, and brand assets to all franchise outlets' },
+      { id: 'fran_benchmarks', name: 'Cross-Outlet Benchmarking', description: 'Compare outlet revenue, average check, table turnover, and customer satisfaction' },
+    ],
   },
   {
     id: 'settings',
@@ -261,6 +408,12 @@ const FEATURE_MODULES = [
     description: 'Restaurant taxes (GST/VAT), service charge, operating hours',
     keyPermission: 'settings:edit',
     permissions: ['settings:view', 'settings:edit'],
+    submodules: [
+      { id: 'set_profile', name: 'Profile & Invoice Branding', description: 'Restaurant legal name, FSSAI / Tax ID, logo, address, and receipt header/footer' },
+      { id: 'set_tax_service', name: 'Taxes, GST & Service Charge', description: 'Configure CGST, SGST, VAT rates, service charge percentage, and roundoff rules' },
+      { id: 'set_hours_shifts', name: 'Operating Hours & Shifts', description: 'Set open/close hours, lunch/dinner break shifts, and auto-close business day time' },
+      { id: 'set_gateways', name: 'Payment Gateways & UPI QR', description: 'Configure merchant UPI IDs, Razorpay / Stripe keys, and bank account details' },
+    ],
   },
   {
     id: 'hardware',
@@ -270,6 +423,12 @@ const FEATURE_MODULES = [
     description: 'Network thermal printers, cash drawer triggers, barcode scanners',
     keyPermission: 'cash:open',
     permissions: ['settings:view', 'cash:open'],
+    submodules: [
+      { id: 'hw_bill_printers', name: 'Thermal Receipt & Bill Printers', description: 'Configure network LAN, Wi-Fi, USB, and Bluetooth ESC/POS receipt printers' },
+      { id: 'hw_kot_printers', name: 'Kitchen KOT Section Printers', description: 'Route order tickets to dedicated kitchen section printers: Kitchen, Bar, Grill' },
+      { id: 'hw_cash_drawers', name: 'Cash Drawer Kick Triggers', description: 'Configure pulse trigger on bill print or manual manager drawer pop' },
+      { id: 'hw_scanners', name: 'Barcode & QR Code Scanners', description: 'Configure USB/Bluetooth 2D barcode scanners for fast menu and voucher lookup' },
+    ],
   },
   {
     id: 'audit-vault',
@@ -279,6 +438,12 @@ const FEATURE_MODULES = [
     description: 'Immutable ledger of staff logins, bill voids, and sensitive actions',
     keyPermission: 'cash:close',
     permissions: ['settings:view', 'cash:close'],
+    submodules: [
+      { id: 'audit_login_ledger', name: 'Staff Login & Session Ledger', description: 'Immutable record of user logins, device fingerprints, IP addresses, and session times' },
+      { id: 'audit_overrides', name: 'Sensitive Actions & Overrides', description: 'Audit logs for bill voids, item cancellations, discount overrides, and drawer opens' },
+      { id: 'audit_reprints', name: 'Bill Reprint & Change Trail', description: 'Detailed log of every receipt reprint with user ID and timestamp' },
+      { id: 'audit_security_log', name: 'Security & Permission Logs', description: 'Log of permission changes, password resets, export operations, and config edits' },
+    ],
   },
 ];
 
@@ -288,7 +453,7 @@ const ROLE_PRESETS = [
   {
     id: 'WAITER',
     name: '🍽️ Waiter / Dining Captain',
-    modules: ['pos', 'tables', 'history'],
+    modules: ['pos', 'tables', 'orders', 'history'],
   },
   {
     id: 'CHEF',
@@ -298,19 +463,19 @@ const ROLE_PRESETS = [
   {
     id: 'CASHIER',
     name: '💳 Cashier / Front Counter',
-    modules: ['pos', 'history', 'expenses', 'gift-cards'],
+    modules: ['pos', 'orders', 'history', 'expenses', 'gift-cards'],
   },
   {
     id: 'MANAGER',
     name: '📋 Floor Manager',
     modules: [
-      'dashboard', 'pos', 'tables', 'history', 'reservations', 'menu',
+      'dashboard', 'orders', 'pos', 'tables', 'history', 'reservations', 'menu',
       'inventory', 'customers', 'expenses', 'reports', 'feedback'
     ],
   },
   {
     id: 'ADMIN',
-    name: '⚡ Full-Access General Manager',
+    name: '👑 Full-Access General Manager',
     modules: FEATURE_MODULES.map((m) => m.id),
   },
 ];
@@ -1437,7 +1602,7 @@ export default function StaffPage() {
                                         className={cn(
                                           'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
                                           isSelected
-                                            ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs'
+                                            ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs ring-1 ring-primary/20'
                                             : 'bg-background/80 border-border/50 text-muted-foreground hover:border-border'
                                         )}
                                       >
@@ -1458,6 +1623,24 @@ export default function StaffPage() {
                                           <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
                                             {mod.description}
                                           </p>
+                                          {(mod as any).submodules && (mod as any).submodules.length > 0 && (
+                                            <div className="mt-2 pt-1.5 border-t border-border/40 flex flex-wrap gap-1">
+                                              {(mod as any).submodules.map((sub: any) => (
+                                                <span
+                                                  key={sub.id}
+                                                  className={cn(
+                                                    'text-[9px] px-1.5 py-0.5 rounded-md font-medium tracking-tight',
+                                                    isSelected
+                                                      ? 'bg-primary/20 text-foreground border border-primary/30 font-semibold'
+                                                      : 'bg-muted/80 text-muted-foreground border border-border/40'
+                                                  )}
+                                                  title={sub.description}
+                                                >
+                                                  • {sub.name}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     );
@@ -1887,7 +2070,7 @@ export default function StaffPage() {
                                         className={cn(
                                           'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
                                           isSelected
-                                            ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs'
+                                            ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs ring-1 ring-primary/20'
                                             : 'bg-background/80 border-border/50 text-muted-foreground hover:border-border'
                                         )}
                                       >
@@ -1908,6 +2091,24 @@ export default function StaffPage() {
                                           <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
                                             {mod.description}
                                           </p>
+                                          {(mod as any).submodules && (mod as any).submodules.length > 0 && (
+                                            <div className="mt-2 pt-1.5 border-t border-border/40 flex flex-wrap gap-1">
+                                              {(mod as any).submodules.map((sub: any) => (
+                                                <span
+                                                  key={sub.id}
+                                                  className={cn(
+                                                    'text-[9px] px-1.5 py-0.5 rounded-md font-medium tracking-tight',
+                                                    isSelected
+                                                      ? 'bg-primary/20 text-foreground border border-primary/30 font-semibold'
+                                                      : 'bg-muted/80 text-muted-foreground border border-border/40'
+                                                  )}
+                                                  title={sub.description}
+                                                >
+                                                  • {sub.name}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     );
