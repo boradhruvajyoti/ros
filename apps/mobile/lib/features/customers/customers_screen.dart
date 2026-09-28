@@ -96,7 +96,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                             child: Row(children: [
                               CircleAvatar(
                                 radius: 22,
-                                backgroundColor: RosTheme.primary.withOpacity(0.1),
+                                backgroundColor: RosTheme.primary.withValues(alpha: 0.12),
                                 child: Text(c.name.substring(0, 1).toUpperCase(),
                                     style: const TextStyle(color: RosTheme.primary, fontWeight: FontWeight.w700)),
                               ),

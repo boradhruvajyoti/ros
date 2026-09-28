@@ -59,19 +59,19 @@ function formatItemTitle(itemOrMenuName?: any, variantName?: string): string {
   return `${base} (${vName})`;
 }
 
-const ORDER_STATUS_META: Record<string, { label: string; emoji: string; bg: string; border: string; text: string }> = {
-  DRAFT:           { label: 'Draft',        emoji: '📝', bg: 'bg-muted/40',       border: 'border-border',          text: 'text-muted-foreground' },
-  CONFIRMED:       { label: 'Confirmed',    emoji: '✨', bg: 'bg-blue-500/15',    border: 'border-blue-500/40',     text: 'text-blue-400' },
-  SENT_TO_KITCHEN: { label: 'In Kitchen',   emoji: '🍳', bg: 'bg-amber-500/15',   border: 'border-amber-500/40',    text: 'text-amber-400' },
-  PREPARING:       { label: 'Cooking',      emoji: '🔥', bg: 'bg-orange-500/15',  border: 'border-orange-500/40',   text: 'text-orange-400' },
-  READY:           { label: 'Ready',        emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-400' },
-  SERVED:          { label: 'Served',       emoji: '🍽️', bg: 'bg-teal-500/15',    border: 'border-teal-500/40',     text: 'text-teal-400' },
-  BILLED:          { label: 'Billed',       emoji: '🧾', bg: 'bg-purple-500/15',  border: 'border-purple-500/40',   text: 'text-purple-400' },
-  PARTIALLY_PAID:  { label: 'Partial Paid', emoji: '⏳', bg: 'bg-indigo-500/15',  border: 'border-indigo-500/40',   text: 'text-indigo-400' },
-  PAID:            { label: 'Paid & Done',  emoji: '✅', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-400' },
-  COMPLETED:       { label: 'Completed',    emoji: '🏁', bg: 'bg-zinc-500/15',    border: 'border-zinc-500/40',     text: 'text-zinc-400' },
-  CANCELLED:       { label: 'Cancelled',    emoji: '❌', bg: 'bg-rose-500/15',    border: 'border-rose-500/40',     text: 'text-rose-400' },
-  VOIDED:          { label: 'Voided',       emoji: '🚫', bg: 'bg-rose-500/15',    border: 'border-rose-500/40',     text: 'text-rose-400' },
+const ORDER_STATUS_META: Record<string, { label: string; bg: string; border: string; text: string }> = {
+  DRAFT:           { label: 'Draft',        bg: 'bg-muted/40',       border: 'border-border/60',          text: 'text-muted-foreground' },
+  CONFIRMED:       { label: 'Confirmed',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',     text: 'text-blue-500 dark:text-blue-400' },
+  SENT_TO_KITCHEN: { label: 'In Kitchen',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',    text: 'text-amber-500 dark:text-amber-400' },
+  PREPARING:       { label: 'Cooking',      bg: 'bg-orange-500/10',  border: 'border-orange-500/20',   text: 'text-orange-500 dark:text-orange-400' },
+  READY:           { label: 'Ready',        bg: 'bg-emerald-500/10', border: 'border-emerald-500/20',  text: 'text-emerald-600 dark:text-emerald-400' },
+  SERVED:          { label: 'Served',       bg: 'bg-teal-500/10',    border: 'border-teal-500/20',     text: 'text-teal-600 dark:text-teal-400' },
+  BILLED:          { label: 'Billed',       bg: 'bg-purple-500/10',  border: 'border-purple-500/20',   text: 'text-purple-600 dark:text-purple-400' },
+  PARTIALLY_PAID:  { label: 'Partial Paid', bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',   text: 'text-indigo-600 dark:text-indigo-400' },
+  PAID:            { label: 'Paid',         bg: 'bg-emerald-500/10', border: 'border-emerald-500/20',  text: 'text-emerald-600 dark:text-emerald-400' },
+  COMPLETED:       { label: 'Completed',    bg: 'bg-muted/60',       border: 'border-border/60',     text: 'text-muted-foreground' },
+  CANCELLED:       { label: 'Cancelled',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20',     text: 'text-rose-600 dark:text-rose-400' },
+  VOIDED:          { label: 'Voided',       bg: 'bg-rose-500/10',    border: 'border-rose-500/20',     text: 'text-rose-600 dark:text-rose-400' },
 };
 
 export default function OrderHistoryPage() {
@@ -464,20 +464,18 @@ export default function OrderHistoryPage() {
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
       {/* ── Top Header & Title ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-3xl bg-gradient-to-r from-card via-card/80 to-muted/40 border border-border shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center font-bold text-2xl shrink-0">
-              📜
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Restaurant Order History
-              </h1>
-              <p className="text-xs text-muted-foreground font-medium">
-                Comprehensive historical dining logs, table-wise audit trail &amp; invoice archive
-              </p>
-            </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border/60 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <ClipboardList className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              Order History
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Historical dining logs, order records, and receipt archive
+            </p>
           </div>
         </div>
 
@@ -487,7 +485,7 @@ export default function OrderHistoryPage() {
             size="sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="font-bold text-xs h-9 rounded-xl gap-1.5"
+            className="text-xs h-9 rounded-xl gap-1.5 border-border/60 hover:bg-muted/50"
           >
             <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
             <span>Refresh</span>
@@ -495,57 +493,57 @@ export default function OrderHistoryPage() {
         </div>
       </div>
 
-      {/* ── Metrics Summary Strip (30-36px Bold KPI Values) ────────────────────── */}
+      {/* ── Metrics Summary Strip ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="p-4 rounded-3xl bg-card border border-border space-y-1 shadow-xs">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+        <div className="p-4 rounded-2xl bg-card border border-border/60 space-y-1 shadow-xs">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide block">
             Total Orders
           </span>
-          <p className="text-3xl font-bold font-mono tracking-tight text-foreground">{metrics.totalOrders}</p>
-          <span className="text-xs text-muted-foreground font-medium">In selected timeframe</span>
+          <p className="text-2xl font-semibold font-mono tracking-tight text-foreground">{metrics.totalOrders}</p>
+          <span className="text-[11px] text-muted-foreground">In selected timeframe</span>
         </div>
 
-        <div className="p-4 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 space-y-1 shadow-xs">
-          <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block">
+        <div className="p-4 rounded-2xl bg-card border border-border/60 space-y-1 shadow-xs">
+          <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide block">
             Gross Paid Revenue
           </span>
-          <p className="text-3xl font-bold font-mono tracking-tight text-emerald-400">
+          <p className="text-2xl font-semibold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
             {formatCurrency(metrics.grossRevenue)}
           </p>
-          <span className="text-xs text-emerald-300 font-medium">
+          <span className="text-[11px] text-muted-foreground">
             {metrics.paidCount} Settled Orders
           </span>
         </div>
 
-        <div className="p-4 rounded-3xl bg-blue-500/10 border border-blue-500/30 space-y-1 shadow-xs">
-          <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block">
-            Avg Order Value (AOV)
+        <div className="p-4 rounded-2xl bg-card border border-border/60 space-y-1 shadow-xs">
+          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide block">
+            Avg Order Value
           </span>
-          <p className="text-3xl font-bold font-mono tracking-tight text-blue-400">
+          <p className="text-2xl font-semibold font-mono tracking-tight text-blue-600 dark:text-blue-400">
             {formatCurrency(metrics.aov)}
           </p>
-          <span className="text-xs text-blue-300 font-medium">Per settled order</span>
+          <span className="text-[11px] text-muted-foreground">Per settled order</span>
         </div>
 
-        <div className="p-4 rounded-3xl bg-rose-500/10 border border-rose-500/30 space-y-1 shadow-xs">
-          <span className="text-xs font-semibold text-rose-400 uppercase tracking-wider block">
+        <div className="p-4 rounded-2xl bg-card border border-border/60 space-y-1 shadow-xs">
+          <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400 uppercase tracking-wide block">
             Cancelled / Voided
           </span>
-          <p className="text-3xl font-bold font-mono tracking-tight text-rose-400">{metrics.cancelledCount}</p>
-          <span className="text-xs text-rose-300 font-medium">Cancelled tickets</span>
+          <p className="text-2xl font-semibold font-mono tracking-tight text-rose-600 dark:text-rose-400">{metrics.cancelledCount}</p>
+          <span className="text-[11px] text-muted-foreground">Cancelled tickets</span>
         </div>
       </div>
 
       {/* ── Filters & Search Control Bar ───────────────────────────────────────── */}
-      <div className="p-5 rounded-3xl bg-card border border-border space-y-4 shadow-sm">
+      <div className="p-4 rounded-2xl bg-card border border-border/60 space-y-3.5 shadow-xs">
         {/* Date Presets + Custom Calendar */}
         <div className="space-y-2">
-          <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-primary" />
-            <span>Date Range / Calendar Filter</span>
+            <span>Date Range Filter</span>
           </span>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {[
               { id: 'today', label: 'Today' },
               { id: 'yesterday', label: 'Yesterday' },
@@ -560,10 +558,10 @@ export default function OrderHistoryPage() {
                 type="button"
                 onClick={() => setDatePreset(p.id as any)}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer border',
+                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border',
                   datePreset === p.id
-                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                    : 'bg-muted/50 border-border text-muted-foreground hover:text-foreground'
+                    ? 'bg-primary/10 text-primary border-primary/30 font-semibold'
+                    : 'bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'
                 )}
               >
                 {p.label}
@@ -577,14 +575,14 @@ export default function OrderHistoryPage() {
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="h-8 px-2.5 rounded-lg border border-border/60 bg-background text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
-                <span className="text-xs text-muted-foreground font-bold">to</span>
+                <span className="text-xs text-muted-foreground">to</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="h-8 px-2.5 rounded-lg border border-border/60 bg-background text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
             )}
@@ -592,16 +590,16 @@ export default function OrderHistoryPage() {
         </div>
 
         {/* Multi-Filters: Table Selector, Status, Search */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-border/60">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-2 border-t border-border/40">
           {/* Table Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-muted-foreground">
+            <label className="text-[10px] font-medium uppercase text-muted-foreground">
               Table / Location
             </label>
             <select
               value={selectedTableId}
               onChange={(e) => setSelectedTableId(e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              className="w-full h-8.5 px-2.5 rounded-lg border border-border/60 bg-background text-xs text-foreground font-normal focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             >
               <option value="ALL">All Tables &amp; Orders</option>
               {tables.map((t) => (
@@ -614,16 +612,16 @@ export default function OrderHistoryPage() {
 
           {/* Status Filter */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-muted-foreground">
+            <label className="text-[10px] font-medium uppercase text-muted-foreground">
               Order Status
             </label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              className="w-full h-8.5 px-2.5 rounded-lg border border-border/60 bg-background text-xs text-foreground font-normal focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             >
               <option value="ALL">All Statuses</option>
-              <option value="PAID">Paid &amp; Done</option>
+              <option value="PAID">Paid</option>
               <option value="COMPLETED">Completed</option>
               <option value="SERVED">Served</option>
               <option value="BILLED">Billed</option>
@@ -634,13 +632,13 @@ export default function OrderHistoryPage() {
 
           {/* Order Type Filter */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-muted-foreground">
+            <label className="text-[10px] font-medium uppercase text-muted-foreground">
               Order Type
             </label>
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              className="w-full h-8.5 px-2.5 rounded-lg border border-border/60 bg-background text-xs text-foreground font-normal focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             >
               <option value="ALL">All Types (Dine-In / Online / Takeaway)</option>
               <option value="DINE_IN">Dine-In Table</option>
@@ -652,22 +650,22 @@ export default function OrderHistoryPage() {
 
           {/* Search Box */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-muted-foreground">
+            <label className="text-[10px] font-medium uppercase text-muted-foreground">
               Quick Search
             </label>
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-muted-foreground" />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
               <Input
-                placeholder="Order #, Table, Guest, Dish..."
+                placeholder="Order #, Table, Guest..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 pl-8 text-xs rounded-xl bg-background"
+                className="h-8.5 pl-8 text-xs rounded-lg border-border/60 bg-background"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                  className="absolute right-2 top-2 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -678,42 +676,42 @@ export default function OrderHistoryPage() {
       </div>
 
       {/* ── Orders List Table ──────────────────────────────────────────────────── */}
-      <div className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-border/80 flex items-center justify-between">
+      <div className="rounded-2xl border border-border/60 bg-card shadow-xs overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-primary" />
-            <h2 className="text-xs font-black uppercase tracking-wider text-foreground">
-              Orders History Records ({filteredOrders.length})
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              Order Records ({filteredOrders.length})
             </h2>
           </div>
         </div>
 
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-3">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs font-bold text-muted-foreground">Loading Order Records...</p>
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-muted-foreground">Loading orders...</p>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="py-20 text-center space-y-2 text-muted-foreground">
-            <UtensilsCrossed className="w-12 h-12 mx-auto opacity-30" />
-            <p className="text-sm font-bold text-foreground">No Orders Found</p>
+            <UtensilsCrossed className="w-10 h-10 mx-auto opacity-20" />
+            <p className="text-sm font-medium text-foreground">No Orders Found</p>
             <p className="text-xs">Try selecting a different date range or clearing your filter criteria.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
-              <thead className="bg-muted/50 text-muted-foreground font-black uppercase tracking-wider text-[10px] border-b border-border">
+              <thead className="bg-muted/30 text-muted-foreground font-medium uppercase tracking-wider text-[10px] border-b border-border/40">
                 <tr>
-                  <th className="p-3.5">Order #</th>
-                  <th className="p-3.5">Table / Location</th>
-                  <th className="p-3.5">Date &amp; Time</th>
-                  <th className="p-3.5">Ordered Items</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5">Total Amount</th>
-                  <th className="p-3.5 text-right">Actions</th>
+                  <th className="p-3">Order #</th>
+                  <th className="p-3">Table / Location</th>
+                  <th className="p-3">Date &amp; Time</th>
+                  <th className="p-3">Ordered Items</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Total Amount</th>
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody className="divide-y divide-border/40">
                 {filteredOrders.map((order) => {
                   const statusCfg = ORDER_STATUS_META[order.status] || ORDER_STATUS_META.DRAFT;
                   const isPaid = ['PAID', 'COMPLETED'].includes(order.status);
@@ -724,30 +722,30 @@ export default function OrderHistoryPage() {
                     <tr
                       key={order.id}
                       onClick={() => setSelectedOrderDetails(order)}
-                      className="hover:bg-muted/40 transition-colors cursor-pointer"
+                      className="hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="p-3.5 font-mono font-black text-foreground">
+                      <td className="p-3 font-mono font-medium text-foreground">
                         #{order.orderNumber}
                       </td>
 
-                      <td className="p-3.5 font-bold">
+                      <td className="p-3 font-medium">
                         <div className="flex items-center gap-1.5">
                           <span>{order.table?.name ? `Table ${order.table.name}` : order.type}</span>
                         </div>
                         {order.customer?.name && (
                           <span className="text-[10px] text-muted-foreground block font-normal">
-                            👤 {order.customer.name}
+                            {order.customer.name}
                           </span>
                         )}
                       </td>
 
-                      <td className="p-3.5 text-muted-foreground font-medium">
+                      <td className="p-3 text-muted-foreground">
                         <div>{format(new Date(order.createdAt), 'dd MMM yyyy')}</div>
-                        <div className="text-[10px] opacity-80">{format(new Date(order.createdAt), 'h:mm a')}</div>
+                        <div className="text-[10px] text-muted-foreground/70">{format(new Date(order.createdAt), 'h:mm a')}</div>
                       </td>
 
-                      <td className="p-3.5">
-                        <div className="font-bold text-foreground">
+                      <td className="p-3">
+                        <div className="font-medium text-foreground">
                           {validItems.length} {validItems.length === 1 ? 'Dish' : 'Dishes'}
                         </div>
                         <div className="text-[10px] text-muted-foreground line-clamp-1 max-w-xs">
@@ -755,22 +753,21 @@ export default function OrderHistoryPage() {
                         </div>
                       </td>
 
-                      <td className="p-3.5">
+                      <td className="p-3">
                         <span
                           className={cn(
-                            'px-2.5 py-1 rounded-full text-[10px] font-black border inline-flex items-center gap-1 shadow-xs',
+                            'px-2 py-0.5 rounded-md text-[10px] font-medium border inline-flex items-center gap-1',
                             statusCfg.bg,
                             statusCfg.text,
                             statusCfg.border
                           )}
                         >
-                          <span>{statusCfg.emoji}</span>
                           <span>{statusCfg.label}</span>
                         </span>
                       </td>
 
-                      <td className="p-3.5 font-mono font-black text-sm">
-                        <span className={cn(isPaid ? 'text-emerald-400' : isCancelled ? 'text-rose-400 line-through' : 'text-primary')}>
+                      <td className="p-3 font-mono font-medium text-xs">
+                        <span className={cn(isPaid ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : isCancelled ? 'text-rose-500 line-through' : 'text-foreground font-semibold')}>
                           {formatCurrency(order.total)}
                         </span>
                       </td>
@@ -833,8 +830,8 @@ export default function OrderHistoryPage() {
                   {(() => {
                     const cfg = ORDER_STATUS_META[selectedOrderDetails.status] || ORDER_STATUS_META.DRAFT;
                     return (
-                      <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-black border', cfg.bg, cfg.text, cfg.border)}>
-                        {cfg.emoji} {cfg.label}
+                      <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-medium border', cfg.bg, cfg.text, cfg.border)}>
+                        {cfg.label}
                       </span>
                     );
                   })()}

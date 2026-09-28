@@ -912,18 +912,16 @@ export default function TablesPage() {
       ───────────────────────────────────────────────────────────────────────────── */}
       <div className="space-y-5">
         {/* Top Banner & Quick Metrics */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-3xl bg-gradient-to-r from-card via-card/80 to-muted/40 border border-border shadow-sm">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-primary/15 text-primary flex items-center justify-center font-bold text-lg">
-                🍽️
-              </div>
-              <div>
-                <h1 className="text-xl font-black tracking-tight text-foreground">Tables &amp; Orders Command Center</h1>
-                <p className="text-xs text-muted-foreground font-medium">
-                  {tables.length} Total Tables · {occupiedCount} Dining · {availableCount} Free
-                </p>
-              </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border/60 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <UtensilsCrossed className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">Tables &amp; Seating</h1>
+              <p className="text-xs text-muted-foreground font-normal">
+                {tables.length} Total Tables · {occupiedCount} Dining · {availableCount} Free
+              </p>
             </div>
           </div>
 
@@ -932,7 +930,7 @@ export default function TablesPage() {
               variant="outline"
               size="sm"
               onClick={handlePrintAllStandees}
-              className="font-bold text-xs h-9 rounded-xl gap-1.5"
+              className="text-xs h-9 rounded-xl gap-1.5 border-border/60 hover:bg-muted/50 font-normal"
             >
               <Printer className="w-3.5 h-3.5" /> Print All Standees
             </Button>
@@ -946,7 +944,7 @@ export default function TablesPage() {
                 setTableFloorIdInput((floors[0] as any)?.id || '');
                 setIsCreateModalOpen(true);
               }}
-              className="font-bold text-xs h-9 rounded-xl bg-primary text-primary-foreground gap-1.5 shadow-md"
+              className="font-medium text-xs h-9 rounded-xl bg-primary text-primary-foreground gap-1.5 shadow-xs"
             >
               <Plus className="w-4 h-4" /> Add Table
             </Button>
@@ -954,15 +952,15 @@ export default function TablesPage() {
         </div>
 
         {/* Status Filter Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           <button
             type="button"
             onClick={() => setTableStatusFilter(null)}
             className={cn(
-              'px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap',
+              'px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap border',
               !tableStatusFilter
-                ? 'bg-primary text-primary-foreground shadow-md'
-                : 'bg-muted/70 text-muted-foreground hover:text-foreground'
+                ? 'bg-primary/10 text-primary border-primary/30 font-semibold'
+                : 'bg-muted/40 text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/70'
             )}
           >
             All Tables ({tables.length})
@@ -976,10 +974,10 @@ export default function TablesPage() {
                 type="button"
                 onClick={() => setTableStatusFilter(isSelected ? null : key)}
                 className={cn(
-                  'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap border',
+                  'px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap border',
                   isSelected
-                    ? `${meta.bg} ${meta.text} ${meta.border} shadow-sm font-black`
-                    : 'bg-card/50 text-muted-foreground border-border hover:text-foreground'
+                    ? `${meta.bg} ${meta.text} ${meta.border} font-semibold`
+                    : 'bg-card text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted/40'
                 )}
               >
                 <span className={cn('w-2 h-2 rounded-full', meta.color)} />

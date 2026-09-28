@@ -92,7 +92,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       setState(() => _statusFilter = s == 'ALL' ? null : s);
                       _loadOrders(reset: true);
                     },
-                    selectedColor: RosTheme.primary.withOpacity(0.15),
+                    selectedColor: RosTheme.primary.withValues(alpha: 0.15),
                     labelStyle: TextStyle(
                         color: selected ? RosTheme.primary : RosTheme.textSecondary),
                   ),
@@ -196,7 +196,7 @@ class _OrderTile extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: _statusColor.withOpacity(0.1),
+                          color: _statusColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(

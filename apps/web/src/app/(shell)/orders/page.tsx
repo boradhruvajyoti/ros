@@ -65,14 +65,14 @@ function getLiveItemStatusBadge(status?: string) {
   switch (s) {
     case 'SERVED':
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-teal-500/15 text-teal-300 border border-teal-500/30 whitespace-nowrap">
-          🍽️ Served
+        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 whitespace-nowrap">
+          Served
         </span>
       );
     case 'READY':
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
-          ✓ Cooked / Ready
+        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+          Ready
         </span>
       );
     case 'PREPARING':
@@ -80,35 +80,35 @@ function getLiveItemStatusBadge(status?: string) {
     case 'PENDING':
     case 'NEW':
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap">
-          🔥 Cooking
+        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap">
+          Cooking
         </span>
       );
     case 'CANCELLED':
     case 'VOIDED':
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/30 line-through whitespace-nowrap">
-          ❌ Cancelled
+        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 line-through whitespace-nowrap">
+          Cancelled
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground border border-border whitespace-nowrap">
-          ⏳ Queued
+        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/40 whitespace-nowrap">
+          Queued
         </span>
       );
   }
 }
 
-const ORDER_STATUS_META: Record<string, { label: string; emoji: string; bg: string; border: string; text: string }> = {
-  DRAFT:           { label: 'Draft',        emoji: '📝', bg: 'bg-muted/40',       border: 'border-border',          text: 'text-muted-foreground' },
-  CONFIRMED:       { label: 'Confirmed',    emoji: '✨', bg: 'bg-blue-500/15',    border: 'border-blue-500/40',     text: 'text-blue-400' },
-  SENT_TO_KITCHEN: { label: 'In Kitchen',   emoji: '🍳', bg: 'bg-amber-500/15',   border: 'border-amber-500/40',    text: 'text-amber-400' },
-  PREPARING:       { label: 'Cooking',      emoji: '🔥', bg: 'bg-orange-500/15',  border: 'border-orange-500/40',   text: 'text-orange-400' },
-  READY:           { label: 'Ready',        emoji: '🛎️', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-400' },
-  SERVED:          { label: 'Served',       emoji: '🍽️', bg: 'bg-teal-500/15',    border: 'border-teal-500/40',     text: 'text-teal-400' },
-  BILLED:          { label: 'Billed',       emoji: '🧾', bg: 'bg-purple-500/15',  border: 'border-purple-500/40',   text: 'text-purple-400' },
-  PARTIALLY_PAID:  { label: 'Partial Paid', emoji: '⏳', bg: 'bg-indigo-500/15',  border: 'border-indigo-500/40',   text: 'text-indigo-400' },
+const ORDER_STATUS_META: Record<string, { label: string; bg: string; border: string; text: string }> = {
+  DRAFT:           { label: 'Draft',        bg: 'bg-muted/40',       border: 'border-border/60',          text: 'text-muted-foreground' },
+  CONFIRMED:       { label: 'Confirmed',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',     text: 'text-blue-600 dark:text-blue-400' },
+  SENT_TO_KITCHEN: { label: 'In Kitchen',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',    text: 'text-amber-600 dark:text-amber-400' },
+  PREPARING:       { label: 'Cooking',      bg: 'bg-orange-500/10',  border: 'border-orange-500/20',   text: 'text-orange-600 dark:text-orange-400' },
+  READY:           { label: 'Ready',        bg: 'bg-emerald-500/10', border: 'border-emerald-500/20',  text: 'text-emerald-600 dark:text-emerald-400' },
+  SERVED:          { label: 'Served',       bg: 'bg-teal-500/10',    border: 'border-teal-500/20',     text: 'text-teal-600 dark:text-teal-400' },
+  BILLED:          { label: 'Billed',       bg: 'bg-purple-500/10',  border: 'border-purple-500/20',   text: 'text-purple-600 dark:text-purple-400' },
+  PARTIALLY_PAID:  { label: 'Partial Paid', bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',   text: 'text-indigo-600 dark:text-indigo-400' },
 };
 
 export default function CurrentOrdersPage() {
@@ -371,22 +371,24 @@ export default function CurrentOrdersPage() {
       )}
 
       {/* Top Header & Fast Navigation */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-primary/10 border border-primary/25 text-primary">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <h1 className="text-xl md:text-2xl font-black text-foreground tracking-tight">
-              Current Active Orders
-            </h1>
-            <Badge variant="outline" className="font-mono text-xs bg-primary/10 border-primary/30 text-primary">
-              {activeOrders.length} Live
-            </Badge>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border/60 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <ShoppingBag className="w-5 h-5" />
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Real-time live queue for Dine-In tables, Takeaway / Packaging, and Delivery orders. Marked orders clear immediately upon payment.
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold text-foreground tracking-tight">
+                Current Active Orders
+              </h1>
+              <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                {activeOrders.length} Live
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Live orders for Dine-In tables, Takeaway, and Delivery
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -394,7 +396,7 @@ export default function CurrentOrdersPage() {
             onClick={() => refetch()}
             variant="outline"
             size="sm"
-            className="rounded-xl border-border hover:bg-muted font-bold text-xs gap-1.5"
+            className="rounded-xl border-border/60 hover:bg-muted/50 text-xs h-9 gap-1.5"
             disabled={isRefetching}
           >
             <RefreshCw className={cn('w-3.5 h-3.5', isRefetching && 'animate-spin')} />
@@ -403,7 +405,7 @@ export default function CurrentOrdersPage() {
 
           <Button
             onClick={() => router.push('/tables')}
-            className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs gap-1.5 shadow-md shadow-primary/20"
+            className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs h-9 gap-1.5 shadow-xs"
           >
             <Plus className="w-4 h-4" />
             <span>Take Order (Tables)</span>
@@ -414,14 +416,22 @@ export default function CurrentOrdersPage() {
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Total Active */}
-        <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => setActiveTab('ALL')}
+          className={cn(
+            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
+            activeTab === 'ALL'
+              ? 'bg-primary/5 border-primary/30'
+              : 'bg-card border-border/60 hover:border-border'
+          )}
+        >
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider">All Active</span>
-            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-[11px] font-medium uppercase tracking-wide">All Active</span>
+            <ShoppingBag className="w-4 h-4 text-primary" />
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-foreground font-mono">{stats.total}</span>
-            <span className="text-[11px] text-muted-foreground font-medium">orders</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-semibold text-foreground font-mono">{stats.total}</span>
+            <span className="text-[11px] text-muted-foreground">orders</span>
           </div>
         </div>
 
@@ -429,19 +439,19 @@ export default function CurrentOrdersPage() {
         <div
           onClick={() => setActiveTab('DINE_IN')}
           className={cn(
-            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.02]',
+            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
             activeTab === 'DINE_IN'
-              ? 'bg-rose-500/10 border-rose-500/50 shadow-rose-500/10'
-              : 'bg-card border-border'
+              ? 'bg-rose-500/5 border-rose-500/30'
+              : 'bg-card border-border/60 hover:border-border'
           )}
         >
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-400">Dine-In</span>
-            <UtensilsCrossed className="w-4 h-4 text-rose-400" />
+            <span className="text-[11px] font-medium uppercase tracking-wide text-rose-500 dark:text-rose-400">Dine-In</span>
+            <UtensilsCrossed className="w-4 h-4 text-rose-500 dark:text-rose-400" />
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-rose-400 font-mono">{stats.dineInCount}</span>
-            <span className="text-[11px] text-muted-foreground font-medium">tables</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-semibold text-rose-500 dark:text-rose-400 font-mono">{stats.dineInCount}</span>
+            <span className="text-[11px] text-muted-foreground">tables</span>
           </div>
         </div>
 
@@ -449,19 +459,19 @@ export default function CurrentOrdersPage() {
         <div
           onClick={() => setActiveTab('TAKEAWAY')}
           className={cn(
-            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.02]',
+            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
             activeTab === 'TAKEAWAY'
-              ? 'bg-amber-500/10 border-amber-500/50 shadow-amber-500/10'
-              : 'bg-card border-border'
+              ? 'bg-amber-500/5 border-amber-500/30'
+              : 'bg-card border-border/60 hover:border-border'
           )}
         >
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Takeaway</span>
-            <Package className="w-4 h-4 text-amber-400" />
+            <span className="text-[11px] font-medium uppercase tracking-wide text-amber-500 dark:text-amber-400">Takeaway</span>
+            <Package className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-amber-400 font-mono">{stats.takeawayCount}</span>
-            <span className="text-[11px] text-muted-foreground font-medium">parcels</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-semibold text-amber-500 dark:text-amber-400 font-mono">{stats.takeawayCount}</span>
+            <span className="text-[11px] text-muted-foreground">parcels</span>
           </div>
         </div>
 
@@ -469,30 +479,30 @@ export default function CurrentOrdersPage() {
         <div
           onClick={() => setActiveTab('DELIVERY')}
           className={cn(
-            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.02]',
+            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
             activeTab === 'DELIVERY'
-              ? 'bg-blue-500/10 border-blue-500/50 shadow-blue-500/10'
-              : 'bg-card border-border'
+              ? 'bg-blue-500/5 border-blue-500/30'
+              : 'bg-card border-border/60 hover:border-border'
           )}
         >
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Delivery</span>
-            <Bike className="w-4 h-4 text-blue-400" />
+            <span className="text-[11px] font-medium uppercase tracking-wide text-blue-500 dark:text-blue-400">Delivery</span>
+            <Bike className="w-4 h-4 text-blue-500 dark:text-blue-400" />
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-blue-400 font-mono">{stats.deliveryCount}</span>
-            <span className="text-[11px] text-muted-foreground font-medium">riders</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-semibold text-blue-500 dark:text-blue-400 font-mono">{stats.deliveryCount}</span>
+            <span className="text-[11px] text-muted-foreground">riders</span>
           </div>
         </div>
 
         {/* Unsettled Volume */}
-        <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
+        <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-card border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Active Total</span>
-            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <span className="text-[11px] font-medium uppercase tracking-wide">Active Total</span>
+            <DollarSign className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl font-black text-emerald-400 font-mono">
+            <span className="text-xl font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
               {formatCurrency(stats.totalRevenue)}
             </span>
           </div>
@@ -500,14 +510,14 @@ export default function CurrentOrdersPage() {
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-2 rounded-2xl border border-border">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-2 rounded-2xl border border-border/60 shadow-xs">
         {/* Category Pill Switcher */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1">
           {[
             { id: 'ALL', label: 'All Live', count: stats.total, icon: ShoppingBag },
             { id: 'DINE_IN', label: 'Dine-In', count: stats.dineInCount, icon: UtensilsCrossed },
-            { id: 'TAKEAWAY', label: 'Takeaway / Parcel', count: stats.takeawayCount, icon: Package },
-            { id: 'DELIVERY', label: 'Delivery / Online', count: stats.deliveryCount, icon: Bike },
+            { id: 'TAKEAWAY', label: 'Takeaway', count: stats.takeawayCount, icon: Package },
+            { id: 'DELIVERY', label: 'Delivery', count: stats.deliveryCount, icon: Bike },
           ].map((tab) => {
             const Icon = tab.icon;
             const isSel = activeTab === tab.id;
@@ -516,20 +526,18 @@ export default function CurrentOrdersPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  'flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all cursor-pointer',
+                  'flex items-center gap-2 px-3 py-1.5 rounded-xl font-medium text-xs whitespace-nowrap transition-all cursor-pointer border',
                   isSel
-                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/30'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    ? 'bg-primary/10 text-primary border-primary/30 font-semibold'
+                    : 'bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'
                 )}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
-                <span
-                  className={cn(
-                    'px-1.5 py-0.2 text-[10px] rounded-md font-mono',
-                    isSel ? 'bg-black/20 text-white' : 'bg-muted text-muted-foreground'
-                  )}
-                >
+                <span className={cn(
+                  'px-1.5 py-0.2 rounded-md text-[10px] font-mono',
+                  isSel ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                )}>
                   {tab.count}
                 </span>
               </button>
@@ -696,13 +704,12 @@ export default function CurrentOrdersPage() {
                   <div className="flex items-center justify-between mt-2.5">
                     <div
                       className={cn(
-                        'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-bold border',
+                        'flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium border',
                         statusMeta.bg,
                         statusMeta.border,
                         statusMeta.text
                       )}
                     >
-                      <span>{statusMeta.emoji}</span>
                       <span>{statusMeta.label}</span>
                     </div>
 

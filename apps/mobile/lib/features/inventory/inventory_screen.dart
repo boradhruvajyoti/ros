@@ -35,9 +35,9 @@ class InventoryScreen extends ConsumerWidget {
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: RosTheme.warning.withOpacity(0.1),
+                    color: RosTheme.warning.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: RosTheme.warning.withOpacity(0.3)),
+                    border: Border.all(color: RosTheme.warning.withValues(alpha: 0.3)),
                   ),
                   child: Row(children: [
                     const Icon(Icons.warning_amber_rounded, color: RosTheme.warning),
@@ -60,7 +60,7 @@ class InventoryScreen extends ConsumerWidget {
                         color: RosTheme.bgCard,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isLow ? RosTheme.warning.withOpacity(0.4) : RosTheme.bgBorder,
+                          color: isLow ? RosTheme.warning.withValues(alpha: 0.4) : RosTheme.bgBorder,
                         ),
                       ),
                       child: Row(children: [

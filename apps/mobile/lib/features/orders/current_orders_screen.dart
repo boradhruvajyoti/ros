@@ -103,12 +103,12 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              gradient: RosTheme.primaryGradient,
-                              borderRadius: BorderRadius.circular(12),
+                              color: RosTheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(
                               Icons.receipt_long_rounded,
-                              color: Colors.white,
+                              color: RosTheme.primary,
                               size: 18,
                             ),
                           ),
@@ -120,8 +120,8 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                                 'Current Orders',
                                 style: TextStyle(
                                   color: RosTheme.textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               Text(
@@ -129,7 +129,7 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                                 style: const TextStyle(
                                   color: RosTheme.textMuted,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.normal,
                                 ),
                               ),
                             ],
@@ -427,12 +427,12 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withValues(alpha: 0.18)
+              ? color.withValues(alpha: 0.12)
               : RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? color : RosTheme.bgBorder,
-            width: isSelected ? 1.5 : 1.0,
+            color: isSelected ? color.withValues(alpha: 0.5) : RosTheme.bgBorder,
+            width: 1.0,
           ),
         ),
         child: Column(
@@ -447,8 +447,8 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                   style: TextStyle(
                     color: color,
                     fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
                   ),
                 ),
                 Icon(icon, size: 14, color: color),
@@ -463,7 +463,7 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                   style: TextStyle(
                     color: color,
                     fontSize: 16,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -473,7 +473,7 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                   style: const TextStyle(
                     color: RosTheme.textMuted,
                     fontSize: 9.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.normal,
                   ),
                 ),
               ],
@@ -532,37 +532,37 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
 
     switch (s) {
       case 'SERVED':
-        bg = RosTheme.secondary.withValues(alpha: 0.15);
+        bg = RosTheme.secondary.withValues(alpha: 0.12);
         text = RosTheme.secondary;
-        label = '🍽️ Served';
+        label = 'Served';
         break;
       case 'READY':
-        bg = const Color(0xFF10B981).withValues(alpha: 0.15);
+        bg = const Color(0xFF10B981).withValues(alpha: 0.12);
         text = const Color(0xFF10B981);
-        label = '✓ Ready';
+        label = 'Ready';
         break;
       case 'PREPARING':
       case 'ACCEPTED':
       case 'PENDING':
       case 'NEW':
-        bg = RosTheme.warning.withValues(alpha: 0.15);
+        bg = RosTheme.warning.withValues(alpha: 0.12);
         text = RosTheme.warning;
-        label = '🔥 Cooking';
+        label = 'Cooking';
         break;
       case 'CANCELLED':
       case 'VOIDED':
-        bg = RosTheme.danger.withValues(alpha: 0.15);
+        bg = RosTheme.danger.withValues(alpha: 0.12);
         text = RosTheme.danger;
-        label = '❌ Cancelled';
+        label = 'Cancelled';
         break;
       default:
         bg = RosTheme.bgElevated;
         text = RosTheme.textMuted;
-        label = '⏳ Queued';
+        label = 'Queued';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(5),
@@ -572,7 +572,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
         style: TextStyle(
           color: text,
           fontSize: 9.5,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

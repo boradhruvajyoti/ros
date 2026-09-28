@@ -144,6 +144,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
 
   @override
   void dispose() {
+    _socket?.off('ros:event');
     super.dispose();
   }
 
@@ -241,7 +242,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: RosTheme.primary.withValues(alpha: 0.15),
+                color: RosTheme.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.grid_view_rounded,
@@ -252,10 +253,10 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Tables & Orders',
+                  'Tables & Seating',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: RosTheme.textPrimary,
                   ),
                 ),
@@ -264,6 +265,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                   style: const TextStyle(
                     fontSize: 10.5,
                     color: RosTheme.textMuted,
+                    fontWeight: FontWeight.normal,
                   ),
                 ),
               ],
@@ -390,18 +392,18 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: selected ? RosTheme.primary : RosTheme.bgElevated,
+            color: selected ? RosTheme.primary.withValues(alpha: 0.15) : RosTheme.bgElevated,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? RosTheme.primary : RosTheme.bgBorder,
+              color: selected ? RosTheme.primary.withValues(alpha: 0.4) : RosTheme.bgBorder,
             ),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? Colors.white : RosTheme.textSecondary,
+              color: selected ? RosTheme.primary : RosTheme.textSecondary,
               fontSize: 12,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             ),
           ),
         ),
@@ -452,12 +454,12 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: selected
-                      ? color.withValues(alpha: 0.18)
+                      ? color.withValues(alpha: 0.12)
                       : RosTheme.bgElevated,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: selected ? color : RosTheme.bgBorder,
-                    width: selected ? 1.4 : 1,
+                    color: selected ? color.withValues(alpha: 0.5) : RosTheme.bgBorder,
+                    width: 1,
                   ),
                 ),
                 child: Row(
@@ -469,7 +471,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                         color: selected ? color : RosTheme.textSecondary,
                         fontSize: 11.5,
                         fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w500,
+                            selected ? FontWeight.w600 : FontWeight.w500,
                       ),
                     ),
                     const SizedBox(width: 5),
@@ -478,7 +480,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                           horizontal: 5, vertical: 1),
                       decoration: BoxDecoration(
                         color: selected
-                            ? color.withValues(alpha: 0.25)
+                            ? color.withValues(alpha: 0.2)
                             : RosTheme.bgCard,
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -487,7 +489,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                         style: TextStyle(
                           color: selected ? color : RosTheme.textMuted,
                           fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
