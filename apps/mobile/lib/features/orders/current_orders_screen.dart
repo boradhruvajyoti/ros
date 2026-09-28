@@ -524,6 +524,60 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
     return '🛵 Delivery';
   }
 
+  Widget _buildItemLiveStatusBadge(String status) {
+    final s = status.toUpperCase();
+    Color bg;
+    Color text;
+    String label;
+
+    switch (s) {
+      case 'SERVED':
+        bg = RosTheme.secondary.withValues(alpha: 0.15);
+        text = RosTheme.secondary;
+        label = '🍽️ Served';
+        break;
+      case 'READY':
+        bg = const Color(0xFF10B981).withValues(alpha: 0.15);
+        text = const Color(0xFF10B981);
+        label = '✓ Ready';
+        break;
+      case 'PREPARING':
+      case 'ACCEPTED':
+      case 'PENDING':
+      case 'NEW':
+        bg = RosTheme.warning.withValues(alpha: 0.15);
+        text = RosTheme.warning;
+        label = '🔥 Cooking';
+        break;
+      case 'CANCELLED':
+      case 'VOIDED':
+        bg = RosTheme.danger.withValues(alpha: 0.15);
+        text = RosTheme.danger;
+        label = '❌ Cancelled';
+        break;
+      default:
+        bg = RosTheme.bgElevated;
+        text = RosTheme.textMuted;
+        label = '⏳ Queued';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: text,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
   Future<void> _settlePayment(String method) async {
     final activeKots = widget.order.kots.where((k) => k.status != 'CANCELLED').toList();
     final totalKots = activeKots.length;
@@ -979,63 +1033,228 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
             ),
           ),
 
-          // ── Items List ──
+          // ── Items List Categorized by KOT ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Column(
-              children: mergedItems.map((it) {
-                final fullTitle = it.variantName != null &&
-                        it.variantName!.isNotEmpty &&
-                        !it.variantName!.toLowerCase().contains('regular')
-                    ? '${it.name} (${it.variantName})'
-                    : it.name;
+            child: activeKots.isNotEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: activeKots.map((kot) {
+                      final kotItems = kot.items
+                          .where((i) => i.status != 'CANCELLED')
+                          .toList();
+                      if (kotItems.isEmpty) return const SizedBox.shrink();
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.5),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
+                      final kotStatusLabel = kot.status == 'SERVED'
+                          ? '🍽️ Served'
+                          : kot.status == 'READY'
+                              ? '✓ Ready'
+                              : '🔥 Cooking';
+                      final kotStatusColor = kot.status == 'SERVED'
+                          ? RosTheme.secondary
+                          : kot.status == 'READY'
+                              ? const Color(0xFF10B981)
+                              : RosTheme.warning;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: RosTheme.bgElevated.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: RosTheme.bgBorder,
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${it.totalQuantity}x',
-                              style: const TextStyle(
-                                color: RosTheme.primary,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                fontFamily: 'monospace',
+                            // KOT Header Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: RosTheme.primary
+                                            .withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'KOT #${kot.kotNumber}',
+                                        style: const TextStyle(
+                                          color: RosTheme.primary,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w900,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ),
+                                    if (kot.stationName != null &&
+                                        kot.stationName!.isNotEmpty) ...[
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        '(${kot.stationName})',
+                                        style: const TextStyle(
+                                          color: RosTheme.textMuted,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        kotStatusColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    kotStatusLabel,
+                                    style: TextStyle(
+                                      color: kotStatusColor,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+
+                            // KOT Items
+                            ...kotItems.map((it) {
+                              final fullTitle = it.variantName != null &&
+                                      it.variantName!.isNotEmpty &&
+                                      !it.variantName!
+                                          .toLowerCase()
+                                          .contains('regular')
+                                  ? '${it.menuItemName ?? 'Dish'} (${it.variantName})'
+                                  : (it.menuItemName ?? 'Dish');
+
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 3),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${it.quantity}x',
+                                      style: const TextStyle(
+                                        color: RosTheme.primary,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            fullTitle,
+                                            style: const TextStyle(
+                                              color: RosTheme.textPrimary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          if (it.modifiers.isNotEmpty)
+                                            Text(
+                                              '+ ${it.modifiers.join(', ')}',
+                                              style: const TextStyle(
+                                                color: RosTheme.accent,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          if (it.notes != null &&
+                                              it.notes!.isNotEmpty)
+                                            Text(
+                                              '⚠️ ${it.notes}',
+                                              style: const TextStyle(
+                                                color: RosTheme.danger,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _buildItemLiveStatusBadge(it.status),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  )
+                : Column(
+                    children: mergedItems.map((it) {
+                      final fullTitle = it.variantName != null &&
+                              it.variantName!.isNotEmpty &&
+                              !it.variantName!.toLowerCase().contains('regular')
+                          ? '${it.name} (${it.variantName})'
+                          : it.name;
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2.5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '${it.totalQuantity}x',
+                                    style: const TextStyle(
+                                      color: RosTheme.primary,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      fullTitle,
+                                      style: const TextStyle(
+                                        color: RosTheme.textPrimary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                fullTitle,
-                                style: const TextStyle(
-                                  color: RosTheme.textPrimary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                            Text(
+                              '₹${it.totalAmount.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                color: RosTheme.textMuted,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'monospace',
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      Text(
-                        '₹${it.totalAmount.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          color: RosTheme.textMuted,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
-                );
-              }).toList(),
-            ),
           ),
 
           const Divider(color: RosTheme.bgBorder, height: 1),

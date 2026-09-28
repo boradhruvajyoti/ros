@@ -60,6 +60,46 @@ function formatItemTitle(itemOrMenuName?: any, variantName?: string): string {
   return `${base} (${vName})`;
 }
 
+function getLiveItemStatusBadge(status?: string) {
+  const s = (status || '').toUpperCase();
+  switch (s) {
+    case 'SERVED':
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-teal-500/15 text-teal-300 border border-teal-500/30 whitespace-nowrap">
+          🍽️ Served
+        </span>
+      );
+    case 'READY':
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+          ✓ Cooked / Ready
+        </span>
+      );
+    case 'PREPARING':
+    case 'ACCEPTED':
+    case 'PENDING':
+    case 'NEW':
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+          🔥 Cooking
+        </span>
+      );
+    case 'CANCELLED':
+    case 'VOIDED':
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/30 line-through whitespace-nowrap">
+          ❌ Cancelled
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground border border-border whitespace-nowrap">
+          ⏳ Queued
+        </span>
+      );
+  }
+}
+
 const ORDER_STATUS_META: Record<string, { label: string; emoji: string; bg: string; border: string; text: string }> = {
   DRAFT:           { label: 'Draft',        emoji: '📝', bg: 'bg-muted/40',       border: 'border-border',          text: 'text-muted-foreground' },
   CONFIRMED:       { label: 'Confirmed',    emoji: '✨', bg: 'bg-blue-500/15',    border: 'border-blue-500/40',     text: 'text-blue-400' },
@@ -684,41 +724,121 @@ export default function CurrentOrdersPage() {
                   )}
                 </div>
 
-                {/* Items Breakdown Box */}
+                {/* Items Breakdown Box categorized by KOT */}
                 <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar pr-1">
-                    {activeItems.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic py-2">No active items</p>
-                    ) : (
-                      activeItems.map((item: any, idx: number) => {
-                        const title = formatItemTitle(item);
-                        const qty = item.quantity;
-                        const lineTot = item.lineTotal > 0 ? item.lineTotal : qty * (item.unitPrice || 0);
+                  <div className="space-y-3 max-h-56 overflow-y-auto no-scrollbar pr-1">
+                    {order.kots && order.kots.length > 0 ? (
+                      order.kots
+                        .filter((k: any) => k.status !== 'CANCELLED')
+                        .map((kot: any) => {
+                          const kotActiveItems = (kot.items || []).filter(
+                            (ki: any) => ki.status !== 'CANCELLED' && ki.status !== 'VOIDED'
+                          );
+                          if (kotActiveItems.length === 0) return null;
 
-                        return (
-                          <div key={item.id || idx} className="flex items-start justify-between text-xs py-0.5">
-                            <div className="flex items-start gap-1.5 flex-1 min-w-0 pr-2">
-                              <span className="font-bold text-primary font-mono text-[11px]">{qty}x</span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-foreground font-medium truncate">{title}</span>
-                                {item.modifiers && item.modifiers.length > 0 && (
-                                  <span className="text-[10px] text-indigo-400 font-medium">
-                                    + {item.modifiers.map((m: any) => m.name).join(', ')}
+                          return (
+                            <div key={kot.id} className="space-y-1.5 rounded-xl bg-muted/20 border border-border/60 p-2.5">
+                              {/* KOT Header */}
+                              <div className="flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-black text-xs text-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                                    KOT #{kot.kotNumber}
                                   </span>
-                                )}
-                                {item.notes && (
-                                  <span className="text-[10px] text-rose-400 italic">
-                                    Note: {item.notes}
-                                  </span>
-                                )}
+                                  {kot.kitchenStation?.name && (
+                                    <span className="text-[10px] text-muted-foreground font-semibold">
+                                      ({kot.kitchenStation.name})
+                                    </span>
+                                  )}
+                                </div>
+                                <span className={cn(
+                                  'text-[10px] font-black px-1.5 py-0.5 rounded-md',
+                                  kot.status === 'SERVED' ? 'bg-teal-500/15 text-teal-400' :
+                                  kot.status === 'READY' ? 'bg-emerald-500/15 text-emerald-400' :
+                                  'bg-amber-500/15 text-amber-400'
+                                )}>
+                                  {kot.status === 'SERVED' ? '🍽️ Served' : kot.status === 'READY' ? '✓ Ready' : '🔥 Cooking'}
+                                </span>
+                              </div>
+
+                              {/* Items inside this KOT */}
+                              <div className="space-y-1.5">
+                                {kotActiveItems.map((ki: any) => {
+                                  const oi = ki.orderItem || {};
+                                  const title = formatItemTitle(oi);
+                                  const qty = ki.quantity || oi.quantity || 1;
+                                  const lineTot = oi.lineTotal > 0 ? oi.lineTotal : qty * (oi.unitPrice || 0);
+
+                                  return (
+                                    <div key={ki.id} className="flex items-start justify-between text-xs py-0.5 gap-2">
+                                      <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                                        <span className="font-bold text-primary font-mono text-[11px] shrink-0">{qty}x</span>
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="text-foreground font-semibold leading-tight break-words">{title}</span>
+                                          {oi.modifiers && oi.modifiers.length > 0 && (
+                                            <span className="text-[10px] text-indigo-400 font-medium">
+                                              + {oi.modifiers.map((m: any) => m.name).join(', ')}
+                                            </span>
+                                          )}
+                                          {oi.notes && (
+                                            <span className="text-[10px] text-rose-400 italic">
+                                              Note: {oi.notes}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="flex flex-col items-end shrink-0 gap-0.5">
+                                        {getLiveItemStatusBadge(ki.status)}
+                                        {lineTot > 0 && (
+                                          <span className="font-mono text-muted-foreground text-[11px] font-semibold">
+                                            {formatCurrency(lineTot)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
-                            <span className="font-mono text-muted-foreground text-xs font-semibold whitespace-nowrap">
-                              {formatCurrency(lineTot)}
-                            </span>
-                          </div>
-                        );
-                      })
+                          );
+                        })
+                    ) : activeItems.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic py-2 text-center">No active items</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {activeItems.map((item: any, idx: number) => {
+                          const title = formatItemTitle(item);
+                          const qty = item.quantity;
+                          const lineTot = item.lineTotal > 0 ? item.lineTotal : qty * (item.unitPrice || 0);
+
+                          return (
+                            <div key={item.id || idx} className="flex items-start justify-between text-xs py-0.5 gap-2">
+                              <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                                <span className="font-bold text-primary font-mono text-[11px] shrink-0">{qty}x</span>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-foreground font-semibold leading-tight break-words">{title}</span>
+                                  {item.modifiers && item.modifiers.length > 0 && (
+                                    <span className="text-[10px] text-indigo-400 font-medium">
+                                      + {item.modifiers.map((m: any) => m.name).join(', ')}
+                                    </span>
+                                  )}
+                                  {item.notes && (
+                                    <span className="text-[10px] text-rose-400 italic">
+                                      Note: {item.notes}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end shrink-0 gap-0.5">
+                                {getLiveItemStatusBadge(item.status)}
+                                <span className="font-mono text-muted-foreground text-[11px] font-semibold">
+                                  {formatCurrency(lineTot)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
 

@@ -532,112 +532,63 @@ export default function KitchenPage() {
           <p className="font-semibold text-sm">Loading Kitchen Queue...</p>
         </div>
       ) : effectiveRole === 'COOK' ? (
-        /* 👨‍🍳 COOK VIEW: 2 COLUMNS (NEW ORDERS + COMPLETE & READY TO SERVE) */
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          {/* Column 1: 🔥 New Orders (Cooking) */}
-          <div className="space-y-4 rounded-3xl bg-card/60 border border-amber-500/30 p-4 sm:p-5 shadow-sm">
-            {/* Column Header */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-sm">
-                  <Flame className="w-5 h-5 animate-pulse" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-black text-foreground truncate">
-                    🔥 New Orders (Cooking)
-                  </h2>
-                  <p className="text-[11px] font-semibold text-muted-foreground truncate">
-                    Active cooking queue &bull; Mark dishes complete
-                  </p>
-                </div>
+        /* 👨‍🍳 COOK VIEW: SINGLE FULL-WIDTH LANDSCAPE GRID (ACTIVE COOKING KOTS) */
+        <div className="space-y-4">
+          {/* Header Banner */}
+          <div className="flex items-center justify-between p-4 rounded-3xl bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 shadow-sm">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-sm">
+                <Flame className="w-6 h-6 animate-pulse" />
               </div>
-              <span className="px-3 py-1 rounded-xl bg-amber-500 text-slate-950 text-xs font-black shrink-0 shadow-sm">
-                {cookNewKots.length} Active
-              </span>
-            </div>
-
-            {/* Cards List */}
-            {cookNewKots.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[220px]">
-                <Sparkles className="w-10 h-10 text-amber-500/40 mb-2" />
-                <h3 className="text-base font-bold text-foreground">All Caught Up!</h3>
-                <p className="text-xs text-muted-foreground max-w-xs mt-0.5">
-                  No active cooking items right now. New KOTs sent from tables or POS will appear here instantly.
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl font-black text-foreground truncate">
+                  🔥 Active Cooking Queue
+                </h2>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Landscape Live KDS &bull; Tap &apos;Done&apos; on individual dishes or complete full ticket
                 </p>
               </div>
-            ) : (
-              <div className="space-y-4 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
-                {cookNewKots.map((kot) => (
-                  <CookKotCard
-                    key={kot.id}
-                    kot={kot}
-                    targetItemStatus="NEW_OR_COOKING"
-                    onCompleteItem={(itemId) =>
-                      updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'READY' })
-                    }
-                    onUndoItem={(itemId) =>
-                      updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'PREPARING' })
-                    }
-                    onCompleteKot={() =>
-                      updateKotStatus.mutate({ kotId: kot.id, status: 'READY' })
-                    }
-                    onRequestCancelItem={(itemId, itemName) =>
-                      setCancelModalItem({ kotId: kot.id, itemId, itemName })
-                    }
-                    onRequestCancelKot={() =>
-                      setCancelModalKot({ kotId: kot.id, kotNumber: kot.kotNumber })
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Column 2: 🛎️ Complete & Ready to Serve (Pass Counter) */}
-          <div className="space-y-4 rounded-3xl bg-card/60 border border-emerald-500/30 p-4 sm:p-5 shadow-sm">
-            {/* Column Header */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-transparent border border-emerald-500/40">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-black text-foreground truncate">
-                    🛎️ Complete &amp; Ready to Serve
-                  </h2>
-                  <p className="text-[11px] font-semibold text-muted-foreground truncate">
-                    At pass counter &bull; Ready for waiter pickup
-                  </p>
-                </div>
-              </div>
-              <span className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-black shrink-0 shadow-sm">
-                {cookReadyKots.length} Ready
-              </span>
             </div>
-
-            {/* Cards List */}
-            {cookReadyKots.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[220px]">
-                <CheckCircle2 className="w-10 h-10 text-emerald-500/40 mb-2" />
-                <h3 className="text-base font-bold text-foreground">Pass Counter is Clear</h3>
-                <p className="text-xs text-muted-foreground max-w-xs mt-0.5">
-                  Dishes marked Complete by chefs will sit here until picked up and served by waiters.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
-                {cookReadyKots.map((kot) => (
-                  <CookReadyKotCard
-                    key={kot.id}
-                    kot={kot}
-                    onUndoItem={(itemId) =>
-                      updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'PREPARING' })
-                    }
-                  />
-                ))}
-              </div>
-            )}
+            <span className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 text-xs sm:text-sm font-black shrink-0 shadow-sm">
+              {cookNewKots.length} Active Tickets
+            </span>
           </div>
+
+          {/* Cards Landscape Grid */}
+          {cookNewKots.length === 0 ? (
+            <div className="rounded-3xl border-2 border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[300px] bg-card/40">
+              <Sparkles className="w-12 h-12 text-amber-500/40 mb-3" />
+              <h3 className="text-lg font-bold text-foreground">All Caught Up!</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                No active cooking items right now. New KOTs sent from tables or POS will appear here instantly.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 items-start">
+              {cookNewKots.map((kot) => (
+                <CookKotCard
+                  key={kot.id}
+                  kot={kot}
+                  targetItemStatus="NEW_OR_COOKING"
+                  onCompleteItem={(itemId) =>
+                    updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'READY' })
+                  }
+                  onUndoItem={(itemId) =>
+                    updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'PREPARING' })
+                  }
+                  onCompleteKot={() =>
+                    updateKotStatus.mutate({ kotId: kot.id, status: 'READY' })
+                  }
+                  onRequestCancelItem={(itemId, itemName) =>
+                    setCancelModalItem({ kotId: kot.id, itemId, itemName })
+                  }
+                  onRequestCancelKot={() =>
+                    setCancelModalKot({ kotId: kot.id, kotNumber: kot.kotNumber })
+                  }
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         /* 🍽️ WAITER VIEW: 2 COLUMNS (READY TO SERVE + SERVED HISTORY) */
@@ -982,8 +933,8 @@ function CookKotCard({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-1">
                   <p className={cn(
-                    'font-black text-base sm:text-lg leading-tight tracking-tight truncate',
-                    isItemCancelled ? 'text-muted-foreground line-through' : isItemReady ? 'text-muted-foreground line-clamp-1' : 'text-foreground'
+                    'font-black text-base sm:text-lg leading-snug tracking-tight break-words whitespace-normal',
+                    isItemCancelled ? 'text-muted-foreground line-through' : isItemReady ? 'text-muted-foreground' : 'text-foreground'
                   )}>
                     {fullItemTitle}
                   </p>
@@ -1002,7 +953,7 @@ function CookKotCard({
                 </div>
 
                 {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
-                  <p className="text-xs font-semibold text-indigo-400 mt-0.5 truncate">
+                  <p className="text-xs font-semibold text-indigo-400 mt-0.5 break-words whitespace-normal">
                     + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
                   </p>
                 )}
@@ -1261,7 +1212,7 @@ function WaiterReadyKotCard({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className={cn(
-                      'font-black text-base sm:text-lg leading-tight truncate',
+                      'font-black text-base sm:text-lg leading-snug break-words whitespace-normal',
                       isReady ? 'text-foreground' : 'text-muted-foreground'
                     )}>
                       {fullItemTitle}

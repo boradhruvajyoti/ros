@@ -118,7 +118,24 @@ export class OrderController {
             modifiers: true,
           },
         },
-        kots: true,
+        kots: {
+          include: {
+            items: {
+              include: {
+                orderItem: {
+                  include: {
+                    menuItem: true,
+                    variant: true,
+                  },
+                },
+              },
+            },
+            kitchenStation: {
+              select: { id: true, name: true, displayColor: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
         payments: true,
       },
       orderBy: { createdAt: 'desc' },

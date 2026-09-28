@@ -200,7 +200,6 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   bool _roleInitialized = false;
 
   // Sub-tabs
-  String _cookTab = 'NEW'; // 'NEW' (In Kitchen) | 'READY' (Complete & Ready)
   String _waiterTab = 'READY'; // 'READY' (Ready to Serve) | 'SERVED' (Served)
 
   bool _loading = true;
@@ -880,17 +879,11 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                     child: CircularProgressIndicator(color: RosTheme.primary),
                   )
                 : effectiveRole == 'COOK'
-                    ? (_cookTab == 'NEW'
-                        ? _buildKotsList(
-                            kots: cookNewKots,
-                            emptyMessage: 'No new orders cooking right now.',
-                            isCookNewView: true,
-                          )
-                        : _buildKotsList(
-                            kots: cookReadyKots,
-                            emptyMessage: 'Pass counter is clear.',
-                            isCookReadyView: true,
-                          ))
+                    ? _buildKotsList(
+                        kots: cookNewKots,
+                        emptyMessage: 'No new orders cooking right now.',
+                        isCookNewView: true,
+                      )
                     : (_waiterTab == 'READY'
                         ? _buildKotsList(
                             kots: waiterReadyKots,
@@ -994,51 +987,15 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
     required int waiterServedCount,
   }) {
     if (effectiveRole == 'COOK') {
-      if (!access.canViewWaiter) {
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: _buildSectionTabButton(
-            label: '🔥 New Orders (Cooking)',
-            count: cookNewCount,
-            isSelected: true,
-            activeColor: RosTheme.warning,
-            activeTextColor: Colors.black,
-            onTap: () {},
-          ),
-        );
-      }
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Row(
-          children: [
-            Expanded(
-              child: _buildSectionTabButton(
-                label: '🔥 New Orders (Cooking)',
-                count: cookNewCount,
-                isSelected: _cookTab == 'NEW',
-                activeColor: RosTheme.warning,
-                activeTextColor: Colors.black,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _cookTab = 'NEW');
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildSectionTabButton(
-                label: '🛎️ Ready to Serve',
-                count: cookReadyCount,
-                isSelected: _cookTab == 'READY',
-                activeColor: RosTheme.secondary,
-                activeTextColor: Colors.white,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _cookTab = 'READY');
-                },
-              ),
-            ),
-          ],
+        child: _buildSectionTabButton(
+          label: '🔥 Active Cooking Queue',
+          count: cookNewCount,
+          isSelected: true,
+          activeColor: RosTheme.warning,
+          activeTextColor: Colors.black,
+          onTap: () {},
         ),
       );
     } else {
