@@ -807,8 +807,12 @@ export class StaffController {
               include: { role: true },
             });
 
+            const isSharedOrSystemRole = (name: string) =>
+              ['OWNER', 'SUPER_ADMIN', 'ADMINISTRATOR', 'WAITER', 'CHEF', 'CASHIER', 'MANAGER', 'STAFF'].includes(name) ||
+              !name.includes('_');
+
             let role: any = existingUbr?.role;
-            if (!role || role.name === 'OWNER' || role.name === 'SUPER_ADMIN' || role.name === 'ADMINISTRATOR') {
+            if (!role || isSharedOrSystemRole(role.name)) {
               const foundRole = await prisma.role.findFirst({
                 where: { tenantId, name: uniqueRoleName },
               });

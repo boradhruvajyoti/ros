@@ -1190,20 +1190,29 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
 
     // Initialize modules & submodules from permissions or default role preset
     if (s != null && s.permissions.isNotEmpty) {
+      final hasAnySubOrModPerms = s.permissions.any((p) => p.startsWith('sub:') || p.startsWith('module:') || p.startsWith('mod:'));
       for (final mod in kPlatformFeatureModules) {
-        final hasModKey = mod.permissions.any((p) => s.permissions.contains(p));
         final activeSubs = <String>[];
         for (final sub in mod.submodules) {
           if (s.permissions.contains('sub:${sub.id}') || s.permissions.contains(sub.id)) {
             activeSubs.add(sub.id);
           }
         }
-        if (activeSubs.isNotEmpty) {
-          _selectedModules.add(mod.id);
-          _selectedSubmodules.addAll(activeSubs);
-        } else if (hasModKey) {
-          _selectedModules.add(mod.id);
-          _selectedSubmodules.addAll(mod.submodules.map((e) => e.id));
+        if (hasAnySubOrModPerms) {
+          final hasExplicitMod = s.permissions.contains('module:${mod.id}') || s.permissions.contains('mod:${mod.id}');
+          if (activeSubs.isNotEmpty || hasExplicitMod) {
+            _selectedModules.add(mod.id);
+            _selectedSubmodules.addAll(activeSubs);
+          }
+        } else {
+          final hasModKey = mod.permissions.any((p) => s.permissions.contains(p));
+          if (activeSubs.isNotEmpty) {
+            _selectedModules.add(mod.id);
+            _selectedSubmodules.addAll(activeSubs);
+          } else if (hasModKey) {
+            _selectedModules.add(mod.id);
+            _selectedSubmodules.addAll(mod.submodules.map((e) => e.id));
+          }
         }
       }
     } else {
@@ -1275,6 +1284,8 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
     final permissions = <String>{};
     for (final mod in kPlatformFeatureModules) {
       if (_selectedModules.contains(mod.id)) {
+        permissions.add('module:${mod.id}');
+        permissions.add('mod:${mod.id}');
         permissions.addAll(mod.permissions);
         for (final sub in mod.submodules) {
           if (_selectedSubmodules.contains(sub.id)) {

@@ -919,8 +919,12 @@ export default function StaffPage() {
     const matchedSubmodules: string[] = [];
 
     if (userPerms.size > 0) {
+      // Check if user has explicit submodule / module permissions
+      const hasAnySubOrModPerms = Array.from(userPerms).some(
+        (p) => p.startsWith('sub:') || p.startsWith('module:') || p.startsWith('mod:')
+      );
+
       for (const mod of FEATURE_MODULES) {
-        const hasModKey = userPerms.has(mod.keyPermission) || mod.permissions.some((p) => userPerms.has(p));
         const activeSubs: string[] = [];
 
         for (const sub of mod.submodules) {
@@ -929,12 +933,23 @@ export default function StaffPage() {
           }
         }
 
-        if (activeSubs.length > 0) {
-          matchedModules.push(mod.id);
-          matchedSubmodules.push(...activeSubs);
-        } else if (hasModKey) {
-          matchedModules.push(mod.id);
-          matchedSubmodules.push(...mod.submodules.map((s) => s.id));
+        if (hasAnySubOrModPerms) {
+          // Strict submodule matching: only activate module if explicitly selected or has active submodules
+          const hasExplicitMod = userPerms.has(`module:${mod.id}`) || userPerms.has(`mod:${mod.id}`);
+          if (activeSubs.length > 0 || hasExplicitMod) {
+            matchedModules.push(mod.id);
+            matchedSubmodules.push(...activeSubs);
+          }
+        } else {
+          // Legacy fallback only when user has zero sub: or module: permissions
+          const hasModKey = userPerms.has(mod.keyPermission) || mod.permissions.some((p) => userPerms.has(p));
+          if (activeSubs.length > 0) {
+            matchedModules.push(mod.id);
+            matchedSubmodules.push(...activeSubs);
+          } else if (hasModKey) {
+            matchedModules.push(mod.id);
+            matchedSubmodules.push(...mod.submodules.map((s) => s.id));
+          }
         }
       }
     }
@@ -1042,6 +1057,8 @@ export default function StaffPage() {
     const perms = new Set<string>();
     for (const mod of FEATURE_MODULES) {
       if (modIds.includes(mod.id)) {
+        perms.add(`module:${mod.id}`);
+        perms.add(`mod:${mod.id}`);
         mod.permissions.forEach((p) => perms.add(p));
         for (const sub of mod.submodules) {
           if (subIds.includes(sub.id)) {
@@ -1341,12 +1358,22 @@ export default function StaffPage() {
                             <span className="shrink-0">Role:</span>
                             <span className="font-bold text-foreground truncate">{emp.user.roles?.[0] || 'STAFF'}</span>
                           </div>
-                          {emp.user.permissions?.length > 0 && (
-                            <div className="text-[10px] text-muted-foreground truncate">
-                              <span>Accessible Features: </span>
-                              <strong className="text-foreground">{emp.user.permissions.length} modules granted</strong>
-                            </div>
-                          )}
+                          {emp.user.permissions?.length > 0 && (() => {
+                            const uPerms = new Set(emp.user.permissions);
+                            const hasSub = emp.user.permissions.some((p: string) => p.startsWith('sub:') || p.startsWith('module:') || p.startsWith('mod:'));
+                            const activeCount = FEATURE_MODULES.filter((m) => {
+                              if (hasSub) {
+                                return uPerms.has(`module:${m.id}`) || uPerms.has(`mod:${m.id}`) || m.submodules.some((s) => uPerms.has(`sub:${s.id}`) || uPerms.has(s.id));
+                              }
+                              return uPerms.has(m.keyPermission) || m.permissions.some((p) => uPerms.has(p));
+                            }).length;
+                            return (
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                <span>Accessible Features: </span>
+                                <strong className="text-foreground">{activeCount} modules granted</strong>
+                              </div>
+                            );
+                          })()}
                           {emp.user.telegramChatId && (
                             <div className="pt-1 mt-1 border-t border-border/50 flex items-center justify-between text-[10px]">
                               <span className="text-sky-400 font-medium flex items-center gap-1">
