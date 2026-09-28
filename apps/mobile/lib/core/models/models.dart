@@ -925,18 +925,26 @@ class Customer {
 
 class StaffMember {
   final String id;
+  final String? employeeCode;
   final String name;
   final String email;
   final String? phone;
+  final String? designation;
+  final String? department;
+  final double? salary;
   final List<String> roles;
   final bool isActive;
   final DateTime? lastLoginAt;
 
   const StaffMember({
     required this.id,
+    this.employeeCode,
     required this.name,
     required this.email,
     this.phone,
+    this.designation,
+    this.department,
+    this.salary,
     required this.roles,
     required this.isActive,
     this.lastLoginAt,
@@ -944,9 +952,13 @@ class StaffMember {
 
   factory StaffMember.fromJson(Map<String, dynamic> json) => StaffMember(
     id: json['id'] as String? ?? '',
+    employeeCode: json['employeeCode'] as String?,
     name: json['name'] as String? ?? 'Staff',
     email: json['email'] as String? ?? '',
     phone: json['phone'] as String?,
+    designation: json['designation'] as String?,
+    department: json['department'] as String?,
+    salary: json['salary'] != null ? parseDouble(json['salary'], 0.0) : null,
     roles: (json['branchRoles'] as List<dynamic>?)
         ?.map((e) => e['role']?['name'] as String? ?? '')
         .where((r) => r.isNotEmpty)

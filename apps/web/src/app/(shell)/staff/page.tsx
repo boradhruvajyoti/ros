@@ -377,6 +377,84 @@ const TELEGRAM_NOTIFICATION_OPTIONS = [
   },
 ];
 
+const DESIGNATION_CATEGORIES = [
+  {
+    category: '👨‍💼 Management & Leadership',
+    designations: [
+      'General Manager',
+      'Assistant General Manager',
+      'Restaurant Manager',
+      'Cafe Manager',
+      'Operations Manager',
+      'Floor Manager',
+      'Shift Supervisor',
+      'Duty Manager',
+    ],
+  },
+  {
+    category: '🍽️ Front of House & Guest Service',
+    designations: [
+      'F&B Captain',
+      'Head Waiter',
+      'Waiter / Server',
+      'Waitress / Server',
+      'Host / Hostess',
+      'Food Runner',
+      'Busser',
+      'Head Cashier',
+      'Cashier / Billing Staff',
+      'POS Operator',
+      'Order Taker',
+      'Delivery Rider',
+    ],
+  },
+  {
+    category: '☕ Beverage, Bar & Cafe',
+    designations: [
+      'Head Barista',
+      'Barista',
+      'Junior Barista',
+      'Head Bartender',
+      'Bartender / Mixologist',
+      'Barback',
+      'Sommelier / Wine Steward',
+      'Juice & Beverage Maker',
+    ],
+  },
+  {
+    category: '👨‍🍳 Kitchen & Culinary (Back of House)',
+    designations: [
+      'Executive Chef',
+      'Head Chef',
+      'Executive Sous Chef',
+      'Sous Chef',
+      'Chef de Partie (CDP)',
+      'Demi Chef de Partie',
+      'Commis I (Senior Cook)',
+      'Commis II (Cook)',
+      'Commis III (Junior Cook)',
+      'Line Cook / Short Order Cook',
+      'Pastry Chef / Baker',
+      'Pizza Chef / Pizzaiolo',
+      'Tandoor / Grill Master',
+      'Chinese / Wok Chef',
+      'South Indian Chef',
+      'Prep Cook / Kitchen Helper',
+    ],
+  },
+  {
+    category: '📦 Inventory, Stewarding & Support',
+    designations: [
+      'Storekeeper / Inventory Manager',
+      'Procurement Executive',
+      'Chief Steward',
+      'Kitchen Steward / Dishwasher',
+      'Housekeeping / Cleaner',
+      'Security Officer',
+    ],
+  },
+];
+
 export default function StaffPage() {
   const [activeTab, setActiveTab] = useState<'directory' | 'attendance'>('directory');
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
@@ -1076,13 +1154,47 @@ export default function StaffPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-foreground">Designation *</label>
-                      <Input
+                      <select
                         required
-                        value={newDesignation}
-                        onChange={(e) => setNewDesignation(e.target.value)}
-                        placeholder="e.g. Captain / Waiter"
-                        className="h-10 rounded-xl"
-                      />
+                        value={
+                          DESIGNATION_CATEGORIES.some((c) => c.designations.includes(newDesignation))
+                            ? newDesignation
+                            : newDesignation ? 'CUSTOM' : ''
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'CUSTOM') {
+                            if (DESIGNATION_CATEGORIES.some((c) => c.designations.includes(newDesignation))) {
+                              setNewDesignation('');
+                            }
+                          } else {
+                            setNewDesignation(val);
+                          }
+                        }}
+                        className="w-full h-10 px-3 rounded-xl border border-input bg-card text-foreground text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="" disabled>Select Designation...</option>
+                        {DESIGNATION_CATEGORIES.map((cat) => (
+                          <optgroup key={cat.category} label={cat.category}>
+                            {cat.designations.map((d) => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                        <optgroup label="✨ Custom">
+                          <option value="CUSTOM">+ Custom / Other Designation</option>
+                        </optgroup>
+                      </select>
+
+                      {(!DESIGNATION_CATEGORIES.some((c) => c.designations.includes(newDesignation)) || newDesignation === '') && (
+                        <Input
+                          required
+                          value={newDesignation}
+                          onChange={(e) => setNewDesignation(e.target.value)}
+                          placeholder="Type custom designation (e.g. Head Roaster)"
+                          className="h-10 rounded-xl mt-1.5"
+                        />
+                      )}
                     </div>
 
                     <div className="space-y-1">
@@ -1444,13 +1556,47 @@ export default function StaffPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-foreground">Designation *</label>
-                      <Input
+                      <select
                         required
-                        value={editDesignation}
-                        onChange={(e) => setEditDesignation(e.target.value)}
-                        placeholder="e.g. Captain / Waiter"
-                        className="h-10 rounded-xl"
-                      />
+                        value={
+                          DESIGNATION_CATEGORIES.some((c) => c.designations.includes(editDesignation))
+                            ? editDesignation
+                            : editDesignation ? 'CUSTOM' : ''
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'CUSTOM') {
+                            if (DESIGNATION_CATEGORIES.some((c) => c.designations.includes(editDesignation))) {
+                              setEditDesignation('');
+                            }
+                          } else {
+                            setEditDesignation(val);
+                          }
+                        }}
+                        className="w-full h-10 px-3 rounded-xl border border-input bg-card text-foreground text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="" disabled>Select Designation...</option>
+                        {DESIGNATION_CATEGORIES.map((cat) => (
+                          <optgroup key={cat.category} label={cat.category}>
+                            {cat.designations.map((d) => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                        <optgroup label="✨ Custom">
+                          <option value="CUSTOM">+ Custom / Other Designation</option>
+                        </optgroup>
+                      </select>
+
+                      {(!DESIGNATION_CATEGORIES.some((c) => c.designations.includes(editDesignation)) || editDesignation === '') && (
+                        <Input
+                          required
+                          value={editDesignation}
+                          onChange={(e) => setEditDesignation(e.target.value)}
+                          placeholder="Type custom designation (e.g. Head Roaster)"
+                          className="h-10 rounded-xl mt-1.5"
+                        />
+                      )}
                     </div>
 
                     <div className="space-y-1">
