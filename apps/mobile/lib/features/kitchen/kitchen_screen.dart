@@ -66,7 +66,38 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
     );
   }
 
-  // 2. Kitchen & Culinary
+  // 2. Submodule-level permission check (from tenant admin RBAC assignment)
+  // This takes priority over role/designation heuristics for staff
+  final hasCookSubPerm = user.permissions.contains('sub:kds_cook_station');
+  final hasRunnerSubPerm = user.permissions.contains('sub:kds_runner_station');
+
+  if (hasCookSubPerm || hasRunnerSubPerm) {
+    if (hasCookSubPerm && !hasRunnerSubPerm) {
+      return const KdsAccessInfo(
+        category: KdsCategory.kitchen,
+        canViewCook: true,
+        canViewWaiter: false,
+        canToggle: false,
+      );
+    }
+    if (!hasCookSubPerm && hasRunnerSubPerm) {
+      return const KdsAccessInfo(
+        category: KdsCategory.foh,
+        canViewCook: false,
+        canViewWaiter: true,
+        canToggle: false,
+      );
+    }
+    // Both — management-level access
+    return const KdsAccessInfo(
+      category: KdsCategory.management,
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+    );
+  }
+
+  // 3. Kitchen & Culinary (heuristic fallback)
   final isKitchenRole = userRoles.any((r) =>
       ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY'].any((k) => r.contains(k)));
   final isKitchenDesignation = designation.contains('chef') ||
@@ -90,7 +121,7 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
     );
   }
 
-  // 3. Front of House & Guest Service
+  // 4. Front of House & Guest Service (heuristic fallback)
   final isFohRole = userRoles.any((r) =>
       ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'BARISTA', 'BARTENDER', 'FOH'].any((f) => r.contains(f)));
   final isFohDesignation = designation.contains('waiter') ||
@@ -125,7 +156,7 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
     );
   }
 
-  // Fallback check by department
+  // 5. Fallback check by department
   if (department.contains('kitchen')) {
     return const KdsAccessInfo(
       category: KdsCategory.kitchen,
@@ -150,6 +181,7 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
     canToggle: true,
   );
 }
+
 
 class KitchenScreen extends ConsumerStatefulWidget {
   const KitchenScreen({super.key});
@@ -696,30 +728,36 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
       ),
       body: Column(
         children: [
-          // ── 1. Role Mode Switcher Toggle (Cook vs Waiter - for Management) ───
-          if (access.canToggle)
-            Container(
-              margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: RosTheme.bgBorder),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
+          // ── 1. Role Mode Switcher — always visible, dims inaccessible tab ──
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: RosTheme.bgElevated,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: RosTheme.bgBorder),
+            ),
+            child: Row(
+              children: [
+                // Cook / Kitchen tab
+                Expanded(
+                  child: Opacity(
+                    opacity: access.canViewCook ? 1.0 : 0.35,
                     child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _activeRole = 'COOK');
-                      },
+                      onTap: access.canViewCook && access.canToggle
+                          ? () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _activeRole = 'COOK');
+                            }
+                          : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         decoration: BoxDecoration(
-                          color: effectiveRole == 'COOK' ? RosTheme.warning : Colors.transparent,
+                          color: effectiveRole == 'COOK' && access.canViewCook
+                              ? RosTheme.warning
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: effectiveRole == 'COOK'
+                          boxShadow: effectiveRole == 'COOK' && access.canViewCook
                               ? [
                                   BoxShadow(
                                     color: RosTheme.warning.withValues(alpha: 0.3),
@@ -732,18 +770,25 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.soup_kitchen_rounded,
-                              size: 16,
-                              color: effectiveRole == 'COOK' ? Colors.black : RosTheme.textMuted,
-                            ),
+                            if (!access.canViewCook)
+                              const Icon(Icons.lock_rounded, size: 14, color: RosTheme.textMuted)
+                            else
+                              Icon(
+                                Icons.soup_kitchen_rounded,
+                                size: 16,
+                                color: effectiveRole == 'COOK'
+                                    ? Colors.black
+                                    : RosTheme.textMuted,
+                              ),
                             const SizedBox(width: 6),
                             Text(
-                              '👨‍🍳 Cook / Kitchen',
+                              access.canViewCook ? '👨‍🍳 Cook / Kitchen' : 'Cook / Kitchen',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: effectiveRole == 'COOK' ? Colors.black : RosTheme.textMuted,
+                                color: effectiveRole == 'COOK' && access.canViewCook
+                                    ? Colors.black
+                                    : RosTheme.textMuted,
                               ),
                             ),
                           ],
@@ -751,19 +796,27 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Expanded(
+                ),
+                const SizedBox(width: 4),
+                // Waiter / Runner tab
+                Expanded(
+                  child: Opacity(
+                    opacity: access.canViewWaiter ? 1.0 : 0.35,
                     child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _activeRole = 'WAITER');
-                      },
+                      onTap: access.canViewWaiter && access.canToggle
+                          ? () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _activeRole = 'WAITER');
+                            }
+                          : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         decoration: BoxDecoration(
-                          color: effectiveRole == 'WAITER' ? RosTheme.secondary : Colors.transparent,
+                          color: effectiveRole == 'WAITER' && access.canViewWaiter
+                              ? RosTheme.secondary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: effectiveRole == 'WAITER'
+                          boxShadow: effectiveRole == 'WAITER' && access.canViewWaiter
                               ? [
                                   BoxShadow(
                                     color: RosTheme.secondary.withValues(alpha: 0.3),
@@ -776,18 +829,25 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.room_service_rounded,
-                              size: 16,
-                              color: effectiveRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
-                            ),
+                            if (!access.canViewWaiter)
+                              const Icon(Icons.lock_rounded, size: 14, color: RosTheme.textMuted)
+                            else
+                              Icon(
+                                Icons.room_service_rounded,
+                                size: 16,
+                                color: effectiveRole == 'WAITER'
+                                    ? Colors.white
+                                    : RosTheme.textMuted,
+                              ),
                             const SizedBox(width: 6),
                             Text(
-                              '🍽️ Waiter / Runner',
+                              access.canViewWaiter ? '🍽️ Waiter / Runner' : 'Waiter / Runner',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: effectiveRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
+                                color: effectiveRole == 'WAITER' && access.canViewWaiter
+                                    ? Colors.white
+                                    : RosTheme.textMuted,
                               ),
                             ),
                           ],
@@ -795,46 +855,11 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                       ),
                     ),
                   ),
-                ],
-              ),
-            )
-          else
-            Container(
-              margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: RosTheme.bgBorder),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    access.category == KdsCategory.kitchen
-                        ? Icons.soup_kitchen_rounded
-                        : Icons.room_service_rounded,
-                    size: 18,
-                    color: access.category == KdsCategory.kitchen
-                        ? RosTheme.warning
-                        : RosTheme.secondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    access.category == KdsCategory.kitchen
-                        ? '👨‍🍳 Kitchen / Culinary Station'
-                        : '🍽️ Waiter / Service Station',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      color: access.category == KdsCategory.kitchen
-                          ? RosTheme.warning
-                          : RosTheme.secondary,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+
 
           // ── 2. Station Filter Chips ─────────────────────────────────────────
           if (_stations.isNotEmpty) _buildStationFilterBar(),

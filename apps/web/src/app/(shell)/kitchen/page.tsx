@@ -15,6 +15,7 @@ import { apiGet, apiPatch } from '@/lib/api';
 import { onRosEvent } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth.store';
+import { hasSubmoduleAccess, isTenantAdmin } from '@/lib/nav-permissions';
 import {
   playNewOrderSound,
   playOrderCookingSound,
@@ -52,7 +53,9 @@ interface Kot {
   items: KotItem[];
 }
 
-function getKdsAccess(user: { role?: string; roles?: string[]; designation?: string; department?: string } | null | undefined) {
+function getKdsAccess(
+  user: { role?: string; roles?: string[]; designation?: string; department?: string; permissions?: string[] } | null | undefined
+) {
   if (!user) {
     return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
   }
@@ -64,7 +67,7 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
   const designation = (user.designation || '').toLowerCase().trim();
   const department = (user.department || '').toLowerCase().trim();
 
-  // 1. Management & Leadership (full access)
+  // 1. Management & Leadership (full access) — always gets toggle
   const isMgmtRole = userRoles.some((r) =>
     ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'GENERAL_MANAGER'].some((m) => r.includes(m))
   );
@@ -82,7 +85,24 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
     return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
   }
 
-  // 2. Kitchen & Culinary
+  // 2. Check submodule-level permissions (from tenant admin RBAC assignment)
+  // These take priority over role/designation heuristics for staff users
+  const perms: string[] = user.permissions || [];
+  const hasCookSubPerm = perms.includes('sub:kds_cook_station');
+  const hasRunnerSubPerm = perms.includes('sub:kds_runner_station');
+
+  if (hasCookSubPerm || hasRunnerSubPerm) {
+    const canToggle = hasCookSubPerm && hasRunnerSubPerm;
+    if (hasCookSubPerm && !hasRunnerSubPerm) {
+      return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
+    }
+    if (!hasCookSubPerm && hasRunnerSubPerm) {
+      return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
+    }
+    return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
+  }
+
+  // 3. Kitchen & Culinary (role/designation heuristics)
   const isKitchenRole = userRoles.some((r) =>
     ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY'].some((k) => r.includes(k))
   );
@@ -103,7 +123,7 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
     return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
   }
 
-  // 3. Front of House & Guest Service
+  // 4. Front of House & Guest Service (role/designation heuristics)
   const isFohRole = userRoles.some((r) =>
     ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'BARISTA', 'BARTENDER', 'FOH'].some((f) => r.includes(f))
   );
@@ -135,7 +155,7 @@ function getKdsAccess(user: { role?: string; roles?: string[]; designation?: str
     return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
   }
 
-  // Fallback check by department
+  // 5. Fallback check by department
   if (department.includes('kitchen')) {
     return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
   }
@@ -387,51 +407,68 @@ export default function KitchenPage() {
 
         {/* Role Mode Switcher & Controls */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Role Switcher Toggle (Visible only for Management & Leadership) */}
-          {kdsAccess.canToggle ? (
-            <div className="flex items-center p-1 rounded-2xl bg-card border border-border shadow-sm">
+          {/* Role Switcher — shows both tabs; dims/locks inaccessible tabs */}
+          <div className="flex items-center p-1 rounded-2xl bg-card border border-border shadow-sm">
+            {/* Cook / Kitchen tab */}
+            {kdsAccess.canViewCook ? (
               <button
                 type="button"
-                onClick={() => setActiveRole('COOK')}
+                onClick={() => kdsAccess.canToggle ? setActiveRole('COOK') : undefined}
+                disabled={!kdsAccess.canToggle && effectiveRole !== 'COOK'}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
+                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all',
                   effectiveRole === 'COOK'
                     ? 'bg-amber-500 text-slate-950 shadow-md'
-                    : 'text-muted-foreground hover:text-foreground'
+                    : kdsAccess.canToggle
+                      ? 'text-muted-foreground hover:text-foreground cursor-pointer'
+                      : 'text-muted-foreground cursor-default'
                 )}
               >
                 <ChefHat className="w-4 h-4" />
                 <span>👨‍🍳 Cook / Kitchen</span>
               </button>
+            ) : (
               <button
                 type="button"
-                onClick={() => setActiveRole('WAITER')}
+                disabled
+                title="Your account does not have access to the Cook Station"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black opacity-35 cursor-not-allowed text-muted-foreground"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Cook / Kitchen</span>
+              </button>
+            )}
+
+            {/* Waiter / Runner tab */}
+            {kdsAccess.canViewWaiter ? (
+              <button
+                type="button"
+                onClick={() => kdsAccess.canToggle ? setActiveRole('WAITER') : undefined}
+                disabled={!kdsAccess.canToggle && effectiveRole !== 'WAITER'}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
+                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all',
                   effectiveRole === 'WAITER'
                     ? 'bg-emerald-600 text-white shadow-md'
-                    : 'text-muted-foreground hover:text-foreground'
+                    : kdsAccess.canToggle
+                      ? 'text-muted-foreground hover:text-foreground cursor-pointer'
+                      : 'text-muted-foreground cursor-default'
                 )}
               >
                 <Utensils className="w-4 h-4" />
                 <span>🍽️ Waiter / Runner</span>
               </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-card border border-border shadow-sm text-xs sm:text-sm font-black">
-              {kdsAccess.category === 'KITCHEN' ? (
-                <span className="flex items-center gap-2 text-amber-400">
-                  <ChefHat className="w-4 h-4 text-amber-500" />
-                  👨‍🍳 Kitchen / Culinary Station
-                </span>
-              ) : (
-                <span className="flex items-center gap-2 text-emerald-400">
-                  <Utensils className="w-4 h-4 text-emerald-500" />
-                  🍽️ Waiter / Service Station
-                </span>
-              )}
-            </div>
-          )}
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="Your account does not have access to the Waiter/Runner Station"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black opacity-35 cursor-not-allowed text-muted-foreground"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Waiter / Runner</span>
+              </button>
+            )}
+          </div>
 
           {/* Station filter */}
           {stations.length > 0 && (

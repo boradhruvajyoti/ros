@@ -840,34 +840,34 @@ class _SectionDivider {
   const _SectionDivider(this.label);
 }
 
-const List<Object> _restaurantNavSections = [
-  _SectionDivider('OPERATIONS'),
-  _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
-  _NavItem(path: '/current-orders', label: 'Current Orders', icon: Icons.receipt_long_rounded),
-  _NavItem(path: '/pos', label: 'Point of Sale', icon: Icons.point_of_sale_rounded),
-  _NavItem(path: '/kitchen', label: 'Kitchen Display', icon: Icons.restaurant_rounded),
-  _NavItem(path: '/order-history', label: 'Order History', icon: Icons.receipt_long_rounded),
-  _NavItem(path: '/reservations', label: 'Reservations', icon: Icons.event_seat_rounded),
-  _SectionDivider('MENU & INVENTORY'),
-  _NavItem(path: '/menu', label: 'Menu Catalog', icon: Icons.menu_book_rounded),
-  _NavItem(path: '/inventory', label: 'Inventory', icon: Icons.inventory_2_rounded),
-  _SectionDivider('PEOPLE & FINANCE'),
-  _NavItem(path: '/customers', label: 'Customers', icon: Icons.people_rounded),
-  _NavItem(path: '/staff', label: 'Staff & HR', icon: Icons.badge_rounded),
-  _NavItem(path: '/reports', label: 'Reports', icon: Icons.bar_chart_rounded),
-  _SectionDivider('SYSTEM'),
-  _NavItem(path: '/dashboard', label: 'Dashboard', icon: Icons.home_rounded),
-  _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
-];
+// =============================================================================
+// Submodule ID map — module path -> list of submodule IDs
+// If a staff user has ANY 'sub:<id>' from a module's list, they can access that module.
+// =============================================================================
+const Map<String, List<String>> _moduleSubmoduleMap = {
+  '/dashboard':      ['dashboard_revenue', 'dashboard_activity', 'dashboard_velocity', 'dashboard_actions'],
+  '/current-orders': ['orders_live_queue', 'orders_kot_progress', 'orders_status_bump', 'orders_quick_settle'],
+  '/tables':         ['tables_floor_map', 'tables_occupancy', 'tables_active_kots', 'tables_transfer'],
+  '/pos':            ['pos_touch_entry', 'pos_modifiers', 'pos_split_pay', 'pos_discounts'],
+  '/kitchen':        ['kds_cook_station', 'kds_runner_station', 'kds_archive_undo', 'kds_routing'],
+  '/order-history':  ['history_ledger', 'history_reprint', 'history_void_audit', 'history_filter'],
+  '/reservations':   ['res_calendar', 'res_booking_mgmt', 'res_checkin', 'res_alerts'],
+  '/menu':           ['menu_dish_master', 'menu_categories', 'menu_variants', 'menu_modifiers', 'menu_86_toggle'],
+  '/inventory':      ['inv_live_balance', 'inv_low_alerts', 'inv_adjustments', 'inv_reconciliation'],
+  '/customers':      ['cust_directory', 'cust_history', 'cust_loyalty', 'cust_segments'],
+  '/staff':          ['staff_roster', 'staff_attendance', 'staff_rbac', 'staff_telegram'],
+  '/reports':        ['rep_sales_summary', 'rep_item_performance', 'rep_tax_gst', 'rep_pnl_statement'],
+  '/settings':       ['set_profile', 'set_tax_service', 'set_hours_shifts', 'set_gateways'],
+};
 
-const List<Object> _superAdminNavSections = [
-  _SectionDivider('PLATFORM SAAS CONTROL'),
-  _NavItem(path: '/super-admin', label: 'Platform Control', icon: Icons.hub_rounded),
-  _SectionDivider('CONFIGURATION'),
-  _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
-];
+/// Check if a user has access to a specific submodule ID
+bool hasSubmoduleAccess(AuthUser? user, String submoduleId) {
+  if (user == null) return false;
+  if (user.isPlatformAdmin || user.isTenantAdmin) return true;
+  return user.permissions.contains('sub:$submoduleId');
+}
 
-/// Check if a specific route is accessible by the user based on tenant admin choices
+/// Check if a route is accessible: either via module-level perm OR any sub: perm for that module
 bool isRouteAccessible(String path, AuthUser? user) {
   if (user == null) return false;
   if (user.isPlatformAdmin || user.isTenantAdmin) return true;
@@ -877,44 +877,52 @@ bool isRouteAccessible(String path, AuthUser? user) {
   if (cleanPath.startsWith('/super-admin')) {
     return user.isPlatformAdmin;
   }
+
+  // Helper: check module-level OR any sub: perm for a path
+  bool checkAccess(String routePath, List<String> modulePerms) {
+    if (user.hasAnyPermission(modulePerms)) return true;
+    final subIds = _moduleSubmoduleMap[routePath] ?? [];
+    return subIds.any((sid) => user.permissions.contains('sub:$sid'));
+  }
+
   if (cleanPath.startsWith('/dashboard')) {
-    return user.hasPermission('reports:view');
+    return checkAccess('/dashboard', ['reports:view']);
   }
   if (cleanPath.startsWith('/tables')) {
-    return user.hasAnyPermission(['tables:view', 'tables:edit', 'orders:create']);
+    return checkAccess('/tables', ['tables:view', 'tables:edit', 'orders:create']);
   }
   if (cleanPath.startsWith('/current-orders')) {
-    return user.hasAnyPermission(['orders:view', 'orders:create', 'tables:view']);
+    return checkAccess('/current-orders', ['orders:view', 'orders:create', 'tables:view']);
   }
   if (cleanPath.startsWith('/pos')) {
-    return user.hasPermission('orders:create');
+    return checkAccess('/pos', ['orders:create']);
   }
   if (cleanPath.startsWith('/kitchen')) {
-    return user.hasAnyPermission(['kitchen:view', 'kitchen:update']);
+    return checkAccess('/kitchen', ['kitchen:view', 'kitchen:update']);
   }
   if (cleanPath.startsWith('/order-history')) {
-    return user.hasAnyPermission(['payments:view', 'orders:view']);
+    return checkAccess('/order-history', ['payments:view', 'orders:view']);
   }
   if (cleanPath.startsWith('/menu')) {
-    return user.hasAnyPermission(['menu:view', 'menu:create', 'menu:edit']);
+    return checkAccess('/menu', ['menu:view', 'menu:create', 'menu:edit']);
   }
   if (cleanPath.startsWith('/inventory')) {
-    return user.hasPermission('inventory:view');
+    return checkAccess('/inventory', ['inventory:view']);
   }
   if (cleanPath.startsWith('/staff')) {
-    return user.hasAnyPermission(['staff:view', 'staff:create']);
+    return checkAccess('/staff', ['staff:view', 'staff:create']);
   }
   if (cleanPath.startsWith('/reports')) {
-    return user.hasAnyPermission(['reports:view', 'reports:export']);
+    return checkAccess('/reports', ['reports:view', 'reports:export']);
   }
   if (cleanPath.startsWith('/reservations')) {
-    return user.hasPermission('reservations:view');
+    return checkAccess('/reservations', ['reservations:view']);
   }
   if (cleanPath.startsWith('/customers')) {
-    return user.hasPermission('customers:view');
+    return checkAccess('/customers', ['customers:view']);
   }
   if (cleanPath.startsWith('/settings')) {
-    return user.hasAnyPermission(['settings:view', 'settings:edit']);
+    return checkAccess('/settings', ['settings:view', 'settings:edit']);
   }
 
   return false;
@@ -926,19 +934,42 @@ String getDefaultLandingRoute(AuthUser? user) {
   if (user.isPlatformAdmin) return '/super-admin';
   if (user.isTenantAdmin) return '/tables';
 
-  if (isRouteAccessible('/tables', user)) return '/tables';
-  if (isRouteAccessible('/pos', user)) return '/pos';
-  if (isRouteAccessible('/kitchen', user)) return '/kitchen';
-  if (isRouteAccessible('/current-orders', user)) return '/current-orders';
-  if (isRouteAccessible('/order-history', user)) return '/order-history';
-  if (isRouteAccessible('/menu', user)) return '/menu';
-  if (isRouteAccessible('/inventory', user)) return '/inventory';
-  if (isRouteAccessible('/reservations', user)) return '/reservations';
-  if (isRouteAccessible('/customers', user)) return '/customers';
-  if (isRouteAccessible('/reports', user)) return '/reports';
-  if (isRouteAccessible('/staff', user)) return '/staff';
-  if (isRouteAccessible('/dashboard', user)) return '/dashboard';
-  if (isRouteAccessible('/settings', user)) return '/settings';
+  const routePriority = [
+    '/tables', '/pos', '/kitchen', '/current-orders', '/order-history',
+    '/menu', '/inventory', '/reservations', '/customers', '/reports',
+    '/staff', '/dashboard', '/settings',
+  ];
+
+  for (final route in routePriority) {
+    if (isRouteAccessible(route, user)) return route;
+  }
 
   return '/login';
 }
+
+const List<Object> _restaurantNavSections = [
+  _SectionDivider('OPERATIONS'),
+  _NavItem(path: '/tables',         label: 'Tables',           icon: Icons.grid_view_rounded),
+  _NavItem(path: '/current-orders', label: 'Current Orders',   icon: Icons.receipt_long_rounded),
+  _NavItem(path: '/pos',            label: 'Point of Sale',    icon: Icons.point_of_sale_rounded),
+  _NavItem(path: '/kitchen',        label: 'Kitchen Display',  icon: Icons.restaurant_rounded),
+  _NavItem(path: '/order-history',  label: 'Order History',    icon: Icons.history_rounded),
+  _NavItem(path: '/reservations',   label: 'Reservations',     icon: Icons.event_seat_rounded),
+  _SectionDivider('MENU & INVENTORY'),
+  _NavItem(path: '/menu',           label: 'Menu Catalog',     icon: Icons.menu_book_rounded),
+  _NavItem(path: '/inventory',      label: 'Inventory',        icon: Icons.inventory_2_rounded),
+  _SectionDivider('PEOPLE & FINANCE'),
+  _NavItem(path: '/customers',      label: 'Customers',        icon: Icons.people_rounded),
+  _NavItem(path: '/staff',          label: 'Staff & HR',       icon: Icons.badge_rounded),
+  _NavItem(path: '/reports',        label: 'Reports',          icon: Icons.bar_chart_rounded),
+  _SectionDivider('SYSTEM'),
+  _NavItem(path: '/dashboard',      label: 'Dashboard',        icon: Icons.home_rounded),
+  _NavItem(path: '/settings',       label: 'Settings',         icon: Icons.settings_rounded),
+];
+
+const List<Object> _superAdminNavSections = [
+  _SectionDivider('PLATFORM SAAS CONTROL'),
+  _NavItem(path: '/super-admin', label: 'Platform Control', icon: Icons.hub_rounded),
+  _SectionDivider('CONFIGURATION'),
+  _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
+];
