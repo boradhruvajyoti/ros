@@ -1140,6 +1140,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
   late bool _isActive;
   String? _selectedRolePreset;
   final Set<String> _selectedModules = {};
+  final Set<String> _selectedSubmodules = {};
   final Set<String> _selectedTelegramEvents = {};
   bool _submitting = false;
 
@@ -1187,11 +1188,22 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
       _selectedTelegramEvents.addAll(s!.telegramNotifications);
     }
 
-    // Initialize modules from permissions or default role preset
+    // Initialize modules & submodules from permissions or default role preset
     if (s != null && s.permissions.isNotEmpty) {
       for (final mod in kPlatformFeatureModules) {
-        if (mod.permissions.any((p) => s.permissions.contains(p))) {
+        final hasModKey = mod.permissions.any((p) => s.permissions.contains(p));
+        final activeSubs = <String>[];
+        for (final sub in mod.submodules) {
+          if (s.permissions.contains('sub:${sub.id}') || s.permissions.contains(sub.id)) {
+            activeSubs.add(sub.id);
+          }
+        }
+        if (activeSubs.isNotEmpty) {
           _selectedModules.add(mod.id);
+          _selectedSubmodules.addAll(activeSubs);
+        } else if (hasModKey) {
+          _selectedModules.add(mod.id);
+          _selectedSubmodules.addAll(mod.submodules.map((e) => e.id));
         }
       }
     } else {
@@ -1204,8 +1216,45 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
     setState(() {
       _selectedRolePreset = roleId;
       _selectedModules.clear();
+      _selectedSubmodules.clear();
       final preset = kRolePresets.firstWhere((p) => p.id == roleId, orElse: () => kRolePresets.first);
       _selectedModules.addAll(preset.modules);
+      for (final mod in kPlatformFeatureModules) {
+        if (preset.modules.contains(mod.id)) {
+          _selectedSubmodules.addAll(mod.submodules.map((s) => s.id));
+        }
+      }
+    });
+  }
+
+  void _toggleModule(FeatureModuleItem mod, bool isChecked) {
+    setState(() {
+      _selectedRolePreset = null;
+      if (isChecked) {
+        _selectedModules.add(mod.id);
+        _selectedSubmodules.addAll(mod.submodules.map((s) => s.id));
+      } else {
+        _selectedModules.remove(mod.id);
+        for (final s in mod.submodules) {
+          _selectedSubmodules.remove(s.id);
+        }
+      }
+    });
+  }
+
+  void _toggleSubmodule(FeatureModuleItem mod, FeatureSubmoduleItem sub) {
+    setState(() {
+      _selectedRolePreset = null;
+      if (_selectedSubmodules.contains(sub.id)) {
+        _selectedSubmodules.remove(sub.id);
+        final anyRemainingInMod = mod.submodules.any((s) => _selectedSubmodules.contains(s.id));
+        if (!anyRemainingInMod) {
+          _selectedModules.remove(mod.id);
+        }
+      } else {
+        _selectedSubmodules.add(sub.id);
+        _selectedModules.add(mod.id);
+      }
     });
   }
 
@@ -1224,9 +1273,16 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
 
   List<String> _collectPermissions() {
     final permissions = <String>{};
-    for (final modId in _selectedModules) {
-      final mod = kPlatformFeatureModules.firstWhere((m) => m.id == modId, orElse: () => kPlatformFeatureModules.first);
-      permissions.addAll(mod.permissions);
+    for (final mod in kPlatformFeatureModules) {
+      if (_selectedModules.contains(mod.id)) {
+        permissions.addAll(mod.permissions);
+        for (final sub in mod.submodules) {
+          if (_selectedSubmodules.contains(sub.id)) {
+            permissions.add('sub:${sub.id}');
+            permissions.add(sub.id);
+          }
+        }
+      }
     }
     return permissions.toList();
   }
@@ -1702,7 +1758,12 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                       onPressed: () {
                                         setState(() {
                                           _selectedRolePreset = null;
+                                          _selectedModules.clear();
+                                          _selectedSubmodules.clear();
                                           _selectedModules.addAll(kPlatformFeatureModules.map((m) => m.id));
+                                          for (final m in kPlatformFeatureModules) {
+                                            _selectedSubmodules.addAll(m.submodules.map((s) => s.id));
+                                          }
                                         });
                                       },
                                       child: const Text('Select All', style: TextStyle(fontSize: 11, color: RosTheme.primary)),
@@ -1712,6 +1773,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                         setState(() {
                                           _selectedRolePreset = null;
                                           _selectedModules.clear();
+                                          _selectedSubmodules.clear();
                                         });
                                       },
                                       child: const Text('Clear All', style: TextStyle(fontSize: 11, color: RosTheme.danger)),
@@ -1797,10 +1859,16 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                   if (isAllInCatSelected) {
                                                     for (final m in catModules) {
                                                       _selectedModules.remove(m.id);
+                                                      for (final s in m.submodules) {
+                                                        _selectedSubmodules.remove(s.id);
+                                                      }
                                                     }
                                                   } else {
                                                     for (final m in catModules) {
                                                       _selectedModules.add(m.id);
+                                                      for (final s in m.submodules) {
+                                                        _selectedSubmodules.add(s.id);
+                                                      }
                                                     }
                                                   }
                                                 });
@@ -1829,11 +1897,13 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                         itemBuilder: (ctx, idx) {
                                           final mod = catModules[idx];
                                           final isChecked = _selectedModules.contains(mod.id);
+                                          final activeSubCount = mod.submodules.where((s) => _selectedSubmodules.contains(s.id)).length;
+
                                           return CheckboxListTile(
                                             dense: true,
                                             value: isChecked,
                                             activeColor: RosTheme.primary,
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             title: Row(
                                               children: [
                                                 Text(mod.icon, style: const TextStyle(fontSize: 13)),
@@ -1848,6 +1918,24 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                     ),
                                                   ),
                                                 ),
+                                                if (mod.submodules.isNotEmpty)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    decoration: BoxDecoration(
+                                                      color: activeSubCount > 0
+                                                          ? RosTheme.primary.withValues(alpha: 0.15)
+                                                          : RosTheme.bgElevated,
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Text(
+                                                      '$activeSubCount/${mod.submodules.length}',
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: activeSubCount > 0 ? RosTheme.primary : RosTheme.textMuted,
+                                                      ),
+                                                    ),
+                                                  ),
                                               ],
                                             ),
                                             subtitle: Column(
@@ -1858,30 +1946,50 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                   style: const TextStyle(fontSize: 10, color: RosTheme.textMuted),
                                                 ),
                                                 if (mod.submodules.isNotEmpty) ...[
-                                                  const SizedBox(height: 5),
+                                                  const SizedBox(height: 6),
                                                   Wrap(
                                                     spacing: 4,
                                                     runSpacing: 4,
                                                     children: mod.submodules.map((sub) {
-                                                      return Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                        decoration: BoxDecoration(
-                                                          color: isChecked
-                                                              ? RosTheme.primary.withValues(alpha: 0.15)
-                                                              : RosTheme.bgElevated,
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          border: Border.all(
-                                                            color: isChecked
-                                                                ? RosTheme.primary.withValues(alpha: 0.3)
-                                                                : RosTheme.bgBorder,
+                                                      final isSubActive = _selectedSubmodules.contains(sub.id);
+                                                      return InkWell(
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        onTap: () => _toggleSubmodule(mod, sub),
+                                                        child: AnimatedContainer(
+                                                          duration: const Duration(milliseconds: 150),
+                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                          decoration: BoxDecoration(
+                                                            color: isSubActive
+                                                                ? RosTheme.primary.withValues(alpha: 0.18)
+                                                                : RosTheme.bgElevated,
+                                                            borderRadius: BorderRadius.circular(6),
+                                                            border: Border.all(
+                                                              color: isSubActive
+                                                                  ? RosTheme.primary.withValues(alpha: 0.5)
+                                                                  : RosTheme.bgBorder,
+                                                              width: isSubActive ? 1.2 : 1.0,
+                                                            ),
                                                           ),
-                                                        ),
-                                                        child: Text(
-                                                          '• ${sub.name}',
-                                                          style: TextStyle(
-                                                            fontSize: 9,
-                                                            fontWeight: isChecked ? FontWeight.w700 : FontWeight.w500,
-                                                            color: isChecked ? RosTheme.textPrimary : RosTheme.textMuted,
+                                                          child: Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Icon(
+                                                                isSubActive
+                                                                    ? Icons.check_box_rounded
+                                                                    : Icons.check_box_outline_blank_rounded,
+                                                                size: 13,
+                                                                color: isSubActive ? RosTheme.primary : RosTheme.textMuted,
+                                                              ),
+                                                              const SizedBox(width: 4),
+                                                              Text(
+                                                                sub.name,
+                                                                style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontWeight: isSubActive ? FontWeight.w700 : FontWeight.w500,
+                                                                  color: isSubActive ? RosTheme.textPrimary : RosTheme.textMuted,
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
                                                       );
@@ -1890,16 +1998,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                 ],
                                               ],
                                             ),
-                                            onChanged: (val) {
-                                              setState(() {
-                                                _selectedRolePreset = null;
-                                                if (val == true) {
-                                                  _selectedModules.add(mod.id);
-                                                } else {
-                                                  _selectedModules.remove(mod.id);
-                                                }
-                                              });
-                                            },
+                                            onChanged: (val) => _toggleModule(mod, val == true),
                                           );
                                         },
                                       ),

@@ -688,7 +688,12 @@ export default function StaffPage() {
   const [userPassword, setUserPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRolePreset, setSelectedRolePreset] = useState<string>('WAITER');
-  const [selectedModules, setSelectedModules] = useState<string[]>(['pos', 'tables', 'history']);
+  const [selectedModules, setSelectedModules] = useState<string[]>(['pos', 'tables', 'orders', 'history']);
+  const [selectedSubmodules, setSelectedSubmodules] = useState<string[]>(() =>
+    FEATURE_MODULES.filter((m) => ['pos', 'tables', 'orders', 'history'].includes(m.id)).flatMap((m) =>
+      m.submodules.map((s) => s.id)
+    )
+  );
   const [telegramChatId, setTelegramChatId] = useState('');
   const [telegramUsername, setTelegramUsername] = useState('');
   const [selectedTelegramNotifs, setSelectedTelegramNotifs] = useState<string[]>([
@@ -710,6 +715,7 @@ export default function StaffPage() {
   const [editShowPassword, setEditShowPassword] = useState(false);
   const [editSelectedRolePreset, setEditSelectedRolePreset] = useState<string>('CUSTOM');
   const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
+  const [editSelectedSubmodules, setEditSelectedSubmodules] = useState<string[]>([]);
   const [editTelegramChatId, setEditTelegramChatId] = useState('');
   const [editTelegramUsername, setEditTelegramUsername] = useState('');
   const [editSelectedTelegramNotifs, setEditSelectedTelegramNotifs] = useState<string[]>([]);
@@ -783,7 +789,12 @@ export default function StaffPage() {
     setCreateUserAccount(false);
     setUserPassword('');
     setSelectedRolePreset('WAITER');
-    setSelectedModules(['pos', 'tables', 'history']);
+    setSelectedModules(['pos', 'tables', 'orders', 'history']);
+    setSelectedSubmodules(
+      FEATURE_MODULES.filter((m) => ['pos', 'tables', 'orders', 'history'].includes(m.id)).flatMap((m) =>
+        m.submodules.map((s) => s.id)
+      )
+    );
     setTelegramChatId('');
     setTelegramUsername('');
     setSelectedTelegramNotifs(['ORDER_QR_NEW', 'KOT_SENT', 'FOOD_READY', 'BILL_PAID']);
@@ -794,13 +805,56 @@ export default function StaffPage() {
     const preset = ROLE_PRESETS.find((p) => p.id === presetId);
     if (preset) {
       setSelectedModules(preset.modules);
+      setSelectedSubmodules(
+        FEATURE_MODULES.filter((m) => preset.modules.includes(m.id)).flatMap((m) =>
+          m.submodules.map((s) => s.id)
+        )
+      );
     }
   };
 
   const toggleModule = (moduleId: string) => {
-    setSelectedModules((prev) =>
-      prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
-    );
+    const mod = FEATURE_MODULES.find((m) => m.id === moduleId);
+    const modSubIds = mod?.submodules?.map((s) => s.id) || [];
+
+    setSelectedModules((prev) => {
+      const isSelected = prev.includes(moduleId);
+      if (isSelected) {
+        setSelectedSubmodules((subPrev) => subPrev.filter((id) => !modSubIds.includes(id)));
+        return prev.filter((id) => id !== moduleId);
+      } else {
+        setSelectedSubmodules((subPrev) => Array.from(new Set([...subPrev, ...modSubIds])));
+        return [...prev, moduleId];
+      }
+    });
+    setSelectedRolePreset('CUSTOM');
+  };
+
+  const toggleSubmodule = (moduleId: string, submoduleId: string) => {
+    setSelectedSubmodules((prev) => {
+      const isSubActive = prev.includes(submoduleId);
+      let nextSubmodules: string[];
+      if (isSubActive) {
+        nextSubmodules = prev.filter((id) => id !== submoduleId);
+      } else {
+        nextSubmodules = [...prev, submoduleId];
+      }
+
+      const mod = FEATURE_MODULES.find((m) => m.id === moduleId);
+      const modSubIds = mod?.submodules?.map((s) => s.id) || [];
+      const anySubActive = modSubIds.some((sId) => nextSubmodules.includes(sId));
+
+      setSelectedModules((modPrev) => {
+        if (anySubActive && !modPrev.includes(moduleId)) {
+          return [...modPrev, moduleId];
+        } else if (!anySubActive && modPrev.includes(moduleId)) {
+          return modPrev.filter((id) => id !== moduleId);
+        }
+        return modPrev;
+      });
+
+      return nextSubmodules;
+    });
     setSelectedRolePreset('CUSTOM');
   };
 
@@ -817,12 +871,17 @@ export default function StaffPage() {
   };
 
   const toggleCategoryModules = (category: string) => {
-    const categoryModuleIds = FEATURE_MODULES.filter((m) => m.category === category).map((m) => m.id);
+    const catModules = FEATURE_MODULES.filter((m) => m.category === category);
+    const categoryModuleIds = catModules.map((m) => m.id);
+    const categorySubmoduleIds = catModules.flatMap((m) => m.submodules.map((s) => s.id));
     const allSelected = categoryModuleIds.every((id) => selectedModules.includes(id));
+
     if (allSelected) {
       setSelectedModules((prev) => prev.filter((id) => !categoryModuleIds.includes(id)));
+      setSelectedSubmodules((prev) => prev.filter((id) => !categorySubmoduleIds.includes(id)));
     } else {
       setSelectedModules((prev) => Array.from(new Set([...prev, ...categoryModuleIds])));
+      setSelectedSubmodules((prev) => Array.from(new Set([...prev, ...categorySubmoduleIds])));
     }
     setSelectedRolePreset('CUSTOM');
   };
@@ -830,9 +889,11 @@ export default function StaffPage() {
   const handleSelectAllModules = () => {
     if (selectedModules.length === FEATURE_MODULES.length) {
       setSelectedModules([]);
+      setSelectedSubmodules([]);
       setSelectedRolePreset('CUSTOM');
     } else {
       setSelectedModules(FEATURE_MODULES.map((m) => m.id));
+      setSelectedSubmodules(FEATURE_MODULES.flatMap((m) => m.submodules.map((s) => s.id)));
       setSelectedRolePreset('ADMIN');
     }
   };
@@ -852,22 +913,41 @@ export default function StaffPage() {
     setEditTelegramUsername(emp.user?.telegramUsername || '');
     setEditSelectedTelegramNotifs(emp.user?.telegramNotifications || []);
 
-    // Compute which feature modules are active for this employee using exact keyPermission
+    // Compute which feature modules & submodules are active for this employee
     const userPerms = new Set(emp.user?.permissions || []);
-    let matched: string[] = [];
+    const matchedModules: string[] = [];
+    const matchedSubmodules: string[] = [];
+
     if (userPerms.size > 0) {
-      matched = FEATURE_MODULES.filter((m) => userPerms.has(m.keyPermission)).map((m) => m.id);
-    } else {
-      matched = [];
+      for (const mod of FEATURE_MODULES) {
+        const hasModKey = userPerms.has(mod.keyPermission) || mod.permissions.some((p) => userPerms.has(p));
+        const activeSubs: string[] = [];
+
+        for (const sub of mod.submodules) {
+          if (userPerms.has(`sub:${sub.id}`) || userPerms.has(sub.id)) {
+            activeSubs.push(sub.id);
+          }
+        }
+
+        if (activeSubs.length > 0) {
+          matchedModules.push(mod.id);
+          matchedSubmodules.push(...activeSubs);
+        } else if (hasModKey) {
+          matchedModules.push(mod.id);
+          matchedSubmodules.push(...mod.submodules.map((s) => s.id));
+        }
+      }
     }
-    setEditSelectedModules(matched);
+
+    setEditSelectedModules(matchedModules);
+    setEditSelectedSubmodules(matchedSubmodules);
 
     const roleName = emp.user?.roles?.[0] || 'CUSTOM';
     const foundPreset = ROLE_PRESETS.find(
       (p) =>
         (p.id === roleName || p.name.includes(roleName)) &&
-        p.modules.length === matched.length &&
-        p.modules.every((mId) => matched.includes(mId))
+        p.modules.length === matchedModules.length &&
+        p.modules.every((mId) => matchedModules.includes(mId))
     );
     setEditSelectedRolePreset(foundPreset ? foundPreset.id : 'CUSTOM');
   };
@@ -877,23 +957,71 @@ export default function StaffPage() {
     const preset = ROLE_PRESETS.find((p) => p.id === presetId);
     if (preset) {
       setEditSelectedModules(preset.modules);
+      setEditSelectedSubmodules(
+        FEATURE_MODULES.filter((m) => preset.modules.includes(m.id)).flatMap((m) =>
+          m.submodules.map((s) => s.id)
+        )
+      );
     }
   };
 
   const toggleEditModule = (moduleId: string) => {
-    setEditSelectedModules((prev) =>
-      prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
-    );
+    const mod = FEATURE_MODULES.find((m) => m.id === moduleId);
+    const modSubIds = mod?.submodules?.map((s) => s.id) || [];
+
+    setEditSelectedModules((prev) => {
+      const isSelected = prev.includes(moduleId);
+      if (isSelected) {
+        setEditSelectedSubmodules((subPrev) => subPrev.filter((id) => !modSubIds.includes(id)));
+        return prev.filter((id) => id !== moduleId);
+      } else {
+        setEditSelectedSubmodules((subPrev) => Array.from(new Set([...subPrev, ...modSubIds])));
+        return [...prev, moduleId];
+      }
+    });
+    setEditSelectedRolePreset('CUSTOM');
+  };
+
+  const toggleEditSubmodule = (moduleId: string, submoduleId: string) => {
+    setEditSelectedSubmodules((prev) => {
+      const isSubActive = prev.includes(submoduleId);
+      let nextSubmodules: string[];
+      if (isSubActive) {
+        nextSubmodules = prev.filter((id) => id !== submoduleId);
+      } else {
+        nextSubmodules = [...prev, submoduleId];
+      }
+
+      const mod = FEATURE_MODULES.find((m) => m.id === moduleId);
+      const modSubIds = mod?.submodules?.map((s) => s.id) || [];
+      const anySubActive = modSubIds.some((sId) => nextSubmodules.includes(sId));
+
+      setEditSelectedModules((modPrev) => {
+        if (anySubActive && !modPrev.includes(moduleId)) {
+          return [...modPrev, moduleId];
+        } else if (!anySubActive && modPrev.includes(moduleId)) {
+          return modPrev.filter((id) => id !== moduleId);
+        }
+        return modPrev;
+      });
+
+      return nextSubmodules;
+    });
     setEditSelectedRolePreset('CUSTOM');
   };
 
   const toggleEditCategoryModules = (category: string) => {
-    const categoryModuleIds = FEATURE_MODULES.filter((m) => m.category === category).map((m) => m.id);
+    const catModules = FEATURE_MODULES.filter((m) => m.category === category);
+    const categoryModuleIds = catModules.map((m) => m.id);
+    const categorySubmoduleIds = catModules.flatMap((m) => m.submodules.map((s) => s.id));
     const allSelected = categoryModuleIds.every((id) => editSelectedModules.includes(id));
+
     if (allSelected) {
       setEditSelectedModules((prev) => prev.filter((id) => !categoryModuleIds.includes(id)));
+      setEditSelectedSubmodules((prev) => prev.filter((id) => !categorySubmoduleIds.includes(id)));
     } else {
       setEditSelectedModules((prev) => Array.from(new Set([...prev, ...categoryModuleIds])));
+      setEditSelectedSubmodules((prev) => Array.from(new Set([...prev, ...categorySubmoduleIds])));
     }
     setEditSelectedRolePreset('CUSTOM');
   };
@@ -901,11 +1029,29 @@ export default function StaffPage() {
   const handleSelectAllEditModules = () => {
     if (editSelectedModules.length === FEATURE_MODULES.length) {
       setEditSelectedModules([]);
+      setEditSelectedSubmodules([]);
       setEditSelectedRolePreset('CUSTOM');
     } else {
       setEditSelectedModules(FEATURE_MODULES.map((m) => m.id));
+      setEditSelectedSubmodules(FEATURE_MODULES.flatMap((m) => m.submodules.map((s) => s.id)));
       setEditSelectedRolePreset('ADMIN');
     }
+  };
+
+  const collectPermissionsFromSelection = (modIds: string[], subIds: string[]) => {
+    const perms = new Set<string>();
+    for (const mod of FEATURE_MODULES) {
+      if (modIds.includes(mod.id)) {
+        mod.permissions.forEach((p) => perms.add(p));
+        for (const sub of mod.submodules) {
+          if (subIds.includes(sub.id)) {
+            perms.add(`sub:${sub.id}`);
+            perms.add(sub.id);
+          }
+        }
+      }
+    }
+    return Array.from(perms);
   };
 
   const handleUpdateEmployee = (e: React.FormEvent) => {
@@ -927,11 +1073,7 @@ export default function StaffPage() {
       return;
     }
 
-    const selectedPerms = Array.from(
-      new Set(
-        FEATURE_MODULES.filter((m) => editSelectedModules.includes(m.id)).flatMap((m) => m.permissions)
-      )
-    );
+    const selectedPerms = collectPermissionsFromSelection(editSelectedModules, editSelectedSubmodules);
 
     const payload: any = {
       name: editName.trim(),
@@ -989,12 +1131,8 @@ export default function StaffPage() {
       }
     }
 
-    // Collect all permissions for selected feature modules
-    const selectedPerms = Array.from(
-      new Set(
-        FEATURE_MODULES.filter((m) => selectedModules.includes(m.id)).flatMap((m) => m.permissions)
-      )
-    );
+    // Collect all permissions for selected feature modules & submodules
+    const selectedPerms = collectPermissionsFromSelection(selectedModules, selectedSubmodules);
 
     createEmployeeMutation.mutate({
       name: newName.trim(),
@@ -1595,53 +1733,93 @@ export default function StaffPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                   {catModules.map((mod) => {
                                     const isSelected = selectedModules.includes(mod.id);
+                                    const activeSubCount = mod.submodules.filter((s) => selectedSubmodules.includes(s.id)).length;
+
                                     return (
                                       <div
                                         key={mod.id}
-                                        onClick={() => toggleModule(mod.id)}
                                         className={cn(
-                                          'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
+                                          'p-2.5 rounded-xl border transition-all flex flex-col justify-between gap-2',
                                           isSelected
                                             ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs ring-1 ring-primary/20'
                                             : 'bg-background/80 border-border/50 text-muted-foreground hover:border-border'
                                         )}
                                       >
                                         <div
-                                          className={cn(
-                                            'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
-                                            isSelected
-                                              ? 'bg-primary text-primary-foreground border-primary'
-                                              : 'border-muted-foreground/40 bg-background'
-                                          )}
+                                          onClick={() => toggleModule(mod.id)}
+                                          className="flex items-start gap-2.5 cursor-pointer select-none"
                                         >
-                                          {isSelected && <Check className="w-3 h-3" />}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                          <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
-                                            <span>{mod.icon}</span> <span>{mod.name}</span>
-                                          </p>
-                                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
-                                            {mod.description}
-                                          </p>
-                                          {(mod as any).submodules && (mod as any).submodules.length > 0 && (
-                                            <div className="mt-2 pt-1.5 border-t border-border/40 flex flex-wrap gap-1">
-                                              {(mod as any).submodules.map((sub: any) => (
+                                          <div
+                                            className={cn(
+                                              'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border transition-all',
+                                              isSelected
+                                                ? 'bg-primary text-primary-foreground border-primary'
+                                                : 'border-muted-foreground/40 bg-background'
+                                            )}
+                                          >
+                                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center justify-between gap-1">
+                                              <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
+                                                <span>{mod.icon}</span> <span>{mod.name}</span>
+                                              </p>
+                                              {mod.submodules.length > 0 && (
                                                 <span
-                                                  key={sub.id}
                                                   className={cn(
-                                                    'text-[9px] px-1.5 py-0.5 rounded-md font-medium tracking-tight',
-                                                    isSelected
-                                                      ? 'bg-primary/20 text-foreground border border-primary/30 font-semibold'
-                                                      : 'bg-muted/80 text-muted-foreground border border-border/40'
+                                                    'text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-tight',
+                                                    activeSubCount > 0
+                                                      ? 'bg-primary/20 text-primary font-bold'
+                                                      : 'bg-muted text-muted-foreground'
                                                   )}
-                                                  title={sub.description}
                                                 >
-                                                  • {sub.name}
+                                                  {activeSubCount}/{mod.submodules.length}
                                                 </span>
-                                              ))}
+                                              )}
                                             </div>
-                                          )}
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                              {mod.description}
+                                            </p>
+                                          </div>
                                         </div>
+
+                                        {/* Interactive Submodule Toggles */}
+                                        {mod.submodules && mod.submodules.length > 0 && (
+                                          <div className="pt-2 border-t border-border/40 flex flex-wrap gap-1">
+                                            {mod.submodules.map((sub) => {
+                                              const isSubActive = selectedSubmodules.includes(sub.id);
+                                              return (
+                                                <button
+                                                  key={sub.id}
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleSubmodule(mod.id, sub.id);
+                                                  }}
+                                                  title={sub.description}
+                                                  className={cn(
+                                                    'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border transition-all text-left cursor-pointer select-none',
+                                                    isSubActive
+                                                      ? 'bg-primary/20 text-primary border-primary/40 hover:bg-primary/30 font-bold shadow-xs'
+                                                      : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted/70 hover:text-foreground opacity-70'
+                                                  )}
+                                                >
+                                                  <div
+                                                    className={cn(
+                                                      'w-2.5 h-2.5 rounded flex items-center justify-center border text-[8px]',
+                                                      isSubActive
+                                                        ? 'bg-primary text-primary-foreground border-primary'
+                                                        : 'border-muted-foreground/40 bg-background'
+                                                    )}
+                                                  >
+                                                    {isSubActive && <Check className="w-2 h-2 stroke-[3]" />}
+                                                  </div>
+                                                  <span>{sub.name}</span>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })}
@@ -2063,53 +2241,93 @@ export default function StaffPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                   {catModules.map((mod) => {
                                     const isSelected = editSelectedModules.includes(mod.id);
+                                    const activeSubCount = mod.submodules.filter((s) => editSelectedSubmodules.includes(s.id)).length;
+
                                     return (
                                       <div
                                         key={mod.id}
-                                        onClick={() => toggleEditModule(mod.id)}
                                         className={cn(
-                                          'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
+                                          'p-2.5 rounded-xl border transition-all flex flex-col justify-between gap-2',
                                           isSelected
                                             ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs ring-1 ring-primary/20'
                                             : 'bg-background/80 border-border/50 text-muted-foreground hover:border-border'
                                         )}
                                       >
                                         <div
-                                          className={cn(
-                                            'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
-                                            isSelected
-                                              ? 'bg-primary text-primary-foreground border-primary'
-                                              : 'border-muted-foreground/40 bg-background'
-                                          )}
+                                          onClick={() => toggleEditModule(mod.id)}
+                                          className="flex items-start gap-2.5 cursor-pointer select-none"
                                         >
-                                          {isSelected && <Check className="w-3 h-3" />}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                          <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
-                                            <span>{mod.icon}</span> <span>{mod.name}</span>
-                                          </p>
-                                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
-                                            {mod.description}
-                                          </p>
-                                          {(mod as any).submodules && (mod as any).submodules.length > 0 && (
-                                            <div className="mt-2 pt-1.5 border-t border-border/40 flex flex-wrap gap-1">
-                                              {(mod as any).submodules.map((sub: any) => (
+                                          <div
+                                            className={cn(
+                                              'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border transition-all',
+                                              isSelected
+                                                ? 'bg-primary text-primary-foreground border-primary'
+                                                : 'border-muted-foreground/40 bg-background'
+                                            )}
+                                          >
+                                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center justify-between gap-1">
+                                              <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
+                                                <span>{mod.icon}</span> <span>{mod.name}</span>
+                                              </p>
+                                              {mod.submodules.length > 0 && (
                                                 <span
-                                                  key={sub.id}
                                                   className={cn(
-                                                    'text-[9px] px-1.5 py-0.5 rounded-md font-medium tracking-tight',
-                                                    isSelected
-                                                      ? 'bg-primary/20 text-foreground border border-primary/30 font-semibold'
-                                                      : 'bg-muted/80 text-muted-foreground border border-border/40'
+                                                    'text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-tight',
+                                                    activeSubCount > 0
+                                                      ? 'bg-primary/20 text-primary font-bold'
+                                                      : 'bg-muted text-muted-foreground'
                                                   )}
-                                                  title={sub.description}
                                                 >
-                                                  • {sub.name}
+                                                  {activeSubCount}/{mod.submodules.length}
                                                 </span>
-                                              ))}
+                                              )}
                                             </div>
-                                          )}
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                              {mod.description}
+                                            </p>
+                                          </div>
                                         </div>
+
+                                        {/* Interactive Submodule Toggles */}
+                                        {mod.submodules && mod.submodules.length > 0 && (
+                                          <div className="pt-2 border-t border-border/40 flex flex-wrap gap-1">
+                                            {mod.submodules.map((sub) => {
+                                              const isSubActive = editSelectedSubmodules.includes(sub.id);
+                                              return (
+                                                <button
+                                                  key={sub.id}
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleEditSubmodule(mod.id, sub.id);
+                                                  }}
+                                                  title={sub.description}
+                                                  className={cn(
+                                                    'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border transition-all text-left cursor-pointer select-none',
+                                                    isSubActive
+                                                      ? 'bg-primary/20 text-primary border-primary/40 hover:bg-primary/30 font-bold shadow-xs'
+                                                      : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted/70 hover:text-foreground opacity-70'
+                                                  )}
+                                                >
+                                                  <div
+                                                    className={cn(
+                                                      'w-2.5 h-2.5 rounded flex items-center justify-center border text-[8px]',
+                                                      isSubActive
+                                                        ? 'bg-primary text-primary-foreground border-primary'
+                                                        : 'border-muted-foreground/40 bg-background'
+                                                    )}
+                                                  >
+                                                    {isSubActive && <Check className="w-2 h-2 stroke-[3]" />}
+                                                  </div>
+                                                  <span>{sub.name}</span>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })}
