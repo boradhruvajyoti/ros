@@ -33,16 +33,20 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated;
       final goingToLogin = state.matchedLocation == '/login';
-      final isPlatformAdmin = authState.user?.isPlatformAdmin ?? false;
+      final user = authState.user;
+      final isPlatformAdmin = user?.isPlatformAdmin ?? false;
 
       if (!isLoggedIn && !goingToLogin) return '/login';
       if (isLoggedIn && goingToLogin) {
-        return isPlatformAdmin ? '/super-admin' : '/tables';
+        return getDefaultLandingRoute(user);
       }
-      if (isLoggedIn && isPlatformAdmin && 
-          !state.matchedLocation.startsWith('/super-admin') && 
+      if (isLoggedIn && isPlatformAdmin &&
+          !state.matchedLocation.startsWith('/super-admin') &&
           !state.matchedLocation.startsWith('/settings')) {
         return '/super-admin';
+      }
+      if (isLoggedIn && user != null && !isRouteAccessible(state.matchedLocation, user)) {
+        return getDefaultLandingRoute(user);
       }
       return null;
     },

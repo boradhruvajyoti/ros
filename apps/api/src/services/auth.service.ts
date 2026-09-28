@@ -159,9 +159,10 @@ export class AuthService {
         branchId: activeBranchId,
         roles,
         role: roles[0] || '',
-        designation: employee?.designation || '',
-        department: employee?.department || '',
         permissions,
+        telegramChatId: user.telegramChatId || null,
+        telegramUsername: user.telegramUsername || null,
+        telegramNotifications: user.telegramNotifications ? JSON.parse(user.telegramNotifications) : [],
       },
     };
   }

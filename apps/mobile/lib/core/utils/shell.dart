@@ -14,14 +14,6 @@ class AppShell extends ConsumerWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
-  static const List<_NavItem> _restaurantBottomNav = [
-    _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
-    _NavItem(path: '/current-orders', label: 'Current', icon: Icons.receipt_long_rounded),
-    _NavItem(path: '/pos', label: 'POS', icon: Icons.point_of_sale_rounded),
-    _NavItem(path: '/kitchen', label: 'Kitchen', icon: Icons.restaurant_rounded),
-    _NavItem(path: '/dashboard', label: 'Dashboard', icon: Icons.home_rounded),
-  ];
-
   static const List<_NavItem> _superAdminBottomNav = [
     _NavItem(path: '/super-admin', label: 'Platform Control', icon: Icons.hub_rounded),
     _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
@@ -35,7 +27,9 @@ class AppShell extends ConsumerWidget {
     final user = authState.user;
     final isSuperAdmin = user?.isPlatformAdmin ?? false;
 
-    final navItems = isSuperAdmin ? _superAdminBottomNav : _restaurantBottomNav;
+    final navItems = isSuperAdmin
+        ? _superAdminBottomNav
+        : _getFilteredBottomNav(user, isSuperAdmin);
 
     int selectedIndex = 0;
     for (var i = 0; i < navItems.length; i++) {
@@ -55,7 +49,7 @@ class AppShell extends ConsumerWidget {
           Expanded(child: child),
         ],
       ),
-      bottomNavigationBar: MediaQuery.of(context).size.width <= 800
+      bottomNavigationBar: (MediaQuery.of(context).size.width <= 800 && navItems.isNotEmpty)
           ? _buildBottomNav(context, selectedIndex, navItems)
           : null,
       endDrawer: _buildDrawer(context, ref, user, isSuperAdmin),
@@ -308,93 +302,96 @@ class AppShell extends ConsumerWidget {
               valueColor: RosTheme.secondary,
             ),
 
-            const SizedBox(height: 14),
-
-            // Telegram Alerts & Bot Connection Button
-            GestureDetector(
-              onTap: () {
-                Navigator.pop(ctx);
-                TelegramConnectionSheet.show(context);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF229ED9).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: const Color(0xFF229ED9).withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF229ED9).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.send_rounded,
-                        color: Color(0xFF229ED9),
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Telegram Alerts & Bot',
-                            style: TextStyle(
-                              color: RosTheme.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Connect account for live KOT & bills',
-                            style: TextStyle(
-                              color: RosTheme.textMuted,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 14,
-                      color: Color(0xFF229ED9),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 14),
-            // Action buttons
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () {
+            if (user?.hasTelegramAccess == true) ...[
+              const SizedBox(height: 14),
+              // Telegram Alerts & Bot Connection Button
+              GestureDetector(
+                onTap: () {
                   Navigator.pop(ctx);
-                  context.go('/settings');
+                  TelegramConnectionSheet.show(context);
                 },
-                icon: const Icon(Icons.settings_rounded, size: 18),
-                label: const Text('Account & Settings'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: RosTheme.bgElevated,
-                  foregroundColor: RosTheme.textPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: RosTheme.bgBorder),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF229ED9).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF229ED9).withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF229ED9).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.send_rounded,
+                          color: Color(0xFF229ED9),
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Telegram Alerts & Bot',
+                              style: TextStyle(
+                                color: RosTheme.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Connect account for live KOT & bills',
+                              style: TextStyle(
+                                color: RosTheme.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Color(0xFF229ED9),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
+            ],
+
+            if (isRouteAccessible('/settings', user)) ...[
+              const SizedBox(height: 14),
+              // Action button for Settings
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    context.go('/settings');
+                  },
+                  icon: const Icon(Icons.settings_rounded, size: 18),
+                  label: const Text('Account & Settings'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RosTheme.bgElevated,
+                    foregroundColor: RosTheme.textPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: RosTheme.bgBorder),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
@@ -512,8 +509,73 @@ class AppShell extends ConsumerWidget {
     );
   }
 
+  static List<_NavItem> _getFilteredBottomNav(AuthUser? user, bool isSuperAdmin) {
+    if (isSuperAdmin) return _superAdminBottomNav;
+    if (user == null) return [];
+
+    if (user.isTenantAdmin) {
+      return const [
+        _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
+        _NavItem(path: '/current-orders', label: 'Current', icon: Icons.receipt_long_rounded),
+        _NavItem(path: '/pos', label: 'POS', icon: Icons.point_of_sale_rounded),
+        _NavItem(path: '/kitchen', label: 'Kitchen', icon: Icons.restaurant_rounded),
+        _NavItem(path: '/dashboard', label: 'Dashboard', icon: Icons.home_rounded),
+      ];
+    }
+
+    const candidates = [
+      _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
+      _NavItem(path: '/current-orders', label: 'Current', icon: Icons.receipt_long_rounded),
+      _NavItem(path: '/pos', label: 'POS', icon: Icons.point_of_sale_rounded),
+      _NavItem(path: '/kitchen', label: 'Kitchen', icon: Icons.restaurant_rounded),
+      _NavItem(path: '/order-history', label: 'History', icon: Icons.receipt_long_rounded),
+      _NavItem(path: '/menu', label: 'Menu', icon: Icons.menu_book_rounded),
+      _NavItem(path: '/inventory', label: 'Inventory', icon: Icons.inventory_2_rounded),
+      _NavItem(path: '/reservations', label: 'Bookings', icon: Icons.event_seat_rounded),
+      _NavItem(path: '/customers', label: 'Customers', icon: Icons.people_rounded),
+      _NavItem(path: '/staff', label: 'Staff', icon: Icons.badge_rounded),
+      _NavItem(path: '/reports', label: 'Reports', icon: Icons.bar_chart_rounded),
+      _NavItem(path: '/dashboard', label: 'Dashboard', icon: Icons.home_rounded),
+      _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
+    ];
+
+    final allowed = candidates.where((item) => isRouteAccessible(item.path, user)).toList();
+    if (allowed.isEmpty) {
+      return const [_NavItem(path: '/login', label: 'Home', icon: Icons.home_rounded)];
+    }
+    return allowed.take(5).toList();
+  }
+
+  static List<Object> _getFilteredNavSections(AuthUser? user, bool isSuperAdmin) {
+    if (isSuperAdmin) return _superAdminNavSections;
+    if (user == null) return [];
+    if (user.isTenantAdmin) return _restaurantNavSections;
+
+    final allowedSections = <Object>[];
+    _SectionDivider? currentDivider;
+    int itemsUnderCurrentDivider = 0;
+
+    for (final section in _restaurantNavSections) {
+      if (section is _SectionDivider) {
+        currentDivider = section;
+        itemsUnderCurrentDivider = 0;
+        continue;
+      }
+      final item = section as _NavItem;
+      if (isRouteAccessible(item.path, user)) {
+        if (currentDivider != null && itemsUnderCurrentDivider == 0) {
+          allowedSections.add(currentDivider);
+        }
+        allowedSections.add(item);
+        itemsUnderCurrentDivider++;
+      }
+    }
+
+    return allowedSections;
+  }
+
   Widget _buildSideRail(BuildContext context, WidgetRef ref, String location, AuthUser? user, bool isSuperAdmin) {
-    final sections = isSuperAdmin ? _superAdminNavSections : _restaurantNavSections;
+    final sections = _getFilteredNavSections(user, isSuperAdmin);
 
     return Container(
       width: 230,
@@ -671,7 +733,7 @@ class AppShell extends ConsumerWidget {
   }
 
   Widget _buildDrawer(BuildContext context, WidgetRef ref, AuthUser? user, bool isSuperAdmin) {
-    final sections = isSuperAdmin ? _superAdminNavSections : _restaurantNavSections;
+    final sections = _getFilteredNavSections(user, isSuperAdmin);
 
     return Drawer(
       backgroundColor: RosTheme.bgCard,
@@ -804,3 +866,79 @@ const List<Object> _superAdminNavSections = [
   _SectionDivider('CONFIGURATION'),
   _NavItem(path: '/settings', label: 'Settings', icon: Icons.settings_rounded),
 ];
+
+/// Check if a specific route is accessible by the user based on tenant admin choices
+bool isRouteAccessible(String path, AuthUser? user) {
+  if (user == null) return false;
+  if (user.isPlatformAdmin || user.isTenantAdmin) return true;
+
+  final cleanPath = path.split('?').first;
+
+  if (cleanPath.startsWith('/super-admin')) {
+    return user.isPlatformAdmin;
+  }
+  if (cleanPath.startsWith('/dashboard')) {
+    return user.hasPermission('reports:view');
+  }
+  if (cleanPath.startsWith('/tables')) {
+    return user.hasAnyPermission(['tables:view', 'tables:edit', 'orders:create']);
+  }
+  if (cleanPath.startsWith('/current-orders')) {
+    return user.hasAnyPermission(['orders:view', 'orders:create', 'tables:view']);
+  }
+  if (cleanPath.startsWith('/pos')) {
+    return user.hasPermission('orders:create');
+  }
+  if (cleanPath.startsWith('/kitchen')) {
+    return user.hasAnyPermission(['kitchen:view', 'kitchen:update']);
+  }
+  if (cleanPath.startsWith('/order-history')) {
+    return user.hasAnyPermission(['payments:view', 'orders:view']);
+  }
+  if (cleanPath.startsWith('/menu')) {
+    return user.hasAnyPermission(['menu:view', 'menu:create', 'menu:edit']);
+  }
+  if (cleanPath.startsWith('/inventory')) {
+    return user.hasPermission('inventory:view');
+  }
+  if (cleanPath.startsWith('/staff')) {
+    return user.hasAnyPermission(['staff:view', 'staff:create']);
+  }
+  if (cleanPath.startsWith('/reports')) {
+    return user.hasAnyPermission(['reports:view', 'reports:export']);
+  }
+  if (cleanPath.startsWith('/reservations')) {
+    return user.hasPermission('reservations:view');
+  }
+  if (cleanPath.startsWith('/customers')) {
+    return user.hasPermission('customers:view');
+  }
+  if (cleanPath.startsWith('/settings')) {
+    return user.hasAnyPermission(['settings:view', 'settings:edit']);
+  }
+
+  return false;
+}
+
+/// Compute the best landing route for the user role
+String getDefaultLandingRoute(AuthUser? user) {
+  if (user == null) return '/login';
+  if (user.isPlatformAdmin) return '/super-admin';
+  if (user.isTenantAdmin) return '/tables';
+
+  if (isRouteAccessible('/tables', user)) return '/tables';
+  if (isRouteAccessible('/pos', user)) return '/pos';
+  if (isRouteAccessible('/kitchen', user)) return '/kitchen';
+  if (isRouteAccessible('/current-orders', user)) return '/current-orders';
+  if (isRouteAccessible('/order-history', user)) return '/order-history';
+  if (isRouteAccessible('/menu', user)) return '/menu';
+  if (isRouteAccessible('/inventory', user)) return '/inventory';
+  if (isRouteAccessible('/reservations', user)) return '/reservations';
+  if (isRouteAccessible('/customers', user)) return '/customers';
+  if (isRouteAccessible('/reports', user)) return '/reports';
+  if (isRouteAccessible('/staff', user)) return '/staff';
+  if (isRouteAccessible('/dashboard', user)) return '/dashboard';
+  if (isRouteAccessible('/settings', user)) return '/settings';
+
+  return '/login';
+}

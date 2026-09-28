@@ -54,6 +54,9 @@ class AuthUser {
   final String? department;
   final List<String> roles;
   final List<String> permissions;
+  final List<String> telegramNotifications;
+  final String? telegramChatId;
+  final String? telegramUsername;
 
   const AuthUser({
     required this.id,
@@ -67,6 +70,9 @@ class AuthUser {
     this.department,
     this.roles = const [],
     this.permissions = const [],
+    this.telegramNotifications = const [],
+    this.telegramChatId,
+    this.telegramUsername,
   });
 
   String get role => roles.isNotEmpty ? roles.first : '';
@@ -98,6 +104,15 @@ class AuthUser {
       }
     }
 
+    final telegramNotifs = <String>[];
+    if (json['telegramNotifications'] != null) {
+      if (json['telegramNotifications'] is List) {
+        for (final tn in json['telegramNotifications'] as List) {
+          if (tn is String && !telegramNotifs.contains(tn)) telegramNotifs.add(tn);
+        }
+      }
+    }
+
     return AuthUser(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? 'User',
@@ -110,6 +125,9 @@ class AuthUser {
       department: json['department'] as String?,
       roles: roles,
       permissions: perms,
+      telegramNotifications: telegramNotifs,
+      telegramChatId: json['telegramChatId'] as String?,
+      telegramUsername: json['telegramUsername'] as String?,
     );
   }
 
@@ -123,6 +141,9 @@ class AuthUser {
     'branchId': branchId,
     'roles': roles,
     'permissions': permissions,
+    'telegramNotifications': telegramNotifications,
+    'telegramChatId': telegramChatId,
+    'telegramUsername': telegramUsername,
   };
 
   bool get isPlatformAdmin =>
@@ -132,6 +153,9 @@ class AuthUser {
 
   bool get isTenantAdmin =>
       isPlatformAdmin || roles.contains('OWNER') || roles.contains('ADMIN');
+
+  bool get hasTelegramAccess =>
+      isTenantAdmin || telegramNotifications.isNotEmpty;
 
   bool hasPermission(String permission) {
     if (isPlatformAdmin || isTenantAdmin) return true;
