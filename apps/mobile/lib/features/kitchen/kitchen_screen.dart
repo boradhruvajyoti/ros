@@ -11,7 +11,6 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/api/api_client.dart';
 
 class KitchenScreen extends ConsumerStatefulWidget {
   const KitchenScreen({super.key});
@@ -52,7 +51,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_roleInitialized) {
-      final userRole = ref.read(authProvider).value?.user?.role?.toUpperCase() ?? '';
+      final userRole = ref.read(authProvider).user?.role.toUpperCase() ?? '';
       if (userRole == 'WAITER' || userRole == 'CAPTAIN') {
         _activeRole = 'WAITER';
       } else {
@@ -700,9 +699,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
           ),
           ..._stations.map((s) {
             Color sColor = RosTheme.primary;
-            if (s.displayColor != null && s.displayColor!.isNotEmpty) {
+            if (s.displayColor.isNotEmpty) {
               try {
-                final hex = s.displayColor!.replaceAll('#', '');
+                final hex = s.displayColor.replaceAll('#', '');
                 sColor = Color(int.parse('FF$hex', radix: 16));
               } catch (_) {}
             }

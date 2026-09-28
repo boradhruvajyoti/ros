@@ -65,6 +65,8 @@ class AuthUser {
     this.permissions = const [],
   });
 
+  String get role => roles.isNotEmpty ? roles.first : '';
+
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     // Derive branchId
     String branchId = json['activeBranchId'] as String? ?? json['branchId'] as String? ?? 'default-branch';
