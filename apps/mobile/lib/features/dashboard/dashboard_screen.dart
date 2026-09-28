@@ -1,8 +1,9 @@
 // =============================================================================
-// Dashboard Screen — Revenue, Stats & Charts
+// Dashboard Screen — Minimalist, Clean & Eye-Comfort Revenue & Stats Overview
 // =============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -20,130 +21,198 @@ class DashboardScreen extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
 
     return Scaffold(
+      backgroundColor: RosTheme.bg,
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const Text(
+          'Overview',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: RosTheme.textPrimary,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(dashboardProvider),
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            tooltip: 'Refresh Overview',
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              ref.invalidate(dashboardProvider);
+            },
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: dashAsync.when(
         data: (data) => _buildDashboard(context, data, user?.name),
         loading: () => const Center(
-            child: CircularProgressIndicator(color: RosTheme.primary)),
+          child: CircularProgressIndicator(color: RosTheme.primary),
+        ),
         error: (err, _) => _buildFallback(context, ref),
       ),
     );
   }
 
-  Widget _buildDashboard(BuildContext context, Map<String, dynamic> data, String? name) {
+  Widget _buildDashboard(
+      BuildContext context, Map<String, dynamic> data, String? name) {
     final todayRevenue = parseDouble(data['todayRevenue'], 0.0);
     final todayOrders = parseInt(data['todayOrders'], 0);
     final activeOrders = parseInt(data['activeOrders'], 0);
     final avgOrder = parseDouble(data['avgOrderValue'], 0.0);
+    final nowFormatted = DateFormat('EEEE, d MMMM').format(DateTime.now());
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Greeting
-          Text(
-            'Good ${_greeting()}, ${name?.split(' ').first ?? 'Chef'} 👋',
-            style: const TextStyle(
-              color: RosTheme.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+          // ── Greeting Header ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Good ${_greeting()}, ${name?.split(' ').first ?? 'Staff'}',
+                  style: const TextStyle(
+                    color: RosTheme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  nowFormatted,
+                  style: const TextStyle(
+                    color: RosTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
-          const Text("Here's what's happening today",
-              style: TextStyle(color: RosTheme.textMuted, fontSize: 14)),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
 
-          // KPI Cards
+          // ── 4 Minimalist KPI Cards (2x2 Grid) ──
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.5,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.45,
             children: [
-              _KpiCard(
+              _MinimalKpiCard(
                 label: "Today's Revenue",
                 value: '₹${NumberFormat('#,##,###').format(todayRevenue.toInt())}',
-                icon: Icons.currency_rupee_rounded,
-                gradient: RosTheme.primaryGradient,
-                subtitle: 'Total collected',
+                icon: Icons.trending_up_rounded,
+                iconColor: RosTheme.secondary,
+                subtitle: 'Gross receipts',
               ),
-              _KpiCard(
-                label: 'Orders Today',
+              _MinimalKpiCard(
+                label: 'Total Orders',
                 value: '$todayOrders',
                 icon: Icons.receipt_long_rounded,
-                gradient: RosTheme.greenGradient,
-                subtitle: '$activeOrders active',
+                iconColor: const Color(0xFF38BDF8),
+                subtitle: '$activeOrders active right now',
               ),
-              _KpiCard(
+              _MinimalKpiCard(
                 label: 'Avg Order Value',
                 value: '₹${avgOrder.toStringAsFixed(0)}',
-                icon: Icons.trending_up_rounded,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                ),
-                subtitle: 'Per order',
+                icon: Icons.query_stats_rounded,
+                iconColor: const Color(0xFFA78BFA),
+                subtitle: 'Per order ticket',
               ),
-              _KpiCard(
-                label: 'Active Orders',
+              _MinimalKpiCard(
+                label: 'Active Queue',
                 value: '$activeOrders',
-                icon: Icons.pending_actions_rounded,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                ),
-                subtitle: 'Pending',
+                icon: Icons.soup_kitchen_rounded,
+                iconColor: RosTheme.warning,
+                subtitle: 'In kitchen / tables',
               ),
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
 
-          // Revenue chart placeholder (if data available)
-          if (data['revenueChart'] != null) ...[
-            const Text('Revenue This Week',
-                style: TextStyle(
-                    color: RosTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            _RevenueChart(chartData: data['revenueChart'] as List<dynamic>),
-          ],
-
-          const SizedBox(height: 20),
-
-          // Quick actions
-          const Text('Quick Actions',
+          // ── Quick Navigation Section ──
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              'QUICK ACCESS',
               style: TextStyle(
-                  color: RosTheme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+                color: RosTheme.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 3,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.1,
-            children: [
-              _QuickAction(icon: Icons.grid_view_rounded, label: 'Tables', route: '/tables'),
-              _QuickAction(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/current-orders'),
-              _QuickAction(icon: Icons.restaurant_rounded, label: 'Kitchen', route: '/kitchen'),
-              _QuickAction(icon: Icons.people_rounded, label: 'Customers', route: '/customers'),
-              _QuickAction(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/reports'),
-              _QuickAction(icon: Icons.settings_rounded, label: 'Settings', route: '/settings'),
+            childAspectRatio: 1.15,
+            children: const [
+              _MinimalQuickAction(
+                icon: Icons.table_restaurant_rounded,
+                label: 'Tables',
+                route: '/tables',
+              ),
+              _MinimalQuickAction(
+                icon: Icons.receipt_long_rounded,
+                label: 'Orders',
+                route: '/current-orders',
+              ),
+              _MinimalQuickAction(
+                icon: Icons.soup_kitchen_rounded,
+                label: 'Kitchen',
+                route: '/kitchen',
+              ),
+              _MinimalQuickAction(
+                icon: Icons.history_rounded,
+                label: 'History',
+                route: '/order-history',
+              ),
+              _MinimalQuickAction(
+                icon: Icons.bar_chart_rounded,
+                label: 'Reports',
+                route: '/reports',
+              ),
+              _MinimalQuickAction(
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                route: '/settings',
+              ),
             ],
           ),
+
+          const SizedBox(height: 22),
+
+          // ── Weekly Revenue Trend Chart (Minimalist & Soothing) ──
+          if (data['revenueChart'] != null) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 2),
+              child: Text(
+                'WEEKLY TREND',
+                style: TextStyle(
+                  color: RosTheme.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _MinimalRevenueChart(
+                chartData: data['revenueChart'] as List<dynamic>),
+          ],
         ],
       ),
     );
@@ -155,46 +224,64 @@ class DashboardScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Dashboard',
-            style: TextStyle(color: RosTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: RosTheme.bgCard,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: RosTheme.bgBorder),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(Icons.info_outline_rounded, color: RosTheme.info),
-                const SizedBox(width: 12),
-                const Expanded(
+                Icon(Icons.info_outline_rounded,
+                    color: RosTheme.secondary, size: 18),
+                SizedBox(width: 10),
+                Expanded(
                   child: Text(
-                    'Dashboard data loading. Use the quick actions below.',
-                    style: TextStyle(color: RosTheme.textSecondary),
+                    'Loading live overview data. Use shortcuts below.',
+                    style: TextStyle(
+                      color: RosTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 3,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.1,
-            children: [
-              _QuickAction(icon: Icons.grid_view_rounded, label: 'Tables', route: '/tables'),
-              _QuickAction(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/current-orders'),
-              _QuickAction(icon: Icons.restaurant_rounded, label: 'Kitchen', route: '/kitchen'),
-              _QuickAction(icon: Icons.people_rounded, label: 'Customers', route: '/customers'),
-              _QuickAction(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/reports'),
-              _QuickAction(icon: Icons.settings_rounded, label: 'Settings', route: '/settings'),
+            childAspectRatio: 1.15,
+            children: const [
+              _MinimalQuickAction(
+                  icon: Icons.table_restaurant_rounded,
+                  label: 'Tables',
+                  route: '/tables'),
+              _MinimalQuickAction(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'Orders',
+                  route: '/current-orders'),
+              _MinimalQuickAction(
+                  icon: Icons.soup_kitchen_rounded,
+                  label: 'Kitchen',
+                  route: '/kitchen'),
+              _MinimalQuickAction(
+                  icon: Icons.history_rounded,
+                  label: 'History',
+                  route: '/order-history'),
+              _MinimalQuickAction(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Reports',
+                  route: '/reports'),
+              _MinimalQuickAction(
+                  icon: Icons.settings_outlined,
+                  label: 'Settings',
+                  route: '/settings'),
             ],
           ),
         ],
@@ -210,69 +297,150 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _KpiCard extends StatelessWidget {
+// ── Minimalist KPI Card Widget ──
+class _MinimalKpiCard extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  final LinearGradient gradient;
+  final Color iconColor;
   final String? subtitle;
 
-  const _KpiCard({
+  const _MinimalKpiCard({
     required this.label,
     required this.value,
     required this.icon,
-    required this.gradient,
+    required this.iconColor,
     this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        gradient: gradient,
+        color: RosTheme.bgCard,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: gradient.colors.first.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: RosTheme.bgBorder,
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: Colors.white70, size: 18),
-              const Spacer(),
-              if (subtitle != null)
-                Text(subtitle!,
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 10)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: RosTheme.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: iconColor, size: 14),
+              ),
             ],
           ),
-          const Spacer(),
-          Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800)),
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: RosTheme.textPrimary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'monospace',
+                  letterSpacing: -0.5,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 1),
+                Text(
+                  subtitle!,
+                  style: const TextStyle(
+                    color: RosTheme.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _RevenueChart extends StatelessWidget {
+// ── Minimalist Quick Action Button ──
+class _MinimalQuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String route;
+
+  const _MinimalQuickAction({
+    required this.icon,
+    required this.label,
+    required this.route,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        context.go(route);
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        decoration: BoxDecoration(
+          color: RosTheme.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: RosTheme.bgBorder),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: RosTheme.bgElevated,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: RosTheme.textPrimary, size: 18),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: RosTheme.textPrimary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Minimalist Revenue Chart ──
+class _MinimalRevenueChart extends StatelessWidget {
   final List<dynamic> chartData;
-  const _RevenueChart({required this.chartData});
+  const _MinimalRevenueChart({required this.chartData});
 
   @override
   Widget build(BuildContext context) {
@@ -284,8 +452,8 @@ class _RevenueChart extends StatelessWidget {
     }).toList();
 
     return Container(
-      height: 180,
-      padding: const EdgeInsets.all(16),
+      height: 160,
+      padding: const EdgeInsets.fromLTRB(12, 16, 16, 12),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
         borderRadius: BorderRadius.circular(16),
@@ -299,18 +467,21 @@ class _RevenueChart extends StatelessWidget {
             horizontalInterval: null,
             getDrawingHorizontalLine: (_) => const FlLine(
               color: RosTheme.bgBorder,
-              strokeWidth: 1,
+              strokeWidth: 0.8,
             ),
           ),
           titlesData: FlTitlesData(
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 36,
                 getTitlesWidget: (v, m) => Text(
                   '₹${(v / 1000).toStringAsFixed(0)}k',
                   style: const TextStyle(
-                      color: RosTheme.textMuted, fontSize: 9),
+                    color: RosTheme.textMuted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -321,9 +492,14 @@ class _RevenueChart extends StatelessWidget {
                   final idx = v.toInt();
                   if (idx >= 0 && idx < chartData.length) {
                     final label = chartData[idx]['label'] as String? ?? '';
-                    return Text(label,
-                        style: const TextStyle(
-                            color: RosTheme.textMuted, fontSize: 9));
+                    return Text(
+                      label,
+                      style: const TextStyle(
+                        color: RosTheme.textMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
                   }
                   return const Text('');
                 },
@@ -337,66 +513,22 @@ class _RevenueChart extends StatelessWidget {
             LineChartBarData(
               spots: spots,
               isCurved: true,
-              gradient: RosTheme.primaryGradient,
-              barWidth: 2.5,
+              curveSmoothness: 0.35,
+              color: RosTheme.secondary,
+              barWidth: 2.2,
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    RosTheme.primary.withOpacity(0.3),
-                    RosTheme.primary.withOpacity(0.0),
+                    RosTheme.secondary.withValues(alpha: 0.2),
+                    RosTheme.secondary.withValues(alpha: 0.0),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickAction extends ConsumerWidget {
-  final IconData icon;
-  final String label;
-  final String route;
-
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.route,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => context.go(route),
-      child: Container(
-        decoration: BoxDecoration(
-          color: RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: RosTheme.bgBorder),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: RosTheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: RosTheme.primary, size: 22),
-            ),
-            const SizedBox(height: 6),
-            Text(label,
-                style: const TextStyle(
-                    color: RosTheme.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
