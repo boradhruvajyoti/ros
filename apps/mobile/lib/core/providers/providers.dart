@@ -555,24 +555,26 @@ class CartState {
   CartState copyWith({
     List<CartItem>? items,
     String? orderType,
-    String? tableId,
-    String? customerId,
-    String? notes,
+    Object? tableId = _kUnset,
+    Object? customerId = _kUnset,
+    Object? notes = _kUnset,
     double? discountAmount,
-    String? discountType,
+    Object? discountType = _kUnset,
     double? discountValue,
   }) =>
       CartState(
         items: items ?? this.items,
         orderType: orderType ?? this.orderType,
-        tableId: tableId ?? this.tableId,
-        customerId: customerId ?? this.customerId,
-        notes: notes ?? this.notes,
+        tableId: identical(tableId, _kUnset) ? this.tableId : tableId as String?,
+        customerId: identical(customerId, _kUnset) ? this.customerId : customerId as String?,
+        notes: identical(notes, _kUnset) ? this.notes : notes as String?,
         discountAmount: discountAmount ?? this.discountAmount,
-        discountType: discountType ?? this.discountType,
+        discountType: identical(discountType, _kUnset) ? this.discountType : discountType as String?,
         discountValue: discountValue ?? this.discountValue,
       );
 }
+
+const _kUnset = Object();
 
 class CartNotifier extends StateNotifier<CartState> {
   CartNotifier() : super(const CartState());

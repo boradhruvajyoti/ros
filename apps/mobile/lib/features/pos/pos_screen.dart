@@ -6,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
@@ -43,28 +42,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
 
-    // Guard: Staff must select a table from the Tables section before opening POS
-    if (cart.tableId == null && _selectedTableId == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Table Selection Required: Please select an intended table from Tables section to start ordering.'),
-              backgroundColor: RosTheme.warning,
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 3),
-            ),
-          );
-          context.go('/tables');
-        }
-      });
-      return const Scaffold(
-        backgroundColor: RosTheme.bg,
-        body: Center(
-          child: CircularProgressIndicator(color: RosTheme.primary),
-        ),
-      );
-    }
 
     final menuAsync = ref.watch(posMenuProvider);
     final tablesAsync = ref.watch(tablesProvider);

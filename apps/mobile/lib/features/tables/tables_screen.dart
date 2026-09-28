@@ -1768,10 +1768,11 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       HapticFeedback.mediumImpact();
+                      final router = GoRouter.of(context);
                       ref.read(cartProvider.notifier).setTable(_currentTable.id);
                       ref.read(cartProvider.notifier).setOrderType('DINE_IN');
                       Navigator.pop(context);
-                      context.go('/pos');
+                      router.go('/pos');
                     },
                     icon: const Icon(Icons.add_shopping_cart_rounded, size: 15),
                     label: const Text('Add Items (POS)',
@@ -1855,10 +1856,11 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     HapticFeedback.mediumImpact();
+                    final router = GoRouter.of(context);
                     ref.read(cartProvider.notifier).setTable(_currentTable.id);
                     ref.read(cartProvider.notifier).setOrderType('DINE_IN');
                     Navigator.pop(context);
-                    context.go('/pos');
+                    router.go('/pos');
                   },
                   icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
                   label: const Text(
@@ -1919,11 +1921,12 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     HapticFeedback.mediumImpact();
+                    final router = GoRouter.of(context);
                     _updateTableStatus('OCCUPIED');
                     ref.read(cartProvider.notifier).setTable(_currentTable.id);
                     ref.read(cartProvider.notifier).setOrderType('DINE_IN');
                     Navigator.pop(context);
-                    context.go('/pos');
+                    router.go('/pos');
                   },
                   icon: const Icon(Icons.event_seat_rounded, size: 18),
                   label: const Text(
@@ -1984,10 +1987,11 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     HapticFeedback.mediumImpact();
+                    final router = GoRouter.of(context);
                     ref.read(cartProvider.notifier).setTable(_currentTable.id);
                     ref.read(cartProvider.notifier).setOrderType('DINE_IN');
                     Navigator.pop(context);
-                    context.go('/pos');
+                    router.go('/pos');
                   },
                   icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
                   label: const Text('Take Order Directly',
@@ -2157,10 +2161,11 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
           GestureDetector(
             onTap: () {
               HapticFeedback.mediumImpact();
+              final router = GoRouter.of(context);
               ref.read(cartProvider.notifier).setTable(null);
               ref.read(cartProvider.notifier).setOrderType('TAKEAWAY');
               Navigator.pop(context);
-              context.go('/pos');
+              router.go('/pos');
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2324,10 +2329,11 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
                     return GestureDetector(
                       onTap: () {
                         HapticFeedback.selectionClick();
+                        final router = GoRouter.of(context);
                         ref.read(cartProvider.notifier).setTable(table.id);
                         ref.read(cartProvider.notifier).setOrderType('DINE_IN');
                         Navigator.pop(context);
-                        context.go('/pos');
+                        router.go('/pos');
                       },
                       child: Container(
                         padding: const EdgeInsets.all(12),
