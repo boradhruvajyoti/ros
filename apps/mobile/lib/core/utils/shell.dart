@@ -517,8 +517,8 @@ class AppShell extends ConsumerWidget {
       return const [
         _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
         _NavItem(path: '/current-orders', label: 'Current', icon: Icons.receipt_long_rounded),
-        _NavItem(path: '/pos', label: 'POS', icon: Icons.point_of_sale_rounded),
         _NavItem(path: '/kitchen', label: 'Kitchen', icon: Icons.restaurant_rounded),
+        _NavItem(path: '/order-history', label: 'History', icon: Icons.history_rounded),
         _NavItem(path: '/dashboard', label: 'Dashboard', icon: Icons.home_rounded),
       ];
     }
@@ -526,9 +526,8 @@ class AppShell extends ConsumerWidget {
     const candidates = [
       _NavItem(path: '/tables', label: 'Tables', icon: Icons.grid_view_rounded),
       _NavItem(path: '/current-orders', label: 'Current', icon: Icons.receipt_long_rounded),
-      _NavItem(path: '/pos', label: 'POS', icon: Icons.point_of_sale_rounded),
       _NavItem(path: '/kitchen', label: 'Kitchen', icon: Icons.restaurant_rounded),
-      _NavItem(path: '/order-history', label: 'History', icon: Icons.receipt_long_rounded),
+      _NavItem(path: '/order-history', label: 'History', icon: Icons.history_rounded),
       _NavItem(path: '/menu', label: 'Menu', icon: Icons.menu_book_rounded),
       _NavItem(path: '/inventory', label: 'Inventory', icon: Icons.inventory_2_rounded),
       _NavItem(path: '/reservations', label: 'Bookings', icon: Icons.event_seat_rounded),
@@ -952,7 +951,7 @@ String getDefaultLandingRoute(AuthUser? user) {
   if (user.isTenantAdmin) return '/tables';
 
   const routePriority = [
-    '/tables', '/pos', '/kitchen', '/current-orders', '/order-history',
+    '/tables', '/kitchen', '/current-orders', '/order-history',
     '/menu', '/inventory', '/reservations', '/customers', '/reports',
     '/staff', '/dashboard', '/settings',
   ];
@@ -968,7 +967,6 @@ const List<Object> _restaurantNavSections = [
   _SectionDivider('OPERATIONS'),
   _NavItem(path: '/tables',         label: 'Tables',           icon: Icons.grid_view_rounded),
   _NavItem(path: '/current-orders', label: 'Current Orders',   icon: Icons.receipt_long_rounded),
-  _NavItem(path: '/pos',            label: 'Point of Sale',    icon: Icons.point_of_sale_rounded),
   _NavItem(path: '/kitchen',        label: 'Kitchen Display',  icon: Icons.restaurant_rounded),
   _NavItem(path: '/order-history',  label: 'Order History',    icon: Icons.history_rounded),
   _NavItem(path: '/reservations',   label: 'Reservations',     icon: Icons.event_seat_rounded),

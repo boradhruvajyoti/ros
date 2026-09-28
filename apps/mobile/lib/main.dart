@@ -7,9 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/sound_alert_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize loud 5-second audio & vibration alert service
+  await SoundAlertService().init();
 
   // Lock orientation to portrait on phones, allow landscape on tablets
   await SystemChrome.setPreferredOrientations([

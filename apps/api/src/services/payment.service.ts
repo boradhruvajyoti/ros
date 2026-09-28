@@ -27,7 +27,7 @@ export class PaymentService {
   ) {
     const order = await prisma.order.findFirst({
       where: { id: orderId, tenantId: this.tenantId },
-      include: { payments: { where: { status: 'COMPLETED' } } },
+      include: { payments: { where: { status: 'COMPLETED' } }, items: true },
     });
 
     if (!order) throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
@@ -114,9 +114,29 @@ export class PaymentService {
         });
         emitToRoom(this.tenantId, this.branchId, {
           type: 'TABLE_STATUS_CHANGED',
-          payload: { tableId: order.tableId, status: 'AVAILABLE' },
+          payload: { tableId: order.tableId, status: 'AVAILABLE', orderId },
         });
       }
+
+      // Synchronize Order status across all staff roles and screens
+      emitToRoom(this.tenantId, this.branchId, {
+        type: 'ORDER_STATUS_CHANGED',
+        payload: {
+          orderId,
+          orderNumber: order.orderNumber,
+          status: newOrderStatus as any,
+        },
+      });
+
+      emitToRoom(this.tenantId, this.branchId, {
+        type: 'ORDER_UPDATED',
+        payload: {
+          orderId,
+          orderNumber: order.orderNumber,
+          total: Number(order.total),
+          itemCount: order.items?.length || 0,
+        },
+      });
 
       emitToRoom(this.tenantId, this.branchId, {
         type: 'PAYMENT_COMPLETED',

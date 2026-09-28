@@ -614,6 +614,25 @@ export class OrderService {
         );
       }
 
+      const activeKotItems = await prisma.orderKotItem.findMany({
+        where: {
+          kot: { orderId },
+          status: { not: 'CANCELLED' },
+        },
+        include: { kot: true },
+      });
+
+      const completedKotItem = activeKotItems.find(
+        (ki) => ['READY', 'SERVED'].includes(ki.status) || ['READY', 'SERVED'].includes(ki.kot.status)
+      );
+      if (completedKotItem) {
+        throw new AppError(
+          ErrorCodes.VALIDATION_ERROR,
+          'Cannot cancel order because one or more dishes have already been marked completed / ready by the cook in KDS.',
+          400
+        );
+      }
+
       const activeKots = await prisma.orderKot.findMany({
         where: {
           orderId,

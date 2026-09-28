@@ -23,7 +23,6 @@ export const ALL_RESTAURANT_NAV_SECTIONS: Array<
   { href: '/dashboard',     label: 'Dashboard',             icon: LayoutDashboard, permissions: ['reports:view'] },
   { href: '/orders',        label: 'Current Orders',        icon: ShoppingBag,     permissions: ['orders:create'] },
   { href: '/tables',        label: 'Tables',                icon: Grid3X3,         permissions: ['tables:view'] },
-  { href: '/pos',           label: 'Point of Sale (POS)',   icon: ShoppingCart,    permissions: ['orders:create'] },
   { href: '/kitchen',       label: 'Kitchen Display (KDS)', icon: ChefHat,         permissions: ['kitchen:view'] },
   { href: '/order-history', label: 'Order History',         icon: ClipboardList,   permissions: ['payments:view'] },
   { href: '/reservations',  label: 'Reservations',          icon: Users,           permissions: ['reservations:view'] },
@@ -227,7 +226,7 @@ export function getDefaultLandingRoute(
     return '/tables';
   }
 
-  if (hasAnyPermission('orders:create')) return '/pos';
+  if (hasAnyPermission('orders:create', 'orders:view')) return '/orders';
   if (hasAnyPermission('kitchen:view', 'kitchen:update')) return '/kitchen';
   if (hasAnyPermission('orders:view', 'payments:view')) return '/order-history';
   if (hasAnyPermission('inventory:view')) return '/inventory';
@@ -243,7 +242,7 @@ export function getDefaultLandingRoute(
   // Fallback: scan sub: permissions — navigate to first matching module
   const userPerms: string[] = user?.permissions || [];
   const routePriority = [
-    '/tables', '/orders', '/pos', '/kitchen', '/order-history',
+    '/tables', '/orders', '/kitchen', '/order-history',
     '/menu', '/inventory', '/reservations', '/procurement', '/customers',
     '/expenses', '/reports', '/staff', '/settings', '/dashboard',
   ];
@@ -252,7 +251,7 @@ export function getDefaultLandingRoute(
     if (subIds.some((sid) => userPerms.includes(`sub:${sid}`))) return href;
   }
 
-  return '/pos';
+  return '/tables';
 }
 
 /** Get filtered sidebar nav items and dividers (excluding empty sections) */
@@ -313,15 +312,14 @@ export function getMobileBottomNavItems(
     return [
       { href: '/tables', label: 'Tables', icon: Grid3X3 },
       { href: '/orders', label: 'Current', icon: ShoppingBag },
-      { href: '/pos', label: 'POS', icon: ShoppingCart },
       { href: '/kitchen', label: 'Kitchen', icon: ChefHat },
+      { href: '/order-history', label: 'History', icon: ClipboardList },
     ];
   }
 
   const candidates: Array<{ href: string; label: string; icon: any; permissions: string[] }> = [
     { href: '/tables',        label: 'Tables',    icon: Grid3X3,         permissions: ['tables:view'] },
     { href: '/orders',        label: 'Current',   icon: ShoppingBag,     permissions: ['orders:create'] },
-    { href: '/pos',           label: 'POS',       icon: ShoppingCart,    permissions: ['orders:create'] },
     { href: '/kitchen',       label: 'Kitchen',   icon: ChefHat,         permissions: ['kitchen:view'] },
     { href: '/order-history', label: 'History',   icon: ClipboardList,   permissions: ['payments:view'] },
     { href: '/menu',          label: 'Menu',      icon: BookOpen,        permissions: ['menu:view'] },

@@ -1427,28 +1427,51 @@ export default function TablesPage() {
                             </div>
                           </div>
 
-                          {canPartiallyCancel && it.id && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={cancelOrderItemMutation.isPending}
-                              className="h-7 w-7 p-0 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const reason = prompt(`Cancel "${dishName}" from Order #${selectedOrder.orderNumber}? (Optional reason):`, 'Guest requested cancellation');
-                                if (reason !== null) {
-                                  cancelOrderItemMutation.mutate({
-                                    orderId: selectedOrder.id,
-                                    itemId: it.id,
-                                    reason: reason.trim() || undefined,
-                                  });
-                                }
-                              }}
-                              title={`Partial Cancel "${dishName}"`}
-                            >
-                              <span className="text-xs">❌</span>
-                            </Button>
-                          )}
+                          {(() => {
+                            const isItemCompletedInKds =
+                              ['READY', 'SERVED', 'COOKED', 'COMPLETED'].includes(it.status) ||
+                              (selectedOrder.kots || []).some((k: any) =>
+                                ['READY', 'SERVED'].includes(k.status) &&
+                                (k.items || []).some((ki: any) => ki.orderItemId === it.id)
+                              ) ||
+                              (selectedOrder.kots || []).some((k: any) =>
+                                (k.items || []).some((ki: any) => ki.orderItemId === it.id && ['READY', 'SERVED'].includes(ki.status))
+                              );
+
+                            if (isItemCompletedInKds) {
+                              return (
+                                <Badge className="text-[10px] px-1.5 py-0.5 font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                  ✓ Ready
+                                </Badge>
+                              );
+                            }
+
+                            if (canPartiallyCancel && it.id) {
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={cancelOrderItemMutation.isPending}
+                                  className="h-7 w-7 p-0 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const reason = prompt(`Cancel "${dishName}" from Order #${selectedOrder.orderNumber}? (Optional reason):`, 'Guest requested cancellation');
+                                    if (reason !== null) {
+                                      cancelOrderItemMutation.mutate({
+                                        orderId: selectedOrder.id,
+                                        itemId: it.id,
+                                        reason: reason.trim() || undefined,
+                                      });
+                                    }
+                                  }}
+                                  title={`Partial Cancel "${dishName}"`}
+                                >
+                                  <span className="text-xs">❌</span>
+                                </Button>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     );

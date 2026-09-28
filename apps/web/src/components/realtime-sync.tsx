@@ -70,6 +70,8 @@ export function RealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['tables'] });
           queryClient.invalidateQueries({ queryKey: ['table-stats'] });
           queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           break;
 
         case 'PAYMENT_COMPLETED':

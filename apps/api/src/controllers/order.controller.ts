@@ -332,6 +332,24 @@ export class OrderController {
       throw new AppError(ErrorCodes.NOT_FOUND, 'Item not found or already cancelled', 404);
     }
 
+    // Guard: Once an item is marked completed / ready / served by cook in KDS, it cannot be cancelled by anyone from anywhere
+    const matchingKotItems = await prisma.orderKotItem.findMany({
+      where: { orderItemId: itemId },
+      include: { kot: true },
+    });
+
+    const completedKotItem = matchingKotItems.find(
+      (ki) => ['READY', 'SERVED'].includes(ki.status) || ['READY', 'SERVED'].includes(ki.kot.status)
+    );
+
+    if (completedKotItem) {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        'Cannot cancel this item because it has already been marked completed / ready by the kitchen cook in KDS.',
+        400
+      );
+    }
+
     const old = { ...item };
     const cancelNote = reason ? `[Cancelled: ${reason}]` : '[Cancelled by Staff]';
 
@@ -345,10 +363,7 @@ export class OrderController {
     });
 
     // 2. Mark any matching OrderKotItem records as CANCELLED
-    const kotItems = await prisma.orderKotItem.findMany({
-      where: { orderItemId: itemId, status: { not: 'CANCELLED' } },
-      include: { kot: true },
-    });
+    const kotItems = matchingKotItems.filter((ki) => ki.status !== 'CANCELLED');
 
     for (const ki of kotItems) {
       await prisma.orderKotItem.update({

@@ -240,7 +240,6 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    _socket?.disconnect();
     super.dispose();
   }
 

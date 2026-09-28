@@ -103,18 +103,18 @@ export default function DashboardPage() {
       {/* BIG FOOLPROOF SHORTCUT TILES (Designed for Laymen & Fast Tapping) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <Link
-          href="/pos"
+          href="/order-history"
           className="p-4 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/40 hover:border-primary transition-all hover:scale-[1.02] shadow-sm flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-3xl">🛍️</span>
+            <span className="text-3xl">📜</span>
             <span className="text-xs font-black text-primary group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
               Open <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-3">
-            <p className="text-base font-black text-foreground">New Order (POS)</p>
-            <p className="text-[11px] text-muted-foreground">Take dine-in or parcel order</p>
+            <p className="text-base font-black text-foreground">Order History</p>
+            <p className="text-[11px] text-muted-foreground">Reprint receipts & audit bills</p>
           </div>
         </Link>
 

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../api/api_client.dart';
 import '../models/models.dart';
+import '../services/sound_alert_service.dart';
 import '../storage/secure_storage.dart';
 
 // ── Infrastructure Providers ──────────────────────────────────────────────────
@@ -217,6 +218,8 @@ final socketProvider = Provider<io.Socket?>((ref) {
   socket.on('ros:event', (data) {
     if (data is Map) {
       final type = data['type']?.toString();
+      final payload = data['payload'] is Map ? data['payload'] as Map : null;
+
       if (type == 'MENU_UPDATED' ||
           type == 'MENU_MODIFIED' ||
           type == 'MENU_ITEM_CREATED' ||
@@ -230,17 +233,37 @@ final socketProvider = Provider<io.Socket?>((ref) {
         ref.invalidate(menuCategoriesProvider);
       } else if (type == 'TABLE_UPDATED' || type == 'TABLE_STATUS_CHANGED') {
         ref.invalidate(tablesProvider);
+        ref.invalidate(activeOrdersProvider);
+        ref.invalidate(dashboardProvider);
       } else if (type == 'ORDER_CREATED' ||
           type == 'ORDER_STATUS_CHANGED' ||
           type == 'ORDER_UPDATED' ||
+          type == 'ORDER_CANCELLED' ||
           type == 'QR_ORDER_PENDING' ||
           type == 'PAYMENT_COMPLETED') {
         ref.invalidate(activeOrdersProvider);
         ref.invalidate(tablesProvider);
         ref.invalidate(dashboardProvider);
-      } else if (type == 'KOT_CREATED' || type == 'KOT_STATUS_CHANGED' || type == 'KOT_ITEM_STATUS_CHANGED') {
+        ref.invalidate(kitchenKotsProvider);
+
+        // Play loud 5-second alert tone + vibration on order status change / order created / updated
+        final orderNum = payload?['orderNumber'] ?? payload?['orderId'] ?? '';
+        final status = payload?['status']?.toString() ?? type;
+        SoundAlertService().playLoudOrderAlert(reason: 'Order Event ($status #$orderNum)');
+      } else if (type == 'KOT_CREATED' ||
+          type == 'KOT_RECEIVED' ||
+          type == 'KOT_ADDED' ||
+          type == 'KOT_STATUS_CHANGED' ||
+          type == 'KOT_ITEM_STATUS_CHANGED') {
         ref.invalidate(kitchenKotsProvider);
         ref.invalidate(activeOrdersProvider);
+        ref.invalidate(tablesProvider);
+        ref.invalidate(dashboardProvider);
+
+        // Play loud 5-second alert tone + vibration on KOT received / status changed
+        final kotNum = payload?['kotNumber'] ?? payload?['kotId'] ?? '';
+        final status = payload?['status']?.toString() ?? type;
+        SoundAlertService().playLoudOrderAlert(reason: 'KOT Event ($status #$kotNum)');
       }
     }
   });

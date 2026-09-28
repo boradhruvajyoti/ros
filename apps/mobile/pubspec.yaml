@@ -76,6 +76,8 @@ dependencies:
   # ── Icons ────────────────────────────────────────────────────────────────
   font_awesome_flutter: ^10.8.0
   iconsax: ^0.0.8
+  audioplayers: ^6.8.1
+  vibration: ^3.2.1
 
 dev_dependencies:
   flutter_test:
@@ -93,3 +95,4 @@ flutter:
     - assets/images/
     - assets/animations/
     - assets/icons/
+    - assets/sounds/

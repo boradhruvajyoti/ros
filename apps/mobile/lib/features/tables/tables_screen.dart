@@ -144,7 +144,6 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
 
   @override
   void dispose() {
-    _socket?.disconnect();
     super.dispose();
   }
 

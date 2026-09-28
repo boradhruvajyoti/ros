@@ -128,10 +128,11 @@ export class KitchenController {
     }
 
     if (status === 'CANCELLED') {
-      if (['READY', 'SERVED'].includes(existingKot.status)) {
+      const hasCompletedItem = existingKot.items.some((i) => ['READY', 'SERVED'].includes(i.status));
+      if (['READY', 'SERVED'].includes(existingKot.status) || hasCompletedItem) {
         throw new AppError(
           ErrorCodes.VALIDATION_ERROR,
-          'Cannot cancel KOT once it has reached Ready to serve or Served status.',
+          'Cannot cancel KOT once any item has been marked completed / ready by the cook in KDS.',
           400
         );
       }

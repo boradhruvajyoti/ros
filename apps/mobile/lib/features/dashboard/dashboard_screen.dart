@@ -137,7 +137,7 @@ class DashboardScreen extends ConsumerWidget {
             childAspectRatio: 1.1,
             children: [
               _QuickAction(icon: Icons.grid_view_rounded, label: 'Tables', route: '/tables'),
-              _QuickAction(icon: Icons.point_of_sale_rounded, label: 'POS', route: '/pos'),
+              _QuickAction(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/current-orders'),
               _QuickAction(icon: Icons.restaurant_rounded, label: 'Kitchen', route: '/kitchen'),
               _QuickAction(icon: Icons.people_rounded, label: 'Customers', route: '/customers'),
               _QuickAction(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/reports'),
@@ -190,7 +190,7 @@ class DashboardScreen extends ConsumerWidget {
             childAspectRatio: 1.1,
             children: [
               _QuickAction(icon: Icons.grid_view_rounded, label: 'Tables', route: '/tables'),
-              _QuickAction(icon: Icons.point_of_sale_rounded, label: 'POS', route: '/pos'),
+              _QuickAction(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/current-orders'),
               _QuickAction(icon: Icons.restaurant_rounded, label: 'Kitchen', route: '/kitchen'),
               _QuickAction(icon: Icons.people_rounded, label: 'Customers', route: '/customers'),
               _QuickAction(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/reports'),

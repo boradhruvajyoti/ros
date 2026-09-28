@@ -354,11 +354,11 @@ export default function CurrentOrdersPage() {
           </Button>
 
           <Button
-            onClick={() => router.push('/pos')}
+            onClick={() => router.push('/tables')}
             className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs gap-1.5 shadow-md shadow-primary/20"
           >
             <Plus className="w-4 h-4" />
-            <span>New Order (POS)</span>
+            <span>Take Order (Tables)</span>
           </Button>
         </div>
       </div>
@@ -531,14 +531,14 @@ export default function CurrentOrdersPage() {
               ? `No active orders matching "${searchQuery}".`
               : activeTab !== 'ALL'
               ? `No active orders currently under "${activeTab.replace('_', ' ')}".`
-              : 'All active orders have been billed and paid. Create a new order via POS or Tables.'}
+              : 'All active orders have been billed and paid. Create a new order via Tables.'}
           </p>
           <Button
-            onClick={() => router.push('/pos')}
+            onClick={() => router.push('/tables')}
             className="mt-4 gap-1.5 rounded-xl text-xs font-black bg-primary text-primary-foreground"
           >
             <Plus className="w-4 h-4" />
-            <span>Open POS to Create Order</span>
+            <span>Go to Tables to Take Order</span>
           </Button>
         </div>
       ) : (

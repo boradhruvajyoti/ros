@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { apiGet, apiPost, apiPatch, apiPut } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { onRosEvent } from '@/lib/socket';
@@ -134,10 +134,23 @@ const DEFAULT_CATEGORIES: Category[] = [
 type OrderType = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
 
 export default function POSPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const tableParam = searchParams.get('table');
   const orderParam = searchParams.get('order') || searchParams.get('orderId');
+
+  // Guard: Staff must select a table from the Tables section before visiting POS
+  useEffect(() => {
+    if (!tableParam && !orderParam) {
+      toast({
+        title: 'Table Selection Required',
+        description: 'Please visit the Tables section and select an intended table to start ordering.',
+        variant: 'destructive',
+      });
+      router.replace('/tables');
+    }
+  }, [tableParam, orderParam, router]);
 
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);

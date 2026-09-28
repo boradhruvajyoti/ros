@@ -149,9 +149,9 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                             },
                           ),
                           ElevatedButton.icon(
-                            onPressed: () => context.go('/pos'),
-                            icon: const Icon(Icons.add_rounded, size: 16),
-                            label: const Text('POS',
+                            onPressed: () => context.go('/tables'),
+                            icon: const Icon(Icons.grid_view_rounded, size: 16),
+                            label: const Text('Tables',
                                 style: TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.w800)),
                             style: ElevatedButton.styleFrom(
@@ -362,10 +362,10 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                               ),
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
-                                onPressed: () => context.go('/pos'),
-                                icon: const Icon(Icons.point_of_sale_rounded,
+                                onPressed: () => context.go('/tables'),
+                                icon: const Icon(Icons.grid_view_rounded,
                                     size: 16),
-                                label: const Text('Create New Order'),
+                                label: const Text('Take Order via Tables'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: RosTheme.primary,
                                   foregroundColor: Colors.white,
