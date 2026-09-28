@@ -74,6 +74,10 @@ module.exports = {
         'slide-in-right':  'slide-in-right 0.3s ease-out',
         'pulse-dot':       'pulse-dot 1.5s ease-in-out infinite',
       },
+      boxShadow: {
+        card:       'var(--card-shadow)',
+        'card-hover': 'var(--card-shadow-hover)',
+      },
     },
   },
   plugins: [],

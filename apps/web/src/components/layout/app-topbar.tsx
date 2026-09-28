@@ -156,46 +156,46 @@ export function AppTopbar() {
   };
 
   return (
-    <header className="h-14 sm:h-16 border-b border-border bg-card/95 backdrop-blur-xl flex items-center px-3 sm:px-6 gap-2.5 sm:gap-4 shrink-0 sticky top-0 z-40 justify-between shadow-xs">
+    <header className="h-13 border-b border-border bg-card flex items-center px-3 sm:px-5 gap-2.5 sm:gap-4 shrink-0 sticky top-0 z-40 justify-between shadow-card">
       {/* Left: Mobile Drawer Trigger + Restaurant / Platform Logo & Title (Frozen) */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Mobile Hamburger Drawer Trigger */}
         <button
           type="button"
           onClick={toggleMobileSidebar}
-          className="md:hidden p-2 rounded-xl bg-muted/80 hover:bg-muted text-foreground border border-border shrink-0 cursor-pointer active:scale-95"
+          className="md:hidden p-1.5 bg-muted/70 hover:bg-muted text-foreground border border-border shrink-0 cursor-pointer"
           title="Open Navigation Menu"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4" />
         </button>
 
         {/* Frozen Brand Identity in Header */}
         <div className="flex items-center gap-2.5 min-w-0 max-w-xs sm:max-w-sm">
           <div className={cn(
-            'w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center shrink-0 shadow-sm overflow-hidden rounded-xl',
+            'w-7 h-7 flex items-center justify-center shrink-0 overflow-hidden',
             isPlatformSuperAdmin
-              ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500'
+              ? 'bg-indigo-500/15 border border-indigo-500/20'
               : tenantLogo
-              ? 'bg-card border border-border p-0.5'
-              : 'bg-primary text-primary-foreground'
+              ? 'border border-border'
+              : 'bg-primary/15'
           )}>
             {isPlatformSuperAdmin ? (
               tenantLogo ? (
-                <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-xl" />
+                <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover" />
               ) : (
-                <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <Globe className="w-3.5 h-3.5 text-indigo-400" />
               )
             ) : tenantLogo ? (
-              <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover rounded-lg" />
+              <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover" />
             ) : (
-              <UtensilsCrossed className="w-4 h-4 text-primary-foreground" />
+              <UtensilsCrossed className="w-3.5 h-3.5 text-primary" />
             )}
           </div>
           <div className="min-w-0">
-            <h1 className="text-xs sm:text-sm font-black text-foreground tracking-tight truncate leading-tight" title={tenantDisplayName}>
+            <h1 className="text-xs font-semibold text-foreground tracking-tight truncate leading-tight" title={tenantDisplayName}>
               {tenantDisplayName}
             </h1>
-            <p className="text-[10px] text-muted-foreground truncate leading-none mt-0.5" title={tenantTagline}>
+            <p className="text-[10px] text-muted-foreground/70 truncate leading-none mt-px" title={tenantTagline}>
               {tenantTagline}
             </p>
           </div>
@@ -204,11 +204,12 @@ export function AppTopbar() {
         {/* Search bar (Desktop / Tablet) */}
         <div className="flex-1 max-w-xs hidden lg:block ml-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search dishes, tables, staff..."
-              className="w-full pl-8 pr-4 h-8 rounded-xl border border-border bg-background/60 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+              placeholder="Search..."
+              className="w-full pl-8 pr-3 h-8 border border-border bg-muted/40 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring transition-all"
+              style={{ borderRadius: 0 }}
             />
           </div>
         </div>
@@ -248,22 +249,22 @@ export function AppTopbar() {
               }
             }}
             className={cn(
-              "flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-2xl border transition-all cursor-pointer",
+              "flex items-center gap-2 px-2 py-1.5 border transition-all cursor-pointer",
               showProfileMenu
-                ? "bg-primary/15 border-primary/40 shadow-xs"
-                : "border-border/80 bg-muted/50 hover:bg-muted hover:border-border"
+                ? "bg-muted border-border"
+                : "border-transparent hover:border-border hover:bg-muted/50"
             )}
           >
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary/20 border border-primary/35 flex items-center justify-center font-bold text-xs text-primary shadow-xs">
+            <div className="w-6 h-6 bg-primary/15 border border-primary/25 flex items-center justify-center font-semibold text-xs text-primary">
               {user?.name?.charAt(0) || 'U'}
             </div>
-            <div className="hidden sm:flex flex-col items-start text-left min-w-0 max-w-[120px] md:max-w-[160px]">
-              <span className="text-xs font-bold text-foreground leading-tight truncate w-full">{user?.name || 'Staff User'}</span>
+            <div className="hidden sm:flex flex-col items-start text-left min-w-0 max-w-[100px] md:max-w-[140px]">
+              <span className="text-xs font-semibold text-foreground leading-tight truncate w-full">{user?.name || 'Staff User'}</span>
               <span className="text-[10px] text-muted-foreground capitalize leading-none truncate w-full">
-                {user?.roles?.[0]?.toLowerCase().replace('_', ' ') || 'Staff Member'}
+                {user?.roles?.[0]?.toLowerCase().replace('_', ' ') || 'Staff'}
               </span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden sm:block ml-0.5 shrink-0" />
+            <ChevronDown className="w-3 h-3 text-muted-foreground hidden sm:block ml-0.5 shrink-0" />
           </button>
 
           {/* Clean Profile Dropdown Panel */}
@@ -273,34 +274,34 @@ export function AppTopbar() {
                 className="fixed inset-0 z-40"
                 onClick={() => setShowProfileMenu(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-4.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover/95 backdrop-blur-2xl p-4 shadow-2xl space-y-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-foreground">
+              <div className="absolute right-0 top-full mt-1.5 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-4.5rem)] overflow-y-auto overscroll-contain border border-border bg-popover p-4 shadow-xl space-y-3 z-50 animate-in fade-in slide-in-from-top-1 duration-100 text-foreground" style={{ borderRadius: 0 }}>
                 {/* User Info Header */}
-                <div className="flex items-center gap-3 pb-3 border-b border-border/70">
-                  <div className="w-10 h-10 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center font-black text-sm text-primary shrink-0">
+                <div className="flex items-center gap-3 pb-3 border-b border-border">
+                  <div className="w-8 h-8 bg-primary/15 border border-primary/25 flex items-center justify-center font-semibold text-sm text-primary shrink-0">
                     {user?.name?.charAt(0) || 'U'}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-foreground truncate">{user?.name || 'Staff User'}</p>
+                    <p className="text-xs font-semibold text-foreground truncate">{user?.name || 'Staff User'}</p>
                     <p className="text-[11px] text-muted-foreground truncate">{user?.email || 'staff@restaurant.com'}</p>
-                    <Badge variant="outline" className="mt-1 text-[9px] font-bold border-primary/30 text-primary py-0">
+                    <Badge variant="outline" className="mt-1 text-[9px] font-medium border-border text-muted-foreground py-0">
                       {user?.roles?.[0]?.replace('_', ' ') || 'STAFF'}
                     </Badge>
                   </div>
                 </div>
 
                 {/* ── TELEGRAM NOTIFICATIONS CONNECTION CARD ── */}
-                <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30 space-y-2.5">
+                <div className="p-3 bg-sky-500/8 border border-sky-500/20 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs font-black text-sky-400">
                       <Send className="w-3.5 h-3.5" />
                       <span>Telegram Operational Alerts</span>
                     </div>
                     {telegramStatus?.isConnected ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                      <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-medium flex items-center gap-1">
                         <Check className="w-3 h-3" /> Connected
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                      <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[10px] font-medium">
                         Not Linked
                       </span>
                     )}
@@ -308,7 +309,7 @@ export function AppTopbar() {
 
                   {telegramStatus?.isConnected && !isEditingTelegram ? (
                     <div className="space-y-2 text-xs">
-                      <div className="p-2 rounded-xl bg-background/80 border border-border/60 flex items-center justify-between gap-2">
+                      <div className="p-2 bg-muted/60 border border-border flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] text-muted-foreground font-semibold">Telegram Status</p>
                           <p className="font-mono font-bold text-foreground text-xs truncate">
@@ -545,11 +546,11 @@ export function AppTopbar() {
                 </div>
 
                 {/* Log Out Action */}
-                <div className="pt-2 border-t border-border/70">
+                <div className="pt-2 border-t border-border">
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 p-2 rounded-xl text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 p-2 text-xs font-medium text-destructive hover:bg-destructive/8 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>

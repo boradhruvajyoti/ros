@@ -3,87 +3,95 @@
 @tailwind utilities;
 
 /* =============================================================================
-   ROS Design System — CSS Variables
-   Premium dark-by-default with amber/gold primary accent
+   ROS Design System — Minimalist CSS Variables
+   Clean, flat, easy-to-read. Sharp edges. Shadows on light, borders on dark.
    ============================================================================= */
 
 @layer base {
   :root {
     /* ── Light theme ─────────────────────────────────────────────────────── */
-    --background:         0 0% 98%;
-    --foreground:         222 47% 11%;
+    --background:         0 0% 97%;
+    --foreground:         220 15% 12%;
     --card:               0 0% 100%;
-    --card-foreground:    222 47% 11%;
+    --card-foreground:    220 15% 12%;
     --popover:            0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary:            38 92% 50%;    /* amber-500 */
+    --popover-foreground: 220 15% 12%;
+    --primary:            38 92% 48%;     /* amber-500 */
     --primary-foreground: 0 0% 5%;
-    --secondary:          215 28% 17%;
+    --secondary:          220 13% 18%;
     --secondary-foreground: 0 0% 98%;
-    --muted:              210 40% 96%;
-    --muted-foreground:   215 20% 45%;
-    --accent:             38 92% 96%;
-    --accent-foreground:  38 80% 25%;
-    --destructive:        0 84% 60%;
+    --muted:              220 12% 94%;
+    --muted-foreground:   220 10% 50%;
+    --accent:             38 90% 94%;
+    --accent-foreground:  38 80% 22%;
+    --destructive:        0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border:             214 32% 91%;
-    --input:              214 32% 91%;
-    --ring:               38 92% 50%;
-    --radius:             0.625rem;
+    --border:             220 13% 88%;
+    --input:              220 13% 91%;
+    --ring:               38 92% 48%;
+    --radius:             0.25rem;       /* sharper corners globally */
 
-    /* Sidebar */
-    --sidebar-background:          222 47% 11%;
-    --sidebar-foreground:          210 40% 90%;
-    --sidebar-primary:             38 92% 50%;
+    /* Sidebar — kept dark for contrast */
+    --sidebar-background:          220 18% 14%;
+    --sidebar-foreground:          220 12% 82%;
+    --sidebar-primary:             38 92% 48%;
     --sidebar-primary-foreground:  0 0% 5%;
-    --sidebar-accent:              217 33% 17%;
-    --sidebar-accent-foreground:   210 40% 98%;
-    --sidebar-border:              217 33% 20%;
-    --sidebar-ring:                38 92% 50%;
+    --sidebar-accent:              220 15% 20%;
+    --sidebar-accent-foreground:   220 12% 95%;
+    --sidebar-border:              220 15% 20%;
+    --sidebar-ring:                38 92% 48%;
 
-    /* Status colors */
-    --status-available:   142 76% 36%;
-    --status-occupied:    0 84% 60%;
-    --status-reserved:    38 92% 50%;
-    --status-cleaning:    199 89% 48%;
-    --status-blocked:     215 20% 55%;
+    /* Status colors — saturated for light bg */
+    --status-available:   142 60% 32%;
+    --status-occupied:    0 72% 51%;
+    --status-reserved:    38 92% 40%;
+    --status-cleaning:    200 82% 42%;
+    --status-blocked:     220 10% 52%;
 
     /* KDS urgency */
-    --kds-normal:         142 76% 36%;
-    --kds-warning:        38 92% 50%;
-    --kds-urgent:         0 84% 60%;
+    --kds-normal:         142 60% 32%;
+    --kds-warning:        38 92% 42%;
+    --kds-urgent:         0 72% 51%;
+
+    /* Card shadow on light theme */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+    --card-shadow-hover: 0 4px 12px 0 rgb(0 0 0 / 0.09), 0 2px 4px -2px rgb(0 0 0 / 0.06);
   }
 
   .dark {
     /* ── Dark theme ──────────────────────────────────────────────────────── */
-    --background:         222 47% 7%;
-    --foreground:         210 40% 96%;
-    --card:               222 47% 10%;
-    --card-foreground:    210 40% 96%;
-    --popover:            222 47% 10%;
-    --popover-foreground: 210 40% 96%;
+    --background:         222 18% 8%;
+    --foreground:         210 14% 93%;
+    --card:               222 16% 11%;
+    --card-foreground:    210 14% 93%;
+    --popover:            222 16% 11%;
+    --popover-foreground: 210 14% 93%;
     --primary:            38 92% 50%;
     --primary-foreground: 0 0% 5%;
-    --secondary:          217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted:              217 33% 17%;
-    --muted-foreground:   215 20% 65%;
-    --accent:             217 33% 17%;
-    --accent-foreground:  210 40% 98%;
-    --destructive:        0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --border:             217 33% 18%;
-    --input:              217 33% 18%;
+    --secondary:          220 15% 18%;
+    --secondary-foreground: 210 14% 95%;
+    --muted:              220 15% 16%;
+    --muted-foreground:   220 10% 58%;
+    --accent:             220 15% 16%;
+    --accent-foreground:  210 14% 95%;
+    --destructive:        0 55% 38%;
+    --destructive-foreground: 210 14% 98%;
+    --border:             220 15% 20%;
+    --input:              220 15% 18%;
     --ring:               38 92% 50%;
 
-    --sidebar-background:          222 47% 5%;
-    --sidebar-foreground:          210 40% 80%;
+    --sidebar-background:          222 18% 7%;
+    --sidebar-foreground:          220 12% 72%;
     --sidebar-primary:             38 92% 50%;
     --sidebar-primary-foreground:  0 0% 5%;
-    --sidebar-accent:              217 33% 12%;
-    --sidebar-accent-foreground:   210 40% 98%;
-    --sidebar-border:              217 33% 12%;
+    --sidebar-accent:              220 15% 13%;
+    --sidebar-accent-foreground:   210 14% 95%;
+    --sidebar-border:              220 15% 14%;
     --sidebar-ring:                38 92% 50%;
+
+    /* No shadows in dark mode — use borders */
+    --card-shadow: none;
+    --card-shadow-hover: none;
   }
 }
 
@@ -113,54 +121,92 @@
 
   /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
   }
   ::-webkit-scrollbar-track {
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-border/80 rounded-full;
+    @apply bg-border/60 rounded-none;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/50;
+    @apply bg-muted-foreground/40;
   }
 }
 
 @layer components {
   /* ── POS Grid ─────────────────────────────────────────────────────────── */
   .pos-item-card {
-    @apply relative flex flex-col items-start justify-end p-3 rounded-xl border border-border
+    @apply relative flex flex-col items-start justify-end p-3 border border-border
            bg-card text-card-foreground cursor-pointer select-none
-           transition-all duration-150 hover:border-primary/60 hover:shadow-md
-           hover:-translate-y-0.5 active:scale-95;
+           transition-all duration-150 hover:border-primary/50
+           active:scale-[0.98];
+    border-radius: 0;
+    box-shadow: var(--card-shadow);
+  }
+
+  .pos-item-card:hover {
+    box-shadow: var(--card-shadow-hover);
   }
 
   .pos-item-card.out-of-stock {
     @apply opacity-40 cursor-not-allowed;
   }
 
-  /* ── Table status badges ─────────────────────────────────────────────── */
-  .table-available { @apply bg-green-500/15 text-green-600 border-green-500/30; }
-  .table-occupied  { @apply bg-red-500/15 text-red-500 border-red-500/30; }
-  .table-reserved  { @apply bg-amber-500/15 text-amber-500 border-amber-500/30; }
-  .table-cleaning  { @apply bg-sky-500/15 text-sky-500 border-sky-500/30; }
-  .table-blocked   { @apply bg-zinc-500/15 text-zinc-500 border-zinc-500/30; }
+  /* ── Table status badges — theme-adaptive ────────────────────────────── */
+  .table-available {
+    @apply bg-green-500/10 text-green-700 border-green-500/20;
+  }
+  .dark .table-available {
+    @apply bg-green-500/10 text-green-400 border-green-500/20;
+  }
+  .table-occupied {
+    @apply bg-red-500/10 text-red-700 border-red-500/20;
+  }
+  .dark .table-occupied {
+    @apply bg-red-500/10 text-red-400 border-red-500/20;
+  }
+  .table-reserved {
+    @apply bg-amber-500/10 text-amber-700 border-amber-500/20;
+  }
+  .dark .table-reserved {
+    @apply bg-amber-500/10 text-amber-400 border-amber-500/20;
+  }
+  .table-cleaning {
+    @apply bg-sky-500/10 text-sky-700 border-sky-500/20;
+  }
+  .dark .table-cleaning {
+    @apply bg-sky-500/10 text-sky-400 border-sky-500/20;
+  }
+  .table-blocked {
+    @apply bg-zinc-500/10 text-zinc-600 border-zinc-500/20;
+  }
+  .dark .table-blocked {
+    @apply bg-zinc-500/10 text-zinc-400 border-zinc-500/20;
+  }
 
   /* ── KDS card urgency ────────────────────────────────────────────────── */
   .kds-card-new     { @apply border-l-4 border-l-green-500; }
   .kds-card-warning { @apply border-l-4 border-l-amber-500; }
   .kds-card-urgent  { @apply border-l-4 border-l-red-500; }
 
-  /* ── Glassmorphism panels ─────────────────────────────────────────────── */
-  .glass {
-    @apply bg-background/80 backdrop-blur-xl border border-border/50;
+  /* ── Clean card — minimalist, shadow on light ─────────────────────────── */
+  .clean-card {
+    @apply border border-border bg-card;
+    border-radius: 0;
+    box-shadow: var(--card-shadow);
   }
 
   /* ── Stat card ───────────────────────────────────────────────────────── */
   .stat-card {
-    @apply rounded-2xl border border-border bg-card p-5
-           transition-all duration-200 hover:shadow-lg hover:border-primary/30;
+    @apply border border-border bg-card p-5
+           transition-all duration-200;
+    border-radius: 0;
+    box-shadow: var(--card-shadow);
+  }
+  .stat-card:hover {
+    box-shadow: var(--card-shadow-hover);
   }
 
   /* ── Food type indicator ─────────────────────────────────────────────── */
@@ -168,6 +214,20 @@
   .food-non-veg { @apply bg-red-500; }
   .food-egg     { @apply bg-yellow-500; }
   .food-vegan   { @apply bg-emerald-500; }
+
+  /* ── Minimal section divider ─────────────────────────────────────────── */
+  .section-header {
+    @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3;
+  }
+
+  /* ── Tag/Highlight pill — adaptive ──────────────────────────────────── */
+  .tag-default    { @apply bg-muted text-muted-foreground; }
+  .tag-primary    { @apply bg-primary/10 text-amber-700 dark:text-amber-400; }
+  .tag-success    { @apply bg-green-500/10 text-green-700 dark:text-green-400; }
+  .tag-warning    { @apply bg-amber-500/10 text-amber-700 dark:text-amber-400; }
+  .tag-danger     { @apply bg-red-500/10 text-red-700 dark:text-red-400; }
+  .tag-info       { @apply bg-sky-500/10 text-sky-700 dark:text-sky-400; }
+  .tag-purple     { @apply bg-purple-500/10 text-purple-700 dark:text-purple-400; }
 }
 
 @layer utilities {
@@ -227,6 +287,10 @@
     text-align: center;
     min-width: 0;
   }
+
+  /* Card shadow utility */
+  .shadow-card       { box-shadow: var(--card-shadow); }
+  .shadow-card-hover { box-shadow: var(--card-shadow-hover); }
 }
 
 /* Universal text containment to ensure no element blows out container boundaries */
@@ -234,4 +298,3 @@ p, span, h1, h2, h3, h4, h5, h6, label, td, th {
   overflow-wrap: break-word;
   min-width: 0;
 }
-
