@@ -49,22 +49,32 @@ export class KitchenController {
   }
 
   static async getQueue(req: Request, res: Response): Promise<void> {
-    const { stationId } = req.query;
+    const { stationId, kitchenStationId, status, limit } = req.query;
+    const targetStationId = (stationId || kitchenStationId) as string | undefined;
     const now = new Date();
+
+    let statusFilter: any = { in: ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] };
+    if (typeof status === 'string' && status.trim().length > 0) {
+      const statuses = status.split(',').map((s) => s.trim().toUpperCase());
+      statusFilter = { in: statuses };
+    }
 
     const kots = await prisma.orderKot.findMany({
       where: {
         branchId: req.user!.bid,
-        status: { in: ['NEW', 'ACCEPTED', 'PREPARING', 'READY'] },
-        ...(stationId ? { kitchenStationId: stationId as string } : {}),
+        status: statusFilter,
+        ...(targetStationId ? { kitchenStationId: targetStationId } : {}),
       },
       include: {
         order: {
           select: {
+            id: true,
             orderNumber: true,
             type: true,
-            table: { select: { name: true } },
+            status: true,
+            table: { select: { id: true, name: true } },
             notes: true,
+            createdAt: true,
           },
         },
         kitchenStation: { select: { id: true, name: true, displayColor: true } },
@@ -80,7 +90,8 @@ export class KitchenController {
           },
         },
       },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      take: limit ? parseInt(limit as string, 10) : 100,
     });
 
     // Add age in minutes
