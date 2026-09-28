@@ -50,6 +50,8 @@ class AuthUser {
   final String tenantId;
   final String? tenantName;
   final String branchId;
+  final String? designation;
+  final String? department;
   final List<String> roles;
   final List<String> permissions;
 
@@ -61,6 +63,8 @@ class AuthUser {
     required this.tenantId,
     this.tenantName,
     required this.branchId,
+    this.designation,
+    this.department,
     this.roles = const [],
     this.permissions = const [],
   });
@@ -102,6 +106,8 @@ class AuthUser {
       tenantId: json['tenantId'] as String? ?? 'tenant-default',
       tenantName: json['tenantName'] as String?,
       branchId: branchId,
+      designation: json['designation'] as String?,
+      department: json['department'] as String?,
       roles: roles,
       permissions: perms,
     );

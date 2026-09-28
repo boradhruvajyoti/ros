@@ -52,17 +52,98 @@ interface Kot {
   items: KotItem[];
 }
 
+function getKdsAccess(user: { role?: string; roles?: string[]; designation?: string; department?: string } | null | undefined) {
+  if (!user) {
+    return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
+  }
+
+  const role = (user.role || user.roles?.[0] || '').toUpperCase();
+  const designation = (user.designation || '').toLowerCase();
+  const department = (user.department || '').toLowerCase();
+
+  // 1. Management & Leadership
+  const isMgmtRole = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER'].includes(role);
+  const isMgmtDesignation =
+    designation.includes('manager') ||
+    designation.includes('supervisor') ||
+    designation.includes('director') ||
+    designation.includes('owner') ||
+    designation.includes('executive') ||
+    department.includes('management') ||
+    department.includes('leadership') ||
+    department.includes('admin');
+
+  if (isMgmtRole || isMgmtDesignation) {
+    return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
+  }
+
+  // 2. Kitchen & Culinary
+  const isKitchenRole = ['COOK', 'CHEF', 'KITCHEN_STAFF', 'KITCHEN'].includes(role);
+  const isKitchenDesignation =
+    designation.includes('chef') ||
+    designation.includes('cook') ||
+    designation.includes('baker') ||
+    designation.includes('pizzaiolo') ||
+    designation.includes('tandoor') ||
+    designation.includes('culinary') ||
+    designation.includes('commis') ||
+    designation.includes('prep') ||
+    designation.includes('helper') ||
+    department.includes('kitchen') ||
+    department.includes('culinary');
+
+  // 3. Front of House & Guest Service
+  const isFohRole = ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY_RIDER'].includes(role);
+  const isFohDesignation =
+    designation.includes('waiter') ||
+    designation.includes('waitress') ||
+    designation.includes('captain') ||
+    designation.includes('runner') ||
+    designation.includes('busser') ||
+    designation.includes('host') ||
+    designation.includes('cashier') ||
+    designation.includes('pos') ||
+    designation.includes('delivery') ||
+    designation.includes('rider') ||
+    designation.includes('driver') ||
+    designation.includes('bartender') ||
+    designation.includes('barista') ||
+    designation.includes('sommelier') ||
+    designation.includes('beverage') ||
+    designation.includes('steward') ||
+    designation.includes('clean') ||
+    department.includes('front') ||
+    department.includes('service') ||
+    department.includes('guest');
+
+  if (isKitchenDesignation || isKitchenRole) {
+    return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
+  }
+
+  if (isFohDesignation || isFohRole) {
+    return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
+  }
+
+  return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
+}
+
 export default function KitchenPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const kdsAccess = getKdsAccess(user);
 
-  // Role detection: Cook vs Waiter
-  const userRole = (user?.role || user?.roles?.[0] || '').toUpperCase();
-  const isDefaultWaiter = userRole === 'WAITER' || userRole === 'CAPTAIN';
+  // Active Role state: locked for KITCHEN or FOH, toggleable for MANAGEMENT
+  const [activeRole, setActiveRole] = useState<'COOK' | 'WAITER'>(() => {
+    if (kdsAccess.category === 'KITCHEN') return 'COOK';
+    if (kdsAccess.category === 'FOH') return 'WAITER';
+    return 'COOK';
+  });
 
-  const [activeRole, setActiveRole] = useState<'COOK' | 'WAITER'>(
-    isDefaultWaiter ? 'WAITER' : 'COOK'
-  );
+  // Keep activeRole in sync if access category changes
+  useEffect(() => {
+    if (kdsAccess.category === 'KITCHEN') setActiveRole('COOK');
+    else if (kdsAccess.category === 'FOH') setActiveRole('WAITER');
+  }, [kdsAccess.category]);
 
   // Sub-tabs for Cook: 'NEW' (In Kitchen) | 'READY' (Complete & Ready to Serve)
   const [cookTab, setCookTab] = useState<'NEW' | 'READY'>('NEW');
@@ -270,35 +351,51 @@ export default function KitchenPage() {
 
         {/* Role Mode Switcher & Controls */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Role Switcher Toggle */}
-          <div className="flex items-center p-1 rounded-2xl bg-card border border-border shadow-sm">
-            <button
-              type="button"
-              onClick={() => setActiveRole('COOK')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
-                activeRole === 'COOK'
-                  ? 'bg-amber-500 text-slate-950 shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
+          {/* Role Switcher Toggle (Visible only for Management & Leadership) */}
+          {kdsAccess.canToggle ? (
+            <div className="flex items-center p-1 rounded-2xl bg-card border border-border shadow-sm">
+              <button
+                type="button"
+                onClick={() => setActiveRole('COOK')}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
+                  activeRole === 'COOK'
+                    ? 'bg-amber-500 text-slate-950 shadow-md'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <ChefHat className="w-4 h-4" />
+                <span>👨‍🍳 Cook / Kitchen</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveRole('WAITER')}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
+                  activeRole === 'WAITER'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Utensils className="w-4 h-4" />
+                <span>🍽️ Waiter / Runner</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-card border border-border shadow-sm text-xs sm:text-sm font-black">
+              {kdsAccess.category === 'KITCHEN' ? (
+                <span className="flex items-center gap-2 text-amber-400">
+                  <ChefHat className="w-4 h-4 text-amber-500" />
+                  👨‍🍳 Kitchen / Culinary Station
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 text-emerald-400">
+                  <Utensils className="w-4 h-4 text-emerald-500" />
+                  🍽️ Waiter / Service Station
+                </span>
               )}
-            >
-              <ChefHat className="w-4 h-4" />
-              <span>👨‍🍳 Cook / Kitchen</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveRole('WAITER')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer',
-                activeRole === 'WAITER'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Utensils className="w-4 h-4" />
-              <span>🍽️ Waiter / Runner</span>
-            </button>
-          </div>
+            </div>
+          )}
 
           {/* Station filter */}
           {stations.length > 0 && (
@@ -355,7 +452,7 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      {/* ── 2-Section Tabs Bar (Role Dependent) ─────────────────────────────────── */}
+      {/* ── 2-Section Tabs Bar (Role & Access Dependent) ────────────────────────── */}
       <div className="flex items-center gap-3">
         {activeRole === 'COOK' ? (
           <>
@@ -379,25 +476,27 @@ export default function KitchenPage() {
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setCookTab('READY')}
-              className={cn(
-                'flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-black text-sm sm:text-base transition-all cursor-pointer border shadow-sm',
-                cookTab === 'READY'
-                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-emerald-400 shadow-emerald-500/20 ring-2 ring-emerald-400/30'
-                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
-              )}
-            >
-              <CheckCircle2 className="w-5 h-5" />
-              <span>🛎️ Complete & Ready to Serve</span>
-              <span className={cn(
-                'px-2.5 py-0.5 rounded-full text-xs font-black',
-                cookTab === 'READY' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
-              )}>
-                {cookReadyKots.length}
-              </span>
-            </button>
+            {kdsAccess.canViewWaiter && (
+              <button
+                type="button"
+                onClick={() => setCookTab('READY')}
+                className={cn(
+                  'flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-black text-sm sm:text-base transition-all cursor-pointer border shadow-sm',
+                  cookTab === 'READY'
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-emerald-400 shadow-emerald-500/20 ring-2 ring-emerald-400/30'
+                    : 'bg-card text-muted-foreground border-border hover:text-foreground'
+                )}
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                <span>🛎️ Complete & Ready to Serve</span>
+                <span className={cn(
+                  'px-2.5 py-0.5 rounded-full text-xs font-black',
+                  cookTab === 'READY' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
+                )}>
+                  {cookReadyKots.length}
+                </span>
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -747,7 +846,7 @@ function CookKotCard({
 
       {/* Dishes List with Item-Level Complete & Cancel */}
       <div className="p-4 sm:p-5 flex-1 space-y-3.5">
-        {kot.items.map((item) => {
+        {pendingItems.map((item) => {
           const isItemCancelled = item.status === 'CANCELLED';
           const isItemReady = item.status === 'READY' || item.status === 'SERVED';
           const qty = item.orderItem?.quantity || 1;

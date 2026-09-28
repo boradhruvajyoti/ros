@@ -141,6 +141,11 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    const employee = await prisma.employee.findFirst({
+      where: { userId: user.id },
+      select: { designation: true, department: true },
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -153,6 +158,9 @@ export class AuthService {
         activeBranchId,
         branchId: activeBranchId,
         roles,
+        role: roles[0] || '',
+        designation: employee?.designation || '',
+        department: employee?.department || '',
         permissions,
       },
     };

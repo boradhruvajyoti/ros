@@ -150,7 +150,20 @@ export class AuthController {
         },
       },
     });
-    sendSuccess(res, { user, permissions: req.user!.permissions });
+
+    const employee = await prisma.employee.findFirst({
+      where: { userId: req.user!.sub },
+      select: { designation: true, department: true },
+    });
+
+    sendSuccess(res, {
+      user: {
+        ...user,
+        designation: employee?.designation || '',
+        department: employee?.department || '',
+      },
+      permissions: req.user!.permissions,
+    });
   }
 
   static async changePassword(req: Request, res: Response): Promise<void> {

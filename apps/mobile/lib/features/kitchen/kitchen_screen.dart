@@ -12,6 +12,119 @@ import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 
+enum KdsCategory { kitchen, foh, management }
+
+class KdsAccessInfo {
+  final KdsCategory category;
+  final bool canViewCook;
+  final bool canViewWaiter;
+  final bool canToggle;
+
+  const KdsAccessInfo({
+    required this.category,
+    required this.canViewCook,
+    required this.canViewWaiter,
+    required this.canToggle,
+  });
+}
+
+KdsAccessInfo getKdsAccess(AuthUser? user) {
+  if (user == null) {
+    return const KdsAccessInfo(
+      category: KdsCategory.management,
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+    );
+  }
+
+  final role = user.role.toUpperCase();
+  final designation = (user.designation ?? '').toLowerCase();
+  final department = (user.department ?? '').toLowerCase();
+
+  // 1. Management & Leadership
+  final isMgmtRole = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER'].contains(role);
+  final isMgmtDesignation = designation.contains('manager') ||
+      designation.contains('supervisor') ||
+      designation.contains('director') ||
+      designation.contains('owner') ||
+      designation.contains('executive') ||
+      department.contains('management') ||
+      department.contains('leadership') ||
+      department.contains('admin');
+
+  if (isMgmtRole || isMgmtDesignation) {
+    return const KdsAccessInfo(
+      category: KdsCategory.management,
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+    );
+  }
+
+  // 2. Kitchen & Culinary
+  final isKitchenRole = ['COOK', 'CHEF', 'KITCHEN_STAFF', 'KITCHEN'].contains(role);
+  final isKitchenDesignation = designation.contains('chef') ||
+      designation.contains('cook') ||
+      designation.contains('baker') ||
+      designation.contains('pizzaiolo') ||
+      designation.contains('tandoor') ||
+      designation.contains('culinary') ||
+      designation.contains('commis') ||
+      designation.contains('prep') ||
+      designation.contains('helper') ||
+      department.contains('kitchen') ||
+      department.contains('culinary');
+
+  // 3. Front of House & Guest Service
+  final isFohRole = ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY_RIDER'].contains(role);
+  final isFohDesignation = designation.contains('waiter') ||
+      designation.contains('waitress') ||
+      designation.contains('captain') ||
+      designation.contains('runner') ||
+      designation.contains('busser') ||
+      designation.contains('host') ||
+      designation.contains('cashier') ||
+      designation.contains('pos') ||
+      designation.contains('delivery') ||
+      designation.contains('rider') ||
+      designation.contains('driver') ||
+      designation.contains('bartender') ||
+      designation.contains('barista') ||
+      designation.contains('sommelier') ||
+      designation.contains('beverage') ||
+      designation.contains('steward') ||
+      designation.contains('clean') ||
+      department.contains('front') ||
+      department.contains('service') ||
+      department.contains('guest');
+
+  if (isKitchenDesignation || isKitchenRole) {
+    return const KdsAccessInfo(
+      category: KdsCategory.kitchen,
+      canViewCook: true,
+      canViewWaiter: false,
+      canToggle: false,
+    );
+  }
+
+  if (isFohDesignation || isFohRole) {
+    return const KdsAccessInfo(
+      category: KdsCategory.foh,
+      canViewCook: false,
+      canViewWaiter: true,
+      canToggle: false,
+    );
+  }
+
+  return const KdsAccessInfo(
+    category: KdsCategory.management,
+    canViewCook: true,
+    canViewWaiter: true,
+    canToggle: true,
+  );
+}
+
 class KitchenScreen extends ConsumerStatefulWidget {
   const KitchenScreen({super.key});
 
@@ -51,9 +164,14 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_roleInitialized) {
-      final userRole = ref.read(authProvider).user?.role.toUpperCase() ?? '';
-      if (userRole == 'WAITER' || userRole == 'CAPTAIN') {
+      final user = ref.read(authProvider).user;
+      final access = getKdsAccess(user);
+      if (access.category == KdsCategory.kitchen) {
+        _activeRole = 'COOK';
+        _cookTab = 'NEW';
+      } else if (access.category == KdsCategory.foh) {
         _activeRole = 'WAITER';
+        _waiterTab = 'READY';
       } else {
         _activeRole = 'COOK';
       }
@@ -414,6 +532,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final access = getKdsAccess(user);
+
     // 1. Cook View Lists
     final cookNewKots = _kots
         .where((k) =>
@@ -466,7 +587,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                 ),
                 Text(
                   _activeRole == 'COOK'
-                      ? '${cookNewKots.length} in kitchen • ${cookReadyKots.length} ready'
+                      ? (access.canViewWaiter
+                          ? '${cookNewKots.length} in kitchen • ${cookReadyKots.length} ready'
+                          : '${cookNewKots.length} in kitchen (Cooking)')
                       : '${waiterReadyKots.length} ready to serve',
                   style: const TextStyle(
                     fontSize: 10.5,
@@ -530,113 +653,152 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
       ),
       body: Column(
         children: [
-          // ── 1. Role Mode Switcher Toggle (Cook vs Waiter) ───────────────────
-          Container(
-            margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: RosTheme.bgElevated,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: RosTheme.bgBorder),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _activeRole = 'COOK');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      decoration: BoxDecoration(
-                        color: _activeRole == 'COOK' ? RosTheme.warning : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: _activeRole == 'COOK'
-                            ? [
-                                BoxShadow(
-                                  color: RosTheme.warning.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                )
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.soup_kitchen_rounded,
-                            size: 16,
-                            color: _activeRole == 'COOK' ? Colors.black : RosTheme.textMuted,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '👨‍🍳 Cook / Kitchen',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
+          // ── 1. Role Mode Switcher Toggle (Cook vs Waiter - for Management) ───
+          if (access.canToggle)
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: RosTheme.bgElevated,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: RosTheme.bgBorder),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _activeRole = 'COOK');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _activeRole == 'COOK' ? RosTheme.warning : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: _activeRole == 'COOK'
+                              ? [
+                                  BoxShadow(
+                                    color: RosTheme.warning.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.soup_kitchen_rounded,
+                              size: 16,
                               color: _activeRole == 'COOK' ? Colors.black : RosTheme.textMuted,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            Text(
+                              '👨‍🍳 Cook / Kitchen',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: _activeRole == 'COOK' ? Colors.black : RosTheme.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _activeRole = 'WAITER');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      decoration: BoxDecoration(
-                        color: _activeRole == 'WAITER' ? RosTheme.secondary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: _activeRole == 'WAITER'
-                            ? [
-                                BoxShadow(
-                                  color: RosTheme.secondary.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                )
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.room_service_rounded,
-                            size: 16,
-                            color: _activeRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '🍽️ Waiter / Runner',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _activeRole = 'WAITER');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _activeRole == 'WAITER' ? RosTheme.secondary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: _activeRole == 'WAITER'
+                              ? [
+                                  BoxShadow(
+                                    color: RosTheme.secondary.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.room_service_rounded,
+                              size: 16,
                               color: _activeRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            Text(
+                              '🍽️ Waiter / Runner',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: _activeRole == 'WAITER' ? Colors.white : RosTheme.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            )
+          else
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: RosTheme.bgElevated,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: RosTheme.bgBorder),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    access.category == KdsCategory.kitchen
+                        ? Icons.soup_kitchen_rounded
+                        : Icons.room_service_rounded,
+                    size: 18,
+                    color: access.category == KdsCategory.kitchen
+                        ? RosTheme.warning
+                        : RosTheme.secondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    access.category == KdsCategory.kitchen
+                        ? '👨‍🍳 Kitchen / Culinary Station'
+                        : '🍽️ Waiter / Service Station',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: access.category == KdsCategory.kitchen
+                          ? RosTheme.warning
+                          : RosTheme.secondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
           // ── 2. Station Filter Chips ─────────────────────────────────────────
           if (_stations.isNotEmpty) _buildStationFilterBar(),
 
           // ── 3. 2-Section Tabs Bar ───────────────────────────────────────────
           _buildTwoSectionTabBar(
+            access: access,
             cookNewCount: cookNewKots.length,
             cookReadyCount: cookReadyKots.length,
             waiterReadyCount: waiterReadyKots.length,
@@ -756,12 +918,26 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
 
   // ── 2-Section Tabs Bar ──────────────────────────────────────────────────────
   Widget _buildTwoSectionTabBar({
+    required KdsAccessInfo access,
     required int cookNewCount,
     required int cookReadyCount,
     required int waiterReadyCount,
     required int waiterServedCount,
   }) {
     if (_activeRole == 'COOK') {
+      if (!access.canViewWaiter) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: _buildSectionTabButton(
+            label: '🔥 New Orders (Cooking)',
+            count: cookNewCount,
+            isSelected: true,
+            activeColor: RosTheme.warning,
+            activeTextColor: Colors.black,
+            onTap: () {},
+          ),
+        );
+      }
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Row(
@@ -1118,7 +1294,7 @@ class _CookNewKotCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
-              children: kot.items.map((item) {
+              children: pendingItems.map((item) {
                 final isCancelled = item.status == 'CANCELLED';
                 final isReady = item.status == 'READY' || item.status == 'SERVED';
                 final isMulti = item.quantity > 1;
