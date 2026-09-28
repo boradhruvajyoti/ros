@@ -47,7 +47,7 @@ class SubmoduleGuard extends StatelessWidget {
   bool get _hasAccess {
     if (user == null) return false;
     if (user!.isPlatformAdmin || user!.isTenantAdmin) return true;
-    return user!.permissions.contains('sub:$submoduleId');
+    return user!.permissions.contains('sub:$submoduleId') || user!.permissions.contains(submoduleId);
   }
 
   @override

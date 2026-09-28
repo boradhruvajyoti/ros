@@ -864,7 +864,7 @@ const Map<String, List<String>> _moduleSubmoduleMap = {
 bool hasSubmoduleAccess(AuthUser? user, String submoduleId) {
   if (user == null) return false;
   if (user.isPlatformAdmin || user.isTenantAdmin) return true;
-  return user.permissions.contains('sub:$submoduleId');
+  return user.permissions.contains('sub:$submoduleId') || user.permissions.contains(submoduleId);
 }
 
 /// Check if a route is accessible: either via module-level perm OR any sub: perm for that module
@@ -878,24 +878,41 @@ bool isRouteAccessible(String path, AuthUser? user) {
     return user.isPlatformAdmin;
   }
 
-  // Helper: check module-level OR any sub: perm for a path
+  // Module key from path, e.g. '/current-orders' -> 'orders', '/tables' -> 'tables'
+  String getModuleKey(String route) {
+    if (route == '/current-orders' || route == '/orders') return 'orders';
+    if (route == '/order-history') return 'history';
+    return route.replaceAll('/', '');
+  }
+
+  final modKey = getModuleKey(cleanPath);
+  final hasGranular = user.permissions.any((p) => p.startsWith('sub:') || p.startsWith('module:') || p.startsWith('mod:'));
+
+  if (hasGranular) {
+    final subIds = _moduleSubmoduleMap[cleanPath] ?? _moduleSubmoduleMap['/$modKey'] ?? [];
+    final hasModPerm = user.permissions.contains('module:$modKey') || user.permissions.contains('mod:$modKey');
+    final hasSubPerm = subIds.any((sid) => user.permissions.contains('sub:$sid') || user.permissions.contains(sid));
+    return hasModPerm || hasSubPerm;
+  }
+
+  // Legacy fallback for old accounts without granular permissions
   bool checkAccess(String routePath, List<String> modulePerms) {
     if (user.hasAnyPermission(modulePerms)) return true;
     final subIds = _moduleSubmoduleMap[routePath] ?? [];
-    return subIds.any((sid) => user.permissions.contains('sub:$sid'));
+    return subIds.any((sid) => user.permissions.contains('sub:$sid') || user.permissions.contains(sid));
   }
 
   if (cleanPath.startsWith('/dashboard')) {
     return checkAccess('/dashboard', ['reports:view']);
   }
   if (cleanPath.startsWith('/tables')) {
-    return checkAccess('/tables', ['tables:view', 'tables:edit', 'orders:create']);
+    return checkAccess('/tables', ['tables:view', 'tables:edit']);
   }
   if (cleanPath.startsWith('/current-orders')) {
-    return checkAccess('/current-orders', ['orders:view', 'orders:create', 'tables:view']);
+    return checkAccess('/current-orders', ['orders:view', 'orders:create']);
   }
   if (cleanPath.startsWith('/pos')) {
-    return checkAccess('/pos', ['orders:create']);
+    return checkAccess('/pos', ['orders:create', 'payments:create']);
   }
   if (cleanPath.startsWith('/kitchen')) {
     return checkAccess('/kitchen', ['kitchen:view', 'kitchen:update']);

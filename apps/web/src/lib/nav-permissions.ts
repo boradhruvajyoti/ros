@@ -147,6 +147,17 @@ export function hasModuleOrSubmoduleAccess(
   if (!user) return false;
   if (isPlatformAdmin(user) || isTenantAdmin(user)) return true;
 
+  const userPerms: string[] = user?.permissions || [];
+  const hasGranular = userPerms.some((p) => p.startsWith('sub:') || p.startsWith('module:') || p.startsWith('mod:'));
+
+  if (hasGranular) {
+    const modKey = href.split('?')[0].replace(/^\//, '');
+    const isExplicitMod = userPerms.includes(`module:${modKey}`) || userPerms.includes(`mod:${modKey}`);
+    const subIds = MODULE_SUBMODULE_MAP[href] || [];
+    const hasAnySub = subIds.some((sid) => userPerms.includes(`sub:${sid}`) || userPerms.includes(sid));
+    return isExplicitMod || hasAnySub;
+  }
+
   // Check module-level permissions first (legacy/direct assignment)
   if (modulePermissions && modulePermissions.length > 0) {
     if (hasAnyPermission(...(modulePermissions as any[]))) return true;
@@ -154,8 +165,7 @@ export function hasModuleOrSubmoduleAccess(
 
   // Check if any submodule of this module is granted via sub: prefix
   const subIds = MODULE_SUBMODULE_MAP[href] || [];
-  const userPerms: string[] = user?.permissions || [];
-  if (subIds.some((sid) => userPerms.includes(`sub:${sid}`))) return true;
+  if (subIds.some((sid) => userPerms.includes(`sub:${sid}`) || userPerms.includes(sid))) return true;
 
   return false;
 }
@@ -169,7 +179,7 @@ export function hasSubmoduleAccess(submoduleId: string, user: any): boolean {
   if (!user) return false;
   if (isPlatformAdmin(user) || isTenantAdmin(user)) return true;
   const userPerms: string[] = user?.permissions || [];
-  return userPerms.includes(`sub:${submoduleId}`);
+  return userPerms.includes(`sub:${submoduleId}`) || userPerms.includes(submoduleId);
 }
 
 /** Check if a specific route is accessible by the user */
