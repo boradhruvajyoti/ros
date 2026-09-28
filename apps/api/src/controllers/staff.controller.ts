@@ -12,9 +12,10 @@ import { cacheDel } from '../lib/redis';
 import { z } from 'zod';
 
 export const FEATURE_MODULES = [
-  // Primary Operations
+  // Primary Dining & Floor Operations
   {
     id: 'dashboard',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Dashboard Overview',
     description: 'Executive dashboard, real-time live revenue counters and activity feed',
     keyPermission: 'reports:view',
@@ -22,13 +23,15 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'tables',
-    name: 'Tables',
+    category: '🍽️ Dining & Floor Operations',
+    name: 'Tables & Floor Plan',
     description: 'Floor view, live table orders, KOT status advance, billing preview',
     keyPermission: 'tables:view',
     permissions: ['tables:view', 'tables:edit', 'orders:view', 'orders:edit', 'menu:view'],
   },
   {
     id: 'pos',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Point of Sale (POS)',
     description: 'Touch order billing, table orders, cart modifiers, fast pay',
     keyPermission: 'orders:create',
@@ -36,13 +39,15 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'kitchen',
-    name: 'Kitchen Display System (KDS)',
+    category: '🍽️ Dining & Floor Operations',
+    name: 'Kitchen Display (KDS)',
     description: 'Live KOT tickets, accept orders, cooking bump, partial/full cancel',
     keyPermission: 'kitchen:view',
     permissions: ['kitchen:view', 'kitchen:update', 'orders:view', 'menu:view'],
   },
   {
     id: 'history',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Order History & Invoices',
     description: 'View previous orders, reprint receipts, audit customer bills',
     keyPermission: 'payments:view',
@@ -50,15 +55,17 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'reservations',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Table Reservations',
     description: 'Book tables, manage calendar, guest arrivals',
     keyPermission: 'reservations:view',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
   },
 
-  // Inventory & Kitchen
+  // Inventory & Culinary Supply
   {
     id: 'menu',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Menu & Category Management',
     description: 'Create dishes, prices, half/full variants, modifier groups',
     keyPermission: 'menu:create',
@@ -66,6 +73,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'inventory',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Stock & Inventory',
     description: 'Track ingredient stocks, low stock alerts, stock physical counts',
     keyPermission: 'inventory:view',
@@ -73,6 +81,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'production',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Recipe Yields & Production',
     description: 'Batch production, sub-recipes, kitchen prep batch conversions',
     keyPermission: 'inventory:write-off',
@@ -80,6 +89,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'procurement',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Procurement & Vendors',
     description: 'Purchase orders, supplier bills, goods receipt notes (GRN)',
     keyPermission: 'procurement:view',
@@ -87,15 +97,17 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'transfers',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Stock Transfers',
     description: 'Inter-branch stock transfers and central warehouse dispatch',
     keyPermission: 'inventory:transfer',
     permissions: ['inventory:view', 'inventory:transfer'],
   },
 
-  // Finance & Management
+  // Finance, HR & Management
   {
     id: 'customers',
+    category: '💼 Finance, HR & Management',
     name: 'Customers CRM & Loyalty',
     description: 'Guest contacts, visit frequency, loyalty reward points',
     keyPermission: 'customers:view',
@@ -103,6 +115,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'staff',
+    category: '💼 Finance, HR & Management',
     name: 'Staff & Team HR',
     description: 'Employee roster, attendance check-ins, staff accounts & access control',
     keyPermission: 'staff:view',
@@ -110,6 +123,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'expenses',
+    category: '💼 Finance, HR & Management',
     name: 'Expenses & Payouts',
     description: 'Daily operational expenses, petty cash, payout vouchers',
     keyPermission: 'expenses:view',
@@ -117,15 +131,17 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'reports',
+    category: '💼 Finance, HR & Management',
     name: 'Reports & P&L Analytics',
     description: 'Sales summaries, tax reports, item performance, profit & loss',
     keyPermission: 'reports:export',
     permissions: ['reports:view', 'reports:export'],
   },
 
-  // Growth & Engagement
+  // Growth, Marketing & Digital
   {
     id: 'ai-insights',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'AI Insights & Forecasts',
     description: 'AI revenue forecast, demand prediction, inventory wastage alerts',
     keyPermission: 'loyalty:adjust',
@@ -133,6 +149,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'marketing',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Marketing & Promotions',
     description: 'Coupon codes, happy hour discounts, customer campaigns',
     keyPermission: 'price:override',
@@ -140,6 +157,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'gift-cards',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Gift Cards & Vouchers',
     description: 'Issue gift vouchers, redeem prepaid cards, customer balances',
     keyPermission: 'payments:refund',
@@ -147,6 +165,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'feedback',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Guest Feedback & Ratings',
     description: 'Customer ratings, food quality reviews, dining experience surveys',
     keyPermission: 'customers:edit',
@@ -154,15 +173,17 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'integrations',
-    name: 'Aggregators & Online Integrations',
+    category: '🚀 Growth, Marketing & Digital',
+    name: 'Aggregators & Online Channels',
     description: 'Zomato, Swiggy, UberEats, WhatsApp ordering channel integrations',
     keyPermission: 'branches:view',
     permissions: ['settings:view', 'branches:view'],
   },
 
-  // Operations & Tech
+  // System, Tech & Administration
   {
     id: 'kiosk',
+    category: '⚙️ System, Tech & Administration',
     name: 'Touch Kiosk System',
     description: 'Self-ordering guest kiosk mode with touch menu interface',
     keyPermission: 'orders:void',
@@ -170,15 +191,15 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'franchise',
+    category: '⚙️ System, Tech & Administration',
     name: 'Franchise HQ & Multi-Outlet',
     description: 'Franchise royalty fee tracking and central brand controls',
     keyPermission: 'branches:create',
     permissions: ['branches:view', 'branches:create'],
   },
-
-  // Administration
   {
     id: 'settings',
+    category: '⚙️ System, Tech & Administration',
     name: 'Restaurant Settings',
     description: 'Restaurant taxes (GST/VAT), service charge, operating hours',
     keyPermission: 'settings:edit',
@@ -186,6 +207,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'hardware',
+    category: '⚙️ System, Tech & Administration',
     name: 'Hardware & Printers Setup',
     description: 'Network thermal printers, cash drawer triggers, barcode scanners',
     keyPermission: 'cash:open',
@@ -193,6 +215,7 @@ export const FEATURE_MODULES = [
   },
   {
     id: 'audit-vault',
+    category: '⚙️ System, Tech & Administration',
     name: 'Security Audit Vault',
     description: 'Immutable ledger of staff logins, bill voids, and sensitive actions',
     keyPermission: 'cash:close',

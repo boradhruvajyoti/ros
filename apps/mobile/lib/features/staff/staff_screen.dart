@@ -107,9 +107,10 @@ const List<String> kDepartments = [
   'Cleaning',
 ];
 
-// ── Feature Modules Definition (All Latest Platform Features) ───────────────
+// ── Feature Modules Definition (Categorized Platform Features) ───────────────
 class FeatureModuleItem {
   final String id;
+  final String category;
   final String name;
   final String icon;
   final String description;
@@ -117,6 +118,7 @@ class FeatureModuleItem {
 
   const FeatureModuleItem({
     required this.id,
+    required this.category,
     required this.name,
     required this.icon,
     required this.description,
@@ -125,9 +127,10 @@ class FeatureModuleItem {
 }
 
 const List<FeatureModuleItem> kPlatformFeatureModules = [
-  // Primary Operations
+  // Primary Dining & Floor Operations
   FeatureModuleItem(
     id: 'dashboard',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Dashboard Overview',
     icon: '📊',
     description: 'Executive dashboard, real-time live revenue counters & feed',
@@ -135,6 +138,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'tables',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Tables & Floor',
     icon: '🍽️',
     description: 'Floor view, live table orders, KOT status & billing preview',
@@ -142,6 +146,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'pos',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Point of Sale (POS)',
     icon: '🛒',
     description: 'Touch order billing, table orders, cart modifiers & fast pay',
@@ -149,6 +154,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'kitchen',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Kitchen Display (KDS)',
     icon: '👨‍🍳',
     description: 'Live KOT tickets, cooking bump, partial/full items cancel',
@@ -156,6 +162,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'history',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Order History & Invoices',
     icon: '📜',
     description: 'View past orders, reprint receipts, audit customer bills',
@@ -163,15 +170,17 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'reservations',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Table Reservations',
     icon: '📅',
     description: 'Book tables, manage calendar, guest arrivals & schedule',
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
   ),
 
-  // Inventory & Kitchen
+  // Inventory & Kitchen Supply
   FeatureModuleItem(
     id: 'menu',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Menu & Categories',
     icon: '📖',
     description: 'Create dishes, prices, half/full variants, modifier groups',
@@ -179,6 +188,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'inventory',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Stock & Inventory',
     icon: '📦',
     description: 'Track ingredient stocks, low stock alerts, stock physical counts',
@@ -186,6 +196,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'production',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Recipe Yields & Production',
     icon: '🔥',
     description: 'Batch production, sub-recipes, kitchen prep batch conversions',
@@ -193,6 +204,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'procurement',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Procurement & Vendors',
     icon: '🚚',
     description: 'Purchase orders, supplier bills, goods receipt notes (GRN)',
@@ -200,15 +212,17 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'transfers',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Stock Transfers',
     icon: '🔄',
     description: 'Inter-branch stock transfers and central warehouse dispatch',
     permissions: ['inventory:view', 'inventory:transfer'],
   ),
 
-  // Finance & Management
+  // Finance, HR & Management
   FeatureModuleItem(
     id: 'customers',
+    category: '💼 Finance, HR & Management',
     name: 'Customers CRM & Loyalty',
     icon: '👥',
     description: 'Guest contacts, visit frequency, loyalty reward points',
@@ -216,6 +230,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'staff',
+    category: '💼 Finance, HR & Management',
     name: 'Staff & Team HR',
     icon: '👤',
     description: 'Employee roster, attendance check-ins, staff accounts & RBAC',
@@ -223,6 +238,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'expenses',
+    category: '💼 Finance, HR & Management',
     name: 'Expenses & Payouts',
     icon: '💰',
     description: 'Daily operational expenses, petty cash, payout vouchers',
@@ -230,15 +246,17 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'reports',
+    category: '💼 Finance, HR & Management',
     name: 'Reports & P&L Analytics',
     icon: '📊',
     description: 'Sales summaries, tax reports, item performance, profit & loss',
     permissions: ['reports:view', 'reports:export'],
   ),
 
-  // Growth & Engagement
+  // Growth, Marketing & Digital
   FeatureModuleItem(
     id: 'ai-insights',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'AI Insights & Forecasts',
     icon: '✨',
     description: 'AI revenue forecast, demand prediction, inventory wastage alerts',
@@ -246,6 +264,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'marketing',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Marketing & Promotions',
     icon: '🏷️',
     description: 'Coupon codes, happy hour discounts, customer campaigns',
@@ -253,6 +272,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'gift-cards',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Gift Cards & Vouchers',
     icon: '🎁',
     description: 'Issue gift vouchers, redeem prepaid cards, customer balances',
@@ -260,6 +280,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'feedback',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Guest Feedback & Ratings',
     icon: '⭐',
     description: 'Customer ratings, food quality reviews, dining experience surveys',
@@ -267,15 +288,17 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'integrations',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Online Integrations',
     icon: '📻',
     description: 'Zomato, Swiggy, UberEats, WhatsApp ordering channel integrations',
     permissions: ['settings:view', 'branches:view'],
   ),
 
-  // Operations & Tech
+  // System, Tech & Administration
   FeatureModuleItem(
     id: 'kiosk',
+    category: '⚙️ System, Tech & Administration',
     name: 'Touch Kiosk System',
     icon: '📱',
     description: 'Self-ordering guest kiosk mode with touch menu interface',
@@ -283,6 +306,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'franchise',
+    category: '⚙️ System, Tech & Administration',
     name: 'Franchise HQ & Outlets',
     icon: '🏢',
     description: 'Franchise royalty fee tracking and central brand controls',
@@ -290,6 +314,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'settings',
+    category: '⚙️ System, Tech & Administration',
     name: 'Restaurant Settings',
     icon: '⚙️',
     description: 'Restaurant taxes (GST/VAT), service charge, operating hours',
@@ -297,6 +322,7 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'hardware',
+    category: '⚙️ System, Tech & Administration',
     name: 'Hardware & Printers',
     icon: '🖨️',
     description: 'Network thermal printers, cash drawer triggers, barcode scanners',
@@ -304,12 +330,18 @@ const List<FeatureModuleItem> kPlatformFeatureModules = [
   ),
   FeatureModuleItem(
     id: 'audit-vault',
+    category: '⚙️ System, Tech & Administration',
     name: 'Security Audit Vault',
     icon: '🛡️',
     description: 'Immutable ledger of staff logins, bill voids, and sensitive actions',
     permissions: ['settings:view', 'cash:close'],
   ),
 ];
+
+final List<String> kPlatformFeatureCategories = kPlatformFeatureModules
+    .map((m) => m.category)
+    .toSet()
+    .toList();
 
 // ── Role Presets ─────────────────────────────────────────────────────────────
 class RolePreset {
@@ -1477,9 +1509,9 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'PLATFORM FEATURE MODULES',
-                                  style: TextStyle(
+                                Text(
+                                  'FEATURE ACCESS PERMISSIONS (${_selectedModules.length}/${kPlatformFeatureModules.length})',
+                                  style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w900,
                                     color: RosTheme.textMuted,
@@ -1504,58 +1536,163 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                           _selectedModules.clear();
                                         });
                                       },
-                                      child: const Text('Clear', style: TextStyle(fontSize: 11, color: RosTheme.danger)),
+                                      child: const Text('Clear All', style: TextStyle(fontSize: 11, color: RosTheme.danger)),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 8),
 
-                            // List of Feature Checkboxes
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: kPlatformFeatureModules.length,
-                              itemBuilder: (ctx, idx) {
-                                final mod = kPlatformFeatureModules[idx];
-                                final isChecked = _selectedModules.contains(mod.id);
-                                return CheckboxListTile(
-                                  dense: true,
-                                  value: isChecked,
-                                  activeColor: RosTheme.primary,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                                  title: Row(
+                            // Categorized List of Feature Modules
+                            Column(
+                              children: kPlatformFeatureCategories.map((category) {
+                                final catModules = kPlatformFeatureModules.where((m) => m.category == category).toList();
+                                final selectedInCat = catModules.where((m) => _selectedModules.contains(m.id)).length;
+                                final isAllInCatSelected = selectedInCat == catModules.length;
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: RosTheme.bgCard,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: selectedInCat > 0
+                                          ? RosTheme.primary.withValues(alpha: 0.35)
+                                          : RosTheme.bgBorder,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(mod.icon, style: const TextStyle(fontSize: 14)),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          mod.name,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: RosTheme.textPrimary,
-                                          ),
+                                      // Category Header
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: selectedInCat > 0
+                                              ? RosTheme.primary.withValues(alpha: 0.08)
+                                              : RosTheme.bgElevated.withValues(alpha: 0.5),
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
                                         ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      category,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: RosTheme.textPrimary,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: selectedInCat > 0
+                                                          ? RosTheme.primary.withValues(alpha: 0.2)
+                                                          : RosTheme.bgElevated,
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Text(
+                                                      '$selectedInCat/${catModules.length}',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: selectedInCat > 0 ? RosTheme.primary : RosTheme.textMuted,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            InkWell(
+                                              borderRadius: BorderRadius.circular(6),
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedRolePreset = null;
+                                                  if (isAllInCatSelected) {
+                                                    for (final m in catModules) {
+                                                      _selectedModules.remove(m.id);
+                                                    }
+                                                  } else {
+                                                    for (final m in catModules) {
+                                                      _selectedModules.add(m.id);
+                                                    }
+                                                  }
+                                                });
+                                              },
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                                child: Text(
+                                                  isAllInCatSelected ? 'Clear' : 'Select All',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: isAllInCatSelected ? RosTheme.danger : RosTheme.primary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // Modules in this category
+                                      ListView.separated(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        itemCount: catModules.length,
+                                        separatorBuilder: (_, __) => Divider(height: 1, color: RosTheme.bgBorder.withValues(alpha: 0.5)),
+                                        itemBuilder: (ctx, idx) {
+                                          final mod = catModules[idx];
+                                          final isChecked = _selectedModules.contains(mod.id);
+                                          return CheckboxListTile(
+                                            dense: true,
+                                            value: isChecked,
+                                            activeColor: RosTheme.primary,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                            title: Row(
+                                              children: [
+                                                Text(mod.icon, style: const TextStyle(fontSize: 13)),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    mod.name,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: isChecked ? FontWeight.w800 : FontWeight.w600,
+                                                      color: isChecked ? RosTheme.textPrimary : RosTheme.textSecondary,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            subtitle: Text(
+                                              mod.description,
+                                              style: const TextStyle(fontSize: 10, color: RosTheme.textMuted),
+                                            ),
+                                            onChanged: (val) {
+                                              setState(() {
+                                                _selectedRolePreset = null;
+                                                if (val == true) {
+                                                  _selectedModules.add(mod.id);
+                                                } else {
+                                                  _selectedModules.remove(mod.id);
+                                                }
+                                              });
+                                            },
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),
-                                  subtitle: Text(
-                                    mod.description,
-                                    style: const TextStyle(fontSize: 10, color: RosTheme.textMuted),
-                                  ),
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _selectedRolePreset = null;
-                                      if (val == true) {
-                                        _selectedModules.add(mod.id);
-                                      } else {
-                                        _selectedModules.remove(mod.id);
-                                      }
-                                    });
-                                  },
                                 );
-                              },
+                              }).toList(),
                             ),
                           ],
                         ),

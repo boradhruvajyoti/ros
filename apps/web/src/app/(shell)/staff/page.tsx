@@ -46,9 +46,10 @@ interface Employee {
 }
 
 const FEATURE_MODULES = [
-  // Primary Operations
+  // Primary Dining & Floor Operations
   {
     id: 'dashboard',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Dashboard Overview',
     icon: '📊',
     description: 'Executive dashboard, real-time live revenue counters and activity feed',
@@ -57,7 +58,8 @@ const FEATURE_MODULES = [
   },
   {
     id: 'tables',
-    name: 'Tables',
+    category: '🍽️ Dining & Floor Operations',
+    name: 'Tables & Floor Plan',
     icon: '🍽️',
     description: 'Floor view, live table orders, KOT status advance, billing preview',
     keyPermission: 'tables:view',
@@ -65,6 +67,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'pos',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Point of Sale (POS)',
     icon: '🛒',
     description: 'Touch order billing, table orders, cart modifiers, fast pay',
@@ -73,6 +76,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'kitchen',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Kitchen Display System (KDS)',
     icon: '👨‍🍳',
     description: 'Live KOT tickets, accept orders, cooking bump, partial/full cancel',
@@ -81,6 +85,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'history',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Order History & Invoices',
     icon: '📜',
     description: 'View previous orders, reprint receipts, audit customer bills',
@@ -89,6 +94,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'reservations',
+    category: '🍽️ Dining & Floor Operations',
     name: 'Table Reservations',
     icon: '📅',
     description: 'Book tables, manage calendar, guest arrivals',
@@ -96,9 +102,10 @@ const FEATURE_MODULES = [
     permissions: ['reservations:view', 'reservations:create', 'reservations:edit', 'reservations:cancel'],
   },
 
-  // Inventory & Kitchen
+  // Inventory & Kitchen Supply
   {
     id: 'menu',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Menu & Category Management',
     icon: '📖',
     description: 'Create dishes, prices, half/full variants, modifier groups',
@@ -107,6 +114,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'inventory',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Stock & Inventory',
     icon: '📦',
     description: 'Track ingredient stocks, low stock alerts, stock physical counts',
@@ -115,6 +123,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'production',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Recipe Yields & Production',
     icon: '🔥',
     description: 'Batch production, sub-recipes, kitchen prep batch conversions',
@@ -123,6 +132,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'procurement',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Procurement & Vendors',
     icon: '🚚',
     description: 'Purchase orders, supplier bills, goods receipt notes (GRN)',
@@ -131,6 +141,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'transfers',
+    category: '📦 Inventory & Kitchen Supply',
     name: 'Stock Transfers',
     icon: '🔄',
     description: 'Inter-branch stock transfers and central warehouse dispatch',
@@ -138,9 +149,10 @@ const FEATURE_MODULES = [
     permissions: ['inventory:view', 'inventory:transfer'],
   },
 
-  // Finance & Management
+  // Finance, HR & Management
   {
     id: 'customers',
+    category: '💼 Finance, HR & Management',
     name: 'Customers CRM & Loyalty',
     icon: '👥',
     description: 'Guest contacts, visit frequency, loyalty reward points',
@@ -149,6 +161,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'staff',
+    category: '💼 Finance, HR & Management',
     name: 'Staff & Team HR',
     icon: '👤',
     description: 'Employee roster, attendance check-ins, staff accounts & access control',
@@ -157,6 +170,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'expenses',
+    category: '💼 Finance, HR & Management',
     name: 'Expenses & Payouts',
     icon: '💰',
     description: 'Daily operational expenses, petty cash, payout vouchers',
@@ -165,6 +179,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'reports',
+    category: '💼 Finance, HR & Management',
     name: 'Reports & P&L Analytics',
     icon: '📊',
     description: 'Sales summaries, tax reports, item performance, profit & loss',
@@ -172,9 +187,10 @@ const FEATURE_MODULES = [
     permissions: ['reports:view', 'reports:export'],
   },
 
-  // Growth & Engagement
+  // Growth, Marketing & Digital
   {
     id: 'ai-insights',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'AI Insights & Forecasts',
     icon: '✨',
     description: 'AI revenue forecast, demand prediction, inventory wastage alerts',
@@ -183,6 +199,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'marketing',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Marketing & Promotions',
     icon: '🏷️',
     description: 'Coupon codes, happy hour discounts, customer campaigns',
@@ -191,6 +208,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'gift-cards',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Gift Cards & Vouchers',
     icon: '🎁',
     description: 'Issue gift vouchers, redeem prepaid cards, customer balances',
@@ -199,6 +217,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'feedback',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Guest Feedback & Ratings',
     icon: '⭐',
     description: 'Customer ratings, food quality reviews, dining experience surveys',
@@ -207,6 +226,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'integrations',
+    category: '🚀 Growth, Marketing & Digital',
     name: 'Aggregators & Online Integrations',
     icon: '📻',
     description: 'Zomato, Swiggy, UberEats, WhatsApp ordering channel integrations',
@@ -214,9 +234,10 @@ const FEATURE_MODULES = [
     permissions: ['settings:view', 'branches:view'],
   },
 
-  // Operations & Tech
+  // System, Tech & Administration
   {
     id: 'kiosk',
+    category: '⚙️ System, Tech & Administration',
     name: 'Touch Kiosk System',
     icon: '📱',
     description: 'Self-ordering guest kiosk mode with touch menu interface',
@@ -225,16 +246,16 @@ const FEATURE_MODULES = [
   },
   {
     id: 'franchise',
+    category: '⚙️ System, Tech & Administration',
     name: 'Franchise HQ & Multi-Outlet',
     icon: '🏢',
     description: 'Franchise royalty fee tracking and central brand controls',
     keyPermission: 'branches:create',
     permissions: ['branches:view', 'branches:create'],
   },
-
-  // Administration
   {
     id: 'settings',
+    category: '⚙️ System, Tech & Administration',
     name: 'Restaurant Settings',
     icon: '⚙️',
     description: 'Restaurant taxes (GST/VAT), service charge, operating hours',
@@ -243,6 +264,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'hardware',
+    category: '⚙️ System, Tech & Administration',
     name: 'Hardware & Printers Setup',
     icon: '🖨️',
     description: 'Network thermal printers, cash drawer triggers, barcode scanners',
@@ -251,6 +273,7 @@ const FEATURE_MODULES = [
   },
   {
     id: 'audit-vault',
+    category: '⚙️ System, Tech & Administration',
     name: 'Security Audit Vault',
     icon: '🛡️',
     description: 'Immutable ledger of staff logins, bill voids, and sensitive actions',
@@ -258,6 +281,8 @@ const FEATURE_MODULES = [
     permissions: ['settings:view', 'cash:close'],
   },
 ];
+
+const FEATURE_CATEGORIES = Array.from(new Set(FEATURE_MODULES.map((m) => m.category)));
 
 const ROLE_PRESETS = [
   {
@@ -626,6 +651,17 @@ export default function StaffPage() {
     );
   };
 
+  const toggleCategoryModules = (category: string) => {
+    const categoryModuleIds = FEATURE_MODULES.filter((m) => m.category === category).map((m) => m.id);
+    const allSelected = categoryModuleIds.every((id) => selectedModules.includes(id));
+    if (allSelected) {
+      setSelectedModules((prev) => prev.filter((id) => !categoryModuleIds.includes(id)));
+    } else {
+      setSelectedModules((prev) => Array.from(new Set([...prev, ...categoryModuleIds])));
+    }
+    setSelectedRolePreset('CUSTOM');
+  };
+
   const handleSelectAllModules = () => {
     if (selectedModules.length === FEATURE_MODULES.length) {
       setSelectedModules([]);
@@ -683,6 +719,17 @@ export default function StaffPage() {
     setEditSelectedModules((prev) =>
       prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
     );
+    setEditSelectedRolePreset('CUSTOM');
+  };
+
+  const toggleEditCategoryModules = (category: string) => {
+    const categoryModuleIds = FEATURE_MODULES.filter((m) => m.category === category).map((m) => m.id);
+    const allSelected = categoryModuleIds.every((id) => editSelectedModules.includes(id));
+    if (allSelected) {
+      setEditSelectedModules((prev) => prev.filter((id) => !categoryModuleIds.includes(id)));
+    } else {
+      setEditSelectedModules((prev) => Array.from(new Set([...prev, ...categoryModuleIds])));
+    }
     setEditSelectedRolePreset('CUSTOM');
   };
 
@@ -1329,11 +1376,11 @@ export default function StaffPage() {
                         </div>
                       </div>
 
-                      {/* Feature Permissions Matrix */}
-                      <div className="space-y-2.5 pt-1">
-                        <div className="flex items-center justify-between">
+                      {/* Feature Permissions Matrix (Categorized) */}
+                      <div className="space-y-3 pt-1">
+                        <div className="flex items-center justify-between pb-1 border-b border-border/40">
                           <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                            <ShieldCheck className="w-4 h-4 text-primary" /> Feature Access Permissions
+                            <ShieldCheck className="w-4 h-4 text-primary" /> Feature Access Permissions ({selectedModules.length}/{FEATURE_MODULES.length})
                           </span>
                           <button
                             type="button"
@@ -1344,37 +1391,77 @@ export default function StaffPage() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 no-scrollbar">
-                          {FEATURE_MODULES.map((mod) => {
-                            const isSelected = selectedModules.includes(mod.id);
+                        <div className="space-y-3.5 max-h-72 overflow-y-auto pr-1 no-scrollbar">
+                          {FEATURE_CATEGORIES.map((category) => {
+                            const catModules = FEATURE_MODULES.filter((m) => m.category === category);
+                            const selectedInCat = catModules.filter((m) => selectedModules.includes(m.id)).length;
+                            const isAllInCatSelected = selectedInCat === catModules.length;
+
                             return (
                               <div
-                                key={mod.id}
-                                onClick={() => toggleModule(mod.id)}
-                                className={cn(
-                                  'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
-                                  isSelected
-                                    ? 'bg-primary/10 border-primary/50 text-foreground'
-                                    : 'bg-card border-border/60 text-muted-foreground hover:border-border'
-                                )}
+                                key={category}
+                                className="p-3 rounded-2xl border border-border/70 bg-card/60 space-y-2.5 shadow-xs"
                               >
-                                <div
-                                  className={cn(
-                                    'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
-                                    isSelected
-                                      ? 'bg-primary text-primary-foreground border-primary'
-                                      : 'border-muted-foreground/40 bg-background'
-                                  )}
-                                >
-                                  {isSelected && <Check className="w-3 h-3" />}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-extrabold text-foreground tracking-tight">
+                                      {category}
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        'text-[10px] px-2 py-0.5 rounded-full font-bold',
+                                        selectedInCat > 0
+                                          ? 'bg-primary/15 text-primary'
+                                          : 'bg-muted text-muted-foreground'
+                                      )}
+                                    >
+                                      {selectedInCat}/{catModules.length} Active
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCategoryModules(category)}
+                                    className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                                  >
+                                    {isAllInCatSelected ? 'Clear Category' : 'Select Category'}
+                                  </button>
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
-                                    <span>{mod.icon}</span> <span>{mod.name}</span>
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
-                                    {mod.description}
-                                  </p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {catModules.map((mod) => {
+                                    const isSelected = selectedModules.includes(mod.id);
+                                    return (
+                                      <div
+                                        key={mod.id}
+                                        onClick={() => toggleModule(mod.id)}
+                                        className={cn(
+                                          'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
+                                          isSelected
+                                            ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs'
+                                            : 'bg-background/80 border-border/50 text-muted-foreground hover:border-border'
+                                        )}
+                                      >
+                                        <div
+                                          className={cn(
+                                            'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
+                                            isSelected
+                                              ? 'bg-primary text-primary-foreground border-primary'
+                                              : 'border-muted-foreground/40 bg-background'
+                                          )}
+                                        >
+                                          {isSelected && <Check className="w-3 h-3" />}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
+                                            <span>{mod.icon}</span> <span>{mod.name}</span>
+                                          </p>
+                                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                            {mod.description}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );
@@ -1739,11 +1826,11 @@ export default function StaffPage() {
                         </div>
                       </div>
 
-                      {/* Feature Permissions Matrix */}
-                      <div className="space-y-2.5 pt-1">
-                        <div className="flex items-center justify-between">
+                      {/* Feature Permissions Matrix (Categorized) */}
+                      <div className="space-y-3 pt-1">
+                        <div className="flex items-center justify-between pb-1 border-b border-border/40">
                           <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                            <ShieldCheck className="w-4 h-4 text-primary" /> Feature Access Permissions
+                            <ShieldCheck className="w-4 h-4 text-primary" /> Feature Access Permissions ({editSelectedModules.length}/{FEATURE_MODULES.length})
                           </span>
                           <button
                             type="button"
@@ -1754,37 +1841,77 @@ export default function StaffPage() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 no-scrollbar">
-                          {FEATURE_MODULES.map((mod) => {
-                            const isSelected = editSelectedModules.includes(mod.id);
+                        <div className="space-y-3.5 max-h-72 overflow-y-auto pr-1 no-scrollbar">
+                          {FEATURE_CATEGORIES.map((category) => {
+                            const catModules = FEATURE_MODULES.filter((m) => m.category === category);
+                            const selectedInCat = catModules.filter((m) => editSelectedModules.includes(m.id)).length;
+                            const isAllInCatSelected = selectedInCat === catModules.length;
+
                             return (
                               <div
-                                key={mod.id}
-                                onClick={() => toggleEditModule(mod.id)}
-                                className={cn(
-                                  'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
-                                  isSelected
-                                    ? 'bg-primary/10 border-primary/50 text-foreground'
-                                    : 'bg-card border-border/60 text-muted-foreground hover:border-border'
-                                )}
+                                key={category}
+                                className="p-3 rounded-2xl border border-border/70 bg-card/60 space-y-2.5 shadow-xs"
                               >
-                                <div
-                                  className={cn(
-                                    'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
-                                    isSelected
-                                      ? 'bg-primary text-primary-foreground border-primary'
-                                      : 'border-muted-foreground/40 bg-background'
-                                  )}
-                                >
-                                  {isSelected && <Check className="w-3 h-3" />}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-extrabold text-foreground tracking-tight">
+                                      {category}
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        'text-[10px] px-2 py-0.5 rounded-full font-bold',
+                                        selectedInCat > 0
+                                          ? 'bg-primary/15 text-primary'
+                                          : 'bg-muted text-muted-foreground'
+                                      )}
+                                    >
+                                      {selectedInCat}/{catModules.length} Active
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleEditCategoryModules(category)}
+                                    className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                                  >
+                                    {isAllInCatSelected ? 'Clear Category' : 'Select Category'}
+                                  </button>
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
-                                    <span>{mod.icon}</span> <span>{mod.name}</span>
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
-                                    {mod.description}
-                                  </p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {catModules.map((mod) => {
+                                    const isSelected = editSelectedModules.includes(mod.id);
+                                    return (
+                                      <div
+                                        key={mod.id}
+                                        onClick={() => toggleEditModule(mod.id)}
+                                        className={cn(
+                                          'p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all',
+                                          isSelected
+                                            ? 'bg-primary/10 border-primary/50 text-foreground shadow-xs'
+                                            : 'bg-background/80 border-border/50 text-muted-foreground hover:border-border'
+                                        )}
+                                      >
+                                        <div
+                                          className={cn(
+                                            'w-4 h-4 rounded-md mt-0.5 flex items-center justify-center text-[10px] font-black shrink-0 border',
+                                            isSelected
+                                              ? 'bg-primary text-primary-foreground border-primary'
+                                              : 'border-muted-foreground/40 bg-background'
+                                          )}
+                                        >
+                                          {isSelected && <Check className="w-3 h-3" />}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-xs font-bold text-foreground leading-tight flex items-center gap-1">
+                                            <span>{mod.icon}</span> <span>{mod.name}</span>
+                                          </p>
+                                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                            {mod.description}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );
