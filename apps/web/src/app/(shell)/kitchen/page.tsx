@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, ChefHat, CheckCircle2, Flame, Bell, Wifi, WifiOff,
   Check, Volume2, VolumeX, AlertTriangle, Utensils,
-  Trash2, XCircle, RotateCcw, Sparkles, ShoppingBag, ArrowRight
+  Trash2, XCircle, RotateCcw, Sparkles, ShoppingBag, ArrowRight, Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1080,6 +1080,7 @@ function WaiterReadyKotCard({
   const readyItems = activeItems.filter((i) => i.status === 'READY');
   const cookingItems = activeItems.filter((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].includes(i.status));
   const hasReady = readyItems.length > 0;
+  const isAllCompleted = cookingItems.length === 0 && readyItems.length > 0;
 
   return (
     <div className={cn(
@@ -1235,7 +1236,7 @@ function WaiterReadyKotCard({
 
       {/* Whole KOT Footer Action */}
       <div className="p-3 border-t border-border bg-muted/30">
-        {hasReady ? (
+        {isAllCompleted ? (
           <button
             type="button"
             onClick={onServeKot}
@@ -1244,6 +1245,14 @@ function WaiterReadyKotCard({
             <Utensils className="w-5 h-5" />
             <span>MARK ALL READY DISHES SERVED ({readyItems.length})</span>
           </button>
+        ) : hasReady ? (
+          <div
+            className="w-full h-14 rounded-2xl bg-muted/60 border border-border text-muted-foreground font-bold text-xs sm:text-sm flex items-center justify-center gap-2 px-3 opacity-75 select-none"
+            title="Mark all dishes served is enabled only when all items in the KOT are marked completed by the kitchen. You can serve individual ready dishes above."
+          >
+            <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="truncate">MARK ALL READY DISHES SERVED ({cookingItems.length} dish{cookingItems.length > 1 ? 'es' : ''} still cooking)</span>
+          </div>
         ) : (
           <div className="w-full h-12 rounded-2xl bg-muted/60 text-muted-foreground font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-border/50 select-none">
             <Clock className="w-4 h-4 text-amber-500/80" />

@@ -1685,6 +1685,7 @@ class _WaiterReadyKotCard extends StatelessWidget {
     final readyItems = activeItems.where((i) => i.status == 'READY').toList();
     final cookingItems = activeItems.where((i) => ['NEW', 'PENDING', 'ACCEPTED', 'PREPARING'].contains(i.status)).toList();
     final hasReady = readyItems.isNotEmpty;
+    final isAllCompleted = cookingItems.isEmpty && readyItems.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -2003,7 +2004,7 @@ class _WaiterReadyKotCard extends StatelessWidget {
           // ── Whole KOT Footer Action ──────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-            child: hasReady
+            child: isAllCompleted
                 ? ElevatedButton.icon(
                     onPressed: onServeAll,
                     icon: const Icon(Icons.room_service_rounded, size: 20),
@@ -2024,30 +2025,58 @@ class _WaiterReadyKotCard extends StatelessWidget {
                       shadowColor: RosTheme.secondary.withValues(alpha: 0.4),
                     ),
                   )
-                : Container(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    decoration: BoxDecoration(
-                      color: RosTheme.bgElevated,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: RosTheme.bgBorder),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.access_time_rounded, size: 15, color: RosTheme.warning),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Awaiting Kitchen (${cookingItems.length} Dishes Cooking)',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: RosTheme.textSecondary,
-                          ),
+                : hasReady
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: RosTheme.bgElevated.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: RosTheme.bgBorder.withValues(alpha: 0.8)),
                         ),
-                      ],
-                    ),
-                  ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.lock_outline_rounded, size: 15, color: RosTheme.warning),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'MARK ALL SERVED (${cookingItems.length} dish${cookingItems.length > 1 ? "es" : ""} still cooking)',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: RosTheme.textMuted,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        decoration: BoxDecoration(
+                          color: RosTheme.bgElevated,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: RosTheme.bgBorder),
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.access_time_rounded, size: 15, color: RosTheme.warning),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Awaiting Kitchen (${cookingItems.length} Dishes Cooking)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: RosTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
           ),
         ],
       ),
