@@ -67,6 +67,7 @@ const List<DesignationGroup> kDesignationCategories = [
     items: [
       'Executive Chef',
       'Head Chef',
+      'Head Cook',
       'Executive Sous Chef',
       'Sous Chef',
       'Chef de Partie (CDP)',
@@ -75,6 +76,7 @@ const List<DesignationGroup> kDesignationCategories = [
       'Commis II (Cook)',
       'Commis III (Junior Cook)',
       'Line Cook / Short Order Cook',
+      'Assistant Cook',
       'Pastry Chef / Baker',
       'Pizza Chef / Pizzaiolo',
       'Tandoor / Grill Master',
