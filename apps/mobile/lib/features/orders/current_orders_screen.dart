@@ -525,6 +525,22 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
   }
 
   Future<void> _settlePayment(String method) async {
+    final activeKots = widget.order.kots.where((k) => k.status != 'CANCELLED').toList();
+    final totalKots = activeKots.length;
+    final servedKots = activeKots.where((k) => k.status == 'SERVED').length;
+    if (totalKots > 0 && servedKots < totalKots) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ Cannot settle bill: $servedKots/$totalKots KOTs served. All KOTs must be marked as SERVED in kitchen first.'),
+            backgroundColor: RosTheme.warning,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isProcessing = true);
     try {
       final api = ref.read(apiClientProvider);
@@ -1088,24 +1104,71 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                             borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    // Settle & Mark Paid (Only when all KOTs of the table are completely served)
+                    () {
+                      final activeKots = widget.order.kots.where((k) => k.status != 'CANCELLED').toList();
+                      final totalKots = activeKots.length;
+                      final servedKots = activeKots.where((k) => k.status == 'SERVED').length;
+                      final bool allKotsServed = totalKots > 0 && servedKots == totalKots;
+                      final bool canSettle = !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].contains(widget.order.status) &&
+                          (totalKots == 0 ? ['SERVED', 'BILLED', 'PARTIALLY_PAID'].contains(widget.order.status) : allKotsServed);
 
-                    // Settle & Mark Paid
-                    ElevatedButton.icon(
-                      onPressed: _isProcessing ? null : _showSettlementModal,
-                      icon: const Icon(Icons.credit_card_rounded, size: 14),
-                      label: const Text('Settle',
-                          style: TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w800)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: RosTheme.secondary,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
+                      if (canSettle) {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: ElevatedButton.icon(
+                            onPressed: _isProcessing ? null : _showSettlementModal,
+                            icon: const Icon(Icons.credit_card_rounded, size: 14),
+                            label: const Text('Settle',
+                                style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.w800)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: RosTheme.secondary,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (totalKots > 0 && !allKotsServed) {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: RosTheme.warning.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: RosTheme.warning.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.local_fire_department_rounded,
+                                    size: 13, color: RosTheme.warning),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'In Kitchen ($servedKots/$totalKots Served)',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: RosTheme.warning,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      return const SizedBox.shrink();
+                    }(),
                   ],
                 ),
               ],

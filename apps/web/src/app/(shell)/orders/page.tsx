@@ -166,6 +166,14 @@ export default function CurrentOrdersPage() {
   // Settle Payment Action (Cash, UPI, Card)
   const handleSettlePayment = async (order: any, method: string) => {
     try {
+      const activeKots = (order.kots || []).filter((k: any) => k.status !== 'CANCELLED');
+      const totalKots = activeKots.length;
+      const servedKots = activeKots.filter((k: any) => k.status === 'SERVED').length;
+      if (totalKots > 0 && servedKots < totalKots) {
+        showToast(`Cannot settle order: ${servedKots}/${totalKots} KOTs served. All KOTs must be marked SERVED in kitchen first.`);
+        return;
+      }
+
       setIsSettling(true);
       const settleAmount = Number(order.total) || 0;
 
@@ -759,13 +767,44 @@ export default function CurrentOrdersPage() {
 
                 {/* Primary Settle & Clear Action Footer */}
                 <div className="p-3 bg-muted/15 border-t border-border flex items-center gap-2">
-                  <Button
-                    onClick={() => setSettlingOrder(order)}
-                    className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs h-9 gap-1.5 shadow-sm"
-                  >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    <span>Settle & Mark Paid</span>
-                  </Button>
+                  {(() => {
+                    const activeKots = (order.kots || []).filter((k: any) => k.status !== 'CANCELLED');
+                    const totalKots = activeKots.length;
+                    const servedKots = activeKots.filter((k: any) => k.status === 'SERVED').length;
+                    const allKotsServed = totalKots > 0 && servedKots === totalKots;
+                    const canSettle = !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status) &&
+                      (totalKots === 0 ? ['SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(order.status) : allKotsServed);
+
+                    if (canSettle) {
+                      return (
+                        <Button
+                          onClick={() => setSettlingOrder(order)}
+                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs h-9 gap-1.5 shadow-sm"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Settle & Mark Paid</span>
+                        </Button>
+                      );
+                    }
+
+                    if (totalKots > 0 && !allKotsServed) {
+                      return (
+                        <div
+                          className="flex-1 flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-bold select-none"
+                          title={`Kitchen in progress: ${servedKots}/${totalKots} KOTs served. All items must be marked served on KDS before settling.`}
+                        >
+                          <Flame className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                          <span>In Kitchen ({servedKots}/{totalKots} Served)</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex-1 flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl bg-muted/40 border border-border text-muted-foreground text-xs font-semibold">
+                        <span>{order.status}</span>
+                      </div>
+                    );
+                  })()}
 
                   <Button
                     variant="ghost"

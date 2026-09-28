@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/api/api_client.dart';
 
 class OrderDetailScreen extends ConsumerStatefulWidget {
   final String orderId;
@@ -251,19 +250,52 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
               ]),
             ),
 
-            // Add payment button if balance due
+            // Add payment button if balance due and all KOTs are served
             if (order.balanceDue > 0.01 &&
                 !['CANCELLED', 'VOIDED', 'PAID', 'COMPLETED'].contains(order.status)) ...[
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: _showPaymentSheet,
-                  icon: const Icon(Icons.payment_rounded),
-                  label: Text('Collect Payment — ₹${order.balanceDue.toStringAsFixed(0)}'),
-                ),
-              ),
+              () {
+                final activeKots = order.kots.where((k) => k.status != 'CANCELLED').toList();
+                final totalKots = activeKots.length;
+                final servedKots = activeKots.where((k) => k.status == 'SERVED').length;
+                final bool allKotsServed = totalKots == 0 || servedKots == totalKots;
+
+                if (!allKotsServed) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: RosTheme.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: RosTheme.warning.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.local_fire_department_rounded, size: 16, color: RosTheme.warning),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'In Kitchen: $servedKots/$totalKots KOTs Served (Must complete before payment)',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: RosTheme.warning),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _showPaymentSheet,
+                    icon: const Icon(Icons.payment_rounded),
+                    label: Text('Collect Payment — ₹${order.balanceDue.toStringAsFixed(0)}'),
+                  ),
+                );
+              }(),
             ],
           ],
         ),
