@@ -76,14 +76,14 @@ export function AppSidebar() {
   const navItems = getFilteredSidebarItems(user, hasAnyPermission);
 
   const renderNavLinks = (isMobile = false) => (
-    <nav className="flex-1 overflow-y-auto py-3 no-scrollbar space-y-1">
+    <nav className="flex-1 overflow-y-auto py-2 no-scrollbar space-y-0.5">
       {navItems.map((item: any, idx) => {
         if (item.type === 'divider') {
           return !isMobile && collapsed ? (
-            <div key={idx} className="my-2 mx-2 border-t border-sidebar-border" />
+            <div key={idx} className="my-2 mx-2 border-t border-sidebar-border/50" />
           ) : (
-            <div key={idx} className="px-4 pt-4 pb-1">
-              <p className="text-[10px] font-black text-sidebar-foreground/40 uppercase tracking-widest">
+            <div key={idx} className="px-3.5 pt-3 pb-1">
+              <p className="text-[10.5px] font-bold text-sidebar-foreground/40 uppercase tracking-wider">
                 {item.label}
               </p>
             </div>
@@ -113,19 +113,32 @@ export function AppSidebar() {
             }}
             title={!isMobile && collapsed ? item.label : undefined}
             className={cn(
-              'flex items-center gap-3 mx-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-95',
-              !isMobile && collapsed ? 'justify-center px-2' : '',
+              'group flex items-center gap-3 mx-2 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150',
+              !isMobile && collapsed ? 'justify-center px-2 py-2.5' : '',
               active
                 ? isPlatformSuperAdmin
-                  ? 'bg-indigo-500/20 text-indigo-400 font-bold shadow-xs'
-                  : 'bg-primary text-primary-foreground font-black shadow-sm'
-                : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                  ? 'bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30 shadow-xs'
+                  : 'bg-primary/15 text-primary font-semibold border border-primary/30 shadow-xs'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
             )}
           >
-            <Icon className={cn('shrink-0', !isMobile && collapsed ? 'w-5 h-5' : 'w-4.5 h-4.5', active && !isPlatformSuperAdmin && 'text-primary-foreground')} />
+            <Icon
+              className={cn(
+                'shrink-0 transition-colors',
+                !isMobile && collapsed ? 'w-4.5 h-4.5' : 'w-4 h-4',
+                active
+                  ? (isPlatformSuperAdmin ? 'text-indigo-400' : 'text-primary')
+                  : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground'
+              )}
+            />
             {(isMobile || !collapsed) && <span className="truncate">{item.label}</span>}
             {active && (isMobile || !collapsed) && (
-              <div className={cn('ml-auto w-2 h-2 rounded-full', isPlatformSuperAdmin ? 'bg-indigo-400' : 'bg-primary-foreground')} />
+              <div
+                className={cn(
+                  'ml-auto w-1.5 h-1.5 rounded-full',
+                  isPlatformSuperAdmin ? 'bg-indigo-400' : 'bg-primary'
+                )}
+              />
             )}
           </Link>
         );

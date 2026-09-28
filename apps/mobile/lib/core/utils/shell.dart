@@ -146,7 +146,7 @@ class AppShell extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 12,
-                  backgroundColor: RosTheme.primary.withOpacity(0.2),
+                  backgroundColor: RosTheme.primary.withValues(alpha: 0.2),
                   child: Text(
                     (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
                     style: const TextStyle(
@@ -220,7 +220,7 @@ class AppShell extends ConsumerWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: RosTheme.textMuted.withOpacity(0.3),
+                  color: RosTheme.textMuted.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -231,7 +231,7 @@ class AppShell extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: RosTheme.primary.withOpacity(0.15),
+                  backgroundColor: RosTheme.primary.withValues(alpha: 0.15),
                   child: Text(
                     (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
                     style: const TextStyle(
@@ -404,11 +404,11 @@ class AppShell extends ConsumerWidget {
                 icon: const Icon(Icons.logout_rounded, size: 18),
                 label: const Text('Sign Out'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: RosTheme.danger.withOpacity(0.12),
+                  backgroundColor: RosTheme.danger.withValues(alpha: 0.12),
                   foregroundColor: RosTheme.danger,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: RosTheme.danger.withOpacity(0.3)),
+                    side: BorderSide(color: RosTheme.danger.withValues(alpha: 0.3)),
                   ),
                 ),
               ),
@@ -423,9 +423,9 @@ class AppShell extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         role.replaceAll('_', ' '),
@@ -577,69 +577,83 @@ class AppShell extends ConsumerWidget {
     final sections = _getFilteredNavSections(user, isSuperAdmin);
 
     return Container(
-      width: 230,
+      width: 235,
       decoration: const BoxDecoration(
         color: RosTheme.bgCard,
         border: Border(right: BorderSide(color: RosTheme.bgBorder)),
       ),
       child: Column(
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Row(
               children: [
                 Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    gradient: isSuperAdmin
-                        ? const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)])
-                        : RosTheme.primaryGradient,
+                    color: isSuperAdmin
+                        ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+                        : RosTheme.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSuperAdmin
+                          ? const Color(0xFF6366F1).withValues(alpha: 0.3)
+                          : RosTheme.primary.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Icon(
                     isSuperAdmin ? Icons.hub_rounded : Icons.restaurant,
-                    color: Colors.white,
-                    size: 20,
+                    color: isSuperAdmin ? const Color(0xFF818CF8) : RosTheme.primary,
+                    size: 18,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('ROS', style: TextStyle(
-                      color: RosTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    )),
-                    Text(
-                      isSuperAdmin ? 'Platform HQ' : (user?.tenantName ?? 'Restaurant OS'),
-                      style: const TextStyle(
-                        color: RosTheme.textMuted,
-                        fontSize: 10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isSuperAdmin ? 'Platform Root' : (user?.tenantName ?? 'Restaurant OS'),
+                        style: const TextStyle(
+                          color: RosTheme.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                      Text(
+                        isSuperAdmin ? 'SaaS Control Plane' : 'Culinary OS',
+                        style: const TextStyle(
+                          color: RosTheme.textMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
+          const Divider(color: RosTheme.bgBorder, height: 1),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               children: sections.map((section) {
                 if (section is _SectionDivider) {
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
+                    padding: const EdgeInsets.fromLTRB(10, 14, 10, 4),
                     child: Text(
                       section.label,
                       style: const TextStyle(
                         color: RosTheme.textMuted,
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.8,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   );
@@ -648,27 +662,61 @@ class AppShell extends ConsumerWidget {
                 final isActive = location.startsWith(item.path);
                 return Container(
                   margin: const EdgeInsets.only(bottom: 2),
-                  child: ListTile(
-                    dense: true,
-                    leading: Icon(
-                      item.icon,
-                      size: 18,
-                      color: isActive ? RosTheme.primary : RosTheme.textMuted,
-                    ),
-                    title: Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isActive ? RosTheme.primary : RosTheme.textSecondary,
-                        fontSize: 13,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                  child: InkWell(
+                    onTap: () => context.go(item.path),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? (isSuperAdmin
+                                ? const Color(0xFF6366F1).withValues(alpha: 0.12)
+                                : RosTheme.primary.withValues(alpha: 0.12))
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isActive
+                              ? (isSuperAdmin
+                                  ? const Color(0xFF6366F1).withValues(alpha: 0.3)
+                                  : RosTheme.primary.withValues(alpha: 0.3))
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            item.icon,
+                            size: 17,
+                            color: isActive
+                                ? (isSuperAdmin ? const Color(0xFF818CF8) : RosTheme.primary)
+                                : RosTheme.textMuted,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              item.label,
+                              style: TextStyle(
+                                color: isActive
+                                    ? RosTheme.textPrimary
+                                    : RosTheme.textSecondary,
+                                fontSize: 12.5,
+                                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isActive)
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: isSuperAdmin ? const Color(0xFF818CF8) : RosTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    selected: isActive,
-                    selectedTileColor: RosTheme.primary.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    onTap: () => context.go(item.path),
                   ),
                 );
               }).toList(),
@@ -683,14 +731,14 @@ class AppShell extends ConsumerWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 16,
-                  backgroundColor: RosTheme.primary.withOpacity(0.2),
+                  radius: 15,
+                  backgroundColor: RosTheme.primary.withValues(alpha: 0.15),
                   child: Text(
                     (user?.name ?? 'U').substring(0, 1).toUpperCase(),
                     style: const TextStyle(
                       color: RosTheme.primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -705,12 +753,12 @@ class AppShell extends ConsumerWidget {
                         style: const TextStyle(
                           color: RosTheme.textPrimary,
                           fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        isSuperAdmin ? 'Super Admin' : (user?.roles.firstOrNull ?? 'Owner'),
+                        isSuperAdmin ? 'Super Admin' : (user?.roles.firstOrNull ?? 'Staff'),
                         style: const TextStyle(
                           color: RosTheme.textMuted,
                           fontSize: 10,
@@ -720,7 +768,9 @@ class AppShell extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.logout, color: RosTheme.danger, size: 18),
+                  icon: const Icon(Icons.logout_rounded, color: RosTheme.danger, size: 17),
+                  tooltip: 'Logout',
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => _confirmLogout(context, ref),
                 ),
               ],
@@ -736,92 +786,168 @@ class AppShell extends ConsumerWidget {
 
     return Drawer(
       backgroundColor: RosTheme.bgCard,
-      child: Column(
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              gradient: isSuperAdmin
-                  ? const LinearGradient(colors: [Color(0xFF1E1B4B), Color(0xFF4338CA)])
-                  : RosTheme.primaryGradient,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Minimalist Drawer Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: const BoxDecoration(
+                color: RosTheme.bgElevated,
+                border: Border(bottom: BorderSide(color: RosTheme.bgBorder)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: isSuperAdmin
+                          ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+                          : RosTheme.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSuperAdmin
+                            ? const Color(0xFF6366F1).withValues(alpha: 0.3)
+                            : RosTheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Icon(
+                      isSuperAdmin ? Icons.hub_rounded : Icons.restaurant,
+                      color: isSuperAdmin ? const Color(0xFF818CF8) : RosTheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isSuperAdmin ? 'Platform Control' : (user?.tenantName ?? 'ROS Mobile'),
+                          style: const TextStyle(
+                            color: RosTheme.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          user?.name ?? user?.email ?? '',
+                          style: const TextStyle(
+                            color: RosTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: RosTheme.textMuted, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  isSuperAdmin ? Icons.hub_rounded : Icons.restaurant,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        isSuperAdmin ? 'Platform Control' : 'ROS Mobile',
+
+            // Navigation items
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                children: sections.map((section) {
+                  if (section is _SectionDivider) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 14, 10, 4),
+                      child: Text(
+                        section.label,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
+                          color: RosTheme.textMuted,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
                         ),
                       ),
-                      Text(
-                        user?.name ?? user?.email ?? '',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
+                    );
+                  }
+                  final item = section as _NavItem;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 2),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.go(item.path);
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        child: Row(
+                          children: [
+                            Icon(item.icon, color: RosTheme.textMuted, size: 18),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                item.label,
+                                style: const TextStyle(
+                                  color: RosTheme.textSecondary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            // Minimalist Bottom Logout Bar
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: RosTheme.bgBorder)),
+              ),
+              child: InkWell(
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _confirmLogout(context, ref);
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: RosTheme.danger.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: RosTheme.danger.withValues(alpha: 0.2)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.logout_rounded, color: RosTheme.danger, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'Logout Account',
+                        style: TextStyle(
+                          color: RosTheme.danger,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: sections.map((section) {
-                if (section is _SectionDivider) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: Text(
-                      section.label,
-                      style: const TextStyle(
-                        color: RosTheme.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  );
-                }
-                final item = section as _NavItem;
-                return ListTile(
-                  leading: Icon(item.icon, color: RosTheme.textSecondary, size: 20),
-                  title: Text(item.label, style: const TextStyle(
-                    color: RosTheme.textSecondary,
-                    fontSize: 14,
-                  )),
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.go(item.path);
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout, color: RosTheme.danger),
-            title: const Text('Logout', style: TextStyle(color: RosTheme.danger)),
-            onTap: () async {
-              Navigator.pop(context);
-              await _confirmLogout(context, ref);
-            },
-          ),
-          const SizedBox(height: 16),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -967,18 +1093,18 @@ const List<Object> _restaurantNavSections = [
   _SectionDivider('OPERATIONS'),
   _NavItem(path: '/tables',         label: 'Tables',           icon: Icons.grid_view_rounded),
   _NavItem(path: '/current-orders', label: 'Current Orders',   icon: Icons.receipt_long_rounded),
-  _NavItem(path: '/kitchen',        label: 'Kitchen Display',  icon: Icons.restaurant_rounded),
+  _NavItem(path: '/kitchen',        label: 'Kitchen (KDS)',    icon: Icons.restaurant_rounded),
   _NavItem(path: '/order-history',  label: 'Order History',    icon: Icons.history_rounded),
   _NavItem(path: '/reservations',   label: 'Reservations',     icon: Icons.event_seat_rounded),
-  _SectionDivider('MENU & INVENTORY'),
+  _SectionDivider('INVENTORY & MENU'),
   _NavItem(path: '/menu',           label: 'Menu Catalog',     icon: Icons.menu_book_rounded),
-  _NavItem(path: '/inventory',      label: 'Inventory',        icon: Icons.inventory_2_rounded),
-  _SectionDivider('PEOPLE & FINANCE'),
-  _NavItem(path: '/customers',      label: 'Customers',        icon: Icons.people_rounded),
-  _NavItem(path: '/staff',          label: 'Staff & HR',       icon: Icons.badge_rounded),
-  _NavItem(path: '/reports',        label: 'Reports',          icon: Icons.bar_chart_rounded),
-  _SectionDivider('SYSTEM'),
-  _NavItem(path: '/dashboard',      label: 'Dashboard',        icon: Icons.home_rounded),
+  _NavItem(path: '/inventory',      label: 'Stock Inventory',  icon: Icons.inventory_2_rounded),
+  _SectionDivider('FINANCE & TEAM'),
+  _NavItem(path: '/customers',      label: 'Customers & CRM',  icon: Icons.people_rounded),
+  _NavItem(path: '/staff',          label: 'Staff & Team',     icon: Icons.badge_rounded),
+  _NavItem(path: '/reports',        label: 'Sales & Reports',  icon: Icons.bar_chart_rounded),
+  _SectionDivider('SETTINGS & SYSTEM'),
+  _NavItem(path: '/dashboard',      label: 'Dashboard',        icon: Icons.dashboard_rounded),
   _NavItem(path: '/settings',       label: 'Settings',         icon: Icons.settings_rounded),
 ];
 
