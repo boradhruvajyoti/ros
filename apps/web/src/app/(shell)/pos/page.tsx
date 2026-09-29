@@ -140,25 +140,28 @@ export default function POSPage() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get('table');
   const orderParam = searchParams.get('order') || searchParams.get('orderId');
+  const typeParam = searchParams.get('type') || searchParams.get('orderType');
 
-  // Guard: Staff must select a table from the Tables section before visiting POS
+  // Guard: Staff must arrive with a selected table, existing order, or non-dine-in order type
   useEffect(() => {
-    if (!tableParam && !orderParam) {
+    if (!tableParam && !orderParam && !typeParam) {
       toast({
-        title: 'Table Selection Required',
-        description: 'Please visit the Tables section and select an intended table to start ordering.',
+        title: 'Order Setup Required',
+        description: 'Please visit the Tables section to select a table or order type.',
         variant: 'destructive',
       });
       router.replace('/tables');
     }
-  }, [tableParam, orderParam, router]);
+  }, [tableParam, orderParam, typeParam, router]);
 
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [foodTypeFilter, setFoodTypeFilter] = useState<'ALL' | 'VEG' | 'NON_VEG'>('ALL');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
+  const [orderType, setOrderType] = useState<OrderType>(
+    typeParam === 'TAKEAWAY' ? 'TAKEAWAY' : typeParam === 'DELIVERY' ? 'DELIVERY' : 'DINE_IN'
+  );
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -860,27 +863,34 @@ export default function POSPage() {
         {/* Top Header: Order Mode, Search & Filters */}
         <div className="p-3 sm:p-3.5 border-b border-border space-y-2.5 sm:space-y-3 bg-card/60 backdrop-blur shrink-0">
           <div className="flex items-center justify-between gap-2.5 flex-wrap">
-            {/* 3 Touch Order Type Buttons */}
-            <div className="flex items-center gap-1 p-1 bg-muted/80 rounded-2xl border border-border">
-              {[
-                { id: 'DINE_IN', label: '🍽️ Dine-In', color: 'bg-emerald-600 text-white' },
-                { id: 'TAKEAWAY', label: '🛍️ Takeaway', color: 'bg-indigo-600 text-white' },
-                { id: 'DELIVERY', label: '🛵 Delivery', color: 'bg-purple-600 text-white' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setOrderType(t.id as any)}
-                  className={cn(
-                    'px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm',
-                    orderType === t.id
-                      ? `${t.color} scale-100 shadow-md`
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
+            {/* Active Order Context Badge */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/80 rounded-none border border-border">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                {orderType === 'DINE_IN' ? (
+                  <>
+                    <span className="text-emerald-500 font-black">🍽️</span>
+                    <span>Table <span className="font-mono font-black text-emerald-400">{selectedTableName || 'Table'}</span> (Dine-In)</span>
+                  </>
+                ) : orderType === 'TAKEAWAY' ? (
+                  <>
+                    <span>🛍️</span>
+                    <span className="text-indigo-400 font-black">Takeaway Order</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🛵</span>
+                    <span className="text-purple-400 font-black">Delivery Order</span>
+                  </>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => router.push('/tables')}
+                className="text-[10px] font-bold text-primary hover:underline ml-1 cursor-pointer"
+                title="Switch Table or Order Type"
+              >
+                Switch
+              </button>
             </div>
 
             {/* Quick Search Bar */}
@@ -1456,44 +1466,6 @@ export default function POSPage() {
                     </button>
                   </div>
                 </div>
-
-                {/* Table Selector inside Mobile Cart */}
-                {orderType === 'DINE_IN' && (
-                  <div className="space-y-1 pt-1">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-                      <span>Select Table:</span>
-                      {selectedTable && (
-                        <button
-                          type="button"
-                          onClick={() => handleSelectTable(null)}
-                          className="text-[10px] text-destructive cursor-pointer font-bold"
-                        >
-                          ✕ Clear Table
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                      {tables.map((t: any) => {
-                        const isSelected = selectedTable === t.id;
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => handleSelectTable(isSelected ? null : t)}
-                            className={cn(
-                              "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border shrink-0 cursor-pointer transition-all",
-                              isSelected
-                                ? "bg-emerald-600 text-white border-emerald-500 shadow-xs font-black"
-                                : "bg-background border-border text-foreground hover:bg-muted"
-                            )}
-                          >
-                            <span>{t.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Itemised list */}
@@ -1662,74 +1634,34 @@ export default function POSPage() {
             )}
           </div>
 
-          {/* Big Table Selector for Dine-In — Large Multi-Column Grid Tabs */}
-          {orderType === 'DINE_IN' && (
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
-                  <TableIcon className="w-3.5 h-3.5 text-primary" /> Select Seated Table:
-                </label>
-                {selectedTable && (
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTable(null)}
-                    className="text-[10px] font-bold text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                  >
-                    ✕ Clear Table
-                  </button>
-                )}
-              </div>
-
-              {!selectedTable && (
-                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold flex items-center gap-1.5">
-                  <span className="text-amber-400">⚠️</span>
-                  <span>Select a table first to add dishes to cart</span>
-                </div>
+          <div className="flex items-center justify-between px-2.5 py-1.5 bg-muted/60 border border-border/80 text-xs font-bold">
+            <div className="flex items-center gap-1.5 text-foreground">
+              {orderType === 'DINE_IN' ? (
+                <>
+                  <TableIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Table: <span className="text-emerald-500 font-mono font-black">{selectedTableName || 'Selected Table'}</span></span>
+                </>
+              ) : orderType === 'TAKEAWAY' ? (
+                <>
+                  <span className="text-sm shrink-0">🛍️</span>
+                  <span className="text-indigo-400 font-black">Takeaway Order</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm shrink-0">🛵</span>
+                  <span className="text-purple-400 font-black">Delivery Order</span>
+                </>
               )}
-
-              {/* Multi-column grid of large table tabs */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-44 overflow-y-auto pr-0.5">
-                {tables.length > 0 ? (
-                  tables.map((t: any) => {
-                    const isSelected = selectedTable === t.id;
-                    const isOccupied = t.status === 'OCCUPIED';
-                    const tableOrder = (activeOrders || []).find((o: any) => o.tableId === t.id);
-                    const isPendingQr = tableOrder && ['CONFIRMED', 'DRAFT'].includes(tableOrder.status);
-
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => handleSelectTable(isSelected ? null : t)}
-                        className={cn(
-                          'p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm text-center relative overflow-hidden',
-                          isSelected
-                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/40'
-                            : isPendingQr
-                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30 animate-pulse'
-                            : isOccupied
-                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
-                            : 'bg-background border-border text-foreground hover:border-primary/50 hover:bg-muted/40'
-                        )}
-                      >
-                        <span className="font-black text-xs leading-tight truncate w-full">{t.name}</span>
-                        <span className={cn(
-                          'text-[10px] font-medium opacity-80',
-                          isSelected ? 'text-emerald-100' : isPendingQr ? 'text-amber-300 font-bold' : 'text-muted-foreground'
-                        )}>
-                          {isPendingQr ? '🛎️ QR Order' : t.capacity ? `👥 ${t.capacity}` : (isOccupied ? 'Occupied' : 'Vacant')}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="col-span-full p-3 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground">
-                    No tables configured. You can set up tables in Tables section.
-                  </div>
-                )}
-              </div>
             </div>
-          )}
+
+            <button
+              type="button"
+              onClick={() => router.push('/tables')}
+              className="text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              Change
+            </button>
+          </div>
         </div>
 
         {/* Pending QR Order Notice Banner */}

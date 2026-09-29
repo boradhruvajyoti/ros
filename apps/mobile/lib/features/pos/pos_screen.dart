@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
@@ -117,85 +118,89 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       child: Column(
         children: [
           // Row 1: Order type pills + Table selector
+          // Row 1: Active Order Context Badge
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Order Type Pills
-              Expanded(
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: RosTheme.bgElevated,
+                  borderRadius: BorderRadius.zero,
+                  border: Border.all(color: RosTheme.bgBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (cart.orderType == 'DINE_IN') ...[
+                      const Icon(Icons.table_restaurant_rounded,
+                          size: 15, color: RosTheme.secondary),
+                      const SizedBox(width: 6),
+                      Text(
+                        activeTable.id.isNotEmpty
+                            ? 'Table: ${activeTable.name}'
+                            : 'Table: Dine-In',
+                        style: const TextStyle(
+                          color: RosTheme.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ] else if (cart.orderType == 'TAKEAWAY') ...[
+                      const Text('🛍️', style: TextStyle(fontSize: 13)),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Takeaway Order',
+                        style: TextStyle(
+                          color: RosTheme.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ] else ...[
+                      const Text('🛵', style: TextStyle(fontSize: 13)),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Delivery Order',
+                        style: TextStyle(
+                          color: RosTheme.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  GoRouter.of(context).go('/tables');
+                },
                 child: Container(
-                  padding: const EdgeInsets.all(2.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: RosTheme.bgBorder),
+                    color: RosTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
                   ),
-                  child: Row(
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildOrderTypePill('DINE_IN', '🍽️ Dine In', cart.orderType),
-                      _buildOrderTypePill('TAKEAWAY', '🛍️ Takeaway', cart.orderType),
-                      _buildOrderTypePill('DELIVERY', '🛵 Delivery', cart.orderType),
+                      Icon(Icons.swap_horiz_rounded, size: 14, color: RosTheme.primary),
+                      SizedBox(width: 4),
+                      Text(
+                        'Switch Table',
+                        style: TextStyle(
+                          color: RosTheme.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-
-              // Table Selector Pill (for Dine In)
-              if (cart.orderType == 'DINE_IN') ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _showTablePickerModal(context, tables),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      gradient: activeTable.id.isNotEmpty
-                          ? RosTheme.greenGradient
-                          : null,
-                      color: activeTable.id.isNotEmpty
-                          ? null
-                          : RosTheme.warning.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: activeTable.id.isNotEmpty
-                            ? Colors.transparent
-                            : RosTheme.warning.withValues(alpha: 0.6),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.table_restaurant_rounded,
-                          size: 15,
-                          color: activeTable.id.isNotEmpty
-                              ? Colors.white
-                              : RosTheme.warning,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          activeTable.id.isNotEmpty
-                              ? activeTable.name
-                              : 'Select Table',
-                          style: TextStyle(
-                            color: activeTable.id.isNotEmpty
-                                ? Colors.white
-                                : RosTheme.warning,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        Icon(
-                          Icons.arrow_drop_down_rounded,
-                          size: 16,
-                          color: activeTable.id.isNotEmpty
-                              ? Colors.white70
-                              : RosTheme.warning,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
 
@@ -256,36 +261,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildOrderTypePill(String value, String label, String currentType) {
-    final isSelected = currentType == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          ref.read(cartProvider.notifier).setOrderType(value);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            gradient: isSelected ? RosTheme.primaryGradient : null,
-            color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.white : RosTheme.textMuted,
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -793,21 +768,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // ── Modals & Sheets (Table Picker, Order Ticket, Fast Pay) ────────────────────
 
-  void _showTablePickerModal(
-      BuildContext context, List<RestaurantTable> tables) {
-    showPosTablePickerModal(
-      context,
-      ref,
-      tables,
-      onTableSelected: (t) {
-        setState(() {
-          _selectedTableId = t.id;
-          _selectedTableName = t.name;
-        });
-      },
-    );
-  }
-
   void _showOrderTicketSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -1216,7 +1176,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
             ],
           ),
 
-          // Table Selector / Indicator (Mandatory for sending KOT only if DINE_IN)
+          // Active Order Context Indicator in Cart
           if (cart.orderType == 'DINE_IN') ...[
             const SizedBox(height: 10),
             Builder(
@@ -1241,70 +1201,55 @@ class _OrderTicketDrawer extends ConsumerWidget {
                         .name
                     : null;
 
-                return GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    showPosTablePickerModal(context, ref, tables);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: hasTable
-                          ? RosTheme.bgElevated
-                          : RosTheme.warning.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: hasTable
-                            ? RosTheme.bgBorder
-                            : RosTheme.warning.withValues(alpha: 0.6),
-                        width: hasTable ? 1.0 : 1.3,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.table_restaurant_rounded,
-                              size: 16,
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: RosTheme.bgElevated,
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: RosTheme.bgBorder),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.table_restaurant_rounded,
+                            size: 15,
+                            color: RosTheme.secondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            hasTable
+                                ? 'Dine In · Table $activeTableName'
+                                : 'Dine In (Table Required)',
+                            style: TextStyle(
                               color: hasTable
-                                  ? RosTheme.secondary
+                                  ? RosTheme.textPrimary
                                   : RosTheme.warning,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              hasTable
-                                  ? 'Table: $activeTableName'
-                                  : '⚠️ No Table Selected (Required for KOT)',
-                              style: TextStyle(
-                                color: hasTable
-                                    ? RosTheme.textPrimary
-                                    : RosTheme.warning,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.pop(context);
+                          GoRouter.of(context).go('/tables');
+                        },
+                        child: const Text(
+                          'Switch',
+                          style: TextStyle(
+                            color: RosTheme.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        Row(
-                          children: [
-                            Text(
-                              hasTable ? 'Change' : 'Select Table',
-                              style: const TextStyle(
-                                color: RosTheme.secondary,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(width: 3),
-                            const Icon(Icons.arrow_forward_ios_rounded,
-                                size: 10, color: RosTheme.secondary),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               },

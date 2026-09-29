@@ -302,6 +302,93 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
       ),
       body: Column(
         children: [
+          // Order Type Selector Header Section (Dine In / Takeaway / Delivery)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: RosTheme.bgElevated,
+                      borderRadius: BorderRadius.zero,
+                      border: Border.all(color: RosTheme.bgBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            decoration: const BoxDecoration(
+                              color: RosTheme.secondary,
+                              borderRadius: BorderRadius.zero,
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              '🍽️ Dine In',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ref.read(cartProvider.notifier).setOrderType('TAKEAWAY');
+                              ref.read(cartProvider.notifier).setTable(null);
+                              GoRouter.of(context).go('/pos');
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              color: Colors.transparent,
+                              alignment: Alignment.center,
+                              child: const Text(
+                                '🛍️ Takeaway',
+                                style: TextStyle(
+                                  color: RosTheme.textSecondary,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ref.read(cartProvider.notifier).setOrderType('DELIVERY');
+                              ref.read(cartProvider.notifier).setTable(null);
+                              GoRouter.of(context).go('/pos');
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              color: Colors.transparent,
+                              alignment: Alignment.center,
+                              child: const Text(
+                                '🛵 Delivery',
+                                style: TextStyle(
+                                  color: RosTheme.textSecondary,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Floor Filter Tabs
           floorsAsync.when(
             data: (floors) => _buildFloorTabs(floors),

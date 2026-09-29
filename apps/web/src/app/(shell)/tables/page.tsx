@@ -925,7 +925,57 @@ export default function TablesPage() {
   const occupiedCount = statusCounts.OCCUPIED || 0;
 
   return (
-    <div className="space-y-8 animate-fade-in select-none pb-16">
+    <div className="space-y-6 animate-fade-in select-none pb-16">
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          ORDER TYPE SECTION (Brought from POS to Tables screen)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-3.5 bg-card border border-border/70 rounded-none shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-muted/70 rounded-none border border-border/80">
+          {[
+            { id: 'DINE_IN', label: '🍽️ Dine-In (Tables)', active: true },
+            { id: 'TAKEAWAY', label: '🛍️ Takeaway / Pickup', active: false },
+            { id: 'DELIVERY', label: '🛵 Delivery', active: false },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                if (t.id !== 'DINE_IN') {
+                  router.push(`/pos?orderType=${t.id}`);
+                }
+              }}
+              className={cn(
+                'px-3.5 py-1.5 sm:py-2 text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 border rounded-none shadow-2xs',
+                t.active
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                  : 'bg-background border-border text-foreground hover:bg-muted hover:border-primary/40'
+              )}
+            >
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.push('/pos?orderType=TAKEAWAY')}
+            className="h-8 sm:h-9 px-3 rounded-none bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-400 text-xs font-bold flex items-center gap-1.5 border border-indigo-500/30 transition-colors cursor-pointer"
+          >
+            <span>🛍️</span>
+            <span>New Takeaway</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/pos?orderType=DELIVERY')}
+            className="h-8 sm:h-9 px-3 rounded-none bg-purple-600/15 hover:bg-purple-600/25 text-purple-400 text-xs font-bold flex items-center gap-1.5 border border-purple-500/30 transition-colors cursor-pointer"
+          >
+            <span>🛵</span>
+            <span>New Delivery</span>
+          </button>
+        </div>
+      </div>
+
       {/* ─────────────────────────────────────────────────────────────────────────────
           SECTION 1: DINING FLOOR & TABLE SEATING
       ───────────────────────────────────────────────────────────────────────────── */}
