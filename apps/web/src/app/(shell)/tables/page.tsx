@@ -109,45 +109,45 @@ const TABLE_STATUS_META = {
     label: '🟢 Available / Free',
     shortLabel: 'Available',
     color: 'bg-emerald-500',
-    border: 'border-emerald-500/40 hover:border-emerald-500',
-    bg: 'bg-emerald-950/20',
-    text: 'text-emerald-400',
+    border: 'border-emerald-600/40 dark:border-emerald-500/40 hover:border-emerald-500',
+    bg: 'bg-white dark:bg-zinc-900',
+    text: 'text-emerald-700 dark:text-emerald-400',
     action: 'Tap to Take Order',
   },
   OCCUPIED: {
     label: '🔴 Dining / Occupied',
     shortLabel: 'Dining',
-    color: 'bg-red-500',
-    border: 'border-red-500/40 hover:border-red-500',
-    bg: 'bg-red-950/25',
-    text: 'text-red-400',
+    color: 'bg-rose-500',
+    border: 'border-rose-500 dark:border-rose-500',
+    bg: 'bg-rose-50/90 dark:bg-rose-950/40',
+    text: 'text-rose-700 dark:text-rose-400',
     action: 'Running Order',
   },
   RESERVED: {
     label: '🔵 Reserved',
     shortLabel: 'Reserved',
     color: 'bg-blue-500',
-    border: 'border-blue-500/40 hover:border-blue-500',
-    bg: 'bg-blue-950/25',
-    text: 'text-blue-400',
+    border: 'border-blue-500/50 dark:border-blue-400/50 hover:border-blue-500',
+    bg: 'bg-blue-50/90 dark:bg-blue-950/40',
+    text: 'text-blue-700 dark:text-blue-400',
     action: 'Seat Guests',
   },
   CLEANING: {
     label: '🟡 Needs Cleaning',
     shortLabel: 'Cleaning',
     color: 'bg-amber-500',
-    border: 'border-amber-500/40 hover:border-amber-500',
-    bg: 'bg-amber-950/25',
-    text: 'text-amber-400',
+    border: 'border-amber-500/50 dark:border-amber-400/50 hover:border-amber-500',
+    bg: 'bg-amber-50/90 dark:bg-amber-950/40',
+    text: 'text-amber-700 dark:text-amber-400',
     action: 'Mark Clean',
   },
   BLOCKED: {
     label: '⚪ Out of Service',
     shortLabel: 'Blocked',
     color: 'bg-zinc-500',
-    border: 'border-zinc-700 hover:border-zinc-500',
-    bg: 'bg-zinc-900/40',
-    text: 'text-zinc-400',
+    border: 'border-zinc-300 dark:border-zinc-700 hover:border-zinc-500',
+    bg: 'bg-zinc-100 dark:bg-zinc-900/80',
+    text: 'text-zinc-700 dark:text-zinc-400',
     action: 'Enable',
   },
 };
@@ -1073,18 +1073,18 @@ export default function TablesPage() {
                   key={table.id}
                   onClick={() => handleTableClick(table)}
                   className={cn(
-                    'group relative flex flex-col justify-between p-2.5 sm:p-3 rounded-2xl border-2 transition-all duration-150 cursor-pointer min-h-[118px]',
+                    'group relative flex flex-col justify-between p-2.5 sm:p-3 rounded-none border-2 transition-all duration-150 cursor-pointer min-h-[118px]',
                     meta.bg,
                     isOccupied
                       ? 'border-rose-500 shadow-md shadow-rose-500/10 ring-1 ring-rose-500/30 hover:border-rose-500 hover:shadow-lg hover:-translate-y-0.5'
-                      : cn(meta.border, 'shadow-2xs hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5')
+                      : cn(meta.border, 'shadow-xs hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5')
                   )}
                 >
                   {/* Top row: Table Number & Capacity & Quick history/standee */}
                   <div className="flex items-center justify-between gap-1">
                     <div className="flex items-center gap-1.5">
                       <div className={cn(
-                        'w-8 h-8 rounded-xl flex items-center justify-center font-mono font-black text-sm shrink-0 border shadow-2xs',
+                        'w-8 h-8 rounded-none flex items-center justify-center font-mono font-black text-sm shrink-0 border shadow-2xs',
                         isOccupied
                           ? 'bg-gradient-to-br from-rose-600 to-red-700 text-white border-rose-400'
                           : 'bg-card text-foreground border-border/80 group-hover:text-primary group-hover:border-primary/40'
@@ -1100,7 +1100,7 @@ export default function TablesPage() {
                       <button
                         type="button"
                         onClick={() => setQrModalTable(table)}
-                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
+                        className="p-1 rounded-none text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                         title="Table QR Standee"
                       >
                         <QrCode className="w-3 h-3" />
@@ -1111,7 +1111,7 @@ export default function TablesPage() {
                           setTableOrdersPreset('today');
                           setTableOrdersModalTable(table);
                         }}
-                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
+                        className="p-1 rounded-none text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                         title="Orders History"
                       >
                         <Clock className="w-3 h-3" />
@@ -1134,7 +1134,7 @@ export default function TablesPage() {
                         
                         <div className="flex items-center justify-between gap-1 text-[10px]">
                           {isPendingAccept ? (
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black text-[9px] border border-emerald-500/40 animate-pulse truncate">
+                            <span className="px-1.5 py-0.5 rounded-none bg-emerald-500/20 text-emerald-300 font-black text-[9px] border border-emerald-500/40 animate-pulse truncate">
                               ⚡ New Order
                             </span>
                           ) : kotProg.total > 0 ? (
@@ -1148,7 +1148,7 @@ export default function TablesPage() {
                           )}
                           
                           {orderCfg && (
-                            <span className={cn('px-1 py-0.2 rounded text-[8px] font-bold shrink-0 border', orderCfg.bg, orderCfg.text, orderCfg.border)}>
+                            <span className={cn('px-1 py-0.2 rounded-none text-[8px] font-bold shrink-0 border', orderCfg.bg, orderCfg.text, orderCfg.border)}>
                               {orderCfg.label}
                             </span>
                           )}
@@ -1172,7 +1172,7 @@ export default function TablesPage() {
                           <button
                             type="button"
                             onClick={() => router.push(`/pos?table=${table.id}&order=${activeOrder.id}&accept=true`)}
-                            className="w-full h-6 px-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center gap-1 shadow-xs cursor-pointer animate-pulse"
+                            className="w-full h-6 px-1.5 rounded-none bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center gap-1 shadow-xs cursor-pointer animate-pulse"
                           >
                             <CheckCircle2 className="w-3 h-3" /> Accept
                           </button>
@@ -1181,7 +1181,7 @@ export default function TablesPage() {
                             <button
                               type="button"
                               onClick={() => setSelectedOrderId(activeOrder.id)}
-                              className="flex-1 h-6 px-1.5 rounded-lg bg-card hover:bg-muted text-foreground font-bold text-[10px] flex items-center justify-center gap-1 border border-border/70 cursor-pointer"
+                              className="flex-1 h-6 px-1.5 rounded-none bg-card hover:bg-muted text-foreground font-bold text-[10px] flex items-center justify-center gap-1 border border-border/70 cursor-pointer"
                               title="View Table Order Details"
                             >
                               <Eye className="w-3 h-3 text-primary" /> View
@@ -1189,7 +1189,7 @@ export default function TablesPage() {
                             <button
                               type="button"
                               onClick={() => router.push(`/pos?table=${table.id}`)}
-                              className="h-6 px-2 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer"
+                              className="h-6 px-2 rounded-none bg-primary/15 hover:bg-primary/25 text-primary font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer"
                               title="Add Items in POS"
                             >
                               <Plus className="w-3 h-3" /> POS
@@ -1201,7 +1201,7 @@ export default function TablesPage() {
                       <button
                         type="button"
                         onClick={() => router.push(`/pos?table=${table.id}`)}
-                        className="w-full h-6 px-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center gap-1 border border-primary/20 cursor-pointer"
+                        className="w-full h-6 px-2 rounded-none bg-primary/10 hover:bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center gap-1 border border-primary/20 cursor-pointer"
                         title="Open POS for Table"
                       >
                         <Plus className="w-3 h-3" /> Take Order
@@ -1218,7 +1218,7 @@ export default function TablesPage() {
                 key={table.id}
                 onClick={() => handleTableClick(table)}
                 className={cn(
-                  'group relative flex flex-col justify-between p-4 rounded-3xl border-2 transition-all duration-200 cursor-pointer space-y-3',
+                  'group relative flex flex-col justify-between p-4 rounded-none border-2 transition-all duration-200 cursor-pointer space-y-3',
                   meta.bg,
                   isOccupied
                     ? 'border-rose-500 shadow-xl shadow-rose-500/15 ring-2 ring-rose-500/30 -translate-y-0.5'
@@ -1229,7 +1229,7 @@ export default function TablesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
                     <div className={cn(
-                      'w-13 h-13 sm:w-14 sm:h-14 rounded-2xl border-2 shadow-xs flex items-center justify-center shrink-0 transition-all font-mono',
+                      'w-13 h-13 sm:w-14 sm:h-14 rounded-none border-2 shadow-xs flex items-center justify-center shrink-0 transition-all font-mono',
                       isOccupied
                         ? 'bg-gradient-to-br from-rose-600 to-red-700 text-white border-rose-400 shadow-md shadow-rose-600/30'
                         : 'bg-card border-border/80 text-foreground group-hover:border-primary/50 group-hover:bg-primary/5'
@@ -1244,12 +1244,12 @@ export default function TablesPage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {isOccupied ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border inline-flex items-center gap-1 bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-xs">
+                          <span className="px-2.5 py-0.5 rounded-none text-[10px] font-black uppercase tracking-wider border inline-flex items-center gap-1 bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-xs">
                             <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
                             ACTIVE DINING
                           </span>
                         ) : (
-                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border inline-block w-fit', meta.bg, meta.text, meta.border)}>
+                          <span className={cn('px-2 py-0.5 rounded-none text-[10px] font-black uppercase tracking-wider border inline-block w-fit', meta.bg, meta.text, meta.border)}>
                             {meta.shortLabel}
                           </span>
                         )}
@@ -1264,7 +1264,7 @@ export default function TablesPage() {
                     <button
                       type="button"
                       onClick={() => setQrModalTable(table)}
-                      className="p-1.5 rounded-xl text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-none text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                       title="View & Print Table QR Standee"
                     >
                       <QrCode className="w-4 h-4" />
@@ -1273,7 +1273,7 @@ export default function TablesPage() {
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(table)}
-                      className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
                       title="Edit Table Configuration"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -1283,7 +1283,7 @@ export default function TablesPage() {
 
                 {/* Body: Active Order Details vs Available Placeholder */}
                 {table.status === 'OCCUPIED' && activeOrder ? (
-                  <div className="p-3 rounded-2xl bg-card border border-border/90 shadow-xs space-y-2.5">
+                  <div className="p-3 rounded-none bg-card border border-border/90 shadow-xs space-y-2.5">
                     {/* Order Number, Amount & Status */}
                     <div className="flex items-center justify-between">
                       <div>
@@ -1292,7 +1292,7 @@ export default function TablesPage() {
                             #{activeOrder.orderNumber}
                           </span>
                           {orderCfg && (
-                            <span className={cn('px-1.5 py-0.2 rounded-md text-[9px] font-black border', orderCfg.bg, orderCfg.text, orderCfg.border)}>
+                            <span className={cn('px-1.5 py-0.2 rounded-none text-[9px] font-black border', orderCfg.bg, orderCfg.text, orderCfg.border)}>
                               {orderCfg.emoji} {orderCfg.label}
                             </span>
                           )}
@@ -1351,7 +1351,7 @@ export default function TablesPage() {
                         <button
                           type="button"
                           onClick={() => router.push(`/pos?table=${table.id}&order=${activeOrder.id}&accept=true`)}
-                          className="w-full h-11 px-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40 animate-pulse min-w-0"
+                          className="w-full h-11 px-2 rounded-none bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all cursor-pointer border border-emerald-400/40 animate-pulse min-w-0"
                           title="Open POS to review, edit dishes, and send KOT to Kitchen"
                         >
                           <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-200 shrink-0" />
@@ -1367,7 +1367,7 @@ export default function TablesPage() {
                           disabled={isCancelled}
                           onClick={() => handlePrintOrder(activeOrder, true)}
                           className={cn(
-                            'h-9 px-1 rounded-xl border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
+                            'h-9 px-1 rounded-none border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
                             isCancelled && 'opacity-30 cursor-not-allowed'
                           )}
                           title="Print Kitchen Order Ticket (KOT)"
@@ -1388,7 +1388,7 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-9 px-1 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
+                            'h-9 px-1 rounded-none border border-border text-foreground hover:bg-muted font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
                             !isServed && 'text-amber-400 border-amber-500/30',
                             isCancelled && 'opacity-30 cursor-not-allowed'
                           )}
@@ -1408,7 +1408,7 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-9 px-1 rounded-xl font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs min-w-0',
+                            'h-9 px-1 rounded-none font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-xs min-w-0',
                             payCheck.canPay
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                               : 'bg-muted/70 text-muted-foreground opacity-50 cursor-not-allowed'
@@ -1429,7 +1429,7 @@ export default function TablesPage() {
                             }
                           }}
                           className={cn(
-                            'h-9 px-1 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
+                            'h-9 px-1 rounded-none border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer min-w-0',
                             !cancelCheck.canCancel && 'opacity-30 cursor-not-allowed hover:bg-transparent'
                           )}
                           title={cancelCheck.canCancel ? 'Cancel Order' : cancelCheck.reason || 'Cannot cancel'}
@@ -1441,7 +1441,7 @@ export default function TablesPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="py-6 px-3 rounded-2xl bg-card/60 border border-dashed border-border flex flex-col items-center justify-center text-center space-y-1.5">
+                  <div className="py-6 px-3 rounded-none bg-card/60 border border-dashed border-border flex flex-col items-center justify-center text-center space-y-1.5">
                     <span className="text-xl">🍽️</span>
                     <span className="text-xs font-bold text-muted-foreground">
                       Table is Free &amp; Available
@@ -1452,7 +1452,7 @@ export default function TablesPage() {
                         e.stopPropagation();
                         router.push(`/pos?table=${table.id}`);
                       }}
-                      className="mt-1 h-8 px-3 rounded-xl text-xs font-bold gap-1 bg-primary text-primary-foreground shadow-xs cursor-pointer"
+                      className="mt-1 h-8 px-3 rounded-none text-xs font-bold gap-1 bg-primary text-primary-foreground shadow-xs cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" /> Take Order (POS)
                     </Button>
@@ -1467,7 +1467,7 @@ export default function TablesPage() {
                       setTableOrdersPreset('today');
                       setTableOrdersModalTable(table);
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-black text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-primary/20"
+                    className="px-3 py-1.5 rounded-none bg-primary/10 hover:bg-primary/20 text-primary font-black text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-primary/20"
                     title={`View orders history for ${table.name} (Today, 7d, 30d, 90d, 365d, Calendar)`}
                   >
                     <span>📋</span>
@@ -1477,7 +1477,7 @@ export default function TablesPage() {
                   <button
                     type="button"
                     onClick={() => router.push(`/pos?table=${table.id}`)}
-                    className="px-2.5 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-none bg-muted hover:bg-muted/80 text-foreground font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                     title="Open POS for Table"
                   >
                     <ShoppingCart className="w-3 h-3 text-primary" />

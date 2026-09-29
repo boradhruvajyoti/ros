@@ -632,22 +632,22 @@ class _WebMatchingTableCard extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: isOccupied
-              ? RosTheme.danger.withValues(alpha: 0.08)
+              ? RosTheme.danger.withValues(alpha: 0.14)
               : RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
-            color: isOccupied ? RosTheme.danger : _statusColor.withValues(alpha: 0.4),
-            width: isOccupied ? 2.2 : 1.2,
+            color: isOccupied ? RosTheme.danger : _statusColor.withValues(alpha: 0.5),
+            width: isOccupied ? 2.0 : 1.5,
           ),
-          boxShadow: isOccupied
-              ? [
-                  BoxShadow(
-                    color: RosTheme.danger.withValues(alpha: 0.25),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
+          boxShadow: [
+            BoxShadow(
+              color: isOccupied
+                  ? RosTheme.danger.withValues(alpha: 0.22)
+                  : Colors.black.withValues(alpha: 0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -662,7 +662,7 @@ class _WebMatchingTableCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                   decoration: BoxDecoration(
                     color: (isOccupied ? RosTheme.danger : _statusColor).withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(
                       color: (isOccupied ? RosTheme.danger : _statusColor).withValues(alpha: 0.5),
                       width: 1,
@@ -676,7 +676,7 @@ class _WebMatchingTableCard extends StatelessWidget {
                         height: 6,
                         decoration: BoxDecoration(
                           color: isOccupied ? RosTheme.danger : _statusColor,
-                          shape: BoxShape.circle,
+                          shape: BoxShape.rectangle,
                         ),
                       ),
                       const SizedBox(width: 4.5),
@@ -735,9 +735,9 @@ class _WebMatchingTableCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: RosTheme.bgElevated,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: Text(
                         '⏱️ ${elapsedMinutes}m',
@@ -2351,16 +2351,16 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: RosTheme.bgElevated,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(
                             color: isAvailable
                                 ? RosTheme.statusAvailable
-                                    .withValues(alpha: 0.4)
+                                    .withValues(alpha: 0.5)
                                 : isOccupied
                                     ? RosTheme.statusOccupied
-                                        .withValues(alpha: 0.4)
+                                        .withValues(alpha: 0.5)
                                     : RosTheme.bgBorder,
-                            width: (isAvailable || isOccupied) ? 1.2 : 1,
+                            width: (isAvailable || isOccupied) ? 1.5 : 1,
                           ),
                         ),
                         child: Column(
@@ -2387,7 +2387,7 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
                                       horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: statusColor.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.zero,
                                   ),
                                   child: Text(
                                     table.status.replaceAll('_', ' '),
