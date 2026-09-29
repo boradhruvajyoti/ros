@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPatch } from '@/lib/api';
+import { onRosEvent } from '@/lib/socket';
 import { useRouter } from 'next/navigation';
 import {
   ShoppingBag, Search, Filter, Printer, CheckCircle2,
@@ -135,8 +136,31 @@ export default function CurrentOrdersPage() {
       const res = await apiGet<any[]>('/orders/active');
       return Array.isArray(res) ? res : [];
     },
-    refetchInterval: 6000,
+    refetchInterval: 4000,  // Poll every 4s as fallback
+    staleTime: 0,           // Always considered stale — instant re-fetch on invalidation
   });
+
+  // ── Live socket subscription: item & KOT status changes invalidate immediately ──
+  useEffect(() => {
+    const LIVE_EVENTS = new Set([
+      'KOT_ITEM_STATUS_CHANGED',
+      'KOT_STATUS_CHANGED',
+      'KOT_CREATED',
+      'ORDER_STATUS_CHANGED',
+      'ORDER_UPDATED',
+      'ORDER_CREATED',
+      'PAYMENT_COMPLETED',
+      'TABLE_STATUS_CHANGED',
+    ]);
+
+    const unsub = onRosEvent((event) => {
+      if (LIVE_EVENTS.has(event.type as string)) {
+        queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      }
+    });
+
+    return unsub;
+  }, [queryClient]);
 
   // Fetch Current Tenant for Bill Print
   const { data: tenant } = useQuery({

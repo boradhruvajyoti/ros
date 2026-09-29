@@ -319,7 +319,9 @@ export default function TablesPage() {
   }, [tableOrdersPreset, customTableStartDate, customTableEndDate]);
 
   // ── Orders State ────────────────────────────────────────────────────────────
-  const [selectedOrder, setSelectedOrder] = useState<Order | any | null>(null);
+  // Store only the ID — derive the live order from the reactive activeOrders query
+  // so item/KOT status updates from socket events reflect instantly in the detail panel
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [billPreviewOrder, setBillPreviewOrder] = useState<Order | any | null>(null);
 
   // ── Data Queries ────────────────────────────────────────────────────────────
@@ -380,13 +382,15 @@ export default function TablesPage() {
   const { data: tables = [], isLoading: isTablesLoading } = useQuery<Table[]>({
     queryKey: ['tables', tableStatusFilter],
     queryFn: () => apiGet(`/tables${tableStatusFilter ? `?status=${tableStatusFilter}` : ''}`),
-    refetchInterval: 2000,
+    refetchInterval: 3000,
+    staleTime: 0,
   });
 
   const { data: activeOrders = [] } = useQuery<any[]>({
     queryKey: ['active-orders'],
     queryFn: () => apiGet('/orders/active'),
-    refetchInterval: 2000,
+    refetchInterval: 3000,
+    staleTime: 0,
   });
 
   const { data: menuItems = [] } = useQuery<any[]>({
@@ -419,6 +423,17 @@ export default function TablesPage() {
     }
     return acc;
   }, {});
+
+  // Derive selectedOrder from the live activeOrders so item/KOT statuses auto-update
+  // when a socket event fires KOT_ITEM_STATUS_CHANGED and the query re-fetches.
+  const selectedOrder = selectedOrderId
+    ? (activeOrders || []).find((o: any) => o.id === selectedOrderId) ?? null
+    : null;
+
+  // Compatibility wrapper \u2014 call this instead of setSelectedOrder(order)
+  const setSelectedOrder = (order: any | null) => {
+    setSelectedOrderId(order?.id ?? null);
+  };
 
   // Generate simplified, low-density QR image when QR modal opens
   useEffect(() => {
@@ -641,11 +656,8 @@ export default function TablesPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
       if (selectedOrder && selectedOrder.id === vars.orderId) {
-        if (vars.status === 'PAID' || vars.status === 'COMPLETED') {
-          setSelectedOrder((prev: any) => (prev ? { ...prev, status: vars.status } : null));
-        } else {
-          setSelectedOrder((prev: any) => (prev ? { ...prev, status: vars.status } : null));
-        }
+        // selectedOrder is derived from live activeOrders — it will auto-update
+        // after invalidateQueries above. No manual state patch needed.
       }
     },
     onError: (err: any) => {
@@ -665,19 +677,12 @@ export default function TablesPage() {
       queryClient.invalidateQueries({ queryKey: ['table-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
-      if (res?.data) {
-        if (res.data.status === 'CANCELLED') {
-          setSelectedOrder(null);
-        } else {
-          setSelectedOrder(res.data);
-        }
-      } else {
-        setSelectedOrder((prev: any) => {
-          if (!prev) return null;
-          const updatedItems = (prev.items || []).filter((it: any) => it.id !== vars.itemId);
-          return { ...prev, items: updatedItems };
-        });
+      // selectedOrder derives from live activeOrders query — no manual patching needed.
+      // If the order was fully cancelled, close the panel.
+      if (res?.data?.status === 'CANCELLED') {
+        setSelectedOrderId(null);
       }
+      // Otherwise the query invalidation above will auto-refresh the derived selectedOrder.
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.error?.message || err?.message || 'Could not cancel item';
@@ -1104,18 +1109,35 @@ export default function TablesPage() {
                       </div>
                     </div>
 
-                    {/* Ordered Items Preview */}
+                    {/* Ordered Items Preview with live status */}
                     <div className="max-h-24 overflow-y-auto space-y-1 divide-y divide-border/40 text-[11px] pr-1">
-                      {validItems.map((it: any, idx: number) => (
-                        <div key={it.id || idx} className="pt-1 flex items-center justify-between gap-1 text-muted-foreground">
-                          <span className="truncate flex-1 font-medium text-foreground">
-                            {it.quantity}x {formatItemTitle(it)}
-                          </span>
-                          <span className="font-mono text-[10px] shrink-0">
-                            {formatCurrency(it.totalPrice || (it.quantity * (it.unitPrice || it.variant?.price || 0)))}
-                          </span>
-                        </div>
-                      ))}
+                      {validItems.map((it: any, idx: number) => {
+                        const itemStatus = (it.status || '').toUpperCase();
+                        // Check KOT items for a more granular status
+                        const kotItemStatus = (activeOrder.kots || []).reduce((best: string, k: any) => {
+                          const kotItem = (k.items || []).find((ki: any) => ki.orderItemId === it.id);
+                          return kotItem ? kotItem.status : best;
+                        }, itemStatus);
+                        const resolvedStatus = kotItemStatus || itemStatus;
+
+                        const statusDot =
+                          ['SERVED'].includes(resolvedStatus) ? <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" title="Served" /> :
+                          ['READY', 'COOKED', 'COMPLETED'].includes(resolvedStatus) ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Ready" /> :
+                          ['PREPARING', 'ACCEPTED', 'NEW', 'PENDING'].includes(resolvedStatus) ? <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" title="Cooking" /> :
+                          null;
+
+                        return (
+                          <div key={it.id || idx} className="pt-1 flex items-center justify-between gap-1 text-muted-foreground">
+                            <span className="truncate flex-1 font-medium text-foreground flex items-center gap-1">
+                              {statusDot}
+                              {it.quantity}x {formatItemTitle(it)}
+                            </span>
+                            <span className="font-mono text-[10px] shrink-0">
+                              {formatCurrency(it.totalPrice || (it.quantity * (it.unitPrice || it.variant?.price || 0)))}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Table-Attached Direct Action Buttons: Large Accept Button for Pending QR/Draft vs 4 Operational Actions */}
