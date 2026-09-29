@@ -66,13 +66,13 @@ function getLiveItemStatusBadge(status?: string) {
   switch (s) {
     case 'SERVED':
       return (
-        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 whitespace-nowrap">
+        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-none bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/40 whitespace-nowrap">
           Served
         </span>
       );
     case 'READY':
       return (
-        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-none bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 whitespace-nowrap">
           Ready
         </span>
       );
@@ -81,20 +81,20 @@ function getLiveItemStatusBadge(status?: string) {
     case 'PENDING':
     case 'NEW':
       return (
-        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap">
+        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-none bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 whitespace-nowrap">
           Cooking
         </span>
       );
     case 'CANCELLED':
     case 'VOIDED':
       return (
-        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 line-through whitespace-nowrap">
+        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-none bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 line-through whitespace-nowrap">
           Cancelled
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/40 whitespace-nowrap">
+        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-none bg-muted text-foreground border border-border whitespace-nowrap">
           Queued
         </span>
       );
@@ -102,14 +102,14 @@ function getLiveItemStatusBadge(status?: string) {
 }
 
 const ORDER_STATUS_META: Record<string, { label: string; bg: string; border: string; text: string }> = {
-  DRAFT:           { label: 'Draft',        bg: 'bg-muted/40',       border: 'border-border/60',          text: 'text-muted-foreground' },
-  CONFIRMED:       { label: 'Confirmed',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',     text: 'text-blue-600 dark:text-blue-400' },
-  SENT_TO_KITCHEN: { label: 'In Kitchen',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',    text: 'text-amber-600 dark:text-amber-400' },
-  PREPARING:       { label: 'Cooking',      bg: 'bg-orange-500/10',  border: 'border-orange-500/20',   text: 'text-orange-600 dark:text-orange-400' },
-  READY:           { label: 'Ready',        bg: 'bg-emerald-500/10', border: 'border-emerald-500/20',  text: 'text-emerald-600 dark:text-emerald-400' },
-  SERVED:          { label: 'Served',       bg: 'bg-teal-500/10',    border: 'border-teal-500/20',     text: 'text-teal-600 dark:text-teal-400' },
-  BILLED:          { label: 'Billed',       bg: 'bg-purple-500/10',  border: 'border-purple-500/20',   text: 'text-purple-600 dark:text-purple-400' },
-  PARTIALLY_PAID:  { label: 'Partial Paid', bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',   text: 'text-indigo-600 dark:text-indigo-400' },
+  DRAFT:           { label: 'Draft',        bg: 'bg-muted/80',       border: 'border-border',          text: 'text-foreground' },
+  CONFIRMED:       { label: 'Confirmed',    bg: 'bg-blue-500/15',    border: 'border-blue-500/40',     text: 'text-blue-700 dark:text-blue-300' },
+  SENT_TO_KITCHEN: { label: 'In Kitchen',   bg: 'bg-amber-500/15',   border: 'border-amber-500/40',    text: 'text-amber-800 dark:text-amber-300' },
+  PREPARING:       { label: 'Cooking',      bg: 'bg-orange-500/15',  border: 'border-orange-500/40',   text: 'text-orange-800 dark:text-orange-300' },
+  READY:           { label: 'Ready',        bg: 'bg-emerald-500/15', border: 'border-emerald-500/40',  text: 'text-emerald-700 dark:text-emerald-300' },
+  SERVED:          { label: 'Served',       bg: 'bg-teal-500/15',    border: 'border-teal-500/40',     text: 'text-teal-700 dark:text-teal-300' },
+  BILLED:          { label: 'Billed',       bg: 'bg-purple-500/15',  border: 'border-purple-500/40',   text: 'text-purple-700 dark:text-purple-300' },
+  PARTIALLY_PAID:  { label: 'Partial Paid', bg: 'bg-indigo-500/15',  border: 'border-indigo-500/40',   text: 'text-indigo-700 dark:text-indigo-300' },
 };
 
 export default function CurrentOrdersPage() {
@@ -388,24 +388,24 @@ export default function CurrentOrdersPage() {
     <div className="flex flex-col gap-5 max-w-7xl mx-auto pb-16">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white font-bold text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
+        <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white font-bold text-xs px-4 py-3 rounded-none shadow-2xl border border-emerald-400 flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
           <CheckCircle2 className="w-4 h-4" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Top Header & Fast Navigation */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border/60 shadow-xs">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-none bg-card dark:bg-zinc-900 border-2 border-border/80 dark:border-zinc-800 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-none bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/30">
             <ShoppingBag className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-foreground tracking-tight">
+              <h1 className="text-xl font-bold text-foreground tracking-tight">
                 Current Active Orders
               </h1>
-              <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+              <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded-none bg-primary/15 text-primary border border-primary/30">
                 {activeOrders.length} Live
               </span>
             </div>
@@ -420,7 +420,7 @@ export default function CurrentOrdersPage() {
             onClick={() => refetch()}
             variant="outline"
             size="sm"
-            className="rounded-xl border-border/60 hover:bg-muted/50 text-xs h-9 gap-1.5"
+            className="rounded-none border-2 border-border/80 hover:bg-muted font-bold text-xs h-9 gap-1.5"
             disabled={isRefetching}
           >
             <RefreshCw className={cn('w-3.5 h-3.5', isRefetching && 'animate-spin')} />
@@ -429,7 +429,7 @@ export default function CurrentOrdersPage() {
 
           <Button
             onClick={() => router.push('/tables')}
-            className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs h-9 gap-1.5 shadow-xs"
+            className="rounded-none bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 gap-1.5 shadow-sm"
           >
             <Plus className="w-4 h-4" />
             <span>Take Order (Tables)</span>
@@ -443,19 +443,19 @@ export default function CurrentOrdersPage() {
         <div
           onClick={() => setActiveTab('ALL')}
           className={cn(
-            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
+            'p-3.5 rounded-none border-2 shadow-sm flex flex-col justify-between cursor-pointer transition-colors',
             activeTab === 'ALL'
-              ? 'bg-primary/5 border-primary/30'
-              : 'bg-card border-border/60 hover:border-border'
+              ? 'bg-primary/10 border-primary dark:bg-primary/15'
+              : 'bg-card dark:bg-zinc-900 border-border/80 dark:border-zinc-800 hover:border-border'
           )}
         >
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-medium uppercase tracking-wide">All Active</span>
+            <span className="text-[11px] font-bold uppercase tracking-wide text-foreground">All Active</span>
             <ShoppingBag className="w-4 h-4 text-primary" />
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold text-foreground font-mono">{stats.total}</span>
-            <span className="text-[11px] text-muted-foreground">orders</span>
+            <span className="text-2xl font-bold text-foreground font-mono">{stats.total}</span>
+            <span className="text-[11px] text-muted-foreground font-semibold">orders</span>
           </div>
         </div>
 
@@ -463,19 +463,19 @@ export default function CurrentOrdersPage() {
         <div
           onClick={() => setActiveTab('DINE_IN')}
           className={cn(
-            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
+            'p-3.5 rounded-none border-2 shadow-sm flex flex-col justify-between cursor-pointer transition-colors',
             activeTab === 'DINE_IN'
-              ? 'bg-rose-500/5 border-rose-500/30'
-              : 'bg-card border-border/60 hover:border-border'
+              ? 'bg-rose-500/10 border-rose-500 dark:bg-rose-950/40'
+              : 'bg-card dark:bg-zinc-900 border-border/80 dark:border-zinc-800 hover:border-border'
           )}
         >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-rose-500 dark:text-rose-400">Dine-In</span>
-            <UtensilsCrossed className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400">Dine-In</span>
+            <UtensilsCrossed className="w-4 h-4 text-rose-600 dark:text-rose-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold text-rose-500 dark:text-rose-400 font-mono">{stats.dineInCount}</span>
-            <span className="text-[11px] text-muted-foreground">tables</span>
+            <span className="text-2xl font-bold text-rose-600 dark:text-rose-400 font-mono">{stats.dineInCount}</span>
+            <span className="text-[11px] text-muted-foreground font-semibold">tables</span>
           </div>
         </div>
 
@@ -483,19 +483,19 @@ export default function CurrentOrdersPage() {
         <div
           onClick={() => setActiveTab('TAKEAWAY')}
           className={cn(
-            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
+            'p-3.5 rounded-none border-2 shadow-sm flex flex-col justify-between cursor-pointer transition-colors',
             activeTab === 'TAKEAWAY'
-              ? 'bg-amber-500/5 border-amber-500/30'
-              : 'bg-card border-border/60 hover:border-border'
+              ? 'bg-amber-500/10 border-amber-500 dark:bg-amber-950/40'
+              : 'bg-card dark:bg-zinc-900 border-border/80 dark:border-zinc-800 hover:border-border'
           )}
         >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-amber-500 dark:text-amber-400">Takeaway</span>
-            <Package className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Takeaway</span>
+            <Package className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold text-amber-500 dark:text-amber-400 font-mono">{stats.takeawayCount}</span>
-            <span className="text-[11px] text-muted-foreground">parcels</span>
+            <span className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-mono">{stats.takeawayCount}</span>
+            <span className="text-[11px] text-muted-foreground font-semibold">parcels</span>
           </div>
         </div>
 
@@ -503,30 +503,30 @@ export default function CurrentOrdersPage() {
         <div
           onClick={() => setActiveTab('DELIVERY')}
           className={cn(
-            'p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between cursor-pointer transition-colors',
+            'p-3.5 rounded-none border-2 shadow-sm flex flex-col justify-between cursor-pointer transition-colors',
             activeTab === 'DELIVERY'
-              ? 'bg-blue-500/5 border-blue-500/30'
-              : 'bg-card border-border/60 hover:border-border'
+              ? 'bg-blue-500/10 border-blue-500 dark:bg-blue-950/40'
+              : 'bg-card dark:bg-zinc-900 border-border/80 dark:border-zinc-800 hover:border-border'
           )}
         >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-blue-500 dark:text-blue-400">Delivery</span>
-            <Bike className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">Delivery</span>
+            <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold text-blue-500 dark:text-blue-400 font-mono">{stats.deliveryCount}</span>
-            <span className="text-[11px] text-muted-foreground">riders</span>
+            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono">{stats.deliveryCount}</span>
+            <span className="text-[11px] text-muted-foreground font-semibold">riders</span>
           </div>
         </div>
 
         {/* Unsettled Volume */}
-        <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-card border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="col-span-2 sm:col-span-1 p-3.5 rounded-none bg-card dark:bg-zinc-900 border-2 border-border/80 dark:border-zinc-800 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-medium uppercase tracking-wide">Active Total</span>
-            <DollarSign className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+            <span className="text-[11px] font-bold uppercase tracking-wide text-foreground">Active Total</span>
+            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
+            <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">
               {formatCurrency(stats.totalRevenue)}
             </span>
           </div>
@@ -534,8 +534,8 @@ export default function CurrentOrdersPage() {
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-2 rounded-2xl border border-border/60 shadow-xs">
-        {/* Category Pill Switcher */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card dark:bg-zinc-900 p-2 rounded-none border-2 border-border/80 dark:border-zinc-800 shadow-sm">
+        {/* Category Tab Switcher */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1">
           {[
             { id: 'ALL', label: 'All Live', count: stats.total, icon: ShoppingBag },
@@ -550,17 +550,17 @@ export default function CurrentOrdersPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-xl font-medium text-xs whitespace-nowrap transition-all cursor-pointer border',
+                  'flex items-center gap-2 px-3 py-1.5 rounded-none font-bold text-xs whitespace-nowrap transition-all cursor-pointer border',
                   isSel
-                    ? 'bg-primary/10 text-primary border-primary/30 font-semibold'
-                    : 'bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-muted/60 dark:bg-zinc-800/80 border-border text-foreground hover:bg-muted'
                 )}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
                 <span className={cn(
-                  'px-1.5 py-0.2 rounded-md text-[10px] font-mono',
-                  isSel ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                  'px-1.5 py-0.2 rounded-none text-[10px] font-mono font-bold',
+                  isSel ? 'bg-black/20 text-white dark:bg-white/20' : 'bg-background text-muted-foreground'
                 )}>
                   {tab.count}
                 </span>
@@ -576,7 +576,7 @@ export default function CurrentOrdersPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search #ORD, table, dish..."
-            className="pl-8 h-9 text-xs rounded-xl bg-background border-border"
+            className="pl-8 h-9 text-xs rounded-none bg-background border-2 border-border/80"
           />
           {searchQuery && (
             <button
@@ -593,16 +593,16 @@ export default function CurrentOrdersPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-8">
           {[1, 2, 3, 4, 5, 6].map((n) => (
-            <div key={n} className="h-64 rounded-2xl bg-card border border-border animate-pulse p-4 space-y-4">
-              <div className="h-6 bg-muted rounded-lg w-1/3" />
-              <div className="h-24 bg-muted/60 rounded-xl" />
-              <div className="h-10 bg-muted rounded-xl" />
+            <div key={n} className="h-64 rounded-none bg-card dark:bg-zinc-900 border-2 border-border animate-pulse p-4 space-y-4">
+              <div className="h-6 bg-muted rounded-none w-1/3" />
+              <div className="h-24 bg-muted/60 rounded-none" />
+              <div className="h-10 bg-muted rounded-none" />
             </div>
           ))}
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div className="py-20 text-center flex flex-col items-center justify-center p-6 bg-card rounded-3xl border border-dashed border-border">
-          <div className="w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-3">
+        <div className="py-20 text-center flex flex-col items-center justify-center p-6 bg-card dark:bg-zinc-900 rounded-none border-2 border-dashed border-border">
+          <div className="w-16 h-16 rounded-none bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-3">
             <ShoppingBag className="w-8 h-8 opacity-70" />
           </div>
           <h3 className="text-base font-black text-foreground">No Current Active Orders</h3>
@@ -615,7 +615,7 @@ export default function CurrentOrdersPage() {
           </p>
           <Button
             onClick={() => router.push('/tables')}
-            className="mt-4 gap-1.5 rounded-xl text-xs font-black bg-primary text-primary-foreground"
+            className="mt-4 gap-1.5 rounded-none text-xs font-black bg-primary text-primary-foreground"
           >
             <Plus className="w-4 h-4" />
             <span>Go to Tables to Take Order</span>
@@ -627,10 +627,9 @@ export default function CurrentOrdersPage() {
             const elapsedMin = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000));
             const statusMeta = ORDER_STATUS_META[order.status] || {
               label: order.status,
-              emoji: '📋',
               bg: 'bg-muted',
               border: 'border-border',
-              text: 'text-muted-foreground',
+              text: 'text-foreground',
             };
 
             const isDineIn = order.type === 'DINE_IN';
@@ -647,14 +646,14 @@ export default function CurrentOrdersPage() {
               <div
                 key={order.id}
                 className={cn(
-                  'rounded-2xl bg-card border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-lg',
-                  isDineIn ? 'border-rose-500/20 hover:border-rose-500/40' : '',
-                  isTakeaway ? 'border-amber-500/20 hover:border-amber-500/40' : '',
-                  isDelivery ? 'border-blue-500/20 hover:border-blue-500/40' : ''
+                  'rounded-none bg-card dark:bg-zinc-900 border-2 transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md',
+                  isDineIn ? 'border-rose-500/50 hover:border-rose-500' : '',
+                  isTakeaway ? 'border-amber-500/50 hover:border-amber-500' : '',
+                  isDelivery ? 'border-blue-500/50 hover:border-blue-500' : 'border-border/80 dark:border-zinc-800'
                 )}
               >
                 {/* Order Card Header */}
-                <div className="p-4 border-b border-border bg-muted/20">
+                <div className="p-3.5 border-b-2 border-border/80 dark:border-zinc-800 bg-muted/40 dark:bg-zinc-950/80">
                   <div className="flex items-center justify-between gap-2">
                     {/* Order Number & Table / Type Badge */}
                     <div className="flex items-center gap-2 flex-wrap">
@@ -664,29 +663,29 @@ export default function CurrentOrdersPage() {
 
                       {/* Bold Table Badge if Table Order */}
                       {order.table ? (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/50 shadow-xs shadow-rose-500/20">
-                          <UtensilsCrossed className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
-                          <span className="text-xs font-black uppercase tracking-wide">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-none bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/60 font-black">
+                          <UtensilsCrossed className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 stroke-[2.5]" />
+                          <span className="text-xs uppercase tracking-wide">
                             TABLE: {order.table.name}
                           </span>
                           {order.table.capacity && (
-                            <span className="text-[10px] text-rose-300/70 font-bold">
+                            <span className="text-[10px] text-rose-700/80 dark:text-rose-300/80 font-bold">
                               ({order.table.capacity}p)
                             </span>
                           )}
                         </div>
                       ) : isDineIn ? (
-                        <Badge variant="outline" className="gap-1 bg-rose-500/10 text-rose-400 border-rose-500/30 text-xs font-black">
+                        <Badge variant="outline" className="gap-1 rounded-none bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/50 text-xs font-black">
                           <UtensilsCrossed className="w-3 h-3" />
                           <span>Dine-In Table</span>
                         </Badge>
                       ) : isTakeaway ? (
-                        <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-400 border-amber-500/30 text-xs font-black">
+                        <Badge variant="outline" className="gap-1 rounded-none bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/50 text-xs font-black">
                           <Package className="w-3 h-3" />
                           <span>Takeaway</span>
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="gap-1 bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs font-black">
+                        <Badge variant="outline" className="gap-1 rounded-none bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/50 text-xs font-black">
                           <Bike className="w-3 h-3" />
                           <span>Delivery</span>
                         </Badge>
@@ -696,12 +695,12 @@ export default function CurrentOrdersPage() {
                     {/* Elapsed Timer with Warning Alert */}
                     <div
                       className={cn(
-                        'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono shrink-0',
+                        'flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-bold font-mono shrink-0 border',
                         elapsedMin > 30
-                          ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                          ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/50'
                           : elapsedMin > 15
-                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                          : 'bg-muted text-muted-foreground'
+                          ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/50'
+                          : 'bg-muted/80 text-foreground border-border'
                       )}
                     >
                       <Clock className="w-3 h-3" />
@@ -711,14 +710,14 @@ export default function CurrentOrdersPage() {
 
                   {/* Prominent Running Order Table Banner */}
                   {order.table && (
-                    <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/30 shadow-inner">
+                    <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-none bg-rose-500/10 dark:bg-rose-950/60 border border-rose-500/50">
                       <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-                        <span className="text-[11px] font-black text-rose-300 uppercase tracking-wider">
+                        <div className="w-2.5 h-2.5 rounded-none bg-rose-500 animate-pulse" />
+                        <span className="text-[11px] font-black text-rose-700 dark:text-rose-200 uppercase tracking-wider">
                           RUNNING TABLE ORDER · TABLE {order.table.name}
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold text-rose-400/80 font-mono">
+                      <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 font-mono">
                         {order.table.floor?.name || order.table.shape || 'Active'}
                       </span>
                     </div>
@@ -728,7 +727,7 @@ export default function CurrentOrdersPage() {
                   <div className="flex items-center justify-between mt-2.5">
                     <div
                       className={cn(
-                        'flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium border',
+                        'flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[10px] font-bold border',
                         statusMeta.bg,
                         statusMeta.border,
                         statusMeta.text
@@ -738,8 +737,8 @@ export default function CurrentOrdersPage() {
                     </div>
 
                     {totalKots > 0 && (
-                      <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                        <ChefHat className="w-3 h-3 text-amber-400" />
+                      <span className="text-[10px] font-bold text-foreground flex items-center gap-1">
+                        <ChefHat className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                         <span>{servedKots}/{totalKots} KOTs Served</span>
                       </span>
                     )}
@@ -748,15 +747,15 @@ export default function CurrentOrdersPage() {
                   {/* Customer Info (if Takeaway or Delivery) */}
                   {order.customer && (
                     <div className="mt-2 text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
-                      <span className="font-semibold text-foreground">Guest:</span>
-                      <span>{order.customer.name}</span>
-                      {order.customer.phone && <span className="font-mono text-[10px]">({order.customer.phone})</span>}
+                      <span className="font-bold text-foreground">Guest:</span>
+                      <span className="text-foreground font-semibold">{order.customer.name}</span>
+                      {order.customer.phone && <span className="font-mono text-[10px] text-muted-foreground">({order.customer.phone})</span>}
                     </div>
                   )}
                 </div>
 
                 {/* Items Breakdown Box categorized by KOT */}
-                <div className="p-4 flex-1 flex flex-col justify-between">
+                <div className="p-3.5 flex-1 flex flex-col justify-between">
                   <div className="space-y-3 max-h-56 overflow-y-auto no-scrollbar pr-1">
                     {order.kots && order.kots.length > 0 ? (
                       order.kots
@@ -768,11 +767,11 @@ export default function CurrentOrdersPage() {
                           if (kotActiveItems.length === 0) return null;
 
                           return (
-                            <div key={kot.id} className="space-y-1.5 rounded-xl bg-muted/20 border border-border/60 p-2.5">
+                            <div key={kot.id} className="space-y-1.5 rounded-none bg-muted/40 dark:bg-zinc-950/70 border border-border/80 dark:border-zinc-800 p-2.5">
                               {/* KOT Header */}
-                              <div className="flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
+                              <div className="flex items-center justify-between border-b border-border/60 pb-1.5 mb-1">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="font-mono font-black text-xs text-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                                  <span className="font-mono font-bold text-xs text-primary bg-primary/15 border border-primary/30 px-2 py-0.5 rounded-none">
                                     KOT #{kot.kotNumber}
                                   </span>
                                   {kot.kitchenStation?.name && (
@@ -782,10 +781,10 @@ export default function CurrentOrdersPage() {
                                   )}
                                 </div>
                                 <span className={cn(
-                                  'text-[10px] font-black px-1.5 py-0.5 rounded-md',
-                                  kot.status === 'SERVED' ? 'bg-teal-500/15 text-teal-400' :
-                                  kot.status === 'READY' ? 'bg-emerald-500/15 text-emerald-400' :
-                                  'bg-amber-500/15 text-amber-400'
+                                  'text-[10px] font-bold px-1.5 py-0.5 rounded-none border',
+                                  kot.status === 'SERVED' ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300 border-teal-500/40' :
+                                  kot.status === 'READY' ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40' :
+                                  'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40'
                                 )}>
                                   {kot.status === 'SERVED' ? '🍽️ Served' : kot.status === 'READY' ? '✓ Ready' : '🔥 Cooking'}
                                 </span>
@@ -804,14 +803,14 @@ export default function CurrentOrdersPage() {
                                       <div className="flex items-start gap-1.5 flex-1 min-w-0">
                                         <span className="font-bold text-primary font-mono text-[11px] shrink-0">{qty}x</span>
                                         <div className="flex flex-col min-w-0">
-                                          <span className="text-foreground font-semibold leading-tight break-words">{title}</span>
+                                          <span className="text-foreground font-bold leading-tight break-words">{title}</span>
                                           {oi.modifiers && oi.modifiers.length > 0 && (
-                                            <span className="text-[10px] text-indigo-400 font-medium">
+                                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
                                               + {oi.modifiers.map((m: any) => m.name).join(', ')}
                                             </span>
                                           )}
                                           {oi.notes && (
-                                            <span className="text-[10px] text-rose-400 italic">
+                                            <span className="text-[10px] text-rose-600 dark:text-rose-400 font-medium italic">
                                               Note: {oi.notes}
                                             </span>
                                           )}
@@ -821,7 +820,7 @@ export default function CurrentOrdersPage() {
                                       <div className="flex flex-col items-end shrink-0 gap-0.5">
                                         {getLiveItemStatusBadge(ki.status)}
                                         {lineTot > 0 && (
-                                          <span className="font-mono text-muted-foreground text-[11px] font-semibold">
+                                          <span className="font-mono text-foreground text-[11px] font-bold">
                                             {formatCurrency(lineTot)}
                                           </span>
                                         )}
@@ -847,14 +846,14 @@ export default function CurrentOrdersPage() {
                               <div className="flex items-start gap-1.5 flex-1 min-w-0">
                                 <span className="font-bold text-primary font-mono text-[11px] shrink-0">{qty}x</span>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="text-foreground font-semibold leading-tight break-words">{title}</span>
+                                  <span className="text-foreground font-bold leading-tight break-words">{title}</span>
                                   {item.modifiers && item.modifiers.length > 0 && (
-                                    <span className="text-[10px] text-indigo-400 font-medium">
+                                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
                                       + {item.modifiers.map((m: any) => m.name).join(', ')}
                                     </span>
                                   )}
                                   {item.notes && (
-                                    <span className="text-[10px] text-rose-400 italic">
+                                    <span className="text-[10px] text-rose-600 dark:text-rose-400 font-medium italic">
                                       Note: {item.notes}
                                     </span>
                                   )}
@@ -862,7 +861,7 @@ export default function CurrentOrdersPage() {
                               </div>
                               <div className="flex flex-col items-end shrink-0 gap-0.5">
                                 {getLiveItemStatusBadge(item.status)}
-                                <span className="font-mono text-muted-foreground text-[11px] font-semibold">
+                                <span className="font-mono text-foreground text-[11px] font-bold">
                                   {formatCurrency(lineTot)}
                                 </span>
                               </div>
@@ -874,7 +873,7 @@ export default function CurrentOrdersPage() {
                   </div>
 
                   {/* Total & Price Strip */}
-                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                  <div className="mt-4 pt-3 border-t-2 border-border/80 dark:border-zinc-800 flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                         Total Amount
@@ -891,9 +890,9 @@ export default function CurrentOrdersPage() {
                         variant="outline"
                         onClick={() => handlePrintReceipt(order)}
                         title="Print Estimate Receipt"
-                        className="w-8 h-8 rounded-xl border-border hover:bg-muted"
+                        className="w-8 h-8 rounded-none border-2 border-border/80 hover:bg-muted"
                       >
-                        <Printer className="w-3.5 h-3.5 text-muted-foreground" />
+                        <Printer className="w-3.5 h-3.5 text-foreground" />
                       </Button>
 
                       {/* Add Items in POS */}
@@ -908,7 +907,7 @@ export default function CurrentOrdersPage() {
                           }
                         }}
                         title="Add more items in POS"
-                        className="w-8 h-8 rounded-xl border-border hover:bg-muted"
+                        className="w-8 h-8 rounded-none border-2 border-border/80 hover:bg-muted"
                       >
                         <Plus className="w-3.5 h-3.5 text-primary" />
                       </Button>
@@ -917,7 +916,7 @@ export default function CurrentOrdersPage() {
                 </div>
 
                 {/* Primary Settle & Clear Action Footer */}
-                <div className="p-3 bg-muted/15 border-t border-border flex items-center gap-2">
+                <div className="p-3 bg-muted/40 dark:bg-zinc-950/80 border-t-2 border-border/80 dark:border-zinc-800 flex items-center gap-2">
                   {(() => {
                     const activeKots = (order.kots || []).filter((k: any) => k.status !== 'CANCELLED');
                     const totalKots = activeKots.length;
@@ -930,7 +929,7 @@ export default function CurrentOrdersPage() {
                       return (
                         <Button
                           onClick={() => setSettlingOrder(order)}
-                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs h-9 gap-1.5 shadow-sm"
+                          className="flex-1 rounded-none bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-9 gap-1.5 shadow-sm border border-emerald-500"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                           <span>Settle & Mark Paid</span>
@@ -941,17 +940,17 @@ export default function CurrentOrdersPage() {
                     if (totalKots > 0 && !allKotsServed) {
                       return (
                         <div
-                          className="flex-1 flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-bold select-none"
+                          className="flex-1 flex items-center justify-center gap-1.5 h-9 px-3 rounded-none bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300 text-xs font-bold select-none"
                           title={`Kitchen in progress: ${servedKots}/${totalKots} KOTs served. All items must be marked served on KDS before settling.`}
                         >
-                          <Flame className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                          <Flame className="w-3.5 h-3.5 animate-pulse text-amber-600 dark:text-amber-400" />
                           <span>In Kitchen ({servedKots}/{totalKots} Served)</span>
                         </div>
                       );
                     }
 
                     return (
-                      <div className="flex-1 flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl bg-muted/40 border border-border text-muted-foreground text-xs font-semibold">
+                      <div className="flex-1 flex items-center justify-center gap-1.5 h-9 px-3 rounded-none bg-muted border border-border text-foreground text-xs font-bold">
                         <span>{order.status}</span>
                       </div>
                     );
@@ -961,7 +960,7 @@ export default function CurrentOrdersPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCancelOrder(order)}
-                    className="h-9 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl text-xs"
+                    className="h-9 px-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-none text-xs border border-transparent hover:border-rose-500/30"
                     title="Cancel Order"
                   >
                     <Ban className="w-3.5 h-3.5" />
@@ -976,11 +975,11 @@ export default function CurrentOrdersPage() {
       {/* ── Settlement Modal (Fast 1-Click Pay & Clear) ── */}
       {settlingOrder && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-card border border-border rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="bg-card dark:bg-zinc-900 border-2 border-border rounded-none p-6 max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center justify-between border-b-2 border-border pb-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <div className="p-2 rounded-none bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
@@ -995,16 +994,16 @@ export default function CurrentOrdersPage() {
 
               <button
                 onClick={() => setSettlingOrder(null)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+                className="p-1 rounded-none text-muted-foreground hover:text-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Bill Amount Display */}
-            <div className="p-4 rounded-2xl bg-muted/40 border border-border flex items-center justify-between">
+            <div className="p-4 rounded-none bg-muted/50 dark:bg-zinc-950 border-2 border-border flex items-center justify-between">
               <span className="text-xs font-bold text-muted-foreground uppercase">Total Payable</span>
-              <span className="text-2xl font-black text-emerald-400 font-mono">
+              <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
                 {formatCurrency(settlingOrder.total)}
               </span>
             </div>
@@ -1018,7 +1017,7 @@ export default function CurrentOrdersPage() {
                 <Button
                   onClick={() => handleSettlePayment(settlingOrder, 'CASH')}
                   disabled={isSettling}
-                  className="flex flex-col items-center justify-center h-20 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-black text-xs gap-1.5 cursor-pointer active:scale-95"
+                  className="flex flex-col items-center justify-center h-20 rounded-none bg-emerald-500/15 hover:bg-emerald-500/25 border-2 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-black text-xs gap-1.5 cursor-pointer active:scale-95"
                 >
                   <span className="text-xl">💵</span>
                   <span>Cash</span>
@@ -1027,7 +1026,7 @@ export default function CurrentOrdersPage() {
                 <Button
                   onClick={() => handleSettlePayment(settlingOrder, 'UPI')}
                   disabled={isSettling}
-                  className="flex flex-col items-center justify-center h-20 rounded-2xl bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary font-black text-xs gap-1.5 cursor-pointer active:scale-95"
+                  className="flex flex-col items-center justify-center h-20 rounded-none bg-primary/15 hover:bg-primary/25 border-2 border-primary/40 text-primary font-black text-xs gap-1.5 cursor-pointer active:scale-95"
                 >
                   <span className="text-xl">📱</span>
                   <span>UPI / QR</span>
@@ -1036,7 +1035,7 @@ export default function CurrentOrdersPage() {
                 <Button
                   onClick={() => handleSettlePayment(settlingOrder, 'CARD')}
                   disabled={isSettling}
-                  className="flex flex-col items-center justify-center h-20 rounded-2xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-400 font-black text-xs gap-1.5 cursor-pointer active:scale-95"
+                  className="flex flex-col items-center justify-center h-20 rounded-none bg-indigo-500/15 hover:bg-indigo-500/25 border-2 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 font-black text-xs gap-1.5 cursor-pointer active:scale-95"
                 >
                   <span className="text-xl">💳</span>
                   <span>Card</span>
@@ -1045,11 +1044,11 @@ export default function CurrentOrdersPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center justify-between pt-2 border-t-2 border-border">
               <Button
                 variant="ghost"
                 onClick={() => setSettlingOrder(null)}
-                className="text-xs text-muted-foreground hover:text-foreground font-semibold"
+                className="text-xs text-muted-foreground hover:text-foreground font-semibold rounded-none"
               >
                 Cancel
               </Button>
@@ -1057,7 +1056,7 @@ export default function CurrentOrdersPage() {
               <Button
                 variant="outline"
                 onClick={() => handlePrintReceipt(settlingOrder)}
-                className="text-xs font-bold gap-1.5 border-border"
+                className="text-xs font-bold gap-1.5 border-2 border-border rounded-none"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Print Bill</span>
