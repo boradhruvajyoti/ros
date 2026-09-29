@@ -380,7 +380,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: RosTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: const Row(
           children: [
             Icon(Icons.block_rounded, color: RosTheme.danger, size: 22),
@@ -420,15 +420,15 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             TextField(
               controller: reasonController,
               style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'e.g. Out of stock / Customer requested change',
-                hintStyle: const TextStyle(color: RosTheme.textMuted, fontSize: 12),
+                hintStyle: TextStyle(color: RosTheme.textMuted, fontSize: 12),
                 filled: true,
                 fillColor: RosTheme.bgElevated,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: RosTheme.bgBorder),
+                  borderRadius: BorderRadius.zero,
+                  borderSide: BorderSide(color: RosTheme.bgBorder, width: 1.5),
                 ),
               ),
             ),
@@ -475,6 +475,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: RosTheme.danger,
               foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
             child: const Text('Confirm Cancel Item'),
           ),
@@ -490,7 +491,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: RosTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: const Row(
           children: [
             Icon(Icons.delete_forever_rounded, color: RosTheme.danger, size: 22),
@@ -530,15 +531,15 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             TextField(
               controller: reasonController,
               style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'e.g. Table cancelled entire round',
-                hintStyle: const TextStyle(color: RosTheme.textMuted, fontSize: 12),
+                hintStyle: TextStyle(color: RosTheme.textMuted, fontSize: 12),
                 filled: true,
                 fillColor: RosTheme.bgElevated,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: RosTheme.bgBorder),
+                  borderRadius: BorderRadius.zero,
+                  borderSide: BorderSide(color: RosTheme.bgBorder, width: 1.5),
                 ),
               ),
             ),
@@ -585,6 +586,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: RosTheme.danger,
               foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
             child: const Text('Confirm Cancel Ticket'),
           ),
@@ -629,7 +631,12 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
               decoration: BoxDecoration(
                 color: (effectiveRole == 'COOK' ? RosTheme.warning : RosTheme.secondary)
                     .withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.zero,
+                border: Border.all(
+                  color: (effectiveRole == 'COOK' ? RosTheme.warning : RosTheme.secondary)
+                      .withValues(alpha: 0.5),
+                  width: 1.5,
+                ),
               ),
               child: Icon(
                 effectiveRole == 'COOK' ? Icons.soup_kitchen_rounded : Icons.room_service_rounded,
@@ -668,9 +675,10 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: RosTheme.secondary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.zero,
               border: Border.all(
-                color: RosTheme.secondary.withValues(alpha: 0.4),
+                color: RosTheme.secondary.withValues(alpha: 0.6),
+                width: 1.5,
               ),
             ),
             child: const Row(
@@ -721,8 +729,8 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: RosTheme.bgElevated,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: RosTheme.bgBorder),
+              borderRadius: BorderRadius.zero,
+              border: Border.all(color: RosTheme.bgBorder, width: 1.5),
             ),
             child: Row(
               children: [
@@ -743,16 +751,10 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                           color: effectiveRole == 'COOK' && access.canViewCook
                               ? RosTheme.warning
                               : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: effectiveRole == 'COOK' && access.canViewCook
-                              ? [
-                                  BoxShadow(
-                                    color: RosTheme.warning.withValues(alpha: 0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ]
-                              : null,
+                          borderRadius: BorderRadius.zero,
+                          border: effectiveRole == 'COOK' && access.canViewCook
+                              ? Border.all(color: RosTheme.warning, width: 1.5)
+                              : Border.all(color: Colors.transparent, width: 1.5),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -802,16 +804,10 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                           color: effectiveRole == 'WAITER' && access.canViewWaiter
                               ? RosTheme.secondary
                               : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: effectiveRole == 'WAITER' && access.canViewWaiter
-                              ? [
-                                  BoxShadow(
-                                    color: RosTheme.secondary.withValues(alpha: 0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ]
-                              : null,
+                          borderRadius: BorderRadius.zero,
+                          border: effectiveRole == 'WAITER' && access.canViewWaiter
+                              ? Border.all(color: RosTheme.secondary, width: 1.5)
+                              : Border.all(color: Colors.transparent, width: 1.5),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -938,10 +934,10 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: selected ? color : RosTheme.bgElevated,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.zero,
             border: Border.all(
               color: selected ? color : RosTheme.bgBorder,
-              width: 1,
+              width: 1.5,
             ),
           ),
           child: Text(
@@ -1003,9 +999,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
         color: isSelected ? activeColor.withValues(alpha: 0.15) : RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
-          color: activeColor.withValues(alpha: 0.5),
+          color: activeColor.withValues(alpha: 0.8),
           width: 1.5,
         ),
       ),
@@ -1016,7 +1012,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                   color: RosTheme.textPrimary,
@@ -1028,7 +1024,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: activeColor,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.zero,
             ),
             child: Text(
               '$count Active Tickets',
@@ -1147,16 +1143,16 @@ class _CookNewKotCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
-          color: RosTheme.warning.withValues(alpha: 0.5),
-          width: 1.5,
+          color: RosTheme.warning.withValues(alpha: 0.8),
+          width: 1.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -1167,7 +1163,7 @@ class _CookNewKotCard extends StatelessWidget {
           // ── Header Bar with Bold Table Tag & Timer ─────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            color: RosTheme.warning.withValues(alpha: 0.12),
+            color: RosTheme.warning.withValues(alpha: 0.15),
             child: Row(
               children: [
                 Text(
@@ -1186,14 +1182,7 @@ class _CookNewKotCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
                     color: isTakeaway ? RosTheme.primary : RosTheme.secondary,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isTakeaway ? RosTheme.primary : RosTheme.secondary)
-                            .withValues(alpha: 0.3),
-                        blurRadius: 4,
-                      ),
-                    ],
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: Text(
                     isTakeaway ? '📦 TAKEAWAY' : 'TABLE: $tableName',
@@ -1212,7 +1201,11 @@ class _CookNewKotCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: RosTheme.secondary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.zero,
+                      border: Border.all(
+                        color: RosTheme.secondary.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
                     ),
                     child: Text(
                       '${readyItems.length}/${activeItems.length} Done',
@@ -1234,7 +1227,13 @@ class _CookNewKotCard extends StatelessWidget {
                     color: isOverdue
                         ? RosTheme.danger
                         : (isWarning ? RosTheme.warning : RosTheme.bgElevated),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(
+                      color: (isOverdue || isWarning)
+                          ? Colors.transparent
+                          : RosTheme.bgBorder,
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1304,11 +1303,12 @@ class _CookNewKotCard extends StatelessWidget {
                               : (isReady
                                   ? RosTheme.bgElevated.withValues(alpha: 0.4)
                                   : RosTheme.bgElevated),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(
                             color: isReady
                                 ? RosTheme.bgBorder.withValues(alpha: 0.5)
                                 : RosTheme.bgBorder,
+                            width: 1.5,
                           ),
                         ),
                         child: Row(
@@ -1322,9 +1322,9 @@ class _CookNewKotCard extends StatelessWidget {
                                 color: isCancelled
                                     ? RosTheme.bgBorder
                                     : (isReady
-                                        ? RosTheme.secondary.withValues(alpha: 0.6)
+                                        ? RosTheme.secondary.withValues(alpha: 0.8)
                                         : (isMulti ? RosTheme.warning : RosTheme.primary)),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.zero,
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -1363,7 +1363,7 @@ class _CookNewKotCard extends StatelessWidget {
                                         style: const TextStyle(
                                           fontSize: 11,
                                           color: RosTheme.accent,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ),
@@ -1373,9 +1373,10 @@ class _CookNewKotCard extends StatelessWidget {
                                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: RosTheme.danger.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.zero,
                                         border: Border.all(
-                                          color: RosTheme.danger.withValues(alpha: 0.35),
+                                          color: RosTheme.danger.withValues(alpha: 0.5),
+                                          width: 1,
                                         ),
                                       ),
                                       child: Text(
@@ -1399,7 +1400,11 @@ class _CookNewKotCard extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: RosTheme.secondary.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.zero,
+                                    border: Border.all(
+                                      color: RosTheme.secondary.withValues(alpha: 0.4),
+                                      width: 1,
+                                    ),
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -1443,7 +1448,7 @@ class _CookNewKotCard extends StatelessWidget {
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     minimumSize: Size.zero,
                                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                                   ),
                                 ),
                                 const SizedBox(width: 4),
@@ -1476,8 +1481,8 @@ class _CookNewKotCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: RosTheme.warning.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: RosTheme.warning.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.zero,
+                  border: Border.all(color: RosTheme.warning.withValues(alpha: 0.5), width: 1),
                 ),
                 child: Text(
                   '📝 Order Note: ${kot.orderNotes}',
@@ -1509,9 +1514,8 @@ class _CookNewKotCard extends StatelessWidget {
                   backgroundColor: RosTheme.secondary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 4,
-                  shadowColor: RosTheme.secondary.withValues(alpha: 0.4),
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                  elevation: 2,
                 ),
               ),
             ),
@@ -1545,16 +1549,16 @@ class _WaiterReadyKotCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: hasReady ? RosTheme.secondary : RosTheme.bgBorder,
-          width: hasReady ? 1.8 : 1.2,
+          width: hasReady ? 2.0 : 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: (hasReady ? RosTheme.secondary : Colors.black).withValues(alpha: hasReady ? 0.15 : 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: (hasReady ? RosTheme.secondary : Colors.black).withValues(alpha: hasReady ? 0.18 : 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -1588,15 +1592,9 @@ class _WaiterReadyKotCard extends StatelessWidget {
                 // Table Tag Chip
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 4,
-                      ),
-                    ],
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: Text(
                     isTakeaway ? '📦 TAKEAWAY' : 'TABLE: $tableName',
@@ -1614,7 +1612,11 @@ class _WaiterReadyKotCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      width: 1,
+                    ),
                   ),
                   child: Text(
                     hasReady ? '${readyItems.length} Ready' : '${cookingItems.length} Cooking',
@@ -1633,7 +1635,11 @@ class _WaiterReadyKotCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1684,15 +1690,16 @@ class _WaiterReadyKotCard extends StatelessWidget {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isReady
-                              ? RosTheme.secondary.withValues(alpha: 0.12)
+                              ? RosTheme.secondary.withValues(alpha: 0.15)
                               : (isCooking
-                                  ? RosTheme.bgElevated.withValues(alpha: 0.4)
+                                  ? RosTheme.bgElevated.withValues(alpha: 0.5)
                                   : RosTheme.bgElevated.withValues(alpha: 0.2)),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(
                             color: isReady
-                                ? RosTheme.secondary.withValues(alpha: 0.4)
-                                : RosTheme.bgBorder.withValues(alpha: 0.5),
+                                ? RosTheme.secondary.withValues(alpha: 0.6)
+                                : RosTheme.bgBorder,
+                            width: 1.5,
                           ),
                         ),
                         child: Row(
@@ -1706,7 +1713,7 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                 color: isReady
                                     ? (isMulti ? RosTheme.warning : RosTheme.secondary)
                                     : RosTheme.bgBorder,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.zero,
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -1744,7 +1751,11 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: RosTheme.secondary.withValues(alpha: 0.2),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.zero,
+                                            border: Border.all(
+                                              color: RosTheme.secondary.withValues(alpha: 0.5),
+                                              width: 1,
+                                            ),
                                           ),
                                           child: const Text(
                                             '🛎️ Ready to Serve',
@@ -1760,7 +1771,11 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: RosTheme.warning.withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.zero,
+                                            border: Border.all(
+                                              color: RosTheme.warning.withValues(alpha: 0.4),
+                                              width: 1,
+                                            ),
                                           ),
                                           child: const Text(
                                             '🔥 In Kitchen',
@@ -1776,7 +1791,11 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: RosTheme.primary.withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.zero,
+                                            border: Border.all(
+                                              color: RosTheme.primary.withValues(alpha: 0.4),
+                                              width: 1,
+                                            ),
                                           ),
                                           child: const Text(
                                             '✅ Served',
@@ -1797,7 +1816,7 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                         style: const TextStyle(
                                           fontSize: 11,
                                           color: RosTheme.accent,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ),
@@ -1807,9 +1826,10 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: RosTheme.danger.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.zero,
                                         border: Border.all(
-                                          color: RosTheme.danger.withValues(alpha: 0.35),
+                                          color: RosTheme.danger.withValues(alpha: 0.5),
+                                          width: 1,
                                         ),
                                       ),
                                       child: Text(
@@ -1839,7 +1859,7 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                   backgroundColor: RosTheme.secondary,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                                   elevation: 2,
                                 ),
                               )
@@ -1848,7 +1868,11 @@ class _WaiterReadyKotCard extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: RosTheme.bgBorder.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.zero,
+                                  border: Border.all(
+                                    color: RosTheme.bgBorder.withValues(alpha: 0.5),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -1897,9 +1921,8 @@ class _WaiterReadyKotCard extends StatelessWidget {
                   backgroundColor: RosTheme.secondary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 4,
-                  shadowColor: RosTheme.secondary.withValues(alpha: 0.4),
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                  elevation: 2,
                 ),
               ),
             ),

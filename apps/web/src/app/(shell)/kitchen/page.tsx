@@ -381,9 +381,9 @@ export default function KitchenPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1700px] mx-auto min-h-screen">
       {/* Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-border pb-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
+          <div className="w-12 h-12 rounded-none bg-primary/15 border-2 border-primary/40 flex items-center justify-center text-primary shadow-sm">
             {effectiveRole === 'COOK' ? (
               <ChefHat className="w-7 h-7 text-amber-500" />
             ) : (
@@ -395,11 +395,11 @@ export default function KitchenPage() {
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
                 Kitchen Display System
               </h1>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-black flex items-center gap-1">
+              <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500/50 text-xs font-black flex items-center gap-1 rounded-none">
                 <Wifi className="w-3 h-3 animate-pulse" /> LIVE
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground font-medium">
+            <p className="text-xs sm:text-sm text-muted-foreground font-semibold">
               Simplified 2-Step Workflow &bull; Instant Item-Level Kitchen & Runner Sync
             </p>
           </div>
@@ -407,8 +407,8 @@ export default function KitchenPage() {
 
         {/* Role Mode Switcher & Controls */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Role Switcher — shows both tabs; dims/locks inaccessible tabs */}
-          <div className="flex items-center p-1 rounded-2xl bg-card border border-border shadow-sm">
+          {/* Role Switcher */}
+          <div className="flex items-center p-1 rounded-none bg-card dark:bg-zinc-900 border-2 border-border shadow-sm">
             {/* Cook / Kitchen tab */}
             {kdsAccess.canViewCook ? (
               <button
@@ -416,12 +416,12 @@ export default function KitchenPage() {
                 onClick={() => kdsAccess.canToggle ? setActiveRole('COOK') : undefined}
                 disabled={!kdsAccess.canToggle && effectiveRole !== 'COOK'}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all',
+                  'flex items-center gap-2 px-4 py-2 rounded-none text-xs sm:text-sm font-black transition-all border',
                   effectiveRole === 'COOK'
-                    ? 'bg-amber-500 text-slate-950 shadow-md'
+                    ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm'
                     : kdsAccess.canToggle
-                      ? 'text-muted-foreground hover:text-foreground cursor-pointer'
-                      : 'text-muted-foreground cursor-default'
+                      ? 'text-foreground hover:bg-muted border-transparent cursor-pointer'
+                      : 'text-muted-foreground border-transparent cursor-default'
                 )}
               >
                 <ChefHat className="w-4 h-4" />
@@ -432,7 +432,7 @@ export default function KitchenPage() {
                 type="button"
                 disabled
                 title="Your account does not have access to the Cook Station"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black opacity-35 cursor-not-allowed text-muted-foreground"
+                className="flex items-center gap-2 px-4 py-2 rounded-none text-xs sm:text-sm font-black opacity-35 cursor-not-allowed text-muted-foreground"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Cook / Kitchen</span>
@@ -446,12 +446,12 @@ export default function KitchenPage() {
                 onClick={() => kdsAccess.canToggle ? setActiveRole('WAITER') : undefined}
                 disabled={!kdsAccess.canToggle && effectiveRole !== 'WAITER'}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all',
+                  'flex items-center gap-2 px-4 py-2 rounded-none text-xs sm:text-sm font-black transition-all border',
                   effectiveRole === 'WAITER'
-                    ? 'bg-emerald-600 text-white shadow-md'
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
                     : kdsAccess.canToggle
-                      ? 'text-muted-foreground hover:text-foreground cursor-pointer'
-                      : 'text-muted-foreground cursor-default'
+                      ? 'text-foreground hover:bg-muted border-transparent cursor-pointer'
+                      : 'text-muted-foreground border-transparent cursor-default'
                 )}
               >
                 <Utensils className="w-4 h-4" />
@@ -462,7 +462,7 @@ export default function KitchenPage() {
                 type="button"
                 disabled
                 title="Your account does not have access to the Waiter/Runner Station"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black opacity-35 cursor-not-allowed text-muted-foreground"
+                className="flex items-center gap-2 px-4 py-2 rounded-none text-xs sm:text-sm font-black opacity-35 cursor-not-allowed text-muted-foreground"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Waiter / Runner</span>
@@ -472,15 +472,15 @@ export default function KitchenPage() {
 
           {/* Station filter */}
           {stations.length > 0 && (
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-card border border-border">
+            <div className="flex items-center gap-1.5 p-1 rounded-none bg-card dark:bg-zinc-900 border-2 border-border">
               <button
                 type="button"
                 onClick={() => setFilterStation(null)}
                 className={cn(
-                  'px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer',
+                  'px-3 py-1.5 rounded-none text-xs font-black transition-all cursor-pointer border',
                   filterStation === null
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'text-foreground hover:bg-muted border-transparent'
                 )}
               >
                 All Stations
@@ -491,10 +491,10 @@ export default function KitchenPage() {
                   type="button"
                   onClick={() => setFilterStation(s.id)}
                   className={cn(
-                    'px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer',
+                    'px-3 py-1.5 rounded-none text-xs font-black transition-all cursor-pointer border',
                     filterStation === s.id
-                      ? 'text-white shadow-sm'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                      ? 'text-white border-transparent shadow-sm'
+                      : 'bg-muted text-foreground border-border hover:bg-muted/80'
                   )}
                   style={filterStation === s.id ? { backgroundColor: s.displayColor } : {}}
                 >
@@ -512,10 +512,10 @@ export default function KitchenPage() {
               if (!soundEnabled) playNewOrderSound();
             }}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer',
+              'flex items-center gap-1.5 px-3 py-2 rounded-none text-xs font-black border-2 transition-all cursor-pointer',
               soundEnabled
-                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
-                : 'bg-muted text-muted-foreground border-border'
+                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/50'
+                : 'bg-muted text-foreground border-border'
             )}
             title="Toggle kitchen bell audio"
           >
@@ -535,9 +535,9 @@ export default function KitchenPage() {
         /* 👨‍🍳 COOK VIEW: SINGLE FULL-WIDTH COLUMN (ACTIVE COOKING KOTS) */
         <div className="space-y-4">
           {/* Header Banner */}
-          <div className="flex items-center justify-between p-4 rounded-3xl bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 shadow-sm">
+          <div className="flex items-center justify-between p-4 rounded-none bg-amber-500/10 dark:bg-amber-950/40 border-2 border-amber-500/60 shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-sm">
+              <div className="w-10 h-10 rounded-none bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-sm font-bold">
                 <Flame className="w-6 h-6 animate-pulse" />
               </div>
               <div className="min-w-0">
@@ -549,15 +549,15 @@ export default function KitchenPage() {
                 </p>
               </div>
             </div>
-            <span className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 text-xs sm:text-sm font-black shrink-0 shadow-sm">
+            <span className="px-3.5 py-1.5 rounded-none bg-amber-500 text-slate-950 text-xs sm:text-sm font-black shrink-0 shadow-sm border border-amber-600">
               {cookNewKots.length} Active Tickets
             </span>
           </div>
 
           {/* Cards List: Horizontal layout stacked vertically */}
           {cookNewKots.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[250px] bg-card/40">
-              <Sparkles className="w-12 h-12 text-amber-500/40 mb-3" />
+            <div className="rounded-none border-2 border-dashed border-border p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[250px] bg-card dark:bg-zinc-900">
+              <Sparkles className="w-12 h-12 text-amber-500/60 mb-3" />
               <h3 className="text-lg font-bold text-foreground">All Caught Up!</h3>
               <p className="text-sm text-muted-foreground max-w-sm mt-1">
                 No active cooking items right now. New KOTs sent from tables or POS will appear here instantly.
@@ -594,9 +594,9 @@ export default function KitchenPage() {
         /* 🍽️ WAITER VIEW: SINGLE FULL-WIDTH COLUMN (READY TO SERVE ONLY) */
         <div className="space-y-4">
           {/* Column Header Banner */}
-          <div className="flex items-center justify-between p-4 rounded-3xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-transparent border border-emerald-500/40 shadow-sm">
+          <div className="flex items-center justify-between p-4 rounded-none bg-emerald-500/10 dark:bg-emerald-950/40 border-2 border-emerald-500/60 shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <div className="w-10 h-10 rounded-none bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
                 <Utensils className="w-6 h-6" />
               </div>
               <div className="min-w-0">
@@ -608,15 +608,15 @@ export default function KitchenPage() {
                 </p>
               </div>
             </div>
-            <span className="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-black shrink-0 shadow-sm">
+            <span className="px-3.5 py-1.5 rounded-none bg-emerald-600 text-white text-xs sm:text-sm font-black shrink-0 shadow-sm border border-emerald-700">
               {waiterReadyKots.length} Active Tickets
             </span>
           </div>
 
           {/* Cards List: Horizontal layout stacked vertically */}
           {waiterReadyKots.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[250px] bg-card/40">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500/40 mb-3" />
+            <div className="rounded-none border-2 border-dashed border-border p-12 text-center flex flex-col items-center justify-center text-muted-foreground min-h-[250px] bg-card dark:bg-zinc-900">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500/60 mb-3" />
               <h3 className="text-lg font-bold text-foreground">Pass Counter is Clear</h3>
               <p className="text-sm text-muted-foreground max-w-sm mt-1">
                 When dishes are marked complete in the kitchen, they will appear here ready for runner pickup.
@@ -644,9 +644,9 @@ export default function KitchenPage() {
       {/* ── Cancel Item Confirmation Modal ───────────────────────────────────── */}
       {cancelModalItem && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border-2 border-destructive/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-card dark:bg-zinc-900 border-2 border-destructive rounded-none p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3 text-destructive">
-              <div className="w-10 h-10 rounded-xl bg-destructive/15 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-none bg-destructive/15 border border-destructive/30 flex items-center justify-center">
                 <XCircle className="w-6 h-6" />
               </div>
               <div>
@@ -655,7 +655,7 @@ export default function KitchenPage() {
               </div>
             </div>
 
-            <p className="text-sm text-foreground">
+            <p className="text-sm text-foreground font-semibold">
               Are you sure you want to cancel <strong className="text-destructive font-black">{cancelModalItem.itemName}</strong>?
             </p>
 
@@ -667,14 +667,14 @@ export default function KitchenPage() {
                 placeholder="e.g. Out of stock / Customer requested change"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="bg-muted/50 rounded-xl"
+                className="bg-muted/50 rounded-none border-2 border-border"
               />
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <Button
                 variant="outline"
-                className="rounded-xl font-bold"
+                className="rounded-none font-bold border-2 border-border"
                 onClick={() => {
                   setCancelModalItem(null);
                   setCancelReason('');
@@ -684,7 +684,7 @@ export default function KitchenPage() {
               </Button>
               <Button
                 variant="destructive"
-                className="rounded-xl font-black bg-rose-600 hover:bg-rose-700"
+                className="rounded-none font-black bg-rose-600 hover:bg-rose-700"
                 onClick={() =>
                   cancelKotItem.mutate({
                     kotId: cancelModalItem.kotId,
@@ -703,9 +703,9 @@ export default function KitchenPage() {
       {/* ── Cancel Entire Ticket Confirmation Modal ──────────────────────────── */}
       {cancelModalKot && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border-2 border-destructive/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-card dark:bg-zinc-900 border-2 border-destructive rounded-none p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3 text-destructive">
-              <div className="w-10 h-10 rounded-xl bg-destructive/15 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-none bg-destructive/15 border border-destructive/30 flex items-center justify-center">
                 <Trash2 className="w-6 h-6" />
               </div>
               <div>
@@ -714,7 +714,7 @@ export default function KitchenPage() {
               </div>
             </div>
 
-            <p className="text-sm text-foreground">
+            <p className="text-sm text-foreground font-semibold">
               This will cancel all active items under this KOT and update the active order.
             </p>
 
@@ -726,14 +726,14 @@ export default function KitchenPage() {
                 placeholder="e.g. Customer cancelled entire round"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="bg-muted/50 rounded-xl"
+                className="bg-muted/50 rounded-none border-2 border-border"
               />
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <Button
                 variant="outline"
-                className="rounded-xl font-bold"
+                className="rounded-none font-bold border-2 border-border"
                 onClick={() => {
                   setCancelModalKot(null);
                   setCancelReason('');
@@ -743,7 +743,7 @@ export default function KitchenPage() {
               </Button>
               <Button
                 variant="destructive"
-                className="rounded-xl font-black bg-rose-600 hover:bg-rose-700"
+                className="rounded-none font-black bg-rose-600 hover:bg-rose-700"
                 onClick={() =>
                   cancelKot.mutate({
                     kotId: cancelModalKot.kotId,
@@ -790,27 +790,27 @@ function CookKotCard({
   const readyItems = activeItems.filter((i) => i.status === 'READY' || i.status === 'SERVED');
 
   return (
-    <div className="rounded-2xl border-2 border-amber-500/40 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+    <div className="rounded-none border-2 border-amber-500/60 dark:border-amber-500/50 bg-card dark:bg-zinc-900 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
       {/* Top Ticket Header Bar */}
-      <div className="px-5 py-3.5 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border-b border-border/80 flex flex-wrap items-center justify-between gap-3">
+      <div className="px-5 py-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-b-2 border-border/80 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-foreground">
             #{kot.kotNumber}
           </span>
           {tableName ? (
-            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-none shadow-xs border border-emerald-500">
               TABLE: {tableName}
             </Badge>
           ) : (
-            <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+            <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white font-black text-xs px-3 py-1 rounded-none shadow-xs border border-indigo-500">
               📦 TAKEAWAY
             </Badge>
           )}
-          <span className="text-xs font-semibold text-muted-foreground font-mono">
+          <span className="text-xs font-bold text-foreground font-mono">
             Order #{kot.order.orderNumber}
           </span>
           {readyItems.length > 0 && (
-            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 rounded-none">
               {readyItems.length}/{activeItems.length} Done
             </span>
           )}
@@ -818,10 +818,10 @@ function CookKotCard({
 
         <div className="flex items-center gap-3">
           <div className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold tabular-nums font-mono',
-            isOverdue ? 'bg-red-600 text-white animate-pulse' :
-            isWarning ? 'bg-amber-500 text-slate-950 font-black' :
-            'bg-muted text-foreground border border-border'
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-bold tabular-nums font-mono border',
+            isOverdue ? 'bg-red-600 text-white animate-pulse border-red-500' :
+            isWarning ? 'bg-amber-500 text-slate-950 font-black border-amber-600' :
+            'bg-muted text-foreground border-border'
           )}>
             <Clock className="w-3.5 h-3.5" />
             <span>{kot.ageMinutes}m elapsed</span>
@@ -831,7 +831,7 @@ function CookKotCard({
             type="button"
             onClick={onRequestCancelKot}
             title="Cancel Entire KOT Ticket"
-            className="p-1.5 rounded-xl text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer border border-transparent hover:border-rose-500/20"
+            className="p-1.5 rounded-none text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer border border-transparent hover:border-rose-500/30"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -856,25 +856,25 @@ function CookKotCard({
               <div
                 key={item.id}
                 className={cn(
-                  'flex items-start justify-between gap-3 p-3.5 rounded-xl border transition-all',
+                  'flex items-start justify-between gap-3 p-3.5 rounded-none border-2 transition-all',
                   isItemCancelled
                     ? 'opacity-40 border-border/40 bg-muted/20 line-through'
                     : isItemReady
-                    ? 'bg-muted/30 border-border/50 opacity-75'
-                    : 'bg-card border-border/80 shadow-xs hover:border-amber-500/40'
+                    ? 'bg-muted/40 dark:bg-zinc-950/60 border-border/80 opacity-80'
+                    : 'bg-card dark:bg-zinc-950 border-border/80 dark:border-zinc-800 shadow-xs hover:border-amber-500/60'
                 )}
               >
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   {/* Quantity Box */}
                   <div className={cn(
-                    'w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black font-mono shrink-0 shadow-xs',
+                    'w-10 h-10 rounded-none flex items-center justify-center text-lg font-black font-mono shrink-0 shadow-xs border',
                     isItemCancelled
-                      ? 'bg-muted text-muted-foreground'
+                      ? 'bg-muted text-muted-foreground border-border'
                       : isItemReady
-                      ? 'bg-emerald-600/70 text-white'
+                      ? 'bg-emerald-600 text-white border-emerald-500'
                       : isMultiQty
-                      ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-400/40'
-                      : 'bg-primary text-primary-foreground'
+                      ? 'bg-amber-400 text-amber-950 border-amber-500 font-black'
+                      : 'bg-primary text-primary-foreground border-primary'
                   )}>
                     {qty}
                   </div>
@@ -901,14 +901,14 @@ function CookKotCard({
                     </div>
 
                     {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
-                      <p className="text-xs font-semibold text-indigo-400 mt-0.5 break-words">
+                      <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5 break-words">
                         + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
                       </p>
                     )}
 
                     {/* Special Instruction */}
                     {item.orderItem?.notes && !isItemCancelled && (
-                      <div className="mt-2 p-1.5 px-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-300 flex items-start gap-1.5 break-words">
+                      <div className="mt-2 p-1.5 px-2.5 rounded-none bg-rose-500/15 border border-rose-500/40 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-start gap-1.5 break-words">
                         <span className="shrink-0">⚠️</span>
                         <span>Special Instruction: {item.orderItem.notes}</span>
                       </div>
@@ -921,14 +921,14 @@ function CookKotCard({
                   <div className="shrink-0 flex items-center gap-1.5 pt-0.5">
                     {isItemReady ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 rounded-lg">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Completed
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 px-2 py-1 rounded-none">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Completed
                         </span>
                         {onUndoItem && (
                           <button
                             type="button"
                             onClick={() => onUndoItem(item.id)}
-                            className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all border border-border cursor-pointer"
+                            className="p-1.5 rounded-none bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all border border-border cursor-pointer"
                             title="Undo complete - return dish to cooking status"
                           >
                             <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
@@ -939,7 +939,7 @@ function CookKotCard({
                       <button
                         type="button"
                         onClick={() => onCompleteItem(item.id)}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer border border-emerald-500"
                       >
                         <Check className="w-4 h-4" />
                         <span>Complete</span>
@@ -953,7 +953,7 @@ function CookKotCard({
         </div>
 
         {kot.order.notes && (
-          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-300">
+          <div className="mt-3 p-2.5 rounded-none bg-amber-500/15 border border-amber-500/40 text-xs font-bold text-amber-800 dark:text-amber-300">
             📝 Order Note: {kot.order.notes}
           </div>
         )}
@@ -961,11 +961,11 @@ function CookKotCard({
 
       {/* Footer: Complete All Button */}
       {pendingItems.length > 0 && (
-        <div className="px-5 py-3 bg-muted/20 border-t border-border/70 flex items-center justify-end">
+        <div className="px-5 py-3 bg-muted/30 border-t-2 border-border/80 flex items-center justify-end">
           <button
             type="button"
             onClick={onCompleteKot}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+            className="px-5 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer border border-emerald-500"
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>COMPLETE ALL ITEMS ({pendingItems.length})</span>
@@ -994,14 +994,14 @@ function WaiterReadyKotCard({
 
   return (
     <div className={cn(
-      'rounded-2xl border-2 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col',
-      hasReady ? 'border-emerald-500/50 shadow-emerald-500/5' : 'border-border/80 opacity-90'
+      'rounded-none border-2 bg-card dark:bg-zinc-900 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col',
+      hasReady ? 'border-emerald-500/60 dark:border-emerald-500/50 shadow-emerald-500/5' : 'border-border/80 dark:border-zinc-800 opacity-90'
     )}>
       {/* Top Header Bar */}
       <div className={cn(
-        'px-5 py-3.5 border-b border-border/80 flex flex-wrap items-center justify-between gap-3',
+        'px-5 py-3.5 border-b-2 border-border/80 flex flex-wrap items-center justify-between gap-3',
         hasReady
-          ? 'bg-gradient-to-r from-emerald-600/15 via-teal-600/10 to-transparent'
+          ? 'bg-emerald-500/10 dark:bg-emerald-950/30'
           : 'bg-muted/40'
       )}>
         <div className="flex items-center gap-3 flex-wrap">
@@ -1009,29 +1009,29 @@ function WaiterReadyKotCard({
             #{kot.kotNumber}
           </span>
           {tableName ? (
-            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-none shadow-xs border border-emerald-500">
               TABLE: {tableName}
             </Badge>
           ) : (
-            <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-xs">
+            <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white font-black text-xs px-3 py-1 rounded-none shadow-xs border border-indigo-500">
               📦 TAKEAWAY
             </Badge>
           )}
-          <span className="text-xs font-semibold text-muted-foreground font-mono">
+          <span className="text-xs font-bold text-foreground font-mono">
             Order #{kot.order.orderNumber}
           </span>
           <span className={cn(
-            'text-xs font-black px-2.5 py-0.5 rounded-lg border',
+            'text-xs font-black px-2.5 py-0.5 rounded-none border',
             hasReady
-              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-              : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
+              : 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40'
           )}>
             {hasReady ? `${readyItems.length} Ready for Pickup` : `${cookingItems.length} Cooking`}
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground border border-border text-xs font-bold tabular-nums font-mono">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-muted text-foreground border border-border text-xs font-bold tabular-nums font-mono">
             <Clock className="w-3.5 h-3.5" />
             <span>{kot.ageMinutes}m elapsed</span>
           </div>
@@ -1056,21 +1056,21 @@ function WaiterReadyKotCard({
               <div
                 key={item.id}
                 className={cn(
-                  'flex items-start justify-between gap-3 p-3.5 rounded-xl border transition-all',
+                  'flex items-start justify-between gap-3 p-3.5 rounded-none border-2 transition-all',
                   isReady
-                    ? 'bg-emerald-500/10 border-emerald-500/30 shadow-xs'
+                    ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500/40 shadow-xs'
                     : isCooking
-                    ? 'bg-muted/30 border-border/50 opacity-70'
-                    : 'bg-muted/20 border-border/30 opacity-75'
+                    ? 'bg-muted/40 dark:bg-zinc-950/60 border-border/80 opacity-80'
+                    : 'bg-muted/20 border-border/40 opacity-75'
                 )}
               >
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   {/* Quantity Box */}
                   <div className={cn(
-                    'w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black font-mono shrink-0 shadow-xs',
+                    'w-10 h-10 rounded-none flex items-center justify-center text-lg font-black font-mono shrink-0 shadow-xs border',
                     isReady
-                      ? (isMultiQty ? 'bg-amber-400 text-amber-950' : 'bg-emerald-600 text-white')
-                      : 'bg-muted text-muted-foreground'
+                      ? (isMultiQty ? 'bg-amber-400 text-amber-950 border-amber-500 font-black' : 'bg-emerald-600 text-white border-emerald-500')
+                      : 'bg-muted text-foreground border-border'
                   )}>
                     {qty}
                   </div>
@@ -1086,28 +1086,28 @@ function WaiterReadyKotCard({
 
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {isReady ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-400">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Ready to Serve
+                        <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Ready to Serve
                         </span>
                       ) : isCooking ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400">
-                          <Flame className="w-3.5 h-3.5 text-amber-500" /> In Kitchen
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 dark:text-amber-300">
+                          <Flame className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> In Kitchen
                         </span>
                       ) : (
-                        <span className="text-[11px] font-bold text-blue-400">
+                        <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
                           ✅ Served
                         </span>
                       )}
 
                       {item.orderItem?.modifiers && item.orderItem.modifiers.length > 0 && (
-                        <span className="text-xs font-semibold text-indigo-400">
+                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                           + {item.orderItem.modifiers.map((m) => m.name).join(', ')}
                         </span>
                       )}
                     </div>
 
                     {item.orderItem?.notes && (
-                      <div className="mt-2 p-1.5 px-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-300 flex items-start gap-1.5 break-words">
+                      <div className="mt-2 p-1.5 px-2.5 rounded-none bg-rose-500/15 border border-rose-500/40 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-start gap-1.5 break-words">
                         <span className="shrink-0">⚠️</span>
                         <span>Special Instruction: {item.orderItem.notes}</span>
                       </div>
@@ -1120,7 +1120,7 @@ function WaiterReadyKotCard({
                   <button
                     type="button"
                     onClick={() => onServeItem(item.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer shrink-0 ml-1"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer shrink-0 ml-1 border border-emerald-500"
                   >
                     <Utensils className="w-3.5 h-3.5" />
                     <span>Serve</span>
@@ -1134,11 +1134,11 @@ function WaiterReadyKotCard({
 
       {/* Footer Action */}
       {readyItems.length > 0 && (
-        <div className="px-5 py-3 bg-muted/20 border-t border-border/70 flex items-center justify-end">
+        <div className="px-5 py-3 bg-muted/30 border-t-2 border-border/80 flex items-center justify-end">
           <button
             type="button"
             onClick={onServeKot}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+            className="px-5 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer border border-emerald-500"
           >
             <Utensils className="w-4 h-4" />
             <span>SERVE ALL READY ({readyItems.length})</span>
