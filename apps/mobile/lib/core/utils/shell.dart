@@ -3,6 +3,7 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
@@ -50,7 +51,7 @@ class AppShell extends ConsumerWidget {
         ],
       ),
       bottomNavigationBar: (MediaQuery.of(context).size.width <= 800 && navItems.isNotEmpty)
-          ? _buildBottomNav(context, selectedIndex, navItems)
+          ? _buildBottomNav(context, ref, selectedIndex, navItems)
           : null,
       endDrawer: _buildDrawer(context, ref, user, isSuperAdmin),
     );
@@ -376,7 +377,9 @@ class AppShell extends ConsumerWidget {
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: () {
+                    HapticFeedback.selectionClick();
                     Navigator.pop(ctx);
+                    refreshScreenRouteData(ref, '/settings');
                     context.go('/settings');
                   },
                   icon: const Icon(Icons.settings_rounded, size: 18),
@@ -491,7 +494,7 @@ class AppShell extends ConsumerWidget {
     }
   }
 
-  Widget _buildBottomNav(BuildContext context, int selectedIndex, List<_NavItem> items) {
+  Widget _buildBottomNav(BuildContext context, WidgetRef ref, int selectedIndex, List<_NavItem> items) {
     return Container(
       decoration: const BoxDecoration(
         border: Border(
@@ -500,7 +503,11 @@ class AppShell extends ConsumerWidget {
       ),
       child: NavigationBar(
         selectedIndex: selectedIndex.clamp(0, items.length - 1),
-        onDestinationSelected: (i) => context.go(items[i].path),
+        onDestinationSelected: (i) {
+          HapticFeedback.selectionClick();
+          refreshScreenRouteData(ref, items[i].path);
+          context.go(items[i].path);
+        },
         destinations: items.map((item) => NavigationDestination(
           icon: Icon(item.icon),
           label: item.label,
@@ -663,7 +670,11 @@ class AppShell extends ConsumerWidget {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 2),
                   child: InkWell(
-                    onTap: () => context.go(item.path),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      refreshScreenRouteData(ref, item.path);
+                      context.go(item.path);
+                    },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
@@ -877,7 +888,9 @@ class AppShell extends ConsumerWidget {
                     margin: const EdgeInsets.only(bottom: 2),
                     child: InkWell(
                       onTap: () {
+                        HapticFeedback.selectionClick();
                         Navigator.pop(context);
+                        refreshScreenRouteData(ref, item.path);
                         context.go(item.path);
                       },
                       borderRadius: BorderRadius.circular(10),

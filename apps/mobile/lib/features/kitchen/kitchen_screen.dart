@@ -234,7 +234,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    _socket?.off('ros:event');
+    _socket?.off('ros:event', _onRosEvent);
     super.dispose();
   }
 
@@ -243,8 +243,12 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
     if (socket == null) return;
     _socket = socket;
 
-    socket.on('ros:event', (data) {
-      if (!mounted) return;
+    socket.on('ros:event', _onRosEvent);
+  }
+
+  void _onRosEvent(dynamic data) {
+    if (!mounted) return;
+    if (data is Map) {
       final type = data['type'] as String?;
       final payload = data['payload'] as Map<String, dynamic>?;
 
@@ -254,7 +258,10 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
         'KOT_ADDED',
         'KOT_STATUS_CHANGED',
         'KOT_ITEM_STATUS_CHANGED',
+        'ITEM_SERVED',
+        'ITEM_STATUS_CHANGED',
         'ORDER_STATUS_CHANGED',
+        'ORDER_UPDATED',
         'ORDER_CANCELLED',
         'TABLE_STATUS_CHANGED',
       ].contains(type)) {
@@ -277,7 +284,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
         }
         _loadData(silent: true);
       }
-    });
+    }
   }
 
   Future<void> _loadData({bool silent = false}) async {

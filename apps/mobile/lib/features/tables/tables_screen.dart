@@ -144,7 +144,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
 
   @override
   void dispose() {
-    _socket?.off('ros:event');
+    _socket?.off('ros:event', _onRosEvent);
     super.dispose();
   }
 
@@ -153,21 +153,33 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
     if (socket == null) return;
     _socket = socket;
 
-    socket.on('ros:event', (data) {
-      if (!mounted) return;
+    socket.on('ros:event', _onRosEvent);
+  }
+
+  void _onRosEvent(dynamic data) {
+    if (!mounted) return;
+    if (data is Map) {
       final type = data['type'] as String?;
       if ([
         'TABLE_STATUS_CHANGED',
+        'TABLE_UPDATED',
         'ORDER_CREATED',
         'ORDER_STATUS_CHANGED',
+        'ORDER_UPDATED',
+        'ORDER_CANCELLED',
         'KOT_CREATED',
         'KOT_STATUS_CHANGED',
+        'KOT_ITEM_STATUS_CHANGED',
+        'ITEM_SERVED',
+        'ITEM_STATUS_CHANGED',
         'KOT_ADDED',
+        'PAYMENT_COMPLETED',
+        'PAYMENT_RECEIVED',
       ].contains(type)) {
         ref.invalidate(tablesProvider);
         ref.invalidate(activeOrdersProvider);
       }
-    });
+    }
   }
 
   void _triggerTableSelection() {

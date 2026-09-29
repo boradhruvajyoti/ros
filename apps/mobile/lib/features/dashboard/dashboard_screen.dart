@@ -385,7 +385,7 @@ class _MinimalKpiCard extends StatelessWidget {
 }
 
 // ── Minimalist Quick Action Button ──
-class _MinimalQuickAction extends StatelessWidget {
+class _MinimalQuickAction extends ConsumerWidget {
   final IconData icon;
   final String label;
   final String route;
@@ -397,10 +397,11 @@ class _MinimalQuickAction extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
       onTap: () {
         HapticFeedback.selectionClick();
+        refreshScreenRouteData(ref, route);
         context.go(route);
       },
       borderRadius: BorderRadius.circular(14),

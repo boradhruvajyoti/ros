@@ -2,10 +2,12 @@
 // Current Orders Screen — Live Active Orders (Dine-In, Takeaway, Delivery)
 // =============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
@@ -22,9 +24,65 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
   String _selectedTab = 'ALL'; // ALL | DINE_IN | TAKEAWAY | DELIVERY
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  Timer? _liveSyncTimer;
+  io.Socket? _socket;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupSocket();
+    // Refresh immediately upon entering screen
+    Future.microtask(() {
+      ref.invalidate(activeOrdersProvider);
+      ref.invalidate(tablesProvider);
+    });
+    // Fast periodic sync (every 3s) ensuring zero missed events
+    _liveSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        ref.invalidate(activeOrdersProvider);
+      }
+    });
+  }
+
+  void _setupSocket() {
+    final socket = ref.read(socketProvider);
+    if (socket == null) return;
+    _socket = socket;
+    socket.on('ros:event', _onRosEvent);
+  }
+
+  void _onRosEvent(dynamic data) {
+    if (!mounted) return;
+    if (data is Map) {
+      final type = data['type'] as String?;
+      if ([
+        'KOT_CREATED',
+        'KOT_RECEIVED',
+        'KOT_ADDED',
+        'KOT_STATUS_CHANGED',
+        'KOT_ITEM_STATUS_CHANGED',
+        'ITEM_SERVED',
+        'ITEM_STATUS_CHANGED',
+        'ORDER_CREATED',
+        'ORDER_STATUS_CHANGED',
+        'ORDER_UPDATED',
+        'ORDER_CANCELLED',
+        'QR_ORDER_PENDING',
+        'PAYMENT_COMPLETED',
+        'PAYMENT_RECEIVED',
+        'TABLE_STATUS_CHANGED',
+        'TABLE_UPDATED',
+      ].contains(type)) {
+        ref.invalidate(activeOrdersProvider);
+        ref.invalidate(tablesProvider);
+      }
+    }
+  }
 
   @override
   void dispose() {
+    _liveSyncTimer?.cancel();
+    _socket?.off('ros:event', _onRosEvent);
     _searchController.dispose();
     super.dispose();
   }

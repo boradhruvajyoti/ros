@@ -240,7 +240,8 @@ final socketProvider = Provider<io.Socket?>((ref) {
           type == 'ORDER_UPDATED' ||
           type == 'ORDER_CANCELLED' ||
           type == 'QR_ORDER_PENDING' ||
-          type == 'PAYMENT_COMPLETED') {
+          type == 'PAYMENT_COMPLETED' ||
+          type == 'PAYMENT_RECEIVED') {
         ref.invalidate(activeOrdersProvider);
         ref.invalidate(tablesProvider);
         ref.invalidate(dashboardProvider);
@@ -254,13 +255,15 @@ final socketProvider = Provider<io.Socket?>((ref) {
           type == 'KOT_RECEIVED' ||
           type == 'KOT_ADDED' ||
           type == 'KOT_STATUS_CHANGED' ||
-          type == 'KOT_ITEM_STATUS_CHANGED') {
+          type == 'KOT_ITEM_STATUS_CHANGED' ||
+          type == 'ITEM_SERVED' ||
+          type == 'ITEM_STATUS_CHANGED') {
         ref.invalidate(kitchenKotsProvider);
         ref.invalidate(activeOrdersProvider);
         ref.invalidate(tablesProvider);
         ref.invalidate(dashboardProvider);
 
-        // Play loud 5-second alert tone + vibration on KOT received / status changed
+        // Play alert tone on KOT events
         final kotNum = payload?['kotNumber'] ?? payload?['kotId'] ?? '';
         final status = payload?['status']?.toString() ?? type;
         SoundAlertService().playLoudOrderAlert(reason: 'KOT Event ($status #$kotNum)');
@@ -272,6 +275,39 @@ final socketProvider = Provider<io.Socket?>((ref) {
 
   return socket;
 });
+
+/// Refresh all active data providers for a screen route whenever the user navigates/taps
+void refreshScreenRouteData(WidgetRef ref, String path) {
+  final clean = path.split('?').first;
+  if (clean.startsWith('/tables')) {
+    ref.invalidate(tablesProvider);
+    ref.invalidate(activeOrdersProvider);
+    ref.invalidate(floorsProvider);
+  } else if (clean.startsWith('/current-orders')) {
+    ref.invalidate(activeOrdersProvider);
+    ref.invalidate(tablesProvider);
+  } else if (clean.startsWith('/kitchen')) {
+    ref.invalidate(kitchenKotsProvider);
+    ref.invalidate(kitchenStationsProvider);
+  } else if (clean.startsWith('/pos')) {
+    ref.invalidate(posMenuProvider);
+    ref.invalidate(menuCategoriesProvider);
+    ref.invalidate(tablesProvider);
+  } else if (clean.startsWith('/dashboard')) {
+    ref.invalidate(dashboardProvider);
+  } else if (clean.startsWith('/menu')) {
+    ref.invalidate(posMenuProvider);
+    ref.invalidate(menuCategoriesProvider);
+  } else if (clean.startsWith('/inventory')) {
+    ref.invalidate(inventoryProvider);
+  } else if (clean.startsWith('/staff')) {
+    ref.invalidate(staffProvider);
+  } else if (clean.startsWith('/customers')) {
+    ref.invalidate(customersProvider);
+  } else if (clean.startsWith('/reservations')) {
+    ref.invalidate(reservationsProvider);
+  }
+}
 
 // ── Menu Providers ────────────────────────────────────────────────────────────
 
