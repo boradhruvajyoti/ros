@@ -255,6 +255,20 @@ export default function TablesPage() {
   const [qrModalTable, setQrModalTable] = useState<Table | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
+  // ── View Mode: Normal vs Minimized (Compact Grid) ───────────────────────────
+  const [viewMode, setViewMode] = useState<'normal' | 'minimized'>('normal');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ros_tables_view_mode');
+      if (saved === 'normal' || saved === 'minimized') {
+        setViewMode(saved);
+      }
+    } catch {
+      // Ignore in restricted environments
+    }
+  }, []);
+
   // ── Table-Wise Orders History Modal State ───────────────────────────────────
   type TableOrdersPreset = 'today' | 'yesterday' | '7days' | '30days' | '90days' | '365days' | 'custom';
   const [tableOrdersModalTable, setTableOrdersModalTable] = useState<Table | null>(null);
@@ -931,6 +945,44 @@ export default function TablesPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            {/* View Mode Toggle: Normal vs Minimized */}
+            <div className="flex items-center p-0.5 rounded-xl bg-muted/60 border border-border/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('normal');
+                  try { localStorage.setItem('ros_tables_view_mode', 'normal'); } catch {}
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                  viewMode === 'normal'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title="Normal View (Detailed Cards)"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Normal View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('minimized');
+                  try { localStorage.setItem('ros_tables_view_mode', 'minimized'); } catch {}
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                  viewMode === 'minimized'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title="Minimized View (Compact Grid for maximum tables)"
+              >
+                <Grid3X3 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Minimized View</span>
+              </button>
+            </div>
+
             <Button
               variant="outline"
               size="sm"
@@ -994,7 +1046,12 @@ export default function TablesPage() {
         </div>
 
         {/* Tables Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className={cn(
+          'grid gap-4',
+          viewMode === 'minimized'
+            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5 sm:gap-3'
+            : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4'
+        )}>
           {tables.map((table) => {
             const meta = TABLE_STATUS_META[table.status] || TABLE_STATUS_META.AVAILABLE;
             const activeOrder = activeOrderByTableId[table.id];
@@ -1007,7 +1064,155 @@ export default function TablesPage() {
             const validItems = activeOrder ? (activeOrder.items || []).filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status)) : [];
 
             const isOccupied = table.status === 'OCCUPIED' || Boolean(activeOrder);
+            const isPendingAccept = activeOrder && ['CONFIRMED', 'DRAFT'].includes(activeOrder.status);
 
+            // ── MINIMIZED VIEW CARD ──────────────────────────────────────────
+            if (viewMode === 'minimized') {
+              return (
+                <div
+                  key={table.id}
+                  onClick={() => handleTableClick(table)}
+                  className={cn(
+                    'group relative flex flex-col justify-between p-2.5 sm:p-3 rounded-2xl border-2 transition-all duration-150 cursor-pointer min-h-[118px]',
+                    meta.bg,
+                    isOccupied
+                      ? 'border-rose-500 shadow-md shadow-rose-500/10 ring-1 ring-rose-500/30 hover:border-rose-500 hover:shadow-lg hover:-translate-y-0.5'
+                      : cn(meta.border, 'shadow-2xs hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5')
+                  )}
+                >
+                  {/* Top row: Table Number & Capacity & Quick history/standee */}
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className={cn(
+                        'w-8 h-8 rounded-xl flex items-center justify-center font-mono font-black text-sm shrink-0 border shadow-2xs',
+                        isOccupied
+                          ? 'bg-gradient-to-br from-rose-600 to-red-700 text-white border-rose-400'
+                          : 'bg-card text-foreground border-border/80 group-hover:text-primary group-hover:border-primary/40'
+                      )}>
+                        {table.name}
+                      </div>
+                      <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-0.5">
+                        <Users className="w-2.5 h-2.5" />{table.capacity}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => setQrModalTable(table)}
+                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
+                        title="Table QR Standee"
+                      >
+                        <QrCode className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTableOrdersPreset('today');
+                          setTableOrdersModalTable(table);
+                        }}
+                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
+                        title="Orders History"
+                      >
+                        <Clock className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Middle row: Status and order overview */}
+                  <div className="my-1.5">
+                    {isOccupied && activeOrder ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-mono font-bold text-[11px] text-foreground truncate">
+                            #{activeOrder.orderNumber}
+                          </span>
+                          <span className="font-mono font-black text-[11px] text-primary shrink-0">
+                            {formatCurrency(activeOrder.total)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between gap-1 text-[10px]">
+                          {isPendingAccept ? (
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black text-[9px] border border-emerald-500/40 animate-pulse truncate">
+                              ⚡ New Order
+                            </span>
+                          ) : kotProg.total > 0 ? (
+                            <span className={cn('font-bold truncate text-[10px]', kotProg.allServed ? 'text-teal-400' : 'text-amber-400')}>
+                              🍳 {kotProg.served}/{kotProg.total} KOT
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground truncate">
+                              {validItems.length} {validItems.length === 1 ? 'item' : 'items'}
+                            </span>
+                          )}
+                          
+                          {orderCfg && (
+                            <span className={cn('px-1 py-0.2 rounded text-[8px] font-bold shrink-0 border', orderCfg.bg, orderCfg.text, orderCfg.border)}>
+                              {orderCfg.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between py-1 text-muted-foreground">
+                        <span className={cn('text-[10px] font-bold uppercase tracking-wider', meta.text)}>
+                          {meta.shortLabel}
+                        </span>
+                        <span className="text-[10px] opacity-60">Ready</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom row: Quick Actions */}
+                  <div className="pt-1.5 border-t border-border/40 flex items-center justify-between gap-1" onClick={(e) => e.stopPropagation()}>
+                    {isOccupied && activeOrder ? (
+                      <>
+                        {isPendingAccept ? (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/pos?table=${table.id}&order=${activeOrder.id}&accept=true`)}
+                            className="w-full h-6 px-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center gap-1 shadow-xs cursor-pointer animate-pulse"
+                          >
+                            <CheckCircle2 className="w-3 h-3" /> Accept
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderId(activeOrder.id)}
+                              className="flex-1 h-6 px-1.5 rounded-lg bg-card hover:bg-muted text-foreground font-bold text-[10px] flex items-center justify-center gap-1 border border-border/70 cursor-pointer"
+                              title="View Table Order Details"
+                            >
+                              <Eye className="w-3 h-3 text-primary" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/pos?table=${table.id}`)}
+                              className="h-6 px-2 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer"
+                              title="Add Items in POS"
+                            >
+                              <Plus className="w-3 h-3" /> POS
+                            </button>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/pos?table=${table.id}`)}
+                        className="w-full h-6 px-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center gap-1 border border-primary/20 cursor-pointer"
+                        title="Open POS for Table"
+                      >
+                        <Plus className="w-3 h-3" /> Take Order
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            // ── NORMAL VIEW CARD (ORIGINAL FULL CARD) ────────────────────────
             return (
               <div
                 key={table.id}
