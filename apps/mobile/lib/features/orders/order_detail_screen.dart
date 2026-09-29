@@ -88,7 +88,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: method == m ? RosTheme.primary.withOpacity(0.15) : RosTheme.bgElevated,
+                        color: method == m ? RosTheme.primary.withValues(alpha: 0.15) : RosTheme.bgElevated,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: method == m ? RosTheme.primary : RosTheme.bgBorder),
                       ),
@@ -153,9 +153,9 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.05),
+                color: statusColor.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: statusColor.withOpacity(0.3)),
+                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -172,7 +172,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(order.status.replaceAll('_', ' '),
@@ -249,6 +249,73 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                   _Row('Balance Due', '₹${order.balanceDue.toStringAsFixed(2)}', color: RosTheme.danger, bold: true),
               ]),
             ),
+
+            // Payments Breakdown (if settled or partially settled)
+            if (order.payments.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text('Payment History', style: TextStyle(
+                  color: RosTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: RosTheme.bgCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: RosTheme.bgBorder),
+                ),
+                child: Column(
+                  children: order.payments.map((p) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: RosTheme.bgBorder)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            p.method.toUpperCase(),
+                            style: const TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat('d MMM yyyy, h:mm a').format(p.createdAt),
+                                style: const TextStyle(color: RosTheme.textSecondary, fontSize: 12),
+                              ),
+                              if (p.referenceNumber != null && p.referenceNumber!.isNotEmpty)
+                                Text(
+                                  'Ref: ${p.referenceNumber}',
+                                  style: const TextStyle(color: RosTheme.textMuted, fontSize: 10),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '₹${p.amount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: RosTheme.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ],
 
             // Add payment button if balance due and all KOTs are served
             if (order.balanceDue > 0.01 &&

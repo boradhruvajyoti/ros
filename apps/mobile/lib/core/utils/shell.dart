@@ -1003,18 +1003,22 @@ bool isRouteAccessible(String path, AuthUser? user) {
     return user.isPlatformAdmin;
   }
 
-  // Module key from path, e.g. '/current-orders' -> 'orders', '/tables' -> 'tables'
+  // Extract base module route, e.g. '/order-history/123' -> '/order-history'
+  final segments = cleanPath.split('/').where((s) => s.isNotEmpty).toList();
+  final baseRoute = segments.isNotEmpty ? '/${segments.first}' : cleanPath;
+
+  // Module key from path, e.g. '/current-orders' -> 'orders', '/order-history' -> 'history'
   String getModuleKey(String route) {
     if (route == '/current-orders' || route == '/orders') return 'orders';
     if (route == '/order-history') return 'history';
     return route.replaceAll('/', '');
   }
 
-  final modKey = getModuleKey(cleanPath);
+  final modKey = getModuleKey(baseRoute);
   final hasGranular = user.permissions.any((p) => p.startsWith('sub:') || p.startsWith('module:') || p.startsWith('mod:'));
 
   if (hasGranular) {
-    final subIds = _moduleSubmoduleMap[cleanPath] ?? _moduleSubmoduleMap['/$modKey'] ?? [];
+    final subIds = _moduleSubmoduleMap[baseRoute] ?? _moduleSubmoduleMap['/$modKey'] ?? [];
     final hasModPerm = user.permissions.contains('module:$modKey') || user.permissions.contains('mod:$modKey');
     final hasSubPerm = subIds.any((sid) => user.permissions.contains('sub:$sid') || user.permissions.contains(sid));
     return hasModPerm || hasSubPerm;
@@ -1027,43 +1031,43 @@ bool isRouteAccessible(String path, AuthUser? user) {
     return subIds.any((sid) => user.permissions.contains('sub:$sid') || user.permissions.contains(sid));
   }
 
-  if (cleanPath.startsWith('/dashboard')) {
+  if (baseRoute == '/dashboard') {
     return checkAccess('/dashboard', ['reports:view']);
   }
-  if (cleanPath.startsWith('/tables')) {
+  if (baseRoute == '/tables') {
     return checkAccess('/tables', ['tables:view', 'tables:edit']);
   }
-  if (cleanPath.startsWith('/current-orders')) {
+  if (baseRoute == '/current-orders') {
     return checkAccess('/current-orders', ['orders:view', 'orders:create']);
   }
-  if (cleanPath.startsWith('/pos')) {
+  if (baseRoute == '/pos') {
     return checkAccess('/pos', ['orders:create', 'payments:create']);
   }
-  if (cleanPath.startsWith('/kitchen')) {
+  if (baseRoute == '/kitchen') {
     return checkAccess('/kitchen', ['kitchen:view', 'kitchen:update']);
   }
-  if (cleanPath.startsWith('/order-history')) {
+  if (baseRoute == '/order-history') {
     return checkAccess('/order-history', ['payments:view', 'orders:view']);
   }
-  if (cleanPath.startsWith('/menu')) {
+  if (baseRoute == '/menu') {
     return checkAccess('/menu', ['menu:view', 'menu:create', 'menu:edit']);
   }
-  if (cleanPath.startsWith('/inventory')) {
+  if (baseRoute == '/inventory') {
     return checkAccess('/inventory', ['inventory:view']);
   }
-  if (cleanPath.startsWith('/staff')) {
+  if (baseRoute == '/staff') {
     return checkAccess('/staff', ['staff:view', 'staff:create']);
   }
-  if (cleanPath.startsWith('/reports')) {
+  if (baseRoute == '/reports') {
     return checkAccess('/reports', ['reports:view', 'reports:export']);
   }
-  if (cleanPath.startsWith('/reservations')) {
+  if (baseRoute == '/reservations') {
     return checkAccess('/reservations', ['reservations:view']);
   }
-  if (cleanPath.startsWith('/customers')) {
+  if (baseRoute == '/customers') {
     return checkAccess('/customers', ['customers:view']);
   }
-  if (cleanPath.startsWith('/settings')) {
+  if (baseRoute == '/settings') {
     return checkAccess('/settings', ['settings:view', 'settings:edit']);
   }
 

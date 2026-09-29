@@ -9,7 +9,6 @@ import 'package:intl/intl.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/api/api_client.dart';
 
 class OrderHistoryScreen extends ConsumerStatefulWidget {
   const OrderHistoryScreen({super.key});
@@ -51,8 +50,11 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
           .toList();
 
       setState(() {
-        if (reset) _orders = list;
-        else _orders.addAll(list);
+        if (reset) {
+          _orders = list;
+        } else {
+          _orders.addAll(list);
+        }
         _hasMore = list.length >= 20;
         _loading = false;
       });
@@ -237,8 +239,85 @@ class _OrderTile extends StatelessWidget {
                         color: RosTheme.primary,
                         fontSize: 15,
                         fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
                 Text('${order.items.length} items',
                     style: const TextStyle(color: RosTheme.textMuted, fontSize: 11)),
+                const SizedBox(height: 4),
+                // Payment Method Tag
+                if (order.payments.isNotEmpty)
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 2,
+                    alignment: WrapAlignment.end,
+                    children: order.payments
+                        .map((p) => p.method)
+                        .toSet()
+                        .map((method) {
+                      final (Color bg, Color text, IconData icon) = switch (method.toUpperCase()) {
+                        'CASH' => (const Color(0xFF10B981).withValues(alpha: 0.15), const Color(0xFF10B981), Icons.payments_outlined),
+                        'UPI' => (const Color(0xFF8B5CF6).withValues(alpha: 0.15), const Color(0xFF8B5CF6), Icons.qr_code_2_rounded),
+                        'CARD' => (const Color(0xFF3B82F6).withValues(alpha: 0.15), const Color(0xFF3B82F6), Icons.credit_card_rounded),
+                        'BANK_TRANSFER' => (const Color(0xFF06B6D4).withValues(alpha: 0.15), const Color(0xFF06B6D4), Icons.account_balance_rounded),
+                        'WALLET' => (const Color(0xFFF59E0B).withValues(alpha: 0.15), const Color(0xFFF59E0B), Icons.account_balance_wallet_rounded),
+                        _ => (RosTheme.bgElevated, RosTheme.textSecondary, Icons.monetization_on_outlined),
+                      };
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: bg,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: text.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(icon, size: 10, color: text),
+                            const SizedBox(width: 3),
+                            Text(
+                              method.toUpperCase(),
+                              style: TextStyle(
+                                color: text,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  )
+                else if (order.status == 'PAID' || order.status == 'COMPLETED')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'PAID',
+                      style: TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else if (order.balanceDue > 0.01)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: RosTheme.danger.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'DUE: ₹${order.balanceDue.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: RosTheme.danger,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],
