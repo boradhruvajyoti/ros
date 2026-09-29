@@ -247,10 +247,10 @@ final socketProvider = Provider<io.Socket?>((ref) {
         ref.invalidate(dashboardProvider);
         ref.invalidate(kitchenKotsProvider);
 
-        // Play loud 5-second alert tone + vibration on order status change / order created / updated
+        // Play pleasant dual-tone chime on order status change / order created / updated
         final orderNum = payload?['orderNumber'] ?? payload?['orderId'] ?? '';
         final status = payload?['status']?.toString() ?? type;
-        SoundAlertService().playLoudOrderAlert(reason: 'Order Event ($status #$orderNum)');
+        SoundAlertService().playDualToneChime(reason: 'Order Event ($status #$orderNum)');
       } else if (type == 'KOT_CREATED' ||
           type == 'KOT_RECEIVED' ||
           type == 'KOT_ADDED' ||
@@ -263,10 +263,10 @@ final socketProvider = Provider<io.Socket?>((ref) {
         ref.invalidate(tablesProvider);
         ref.invalidate(dashboardProvider);
 
-        // Play alert tone on KOT events
+        // Play pleasant dual-tone chime on KOT events
         final kotNum = payload?['kotNumber'] ?? payload?['kotId'] ?? '';
         final status = payload?['status']?.toString() ?? type;
-        SoundAlertService().playLoudOrderAlert(reason: 'KOT Event ($status #$kotNum)');
+        SoundAlertService().playDualToneChime(reason: 'KOT Event ($status #$kotNum)');
       }
     }
   });

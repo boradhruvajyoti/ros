@@ -11,6 +11,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/sound_alert_service.dart';
 
 enum KdsCategory { kitchen, foh, management }
 
@@ -267,7 +268,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
       ].contains(type)) {
         if (['KOT_CREATED', 'ORDER_CREATED', 'KOT_ADDED'].contains(type) &&
             _soundEnabled) {
-          HapticFeedback.heavyImpact();
+          SoundAlertService().playDualToneChime(reason: 'New Kitchen Order');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -280,7 +281,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             ),
           );
         } else if (type == 'KOT_STATUS_CHANGED' && _soundEnabled) {
-          HapticFeedback.mediumImpact();
+          SoundAlertService().playDualToneChime(reason: 'KOT Status Changed');
         }
         _loadData(silent: true);
       }
@@ -331,7 +332,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   // ── Item-Level Status Update ────────────────────────────────────────────────
   Future<void> _updateKotItemStatus(String kotId, String itemId, String nextStatus) async {
     if (_soundEnabled) {
-      HapticFeedback.mediumImpact();
+      SoundAlertService().playDualToneChime(reason: 'Item Status Update');
     }
     try {
       final api = ref.read(apiClientProvider);
@@ -353,7 +354,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
   // ── Whole KOT Status Update ─────────────────────────────────────────────────
   Future<void> _updateKotStatus(String kotId, String nextStatus) async {
     if (_soundEnabled) {
-      HapticFeedback.heavyImpact();
+      SoundAlertService().playDualToneChime(reason: 'Ticket Status Update');
     }
     try {
       final api = ref.read(apiClientProvider);
