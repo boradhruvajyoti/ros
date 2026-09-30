@@ -588,7 +588,10 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
               foregroundColor: Colors.white,
               shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
-            child: const Text('Confirm Cancel Ticket'),
+            child: const Text(
+              'Confirm Cancel Ticket',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+            ),
           ),
         ],
       ),

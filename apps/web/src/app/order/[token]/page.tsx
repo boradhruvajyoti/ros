@@ -7,9 +7,11 @@ import {
   ChefHat, MapPin, AlertCircle, ArrowRight,
   ShieldCheck, Lock, Eye, X, Ban,
   ChevronUp, ChevronDown, Download, CheckCircle2,
-  ExternalLink, Receipt, Sparkles, Search, Clock
+  ExternalLink, Receipt, Sparkles, Search, Clock,
+  Tag, Gift, Flame, Copy, Check, Percent
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
@@ -288,6 +290,12 @@ function TableOrderContent() {
   const [viewTab, setViewTab] = useState<'MENU' | 'LIVE_STATUS'>('MENU');
   const [statusFlash, setStatusFlash] = useState<StatusFlashNotification | null>(null);
 
+  // Applied Coupon & Promo States
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
+  const [couponInput, setCouponInput] = useState<string>('');
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
   // Paid & Settled completion sequence state
   const [paidSettledOrder, setPaidSettledOrder] = useState<any | null>(null);
   const [isReceiptExpanded, setIsReceiptExpanded] = useState<boolean>(false);
@@ -565,6 +573,79 @@ function TableOrderContent() {
     return acc + itemPrice * c.qty;
   }, 0);
 
+  // ── Active Promotions & Offers Evaluation ─────────────────────────────────
+  const promotions: any[] = useMemo(() => {
+    return Array.isArray(tableData?.promotions) ? tableData.promotions : [];
+  }, [tableData?.promotions]);
+
+  // 1. Bill Threshold Promos
+  const thresholdPromos = useMemo(() => {
+    return promotions.filter((p) => p.type === 'BILL_THRESHOLD');
+  }, [promotions]);
+
+  const qualifiedThresholdPromo = useMemo(() => {
+    if (subtotal <= 0) return null;
+    const sorted = [...thresholdPromos].sort((a, b) => Number(b.thresholdAmount || 0) - Number(a.thresholdAmount || 0));
+    return sorted.find((p) => subtotal >= Number(p.thresholdAmount || 0)) || null;
+  }, [thresholdPromos, subtotal]);
+
+  const nextThresholdPromo = useMemo(() => {
+    const remaining = thresholdPromos.filter((p) => subtotal < Number(p.thresholdAmount || 0));
+    if (remaining.length === 0) return null;
+    return remaining.sort((a, b) => Number(a.thresholdAmount || 0) - Number(b.thresholdAmount || 0))[0];
+  }, [thresholdPromos, subtotal]);
+
+  const thresholdDiscountAmount = useMemo(() => {
+    if (!qualifiedThresholdPromo || qualifiedThresholdPromo.rewardType !== 'MONEY_DISCOUNT') return 0;
+    let disc = 0;
+    if (qualifiedThresholdPromo.discountType === 'PERCENTAGE') {
+      disc = (subtotal * Number(qualifiedThresholdPromo.discountValue || 0)) / 100;
+      if (qualifiedThresholdPromo.maxDiscountCap && disc > Number(qualifiedThresholdPromo.maxDiscountCap)) {
+        disc = Number(qualifiedThresholdPromo.maxDiscountCap);
+      }
+    } else {
+      disc = Number(qualifiedThresholdPromo.discountValue || 0);
+    }
+    return Math.min(subtotal, disc);
+  }, [qualifiedThresholdPromo, subtotal]);
+
+  // 2. Item Combo Promos
+  const comboPromos = useMemo(() => {
+    return promotions.filter((p) => p.type === 'ITEM_COMBO');
+  }, [promotions]);
+
+  const unlockedCombos = useMemo(() => {
+    if (cartList.length === 0) return [];
+    return comboPromos.filter((combo) => {
+      const triggerIds: string[] = Array.isArray(combo.triggerItemIds) ? combo.triggerItemIds : [];
+      const triggerNames: string[] = Array.isArray(combo.triggerItemNames) ? combo.triggerItemNames : [];
+      if (triggerIds.length === 0 && triggerNames.length === 0) return false;
+      return triggerIds.every((tId) => cartList.some((c) => c.item?.id === tId || c.item?.name === tId)) ||
+             triggerNames.every((tName) => cartList.some((c) => c.item?.name?.toLowerCase() === tName.toLowerCase()));
+    });
+  }, [comboPromos, cartList]);
+
+  // 3. Limited-Time Coupon Codes
+  const couponDiscountAmount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.minOrderAmount && subtotal < Number(appliedCoupon.minOrderAmount)) {
+      return 0;
+    }
+    let disc = 0;
+    if (appliedCoupon.discountType === 'PERCENTAGE') {
+      disc = (subtotal * Number(appliedCoupon.discountValue || 0)) / 100;
+      if (appliedCoupon.maxDiscountCap && disc > Number(appliedCoupon.maxDiscountCap)) {
+        disc = Number(appliedCoupon.maxDiscountCap);
+      }
+    } else {
+      disc = Number(appliedCoupon.discountValue || 0);
+    }
+    return Math.min(subtotal - thresholdDiscountAmount, disc);
+  }, [appliedCoupon, subtotal, thresholdDiscountAmount]);
+
+  const totalDiscount = Math.min(subtotal, thresholdDiscountAmount + couponDiscountAmount);
+  const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
+
   const taxRate = (() => {
     try {
       const rawSettings = tableData?.restaurant?.settings;
@@ -575,8 +656,82 @@ function TableOrderContent() {
     }
   })();
 
-  const gst = taxRate > 0 ? (subtotal * (taxRate / 100)) : 0;
-  const total = subtotal + gst;
+  const gst = taxRate > 0 ? (discountedSubtotal * (taxRate / 100)) : 0;
+  const total = discountedSubtotal + gst;
+
+  // Coupon Handlers
+  const handleApplyCoupon = (codeToApply?: string) => {
+    setCouponError(null);
+    const code = (codeToApply || couponInput).trim().toUpperCase();
+    if (!code) {
+      setCouponError('Please enter a coupon code');
+      return;
+    }
+
+    const coupon = promotions.find(
+      (p) => p.type === 'COUPON_LIMITED_TIME' && p.code?.toUpperCase() === code
+    );
+
+    if (!coupon) {
+      setCouponError(`Coupon "${code}" is invalid or expired.`);
+      return;
+    }
+
+    if (coupon.minOrderAmount && subtotal < Number(coupon.minOrderAmount)) {
+      setCouponError(`Minimum order amount of ₹${coupon.minOrderAmount} required for this coupon.`);
+      return;
+    }
+
+    setAppliedCoupon(coupon);
+    setCouponInput('');
+    setCouponError(null);
+    playStatusChime('success');
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError(null);
+  };
+
+  const handleCopyCode = (code: string) => {
+    try {
+      navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch {}
+  };
+
+  const handleAddComboTriggers = (combo: any) => {
+    const triggerIds: string[] = Array.isArray(combo.triggerItemIds) ? combo.triggerItemIds : [];
+    const triggerNames: string[] = Array.isArray(combo.triggerItemNames) ? combo.triggerItemNames : [];
+    
+    // Find matching items from categories
+    const allItems: any[] = [];
+    (tableData?.categories || []).forEach((cat: any) => {
+      (cat.items || []).forEach((it: any) => allItems.push(it));
+    });
+
+    let addedCount = 0;
+    triggerIds.forEach((tId) => {
+      const it = allItems.find((item) => item.id === tId || item.name === tId);
+      if (it) {
+        addToCart(it, it.variants?.[0]);
+        addedCount++;
+      }
+    });
+
+    if (addedCount === 0 && triggerNames.length > 0) {
+      triggerNames.forEach((name) => {
+        const it = allItems.find((item) => item.name?.toLowerCase().includes(name.toLowerCase()));
+        if (it) {
+          addToCart(it, it.variants?.[0]);
+          addedCount++;
+        }
+      });
+    }
+
+    setIsCartExpanded(true);
+  };
 
   const handlePlaceOrder = async () => {
     if (cartList.length === 0) return;
@@ -587,6 +742,13 @@ function TableOrderContent() {
 
     setIsSubmitting(true);
     try {
+      const orderNotesParts = [
+        guestNotes.trim() || null,
+        appliedCoupon ? `Applied Coupon: ${appliedCoupon.code}` : null,
+        qualifiedThresholdPromo ? `Threshold Offer: ${qualifiedThresholdPromo.name}` : null,
+        unlockedCombos.length > 0 ? `Combos: ${unlockedCombos.map((c) => c.name).join(', ')}` : null,
+      ].filter(Boolean).join(' | ');
+
       const res = await fetch(`${API_BASE}/tables/public/qr/${token}/order`, {
         method: 'POST',
         headers: {
@@ -595,7 +757,8 @@ function TableOrderContent() {
         },
         body: JSON.stringify({
           guestSessionToken,
-          notes: guestNotes.trim() || undefined,
+          notes: orderNotesParts || undefined,
+          discountAmount: totalDiscount > 0 ? totalDiscount : undefined,
           items: cartList.map((c) => ({
             menuItemId: c.item.id,
             variantId: c.variant?.id,
@@ -628,6 +791,7 @@ function TableOrderContent() {
       });
       setCart({});
       setGuestNotes('');
+      setAppliedCoupon(null);
       setIsCartExpanded(false);
       setViewTab('LIVE_STATUS');
     } catch (err: any) {
@@ -1428,6 +1592,239 @@ function TableOrderContent() {
             </button>
           )}
 
+          {/* ── Active Offers & Special Promos Highlight Section ──────────────────── */}
+          {promotions.length > 0 && (
+            <div className="space-y-2.5 p-3 rounded-3xl bg-gradient-to-br from-amber-500/10 via-primary/10 to-emerald-500/10 border-2 border-primary/30 shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs shadow-xs">
+                    <Sparkles className="w-4 h-4 animate-spin text-amber-300" style={{ animationDuration: '4s' }} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Special Offers &amp; Deals</span>
+                      <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase">
+                        Active Today
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground font-medium">
+                      Table discounts, free dishes &amp; combo rewards
+                    </p>
+                  </div>
+                </div>
+
+                {appliedCoupon && (
+                  <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black flex items-center gap-1">
+                    <Check className="w-3 h-3" /> {appliedCoupon.code} Applied
+                  </span>
+                )}
+              </div>
+
+              {/* Horizontal Scroll / Cards of Offers */}
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                {/* 1. Limited-Time Coupon Cards */}
+                {promotions.filter((p) => p.type === 'COUPON_LIMITED_TIME').map((coupon) => {
+                  const isApplied = appliedCoupon?.id === coupon.id || appliedCoupon?.code === coupon.code;
+                  const discountLabel = coupon.discountType === 'PERCENTAGE'
+                    ? `${coupon.discountValue}% OFF`
+                    : `₹${coupon.discountValue} FLAT OFF`;
+
+                  return (
+                    <div
+                      key={coupon.id}
+                      className={cn(
+                        "p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2 shadow-xs",
+                        isApplied
+                          ? "bg-emerald-950/40 border-emerald-500/60"
+                          : "bg-card/90 border-border/90 hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 text-sm font-bold">
+                          <Tag className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-primary text-primary-foreground tracking-wider">
+                              {coupon.code}
+                            </span>
+                            <span className="font-bold text-xs text-foreground truncate">
+                              {discountLabel}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                            {coupon.minOrderAmount ? `Min order ₹${coupon.minOrderAmount}` : 'No min order'}
+                            {coupon.maxDiscountCap ? ` • Max cap ₹${coupon.maxDiscountCap}` : ''}
+                            {coupon.validTo ? ` • Valid till ${coupon.validTo}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isApplied ? (
+                          <button
+                            type="button"
+                            onClick={handleRemoveCoupon}
+                            className="px-2 py-1 rounded-xl text-[10px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => handleApplyCoupon(coupon.code)}
+                            className="h-7 px-3 rounded-xl text-[10px] font-black bg-primary text-primary-foreground shadow-xs cursor-pointer"
+                          >
+                            Apply Code
+                          </Button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(coupon.code)}
+                          title="Copy Code"
+                          className="w-7 h-7 rounded-xl bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer text-xs"
+                        >
+                          {copiedCode === coupon.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 2. Bill Threshold Reward Cards */}
+                {thresholdPromos.map((thresh) => {
+                  const targetAmt = Number(thresh.thresholdAmount || 0);
+                  const isUnlocked = subtotal >= targetAmt;
+                  const progressPct = Math.min(100, Math.round((subtotal / (targetAmt || 1)) * 100));
+                  const neededAmt = Math.max(0, targetAmt - subtotal);
+
+                  return (
+                    <div
+                      key={thresh.id}
+                      className={cn(
+                        "p-2.5 rounded-2xl border transition-all space-y-2 shadow-xs",
+                        isUnlocked
+                          ? "bg-emerald-950/40 border-emerald-500/60"
+                          : "bg-card/90 border-border/90"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 font-bold">
+                            <Gift className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-xs text-foreground truncate">
+                                {thresh.name || 'Spend & Save Reward'}
+                              </span>
+                              {isUnlocked ? (
+                                <Badge className="bg-emerald-500 text-white text-[9px] font-black shrink-0">
+                                  🎉 UNLOCKED!
+                                </Badge>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-400 font-mono shrink-0">
+                                  Target: ₹{targetAmt}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {thresh.rewardType === 'FREE_ITEM'
+                                ? `🎁 Get 1 FREE ${thresh.freeMenuItemName || 'Complementary Dish'} on bill over ₹${targetAmt}`
+                                : `💰 Get ${thresh.discountType === 'PERCENTAGE' ? `${thresh.discountValue}% OFF` : `₹${thresh.discountValue} OFF`} on bill over ₹${targetAmt}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] font-black font-mono text-emerald-400 shrink-0">
+                          {isUnlocked
+                            ? thresh.rewardType === 'FREE_ITEM' ? 'FREE DISH UNLOCKED' : `-${safeFormatCurrency(thresholdDiscountAmount)}`
+                            : `Add ₹${neededAmt.toFixed(0)} more`}
+                        </span>
+                      </div>
+
+                      {/* Live Animated Progress Bar */}
+                      <div className="space-y-1">
+                        <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full transition-all duration-300 rounded-full",
+                              isUnlocked ? "bg-emerald-500 shadow-sm" : "bg-gradient-to-r from-amber-500 to-primary"
+                            )}
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[9px] font-mono text-muted-foreground">
+                          <span>Current Bill: {safeFormatCurrency(subtotal)}</span>
+                          <span>{isUnlocked ? 'Offer Auto-Applied' : `${progressPct}% to unlock`}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 3. Item Combo Freebie Cards */}
+                {comboPromos.map((combo) => {
+                  const isUnlocked = unlockedCombos.some((c) => c.id === combo.id);
+                  const triggerNames = Array.isArray(combo.triggerItemNames) && combo.triggerItemNames.length > 0
+                    ? combo.triggerItemNames.join(' + ')
+                    : 'Combo Dishes';
+
+                  return (
+                    <div
+                      key={combo.id}
+                      className={cn(
+                        "p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2 shadow-xs",
+                        isUnlocked
+                          ? "bg-emerald-950/40 border-emerald-500/60"
+                          : "bg-card/90 border-border/90"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 font-bold">
+                          <Flame className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-black text-xs text-foreground truncate">
+                              {combo.name || 'Combo Special'}
+                            </span>
+                            {isUnlocked && (
+                              <Badge className="bg-emerald-500 text-white text-[9px] font-black shrink-0">
+                                🎉 Freebie Active!
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            Order <strong className="text-amber-400 font-bold">{triggerNames}</strong> → Get <strong className="text-emerald-400 font-bold">FREE {combo.complementaryItemName || 'Item'}</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0">
+                        {isUnlocked ? (
+                          <span className="text-[10px] font-black text-emerald-400 font-mono bg-emerald-500/20 border border-emerald-500/40 px-2 py-1 rounded-xl">
+                            1x FREE Included
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => handleAddComboTriggers(combo)}
+                            className="h-7 px-2.5 rounded-xl text-[10px] font-black bg-orange-500 hover:bg-orange-600 text-white shadow-xs cursor-pointer gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add Combo
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Search Bar & Dietary Filter Controls */}
           <div className="space-y-2.5">
             <div className="relative">
@@ -1895,6 +2292,127 @@ function TableOrderContent() {
                     </div>
                   );
                 })}
+
+                {/* ── Unlocked Complimentary Free Item Rewards ── */}
+                {unlockedCombos.map((combo) => (
+                  <div
+                    key={`free-combo-${combo.id}`}
+                    className="p-2.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/50 flex items-center justify-between gap-2 shadow-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm">🎁</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-black text-emerald-300 text-xs truncate">
+                            {combo.complementaryItemName || 'Free Complementary Item'}
+                          </p>
+                          <Badge className="bg-emerald-500 text-white text-[8px] font-black uppercase shrink-0">
+                            Free Reward
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-emerald-400/80 truncate">
+                          Unlocked via {combo.name}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-mono font-bold text-emerald-400">
+                        {combo.complementaryItemQty || 1}x
+                      </span>
+                      <span className="font-mono font-black text-xs text-emerald-400">
+                        FREE (₹0.00)
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {qualifiedThresholdPromo && qualifiedThresholdPromo.rewardType === 'FREE_ITEM' && (
+                  <div
+                    className="p-2.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/50 flex items-center justify-between gap-2 shadow-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm">✨</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-black text-emerald-300 text-xs truncate">
+                            {qualifiedThresholdPromo.freeMenuItemName || 'Spend Reward Dish'}
+                          </p>
+                          <Badge className="bg-emerald-500 text-white text-[8px] font-black uppercase shrink-0">
+                            Free Reward
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-emerald-400/80 truncate">
+                          Spend over ₹{qualifiedThresholdPromo.thresholdAmount} reward
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-mono font-bold text-emerald-400">
+                        {qualifiedThresholdPromo.freeItemQty || 1}x
+                      </span>
+                      <span className="font-mono font-black text-xs text-emerald-400">
+                        FREE (₹0.00)
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Promo / Coupon Input Section */}
+              <div className="space-y-1.5 pt-1">
+                {appliedCoupon ? (
+                  <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5 text-emerald-400" />
+                      <div>
+                        <span className="font-mono font-bold text-emerald-300">{appliedCoupon.code}</span>
+                        <span className="text-[10px] text-emerald-400/80 ml-1.5">({appliedCoupon.name || 'Coupon Applied'})</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-[10px] font-bold text-rose-400 hover:underline cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative flex-1">
+                      <Tag className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Enter coupon code (e.g. WELCOME10)..."
+                        value={couponInput}
+                        onChange={(e) => {
+                          setCouponInput(e.target.value.toUpperCase());
+                          setCouponError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleApplyCoupon();
+                        }}
+                        className="w-full h-8 pl-8 pr-3 rounded-xl border border-slate-800 bg-slate-900/90 text-xs text-slate-100 placeholder:text-slate-500 uppercase font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => handleApplyCoupon()}
+                      className="h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground cursor-pointer shrink-0"
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                )}
+
+                {couponError && (
+                  <p className="text-[10px] text-rose-400 font-medium pl-1">
+                    ⚠️ {couponError}
+                  </p>
+                )}
               </div>
 
               {/* Special Instructions Note */}
@@ -1903,24 +2421,40 @@ function TableOrderContent() {
                 placeholder="Special instructions (e.g. less spicy, no onions)..."
                 value={guestNotes}
                 onChange={(e) => setGuestNotes(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-slate-800 bg-slate-900/90 dark:bg-zinc-900/90 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full h-8 px-3 rounded-xl border border-slate-800 bg-slate-900/90 dark:bg-zinc-900/90 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
               />
 
-              {/* Subtotal / GST & Total Amount */}
-              <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Total Amount ({cartList.reduce((acc, c) => acc + c.qty, 0)} items)
-                  </span>
-                  {taxRate > 0 && gst > 0 && (
-                    <span className="text-[10px] text-slate-400 font-mono block">
-                      Incl. GST ({taxRate}%): {safeFormatCurrency(gst)}
-                    </span>
-                  )}
+              {/* Subtotal / Discounts / GST & Total Amount Breakdown */}
+              <div className="pt-2 border-t border-slate-800 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-400">
+                  <span>Items Subtotal:</span>
+                  <span className="font-mono text-slate-200">{safeFormatCurrency(subtotal)}</span>
                 </div>
-                <span className="font-black text-xl font-mono text-emerald-400">
-                  {safeFormatCurrency(total)}
-                </span>
+
+                {totalDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-400 font-bold">
+                    <span>Discount / Offers Applied:</span>
+                    <span className="font-mono">-{safeFormatCurrency(totalDiscount)}</span>
+                  </div>
+                )}
+
+                {taxRate > 0 && gst > 0 && (
+                  <div className="flex justify-between text-slate-400 font-mono">
+                    <span>Incl. GST ({taxRate}%):</span>
+                    <span>{safeFormatCurrency(gst)}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Total Running Payable ({cartList.reduce((acc, c) => acc + c.qty, 0)} items)
+                    </span>
+                  </div>
+                  <span className="font-black text-xl font-mono text-emerald-400">
+                    {safeFormatCurrency(total)}
+                  </span>
+                </div>
               </div>
 
               {/* Place Order Button */}

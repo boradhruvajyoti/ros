@@ -13,6 +13,7 @@ import { TelegramService } from '../services/telegram.service';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { MarketingController } from './marketing.controller';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ros_jwt_secret_dev_key_change_in_production';
 
@@ -339,6 +340,15 @@ export class TableController {
       orderBy: { updatedAt: 'desc' },
     });
 
+    const allPromotions = MarketingController.getTenantPromotions(table.tenantId);
+    const nowStr = new Date().toISOString().split('T')[0];
+    const promotions = allPromotions.filter((c) => {
+      if (c.status !== 'ACTIVE') return false;
+      if (c.validFrom && c.validFrom > nowStr) return false;
+      if (c.validTo && c.validTo < nowStr) return false;
+      return true;
+    });
+
     sendSuccess(res, {
       canOrder: !isSessionExpired && canOrder,
       isSessionExpired,
@@ -361,6 +371,7 @@ export class TableController {
         phone: table.branch.phone,
       },
       categories,
+      promotions,
       activeOrders: activeOrders,
       recentSettledOrder,
     });

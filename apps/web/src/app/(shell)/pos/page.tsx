@@ -8,7 +8,7 @@ import {
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
   Volume2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X,
-  MessageSquarePlus, Edit2
+  MessageSquarePlus, Edit2, Tag, Gift, Percent, Copy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,6 +176,26 @@ export default function POSPage() {
   const loadedOrderIdRef = useRef<string | null>(null);
   const initialParamProcessedRef = useRef(false);
 
+  // ── Discount & Promo Studio State ─────────────────────────────────────────
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountModalTab, setDiscountModalTab] = useState<'CUSTOM' | 'COUPONS' | 'OFFERS'>('CUSTOM');
+  const [customDiscountType, setCustomDiscountType] = useState<'PERCENTAGE' | 'FLAT'>('FLAT');
+  const [customDiscountValue, setCustomDiscountValue] = useState<string>('');
+  const [customDiscountReason, setCustomDiscountReason] = useState<string>('Manager Goodwill');
+  const [customReasonInput, setCustomReasonInput] = useState<string>('');
+  const [couponCodeInput, setCouponCodeInput] = useState<string>('');
+  const [couponInputError, setCouponInputError] = useState<string | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    type: 'CUSTOM' | 'COUPON' | 'THRESHOLD';
+    label: string;
+    amount: number;
+    reason?: string;
+    rawType?: 'PERCENTAGE' | 'FLAT';
+    rawValue?: number;
+    code?: string;
+    promoId?: string;
+  } | null>(null);
+
   const openItemNoteModal = (item: CartItem) => {
     setNoteModalItemKey(item.key);
     setItemNoteText(item.notes || '');
@@ -274,6 +294,20 @@ export default function POSPage() {
   const { data: tenant } = useQuery({
     queryKey: ['current-tenant'],
     queryFn: () => apiGet<any>('/tenants/current'),
+  });
+
+  const { data: promotionsData = [] } = useQuery<any[]>({
+    queryKey: ['active-promotions'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/marketing/promotions');
+        const list = res?.data || res || [];
+        return Array.isArray(list) ? list.filter((p: any) => p.status === 'ACTIVE') : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 30 * 1000,
   });
 
   // ── Realtime Socket Event Subscriptions ─────────────────────────────────
@@ -594,9 +628,69 @@ export default function POSPage() {
     return mainCategories.find((c) => c.id === selectedCategory) || null;
   }, [mainCategories, selectedCategory]);
 
-  const subtotal = useMemo(() => {
+  const rawSubtotal = useMemo(() => {
     return cart.reduce((s, i) => s + (Number(i.unitPrice) * (i.quantity || 1)), 0);
   }, [cart]);
+
+  // Promotions & Discounts Evaluation
+  const promotions: any[] = useMemo(() => {
+    return Array.isArray(promotionsData) ? promotionsData : [];
+  }, [promotionsData]);
+
+  const thresholdPromos = useMemo(() => {
+    return promotions.filter((p) => p.type === 'BILL_THRESHOLD');
+  }, [promotions]);
+
+  const comboPromos = useMemo(() => {
+    return promotions.filter((p) => p.type === 'ITEM_COMBO');
+  }, [promotions]);
+
+  const qualifiedThresholdPromo = useMemo(() => {
+    if (rawSubtotal <= 0) return null;
+    const sorted = [...thresholdPromos].sort((a, b) => Number(b.thresholdAmount || 0) - Number(a.thresholdAmount || 0));
+    return sorted.find((p) => rawSubtotal >= Number(p.thresholdAmount || 0)) || null;
+  }, [thresholdPromos, rawSubtotal]);
+
+  const unlockedCombos = useMemo(() => {
+    if (cart.length === 0) return [];
+    return comboPromos.filter((combo) => {
+      const triggerIds: string[] = Array.isArray(combo.triggerItemIds) ? combo.triggerItemIds : [];
+      const triggerNames: string[] = Array.isArray(combo.triggerItemNames) ? combo.triggerItemNames : [];
+      if (triggerIds.length === 0 && triggerNames.length === 0) return false;
+      return triggerIds.every((tId) => cart.some((c) => c.menuItemId === tId || c.name === tId)) ||
+             triggerNames.every((tName) => cart.some((c) => c.name?.toLowerCase().includes(tName.toLowerCase())));
+    });
+  }, [comboPromos, cart]);
+
+  const discountAmount = useMemo(() => {
+    if (appliedDiscount) {
+      let disc = 0;
+      if (appliedDiscount.rawType === 'PERCENTAGE') {
+        disc = (rawSubtotal * Number(appliedDiscount.rawValue || 0)) / 100;
+      } else {
+        disc = Number(appliedDiscount.rawValue || appliedDiscount.amount || 0);
+      }
+      return Math.min(rawSubtotal, disc);
+    }
+    // Auto threshold discount fallback if active and not manually cleared
+    if (qualifiedThresholdPromo && qualifiedThresholdPromo.rewardType === 'MONEY_DISCOUNT') {
+      let disc = 0;
+      if (qualifiedThresholdPromo.discountType === 'PERCENTAGE') {
+        disc = (rawSubtotal * Number(qualifiedThresholdPromo.discountValue || 0)) / 100;
+        if (qualifiedThresholdPromo.maxDiscountCap && disc > Number(qualifiedThresholdPromo.maxDiscountCap)) {
+          disc = Number(qualifiedThresholdPromo.maxDiscountCap);
+        }
+      } else {
+        disc = Number(qualifiedThresholdPromo.discountValue || 0);
+      }
+      return Math.min(rawSubtotal, disc);
+    }
+    return 0;
+  }, [appliedDiscount, rawSubtotal, qualifiedThresholdPromo]);
+
+  const subtotal = useMemo(() => {
+    return Math.max(0, rawSubtotal - discountAmount);
+  }, [rawSubtotal, discountAmount]);
 
   const tax = useMemo(() => {
     if (taxRate <= 0) return 0;
@@ -605,6 +699,97 @@ export default function POSPage() {
 
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   const totalItemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+
+  // Discount Action Handlers
+  const handleApplyCustomDiscount = () => {
+    const val = Number(customDiscountValue);
+    if (isNaN(val) || val <= 0) {
+      toast.error('Invalid Discount', 'Please enter a valid positive discount amount or percentage.');
+      return;
+    }
+
+    const reason = customDiscountReason === 'Custom Reason' ? (customReasonInput.trim() || 'Custom Cashier Discount') : customDiscountReason;
+    const label = customDiscountType === 'PERCENTAGE' ? `${val}% OFF (${reason})` : `₹${val} OFF (${reason})`;
+
+    setAppliedDiscount({
+      type: 'CUSTOM',
+      label,
+      amount: val,
+      rawType: customDiscountType,
+      rawValue: val,
+      reason,
+    });
+    setShowDiscountModal(false);
+    toast.success('Discount Applied! 🏷️', `${label} added to bill.`);
+  };
+
+  const handleApplyCoupon = (coupon: any) => {
+    if (coupon.minOrderAmount && rawSubtotal < Number(coupon.minOrderAmount)) {
+      toast.error('Minimum Order Unmet', `This coupon requires a minimum bill of ₹${coupon.minOrderAmount}. Current bill: ₹${rawSubtotal.toFixed(2)}`);
+      return;
+    }
+
+    const val = Number(coupon.discountValue || 0);
+    const label = coupon.discountType === 'PERCENTAGE' ? `${val}% OFF (${coupon.code})` : `₹${val} OFF (${coupon.code})`;
+
+    setAppliedDiscount({
+      type: 'COUPON',
+      label,
+      amount: val,
+      rawType: coupon.discountType,
+      rawValue: val,
+      code: coupon.code,
+      promoId: coupon.id,
+      reason: `Coupon: ${coupon.code}`,
+    });
+    setShowDiscountModal(false);
+    toast.success('Coupon Applied! 🎟️', `${coupon.code} applied to ticket.`);
+  };
+
+  const handleApplyCouponCode = () => {
+    setCouponInputError(null);
+    const code = couponCodeInput.trim().toUpperCase();
+    if (!code) {
+      setCouponInputError('Please enter a coupon code');
+      return;
+    }
+
+    const found = promotions.find((p) => p.type === 'COUPON_LIMITED_TIME' && p.code?.toUpperCase() === code);
+    if (!found) {
+      setCouponInputError(`Coupon code "${code}" is invalid or expired.`);
+      return;
+    }
+
+    handleApplyCoupon(found);
+    setCouponCodeInput('');
+  };
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    toast.info('Discount Removed', 'Cart bill returned to regular pricing.');
+  };
+
+  const handleAddComplementaryItem = (name: string, promoName: string) => {
+    const key = `free-${name.toLowerCase().replace(/\s+/g, '-')}`;
+    setCart((prev) => {
+      const existing = prev.find((c) => c.key === key);
+      if (existing) {
+        return prev.map((c) => c.key === key ? { ...c, quantity: c.quantity + 1 } : c);
+      }
+      return [...prev, {
+        key,
+        menuItemId: `promo-${Date.now()}`,
+        variantId: 'v-free',
+        name: `${name} (Free Reward)`,
+        variantName: 'Complimentary Offer',
+        unitPrice: 0,
+        quantity: 1,
+        notes: `Free Promo Reward: ${promoName}`,
+        modifiers: [],
+      }];
+    });
+    toast.success('Free Reward Added! 🎁', `${name} added to cart at ₹0.00.`);
+  };
 
   // ── Audio Feedback Helper ────────────────────────────────────────────────
   const playChime = () => {
@@ -715,11 +900,17 @@ export default function POSPage() {
         });
       }
 
+      const formattedNotes = [
+        notes.trim() || null,
+        appliedDiscount ? `Applied Discount: ${appliedDiscount.label}` : null,
+      ].filter(Boolean).join(' | ');
+
       return apiPost('/orders', {
         type: orderType,
         status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
-        notes: notes || undefined,
+        notes: formattedNotes || undefined,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
         clientId: getClientId(),
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
@@ -740,6 +931,7 @@ export default function POSPage() {
       // Clear cart and notes but KEEP the table selected so staff can add another running KOT
       setCart([]);
       setNotes('');
+      setAppliedDiscount(null);
       // Do NOT deselect table — staff can immediately add another round
       setShowFastPayModal(false);
       setCashTendered(null);
@@ -783,6 +975,11 @@ export default function POSPage() {
         ? (activeOrders || []).find((o: any) => o.id === orderParam)
         : (activeOrders || []).find((o: any) => o.tableId === selectedTable);
 
+      const formattedNotes = [
+        notes.trim() || null,
+        appliedDiscount ? `Applied Discount: ${appliedDiscount.label}` : null,
+      ].filter(Boolean).join(' | ');
+
       if (activeOrder && ['DRAFT', 'CONFIRMED'].includes(activeOrder.status)) {
         order = await apiPut<any>(`/orders/${activeOrder.id}/items`, {
           items: cart.map((c) => ({
@@ -794,14 +991,15 @@ export default function POSPage() {
             modifierIds: Array.isArray(c.modifiers) ? c.modifiers.map((m) => m.id) : [],
           })),
           sendToKitchen: true,
-          notes: notes || undefined,
+          notes: formattedNotes || undefined,
         });
       } else {
         order = await apiPost<any>('/orders', {
           type: orderType,
           status: 'SENT_TO_KITCHEN',
           tableId: selectedTable || undefined,
-          notes: notes || undefined,
+          notes: formattedNotes || undefined,
+          discountAmount: discountAmount > 0 ? discountAmount : undefined,
           clientId: getClientId(),
           items: cart.map((c) => ({
             menuItemId: c.menuItemId,
@@ -837,6 +1035,7 @@ export default function POSPage() {
       toast.success('Order Settled & Paid! 💰', `Order #${order.orderNumber} successfully paid via ${method}`);
       setCart([]);
       setNotes('');
+      setAppliedDiscount(null);
       setSelectedTable(null);
       setSelectedTableName(null);
       setShowFastPayModal(false);
@@ -1544,17 +1743,73 @@ export default function POSPage() {
               {/* Bill & Giant Actions */}
               {cart.length > 0 && (
                 <div className="p-3.5 border-t border-border bg-muted/30 space-y-2.5 shrink-0">
+                  {/* Complimentary Reward Alerts */}
+                  {unlockedCombos.length > 0 && (
+                    <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-[11px] text-emerald-300 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span>🎁</span>
+                        <span className="font-bold truncate">Combo Freebie: {unlockedCombos[0].complementaryItemName}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAddComplementaryItem(unlockedCombos[0].complementaryItemName, unlockedCombos[0].name)}
+                        className="px-2 py-0.5 rounded-lg bg-emerald-500 text-white font-black text-[10px] shrink-0 cursor-pointer"
+                      >
+                        + Add Free
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Discount / Coupon Button & Active Pill */}
+                  <div className="flex items-center justify-between">
+                    {appliedDiscount ? (
+                      <div className="flex items-center justify-between w-full p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="font-bold text-emerald-300">{appliedDiscount.label}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveDiscount}
+                          className="text-[10px] font-bold text-rose-400 hover:underline cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowDiscountModal(true)}
+                        className="w-full h-8 rounded-xl border-dashed border-primary/50 text-primary text-xs font-bold gap-1.5 cursor-pointer"
+                      >
+                        <Percent className="w-3.5 h-3.5" />
+                        <span>🏷️ Apply Discount / Coupon / Offers</span>
+                      </Button>
+                    )}
+                  </div>
+
                   <div className="space-y-1 text-xs">
                     <div className="flex justify-between text-muted-foreground">
-                      <span>Subtotal:</span>
-                      <span className="font-mono font-bold text-foreground">₹{subtotal.toFixed(2)}</span>
+                      <span>Items Subtotal:</span>
+                      <span className="font-mono font-bold text-foreground">₹{rawSubtotal.toFixed(2)}</span>
                     </div>
+
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-400 font-bold">
+                        <span>Discount Applied:</span>
+                        <span className="font-mono">-₹{discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+
                     {tax > 0 && taxRate > 0 && (
                       <div className="flex justify-between text-muted-foreground">
                         <span>GST ({taxRate}%):</span>
                         <span className="font-mono font-bold text-foreground">₹{tax.toFixed(2)}</span>
                       </div>
                     )}
+
                     <div className="flex justify-between items-baseline pt-1 border-t border-border font-black text-sm">
                       <span className="text-muted-foreground uppercase tracking-wider text-xs">Total Payable:</span>
                       <span className="text-xl font-mono text-emerald-400">₹{total.toFixed(2)}</span>
@@ -1769,12 +2024,75 @@ export default function POSPage() {
         {/* Footer: Totals & Giant Action Buttons */}
         {cart.length > 0 && (
           <div className="p-4 border-t border-border bg-muted/30 shrink-0 space-y-3">
+            {/* Unlocked Combo / Threshold Reward Alerts */}
+            {unlockedCombos.length > 0 && (
+              <div className="p-2.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">🎁</span>
+                  <div className="min-w-0">
+                    <p className="font-bold truncate">Combo Freebie Unlocked!</p>
+                    <p className="text-[10px] text-emerald-400/80 truncate">1x Free {unlockedCombos[0].complementaryItemName}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddComplementaryItem(unlockedCombos[0].complementaryItemName, unlockedCombos[0].name)}
+                  className="px-2.5 py-1 rounded-xl bg-emerald-500 text-white font-black text-xs shrink-0 hover:bg-emerald-600 cursor-pointer shadow-xs"
+                >
+                  + Add Free
+                </button>
+              </div>
+            )}
+
+            {/* Discount / Coupon Button & Active Pill */}
+            <div className="flex items-center justify-between">
+              {appliedDiscount ? (
+                <div className="flex items-center justify-between w-full p-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-emerald-400" />
+                    <div>
+                      <p className="font-bold text-emerald-300">{appliedDiscount.label}</p>
+                      {appliedDiscount.reason && (
+                        <p className="text-[10px] text-emerald-400/80">{appliedDiscount.reason}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveDiscount}
+                    className="text-xs font-bold text-rose-400 hover:underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDiscountModal(true)}
+                  className="w-full h-9 rounded-2xl border-dashed border-primary/50 text-primary text-xs font-bold gap-1.5 hover:bg-primary/10 cursor-pointer"
+                >
+                  <Percent className="w-4 h-4" />
+                  <span>🏷️ Apply Discount / Coupon / Offers</span>
+                </Button>
+              )}
+            </div>
+
             {/* Quick Bill Breakdown */}
             <div className="space-y-1.5 text-xs font-normal">
               <div className="flex justify-between text-muted-foreground">
                 <span>Items Subtotal:</span>
-                <span className="font-semibold font-mono tabular-nums text-foreground">₹{subtotal.toFixed(2)}</span>
+                <span className="font-semibold font-mono tabular-nums text-foreground">₹{rawSubtotal.toFixed(2)}</span>
               </div>
+
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-400 font-bold">
+                  <span>Discount Applied:</span>
+                  <span className="font-semibold font-mono tabular-nums">-₹{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+
               {tax > 0 && taxRate > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>GST Tax ({taxRate}%):</span>
@@ -1832,6 +2150,440 @@ export default function POSPage() {
           </div>
         )}
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: APPLY DISCOUNT, COUPON & PROMO STUDIO (Types 1, 2, 3, 4)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {showDiscountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-primary/20 text-primary flex items-center justify-center font-bold">
+                  <Percent className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-foreground">Discounts &amp; Promo Offers</h3>
+                  <p className="text-xs text-muted-foreground">Current Items Subtotal: <strong className="text-foreground font-mono">₹{rawSubtotal.toFixed(2)}</strong></p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDiscountModal(false)}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-2xl shrink-0 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setDiscountModalTab('CUSTOM')}
+                className={cn(
+                  "py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                  discountModalTab === 'CUSTOM' ? "bg-background text-foreground shadow-xs font-black" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>💰</span> Custom
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscountModalTab('COUPONS')}
+                className={cn(
+                  "py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                  discountModalTab === 'COUPONS' ? "bg-background text-foreground shadow-xs font-black" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>🎟️</span> Coupons ({promotions.filter((p) => p.type === 'COUPON_LIMITED_TIME').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscountModalTab('OFFERS')}
+                className={cn(
+                  "py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                  discountModalTab === 'OFFERS' ? "bg-background text-foreground shadow-xs font-black" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>🎁</span> Auto Offers ({thresholdPromos.length + comboPromos.length})
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {/* ── TAB 1: CUSTOM CASHIER ADDITIONAL DISCOUNT (Type 4) ── */}
+              {discountModalTab === 'CUSTOM' && (
+                <div className="space-y-4">
+                  {/* Discount Type Toggle */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Discount Calculation Method:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCustomDiscountType('FLAT')}
+                        className={cn(
+                          "py-2.5 px-3 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer",
+                          customDiscountType === 'FLAT'
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-muted/40 border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <span>₹</span> Flat Rupee Off
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomDiscountType('PERCENTAGE')}
+                        className={cn(
+                          "py-2.5 px-3 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer",
+                          customDiscountType === 'PERCENTAGE'
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-muted/40 border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <span>%</span> Percentage Off
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground">Quick Presets:</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {customDiscountType === 'PERCENTAGE'
+                        ? ['5', '10', '15', '20'].map((pct) => (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() => setCustomDiscountValue(pct)}
+                              className={cn(
+                                "py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                                customDiscountValue === pct ? "bg-primary/20 border-primary text-primary font-black" : "bg-muted/40 border-border hover:bg-muted"
+                              )}
+                            >
+                              {pct}%
+                            </button>
+                          ))
+                        : ['50', '100', '200', '500'].map((amt) => (
+                            <button
+                              key={amt}
+                              type="button"
+                              onClick={() => setCustomDiscountValue(amt)}
+                              className={cn(
+                                "py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                                customDiscountValue === amt ? "bg-primary/20 border-primary text-primary font-black" : "bg-muted/40 border-border hover:bg-muted"
+                              )}
+                            >
+                              ₹{amt}
+                            </button>
+                          ))}
+                    </div>
+                  </div>
+
+                  {/* Value Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      {customDiscountType === 'PERCENTAGE' ? 'Enter Percentage (%):' : 'Enter Flat Amount (₹):'}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
+                        {customDiscountType === 'PERCENTAGE' ? '%' : '₹'}
+                      </span>
+                      <Input
+                        type="number"
+                        min="1"
+                        max={customDiscountType === 'PERCENTAGE' ? 100 : rawSubtotal}
+                        placeholder={customDiscountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 150'}
+                        value={customDiscountValue}
+                        onChange={(e) => setCustomDiscountValue(e.target.value)}
+                        className="pl-8 h-11 rounded-2xl text-sm font-bold font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reason Presets */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Discount Reason / Authorization:</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        'Manager Goodwill',
+                        'VIP Regular Customer',
+                        'Staff / Partner Discount',
+                        'Delay / Service Issue',
+                        'Damaged Item Compensation',
+                        'Custom Reason',
+                      ].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setCustomDiscountReason(r)}
+                          className={cn(
+                            "py-2 px-3 rounded-xl border text-[11px] font-bold text-left truncate transition-all cursor-pointer",
+                            customDiscountReason === r
+                              ? "bg-primary/15 border-primary text-primary font-black"
+                              : "bg-muted/40 border-border/80 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+
+                    {customDiscountReason === 'Custom Reason' && (
+                      <Input
+                        type="text"
+                        placeholder="Type custom authorization reason..."
+                        value={customReasonInput}
+                        onChange={(e) => setCustomReasonInput(e.target.value)}
+                        className="mt-2 h-10 rounded-xl text-xs"
+                      />
+                    )}
+                  </div>
+
+                  {/* Preview Banner */}
+                  {Number(customDiscountValue) > 0 && (
+                    <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Estimated Deduction:</span>
+                      <span className="font-mono font-black text-emerald-400 text-sm">
+                        -₹{(
+                          customDiscountType === 'PERCENTAGE'
+                            ? (rawSubtotal * Number(customDiscountValue)) / 100
+                            : Number(customDiscountValue)
+                        ).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  <Button
+                    type="button"
+                    onClick={handleApplyCustomDiscount}
+                    className="w-full h-12 rounded-2xl font-black text-xs gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Apply Custom Discount to Order</span>
+                  </Button>
+                </div>
+              )}
+
+              {/* ── TAB 2: AVAILABLE COUPON CODES (Type 1) ── */}
+              {discountModalTab === 'COUPONS' && (
+                <div className="space-y-4">
+                  {/* Manual Code Entry */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Apply by Coupon Code:</label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="ENTER COUPON CODE..."
+                        value={couponCodeInput}
+                        onChange={(e) => {
+                          setCouponCodeInput(e.target.value.toUpperCase());
+                          setCouponInputError(null);
+                        }}
+                        className="h-10 rounded-2xl uppercase font-mono font-bold text-xs"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleApplyCouponCode}
+                        className="h-10 px-4 rounded-2xl text-xs font-black cursor-pointer shrink-0"
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                    {couponInputError && (
+                      <p className="text-[11px] text-rose-400 font-semibold pl-1">⚠️ {couponInputError}</p>
+                    )}
+                  </div>
+
+                  {/* Active Coupons List */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground">Active Promotional Coupons:</label>
+                    {promotions.filter((p) => p.type === 'COUPON_LIMITED_TIME').length === 0 ? (
+                      <div className="py-8 text-center text-muted-foreground text-xs bg-muted/20 rounded-2xl border border-border/80">
+                        No active limited-time coupons found. You can create one in Marketing Studio.
+                      </div>
+                    ) : (
+                      promotions.filter((p) => p.type === 'COUPON_LIMITED_TIME').map((cp) => {
+                        const isApplied = appliedDiscount?.code === cp.code;
+                        const discLabel = cp.discountType === 'PERCENTAGE' ? `${cp.discountValue}% OFF` : `₹${cp.discountValue} FLAT OFF`;
+
+                        return (
+                          <div
+                            key={cp.id}
+                            className={cn(
+                              "p-3 rounded-2xl border transition-all flex items-center justify-between gap-2 shadow-xs",
+                              isApplied ? "bg-emerald-950/40 border-emerald-500/60" : "bg-background border-border"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div className="w-8 h-8 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0 text-sm font-bold">
+                                🎟️
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-primary text-primary-foreground">
+                                    {cp.code}
+                                  </span>
+                                  <span className="font-bold text-xs text-foreground">{discLabel}</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                  {cp.minOrderAmount ? `Min bill ₹${cp.minOrderAmount}` : 'No min bill'}
+                                  {cp.maxDiscountCap ? ` • Max cap ₹${cp.maxDiscountCap}` : ''}
+                                  {cp.validTo ? ` • Valid till ${cp.validTo}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div>
+                              {isApplied ? (
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveDiscount}
+                                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30 cursor-pointer"
+                                >
+                                  Applied (Remove)
+                                </button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  type="button"
+                                  onClick={() => handleApplyCoupon(cp)}
+                                  className="h-8 px-3 rounded-xl text-xs font-black cursor-pointer"
+                                >
+                                  Apply Coupon
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── TAB 3: BILL THRESHOLDS & ITEM COMBOS (Type 2 & 3) ── */}
+              {discountModalTab === 'OFFERS' && (
+                <div className="space-y-4">
+                  {/* Bill Threshold Promos */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🎁 Spend Threshold Rewards</span>
+                      <Badge variant="outline" className="text-[9px]">{thresholdPromos.length} Offers</Badge>
+                    </h4>
+
+                    {thresholdPromos.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic pl-1">No threshold offers currently active.</p>
+                    ) : (
+                      thresholdPromos.map((thresh) => {
+                        const targetAmt = Number(thresh.thresholdAmount || 0);
+                        const isUnlocked = rawSubtotal >= targetAmt;
+
+                        return (
+                          <div
+                            key={thresh.id}
+                            className={cn(
+                              "p-3 rounded-2xl border transition-all space-y-2",
+                              isUnlocked ? "bg-emerald-950/30 border-emerald-500/50" : "bg-muted/20 border-border"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">💰</span>
+                                <div>
+                                  <p className="text-xs font-black text-foreground">{thresh.name}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {thresh.rewardType === 'FREE_ITEM'
+                                      ? `Get 1 Free ${thresh.freeMenuItemName || 'Dish'} on bills above ₹${targetAmt}`
+                                      : `Get ${thresh.discountType === 'PERCENTAGE' ? `${thresh.discountValue}% OFF` : `₹${thresh.discountValue} OFF`} on bills above ₹${targetAmt}`}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {isUnlocked ? (
+                                thresh.rewardType === 'FREE_ITEM' ? (
+                                  <Button
+                                    size="sm"
+                                    type="button"
+                                    onClick={() => handleAddComplementaryItem(thresh.freeMenuItemName, thresh.name)}
+                                    className="h-7 px-2.5 rounded-xl text-[10px] font-black bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                  >
+                                    + Add Free Dish
+                                  </Button>
+                                ) : (
+                                  <Badge className="bg-emerald-500 text-white text-[9px] font-black">
+                                    Auto-Applied ✅
+                                  </Badge>
+                                )
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-400 font-mono">
+                                  Add ₹{(targetAmt - rawSubtotal).toFixed(0)} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Combo Promos */}
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <h4 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🍔+☕ Food Combo Specials</span>
+                      <Badge variant="outline" className="text-[9px]">{comboPromos.length} Offers</Badge>
+                    </h4>
+
+                    {comboPromos.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic pl-1">No combo promotions currently active.</p>
+                    ) : (
+                      comboPromos.map((combo) => {
+                        const isUnlocked = unlockedCombos.some((c) => c.id === combo.id);
+                        const triggers = Array.isArray(combo.triggerItemNames) ? combo.triggerItemNames.join(' + ') : 'Triggers';
+
+                        return (
+                          <div
+                            key={combo.id}
+                            className={cn(
+                              "p-3 rounded-2xl border transition-all flex items-center justify-between gap-2",
+                              isUnlocked ? "bg-emerald-950/30 border-emerald-500/50" : "bg-muted/20 border-border"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span className="text-lg">🔥</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-black text-foreground truncate">{combo.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  Buy <strong className="text-amber-400 font-bold">{triggers}</strong> → Get <strong className="text-emerald-400 font-bold">1 Free {combo.complementaryItemName}</strong>
+                                </p>
+                              </div>
+                            </div>
+
+                            <div>
+                              <Button
+                                size="sm"
+                                type="button"
+                                onClick={() => handleAddComplementaryItem(combo.complementaryItemName, combo.name)}
+                                className={cn(
+                                  "h-7 px-2.5 rounded-xl text-[10px] font-black cursor-pointer",
+                                  isUnlocked ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-muted text-foreground hover:bg-muted/80"
+                                )}
+                              >
+                                {isUnlocked ? '+ Claim Freebie' : '+ Add Freebie'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           MODAL: FAST CASH & UPI TOUCH SETTLEMENT

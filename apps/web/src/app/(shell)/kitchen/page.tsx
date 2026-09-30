@@ -743,7 +743,7 @@ export default function KitchenPage() {
               </Button>
               <Button
                 variant="destructive"
-                className="rounded-none font-black bg-rose-600 hover:bg-rose-700"
+                className="rounded-none font-black bg-rose-600 hover:bg-rose-700 text-white shadow-md"
                 onClick={() =>
                   cancelKot.mutate({
                     kotId: cancelModalKot.kotId,
