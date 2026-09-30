@@ -96,6 +96,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _SectionHeader('Account'),
           _SettingsTile(Icons.lock_rounded, 'Change Password', null, onTap: () => _showChangePassword()),
           _SettingsTile(Icons.notifications_rounded, 'Telegram Alerts & Notifications', 'Connect bot for live KOT & bills', onTap: () => TelegramConnectionSheet.show(context)),
+
+          const SizedBox(height: 8),
+          _SectionHeader('Support'),
+          _SettingsTile(
+            Icons.help_outline_rounded,
+            'Help & User Guide',
+            'Step-by-step guide for every module',
+            onTap: () => context.go('/help'),
+          ),
           _SettingsTile(Icons.logout_rounded, 'Sign Out', null, color: RosTheme.danger, onTap: () => _logout()),
 
           const SizedBox(height: 20),

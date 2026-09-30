@@ -4,7 +4,7 @@ import {
   ClipboardList, ArrowLeftRight, Radio, Tag, Sparkles, Star,
   Globe, Printer, ShieldAlert, Gift, Flame, Smartphone,
   Activity, Building2, CreditCard, Server, Wallet, Zap,
-  ShoppingBag
+  ShoppingBag, HelpCircle
 } from 'lucide-react';
 
 export interface NavItemConfig {
@@ -58,6 +58,10 @@ export const ALL_RESTAURANT_NAV_SECTIONS: Array<
   { href: '/settings',      label: 'Settings',              icon: Settings,        permissions: ['settings:edit'] },
   { href: '/hardware',      label: 'Hardware & Printers',   icon: Printer,         permissions: ['cash:open'] },
   { href: '/audit-vault',   label: 'Audit Vault',           icon: ShieldAlert,     permissions: ['cash:close'] },
+
+  // Help — accessible to all authenticated users
+  { type: 'divider', label: 'SUPPORT' },
+  { href: '/help',          label: 'Help & User Guide',     icon: HelpCircle,      permissions: null },
 ];
 
 export const PLATFORM_SUPERADMIN_NAV_SECTIONS: Array<
@@ -71,9 +75,10 @@ export const PLATFORM_SUPERADMIN_NAV_SECTIONS: Array<
   { href: '/super-admin?tab=automation', label: 'Automation',           icon: Zap,         permissions: null },
   { href: '/super-admin?tab=system',     label: 'System & Infra',       icon: Server,      permissions: null },
   { type: 'divider', label: 'SECURITY & OBSERVABILITY' },
-  { href: '/audit-vault',                label: 'Global Audit Logs',    icon: ShieldAlert, permissions: null },
-  { href: '/hardware',                   label: 'Global Edge Hardware', icon: Activity,    permissions: null },
-  { href: '/settings',                   label: 'Platform Settings',    icon: Settings,    permissions: null },
+  { href: '/audit-vault',                label: 'Global Audit Logs',    icon: ShieldAlert,  permissions: null },
+  { href: '/hardware',                   label: 'Global Edge Hardware', icon: Activity,     permissions: null },
+  { href: '/settings',                   label: 'Platform Settings',    icon: Settings,     permissions: null },
+  { href: '/help',                       label: 'Help & User Guide',    icon: HelpCircle,   permissions: null },
 ];
 
 import type { Permission } from '@ros/shared-types';
@@ -112,6 +117,7 @@ export const MODULE_SUBMODULE_MAP: Record<string, string[]> = {
   '/settings':      ['set_profile', 'set_tax_service', 'set_hours_shifts', 'set_gateways'],
   '/hardware':      ['hw_bill_printers', 'hw_kot_printers', 'hw_cash_drawers', 'hw_scanners'],
   '/audit-vault':   ['audit_login_ledger', 'audit_overrides', 'audit_reprints', 'audit_security_log'],
+  '/help':          [],
 };
 
 /** Check if user is platform level super admin */
@@ -196,6 +202,9 @@ export function isRouteAccessible(
 
   const cleanPath = pathname.split('?')[0];
 
+  // /help is always accessible to all authenticated users — no permission required
+  if (cleanPath === '/help') return true;
+
   // /orders special case
   if (cleanPath === '/orders') {
     return hasModuleOrSubmoduleAccess('/orders', ['tables:view', 'tables:edit', 'orders:view'], user, hasAnyPermission);
@@ -208,6 +217,9 @@ export function isRouteAccessible(
   );
 
   if (!item || !('permissions' in item)) return false;
+
+  // Items with permissions: null are accessible to all authenticated users
+  if (item.permissions === null) return true;
 
   return hasModuleOrSubmoduleAccess(item.href, item.permissions, user, hasAnyPermission);
 }

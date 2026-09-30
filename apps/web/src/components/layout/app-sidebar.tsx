@@ -91,7 +91,11 @@ export function AppSidebar() {
         }
 
         const Icon = item.icon!;
-        const allowed = isPlatformSuperAdmin || !item.permission || hasAnyPermission(item.permission as any);
+        // null permissions = accessible to all authenticated users (e.g. Help page)
+        const allowed = isPlatformSuperAdmin
+          || item.permissions === null
+          || !item.permissions
+          || hasAnyPermission(...(item.permissions as any[]));
         if (!allowed) return null;
 
         let active = false;

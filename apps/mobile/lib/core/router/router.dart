@@ -22,6 +22,7 @@ import '../../features/reservations/reservations_screen.dart';
 import '../../features/customers/customers_screen.dart';
 import '../../features/marketing/promotions_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/settings/help_screen.dart';
 import '../utils/shell.dart';
 
 import '../../features/superadmin/superadmin_screen.dart';
@@ -137,6 +138,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: '/help',
+            builder: (context, state) => const HelpScreen(),
           ),
         ],
       ),
