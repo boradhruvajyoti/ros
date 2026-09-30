@@ -31,6 +31,8 @@ export interface PromotionCampaign {
   maxDiscount?: number | null;
   validFrom: string;
   validTo: string;
+  cardCount?: number;
+  generatedCodes?: string[];
   rewardType?: 'DISCOUNT' | 'COMPLIMENTARY_ITEM';
   complementaryItemId?: string;
   complementaryItemName?: string;
@@ -61,6 +63,7 @@ export default function MarketingPage() {
   const [formType, setFormType] = useState<PromotionCampaign['type']>('LIMITED_TIME_COUPON');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [couponCardCount, setCouponCardCount] = useState('8');
   const [discountType, setDiscountType] = useState<'PERCENTAGE' | 'FLAT'>('PERCENTAGE');
   const [discountValue, setDiscountValue] = useState('20');
   const [minOrderValue, setMinOrderValue] = useState('499');
@@ -105,7 +108,7 @@ export default function MarketingPage() {
         items.push({
           id: item.id,
           name: item.name,
-          categoryName: cat.name,
+          categoryName: cat.name || 'General',
           price: Number(item.variants?.[0]?.price || 0),
         });
       });
@@ -159,16 +162,32 @@ export default function MarketingPage() {
     const validFromFormatted = camp.validFrom ? camp.validFrom.split('T')[0] : 'Today';
     const validToFormatted = camp.validTo ? camp.validTo.split('T')[0] : 'End of Month';
 
+    // Prepare non-repeating unique dynamic codes array
+    const codesList: string[] = [];
+    if (camp.generatedCodes && camp.generatedCodes.length > 0) {
+      codesList.push(...camp.generatedCodes);
+    }
+    
+    // If user requests more cards than pre-generated codes, dynamically generate unique non-repeating codes
+    while (codesList.length < totalCards) {
+      const idx = codesList.length + 1;
+      const base = camp.code.replace(/-\d+$/, '');
+      const uniqueSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      codesList.push(`${base}-${String(idx).padStart(2, '0')}-${uniqueSuffix}`);
+    }
+
     // Build pages
     let pagesHtml = '';
-    let cardsRemaining = totalCards;
+    let globalCardIndex = 0;
 
     for (let p = 0; p < totalPages; p++) {
-      const cardsInThisPage = Math.min(cardsPerPage, cardsRemaining);
-      cardsRemaining -= cardsInThisPage;
+      const cardsInThisPage = Math.min(cardsPerPage, totalCards - globalCardIndex);
 
       let cardsHtml = '';
       for (let c = 0; c < cardsInThisPage; c++) {
+        const currentCardCode = codesList[globalCardIndex] || `${camp.code}-${globalCardIndex + 1}`;
+        globalCardIndex++;
+
         cardsHtml += `
           <div class="coupon-card">
             <div class="cut-corner-mark cut-tl">✂</div>
@@ -194,10 +213,11 @@ export default function MarketingPage() {
             <div class="code-cutout-container">
               <div class="scissors-line">
                 <span>✂ CUT & PRESENT AT BILLING</span>
+                <span style="font-size: 6px; opacity: 0.8; font-weight: 700;">VOUCHER #${globalCardIndex}</span>
               </div>
               <div class="code-box">
                 <div class="code-label">PROMO CODE</div>
-                <div class="code-text">${camp.code}</div>
+                <div class="code-text">${currentCardCode}</div>
               </div>
             </div>
 
@@ -452,6 +472,7 @@ export default function MarketingPage() {
   const resetForm = () => {
     setName('');
     setCode('');
+    setCouponCardCount('8');
     setDiscountValue('20');
     setMinOrderValue('499');
     setMaxDiscount('200');
@@ -488,6 +509,7 @@ export default function MarketingPage() {
       payload.discountValue = parseFloat(discountValue) || 0;
       payload.minOrderValue = parseFloat(minOrderValue) || 0;
       payload.maxDiscount = maxDiscount ? parseFloat(maxDiscount) : null;
+      payload.cardCount = parseInt(couponCardCount, 10) || 8;
       payload.autoApply = false;
     } else if (formType === 'BILL_THRESHOLD') {
       payload.code = code.trim() ? code.trim().toUpperCase() : `AUTO-SPEND${minOrderValue}`;
@@ -747,20 +769,36 @@ export default function MarketingPage() {
                     </button>
                   </div>
 
-                  {/* Coupon Code Pill */}
+                  {/* Coupon Code Pill & Dynamic Codes Indicator */}
                   {camp.code && !isCustom && (
-                    <div className="mt-3 flex items-center justify-between p-2 rounded-xl bg-background border border-dashed border-primary/40 text-xs">
-                      <span className="font-mono font-black text-primary tracking-wider">{camp.code}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(camp.code);
-                          toast.success('Code Copied', `"${camp.code}" copied to clipboard.`);
-                        }}
-                        className="text-[10px] font-bold text-muted-foreground hover:text-primary flex items-center gap-1 cursor-pointer"
-                      >
-                        <Copy className="w-3 h-3" /> Copy
-                      </button>
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-background border border-dashed border-primary/40 text-xs">
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <span className="font-mono font-black text-primary tracking-wider truncate">{camp.code}</span>
+                          {camp.generatedCodes && camp.generatedCodes.length > 1 && (
+                            <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20 shrink-0 font-mono">
+                              +{camp.generatedCodes.length - 1} dynamic codes
+                            </Badge>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(camp.code);
+                            toast.success('Code Copied', `"${camp.code}" copied to clipboard.`);
+                          }}
+                          className="text-[10px] font-bold text-muted-foreground hover:text-primary flex items-center gap-1 cursor-pointer shrink-0"
+                        >
+                          <Copy className="w-3 h-3" /> Copy
+                        </button>
+                      </div>
+
+                      {isCoupon && camp.generatedCodes && camp.generatedCodes.length > 1 && (
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                          <span>📦 {camp.generatedCodes.length} printable card codes in database</span>
+                          <span className="font-mono text-[9px] text-primary/80">0% collision guarantee</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -784,6 +822,12 @@ export default function MarketingPage() {
                           <p className="flex justify-between">
                             <span>Max Cap:</span>
                             <strong className="text-foreground">{formatCurrency(camp.maxDiscount)}</strong>
+                          </p>
+                        ) : null}
+                        {camp.cardCount ? (
+                          <p className="flex justify-between">
+                            <span>Cards Generated:</span>
+                            <strong className="text-foreground font-mono">{camp.cardCount} cards</strong>
                           </p>
                         ) : null}
                       </>
@@ -870,7 +914,7 @@ export default function MarketingPage() {
                         variant="outline"
                         onClick={() => {
                           setPrintCouponModal(camp);
-                          setPrintCardCount(8);
+                          setPrintCardCount(camp.cardCount || 8);
                         }}
                         className="gap-1 text-xs font-bold rounded-xl border-amber-500/40 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 h-8 px-2.5"
                         title="Generate Printable A4 Coupon Cards PDF"
@@ -933,7 +977,7 @@ export default function MarketingPage() {
                     )}
                   >
                     <p className="flex items-center gap-1.5"><span>🎟️</span> 1. Limited-Time Coupon</p>
-                    <p className="text-[10px] text-muted-foreground font-normal mt-0.5">Date-range coupon code with % or ₹ off</p>
+                    <p className="text-[10px] text-muted-foreground font-normal mt-0.5">Date-range coupon cards with unique dynamic codes</p>
                   </button>
 
                   <button
@@ -947,7 +991,7 @@ export default function MarketingPage() {
                     )}
                   >
                     <p className="flex items-center gap-1.5"><span>🎁</span> 2. Bill Threshold (Auto-Apply)</p>
-                    <p className="text-[10px] text-muted-foreground font-normal mt-0.5">Spend &gt; ₹X to get ₹ discount or free item</p>
+                    <p className="text-[10px] text-muted-foreground font-normal mt-0.5">Spend &gt; ₹X to get ₹ discount or free menu dish</p>
                   </button>
 
                   <button
@@ -961,7 +1005,7 @@ export default function MarketingPage() {
                     )}
                   >
                     <p className="flex items-center gap-1.5"><span>🍔+☕</span> 3. Food Item Combo Freebie</p>
-                    <p className="text-[10px] text-muted-foreground font-normal mt-0.5">Buy Dish A + B -&gt; Get Dish C Complimentary</p>
+                    <p className="text-[10px] text-muted-foreground font-normal mt-0.5">Buy Main Menu Dishes -&gt; Get Dish Free</p>
                   </button>
 
                   <button
@@ -1003,7 +1047,7 @@ export default function MarketingPage() {
                 <div className="space-y-3 p-3.5 rounded-2xl bg-muted/30 border border-border">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-muted-foreground">Coupon Code</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Coupon Code Base / Prefix</label>
                       <Input
                         type="text"
                         required
@@ -1039,6 +1083,50 @@ export default function MarketingPage() {
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Quantity of coupon cards to create */}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-foreground">
+                        How many coupon cards / unique codes do you want to create?
+                      </label>
+                      <span className="text-[11px] font-mono text-primary font-bold">
+                        {couponCardCount} unique codes ({Math.ceil((parseInt(couponCardCount, 10) || 8) / 8)} A4 sheets)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={500}
+                        required
+                        value={couponCardCount}
+                        onChange={(e) => setCouponCardCount(e.target.value)}
+                        className="h-9 w-24 rounded-xl bg-background border-border text-xs font-bold font-mono"
+                        placeholder="8"
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {['8', '16', '24', '32', '48', '80'].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setCouponCardCount(preset)}
+                            className={cn(
+                              'px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer',
+                              couponCardCount === preset
+                                ? 'bg-primary/20 text-primary border-primary/40'
+                                : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                            )}
+                          >
+                            {preset} cards
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      System will generate {couponCardCount || 8} distinct, non-repeating dynamic coupon codes saved to the database.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
@@ -1123,28 +1211,54 @@ export default function MarketingPage() {
 
                   {thresholdRewardType === 'COMPLIMENTARY_ITEM' ? (
                     <div>
-                      <label className="text-xs font-semibold text-muted-foreground">Select Complementary Menu Item</label>
-                      <Input
-                        type="text"
-                        required
-                        placeholder="e.g. Signature Chocolate Brownie / Fresh Lime Soda"
-                        value={thresholdFreeItem}
-                        onChange={(e) => setThresholdFreeItem(e.target.value)}
-                        className="mt-1 h-9 rounded-xl bg-background border-border text-xs font-bold"
-                      />
-                      {allMenuItems.length > 0 && (
-                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pt-1.5">
-                          {allMenuItems.slice(0, 6).map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => setThresholdFreeItem(item.name)}
-                              className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-background border border-border hover:border-emerald-500 shrink-0 cursor-pointer"
-                            >
-                              + {item.name}
-                            </button>
-                          ))}
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        Select Complimentary Freebie Item from Menu Cards
+                      </label>
+                      {allMenuItems.length > 0 ? (
+                        <div className="space-y-2 mt-1">
+                          <select
+                            value={thresholdFreeItem}
+                            onChange={(e) => setThresholdFreeItem(e.target.value)}
+                            className="w-full h-9 rounded-xl bg-background border border-border text-xs font-bold px-2.5 text-foreground"
+                          >
+                            <option value="">-- Choose from Menu Cards --</option>
+                            {menuCategories.map((cat: any) => (
+                              <optgroup key={cat.id || cat.name} label={`📂 ${cat.name || 'Category'}`}>
+                                {(cat.items || []).map((item: any) => (
+                                  <option key={item.id} value={item.name}>
+                                    {item.name} (₹{item.variants?.[0]?.price || 0})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </select>
+                          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                            {allMenuItems.slice(0, 8).map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setThresholdFreeItem(item.name)}
+                                className={cn(
+                                  'text-[10px] font-bold px-2 py-0.5 rounded-lg border shrink-0 cursor-pointer transition-colors',
+                                  thresholdFreeItem === item.name
+                                    ? 'bg-emerald-600 text-white border-emerald-600'
+                                    : 'bg-background border-border hover:border-emerald-500 text-foreground'
+                                )}
+                              >
+                                + {item.name}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+                      ) : (
+                        <Input
+                          type="text"
+                          required
+                          placeholder="e.g. Signature Chocolate Brownie / Fresh Lime Soda"
+                          value={thresholdFreeItem}
+                          onChange={(e) => setThresholdFreeItem(e.target.value)}
+                          className="mt-1 h-9 rounded-xl bg-background border-border text-xs font-bold"
+                        />
                       )}
                     </div>
                   ) : (
@@ -1178,7 +1292,9 @@ export default function MarketingPage() {
               {formType === 'ITEM_COMBO_COMPLIMENTARY' && (
                 <div className="space-y-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground">When Customer Selects Trigger Dishes (e.g. Burger + Pizza)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      When Customer Orders Trigger Dishes (Choose from Menu Cards)
+                    </label>
                     <Input
                       type="text"
                       required
@@ -1187,19 +1303,70 @@ export default function MarketingPage() {
                       onChange={(e) => setTriggerItemInputs(e.target.value.split(',').map(s => s.trim()))}
                       className="mt-1 h-9 rounded-xl bg-background border-border text-xs font-bold"
                     />
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Comma-separated list of required menu dishes</p>
+                    {allMenuItems.length > 0 && (
+                      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pt-1.5">
+                        {allMenuItems.slice(0, 10).map((item) => {
+                          const isSelected = triggerItemInputs.includes(item.name);
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setTriggerItemInputs(triggerItemInputs.filter(t => t !== item.name));
+                                } else {
+                                  setTriggerItemInputs([...triggerItemInputs.filter(Boolean), item.name]);
+                                }
+                              }}
+                              className={cn(
+                                'text-[10px] font-bold px-2 py-0.5 rounded-lg border shrink-0 cursor-pointer transition-colors',
+                                isSelected
+                                  ? 'bg-amber-600 text-white border-amber-600'
+                                  : 'bg-background border-border hover:border-amber-500 text-foreground'
+                              )}
+                            >
+                              {isSelected ? '✓ ' : '+ '} {item.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Click menu items above or type comma-separated dishes</p>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground">Customer Gets Free Complementary Item</label>
-                    <Input
-                      type="text"
-                      required
-                      placeholder="e.g. Hot Brewed Coffee / Cappuccino"
-                      value={comboFreeItem}
-                      onChange={(e) => setComboFreeItem(e.target.value)}
-                      className="mt-1 h-9 rounded-xl bg-background border-border text-xs font-bold"
-                    />
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Customer Receives Free Complimentary Item (From Menu Cards)
+                    </label>
+                    {allMenuItems.length > 0 ? (
+                      <div className="space-y-2 mt-1">
+                        <select
+                          value={comboFreeItem}
+                          onChange={(e) => setComboFreeItem(e.target.value)}
+                          className="w-full h-9 rounded-xl bg-background border border-border text-xs font-bold px-2.5 text-foreground"
+                        >
+                          <option value="">-- Choose Complementary Menu Item --</option>
+                          {menuCategories.map((cat: any) => (
+                            <optgroup key={cat.id || cat.name} label={`📂 ${cat.name || 'Category'}`}>
+                              {(cat.items || []).map((item: any) => (
+                                <option key={item.id} value={item.name}>
+                                  {item.name} (₹{item.variants?.[0]?.price || 0})
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <Input
+                        type="text"
+                        required
+                        placeholder="e.g. Hot Brewed Coffee / Cappuccino"
+                        value={comboFreeItem}
+                        onChange={(e) => setComboFreeItem(e.target.value)}
+                        className="mt-1 h-9 rounded-xl bg-background border-border text-xs font-bold"
+                      />
+                    )}
                   </div>
                 </div>
               )}

@@ -1414,6 +1414,8 @@ class PromotionCampaign {
   final double? maxDiscount;
   final String validFrom;
   final String validTo;
+  final int? cardCount;
+  final List<String> generatedCodes;
   final String? rewardType; // DISCOUNT | COMPLIMENTARY_ITEM
   final String? complementaryItemId;
   final String? complementaryItemName;
@@ -1439,6 +1441,8 @@ class PromotionCampaign {
     this.maxDiscount,
     required this.validFrom,
     required this.validTo,
+    this.cardCount,
+    this.generatedCodes = const [],
     this.rewardType = 'DISCOUNT',
     this.complementaryItemId,
     this.complementaryItemName,
@@ -1465,6 +1469,10 @@ class PromotionCampaign {
     maxDiscount: parseNullableDouble(json['maxDiscount']),
     validFrom: json['validFrom']?.toString() ?? '',
     validTo: json['validTo']?.toString() ?? '',
+    cardCount: json['cardCount'] != null ? parseInt(json['cardCount'], 8) : null,
+    generatedCodes: (json['generatedCodes'] as List<dynamic>?)
+        ?.map((e) => e.toString())
+        .toList() ?? [],
     rewardType: json['rewardType']?.toString() ?? 'DISCOUNT',
     complementaryItemId: json['complementaryItemId']?.toString(),
     complementaryItemName: json['complementaryItemName']?.toString(),
@@ -1496,6 +1504,8 @@ class PromotionCampaign {
     'maxDiscount': maxDiscount,
     'validFrom': validFrom,
     'validTo': validTo,
+    'cardCount': cardCount,
+    'generatedCodes': generatedCodes,
     'rewardType': rewardType,
     'complementaryItemId': complementaryItemId,
     'complementaryItemName': complementaryItemName,

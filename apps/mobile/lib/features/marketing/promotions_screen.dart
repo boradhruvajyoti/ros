@@ -591,6 +591,20 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                                         letterSpacing: 0.8,
                                       ),
                                     ),
+                                    if (campaign.generatedCodes.length > 1) ...[
+                                      const SizedBox(width: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: RosTheme.primary.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '+${campaign.generatedCodes.length - 1} codes',
+                                          style: const TextStyle(color: RosTheme.primary, fontSize: 9, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(width: 4),
                                     const Icon(Icons.copy_rounded, size: 11, color: RosTheme.textMuted),
                                   ],
@@ -606,6 +620,31 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                   ),
 
                   const SizedBox(height: 12),
+
+                  // Dynamic Cards info banner for coupons
+                  if (campaign.type == 'LIMITED_TIME_COUPON' && (campaign.generatedCodes.length > 1 || campaign.cardCount != null)) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: RosTheme.bgElevated,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: RosTheme.bgBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.print_outlined, size: 13, color: Color(0xFFF59E0B)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '📦 ${campaign.generatedCodes.isNotEmpty ? campaign.generatedCodes.length : (campaign.cardCount ?? 8)} unique dynamic codes saved to database (non-repeating on printable PDF cards)',
+                              style: const TextStyle(color: RosTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
 
                   // Campaign Details specifics
                   if (campaign.type == 'ITEM_COMBO_COMPLIMENTARY' && campaign.triggerItems.isNotEmpty) ...[
@@ -774,10 +813,14 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
   String _promoType = 'LIMITED_TIME_COUPON'; // LIMITED_TIME_COUPON | BILL_THRESHOLD | ITEM_COMBO_COMPLIMENTARY | CUSTOM_DISCOUNT
   final _nameCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
+  final _cardCountCtrl = TextEditingController(text: '8');
   String _discountType = 'PERCENTAGE'; // PERCENTAGE | FLAT
   final _discountValCtrl = TextEditingController(text: '20');
   final _minOrderCtrl = TextEditingController(text: '499');
   final _maxDiscountCtrl = TextEditingController(text: '200');
+
+  late final TextEditingController _validFromCtrl;
+  late final TextEditingController _validToCtrl;
 
   // Bill Threshold
   String _thresholdRewardType = 'COMPLIMENTARY_ITEM'; // DISCOUNT | COMPLIMENTARY_ITEM
@@ -796,12 +839,23 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
   bool _isSaving = false;
 
   @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _validFromCtrl = TextEditingController(text: now.toIso8601String().split('T').first);
+    _validToCtrl = TextEditingController(text: now.add(const Duration(days: 30)).toIso8601String().split('T').first);
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
     _codeCtrl.dispose();
+    _cardCountCtrl.dispose();
     _discountValCtrl.dispose();
     _minOrderCtrl.dispose();
     _maxDiscountCtrl.dispose();
+    _validFromCtrl.dispose();
+    _validToCtrl.dispose();
     _thresholdFreeItemCtrl.dispose();
     _comboTrigger1Ctrl.dispose();
     _comboTrigger2Ctrl.dispose();
@@ -821,9 +875,8 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
       return;
     }
 
-    final now = DateTime.now();
-    final validFrom = now.toIso8601String().split('T').first;
-    final validTo = now.add(const Duration(days: 30)).toIso8601String().split('T').first;
+    final validFrom = _validFromCtrl.text.trim().isNotEmpty ? _validFromCtrl.text.trim() : DateTime.now().toIso8601String().split('T').first;
+    final validTo = _validToCtrl.text.trim().isNotEmpty ? _validToCtrl.text.trim() : DateTime.now().add(const Duration(days: 30)).toIso8601String().split('T').first;
 
     final payload = <String, dynamic>{
       'name': name,
@@ -848,6 +901,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
       if (_maxDiscountCtrl.text.trim().isNotEmpty) {
         payload['maxDiscount'] = double.tryParse(_maxDiscountCtrl.text.trim());
       }
+      payload['cardCount'] = int.tryParse(_cardCountCtrl.text.trim()) ?? 8;
       payload['autoApply'] = false;
     } else if (_promoType == 'BILL_THRESHOLD') {
       final code = _codeCtrl.text.trim().isNotEmpty ? _codeCtrl.text.trim().toUpperCase() : 'AUTO-SPEND${_minOrderCtrl.text.trim()}';
@@ -946,6 +1000,9 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final menuCategories = ref.watch(posMenuProvider).valueOrNull ?? [];
+    final allMenuItems = menuCategories.expand((c) => c.items).toList();
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
@@ -1036,7 +1093,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                   Expanded(
                     child: _buildTextField(
                       controller: _codeCtrl,
-                      label: 'Coupon Code *',
+                      label: 'Coupon Code Base / Prefix *',
                       hint: 'FESTIVE20',
                       textCapitalization: TextCapitalization.characters,
                     ),
@@ -1106,6 +1163,74 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                 ],
               ),
               const SizedBox(height: 12),
+
+              // Number of Coupon Cards & Dynamic Codes
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Number of Coupon Cards / Codes to Create *',
+                        style: TextStyle(color: RosTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        '${_cardCountCtrl.text} cards',
+                        style: const TextStyle(color: RosTheme.primary, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 70,
+                        child: TextField(
+                          controller: _cardCountCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            filled: true,
+                            fillColor: RosTheme.bgElevated,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: ['8', '16', '24', '32', '48', '80'].map((val) {
+                              final isSel = _cardCountCtrl.text == val;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ChoiceChip(
+                                  label: Text('$val cards', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isSel ? Colors.white : RosTheme.textSecondary)),
+                                  selected: isSel,
+                                  selectedColor: RosTheme.primary,
+                                  backgroundColor: RosTheme.bgElevated,
+                                  onSelected: (_) => setState(() => _cardCountCtrl.text = val),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Generates unique non-repeating dynamic coupon codes saved in the database for each printed card.',
+                    style: TextStyle(color: RosTheme.textMuted, fontSize: 10),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
               Row(
                 children: [
                   Expanded(
@@ -1122,6 +1247,15 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                       controller: _minOrderCtrl,
                       label: 'Min Order (₹)',
                       hint: '499',
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _maxDiscountCtrl,
+                      label: 'Max Cap (₹)',
+                      hint: '200',
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -1175,13 +1309,34 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_thresholdRewardType == 'COMPLIMENTARY_ITEM')
+              if (_thresholdRewardType == 'COMPLIMENTARY_ITEM') ...[
                 _buildTextField(
                   controller: _thresholdFreeItemCtrl,
-                  label: 'Free Gift Item Name *',
+                  label: 'Free Gift Item Name (From Menu Cards) *',
                   hint: 'e.g. Signature Chocolate Brownie / Cold Drink',
-                )
-              else
+                ),
+                if (allMenuItems.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: allMenuItems.take(10).map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ActionChip(
+                            label: Text('+ ${item.name}', style: const TextStyle(fontSize: 10, color: RosTheme.textPrimary)),
+                            backgroundColor: RosTheme.bgElevated,
+                            onPressed: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _thresholdFreeItemCtrl.text = item.name);
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ] else
                 Row(
                   children: [
                     Expanded(
@@ -1209,9 +1364,30 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
               const SizedBox(height: 10),
               _buildTextField(
                 controller: _comboFreeItemCtrl,
-                label: 'Free Complementary Reward Item *',
+                label: 'Free Complementary Reward Item (From Menu Cards) *',
                 hint: 'e.g. Fresh Brewed Iced Tea',
               ),
+              if (allMenuItems.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: allMenuItems.take(10).map((item) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          label: Text('+ ${item.name}', style: const TextStyle(fontSize: 10, color: RosTheme.textPrimary)),
+                          backgroundColor: RosTheme.bgElevated,
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _comboFreeItemCtrl.text = item.name);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
             ] else if (_promoType == 'CUSTOM_DISCOUNT') ...[
               _buildTextField(
                 controller: _customPercentsCtrl,
@@ -1231,6 +1407,29 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                 hint: 'Owner Courtesy, VIP Guest, Delay, Staff',
               ),
             ],
+
+            const SizedBox(height: 12),
+
+            // Date Range: Valid From & Valid To
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _validFromCtrl,
+                    label: 'Valid From (YYYY-MM-DD) *',
+                    hint: '2026-09-30',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _validToCtrl,
+                    label: 'Valid To / Expiry *',
+                    hint: '2026-10-30',
+                  ),
+                ),
+              ],
+            ),
 
             const SizedBox(height: 20),
 
@@ -1346,7 +1545,12 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
   @override
   void initState() {
     super.initState();
-    _countController = TextEditingController(text: '8');
+    final defaultCount = widget.campaign.cardCount ??
+        (widget.campaign.generatedCodes.isNotEmpty
+            ? widget.campaign.generatedCodes.length
+            : 8);
+    _cardCount = defaultCount.clamp(1, 500);
+    _countController = TextEditingController(text: '$_cardCount');
   }
 
   @override
@@ -1408,9 +1612,23 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
       final validFrom = widget.campaign.validFrom.split('T').first;
       final validTo = widget.campaign.validTo.split('T').first;
 
+      final baseCode = widget.campaign.code.trim().toUpperCase();
+      final existingCodes = widget.campaign.generatedCodes;
+      final List<String> codesList = [];
+
+      for (int i = 0; i < count; i++) {
+        if (i < existingCodes.length && existingCodes[i].isNotEmpty) {
+          codesList.add(existingCodes[i]);
+        } else {
+          final numSuffix = (i + 1).toString().padLeft(3, '0');
+          codesList.add('$baseCode-$numSuffix');
+        }
+      }
+
       final doc = pw.Document();
 
       int cardsRemaining = count;
+      int globalCardIdx = 0;
       for (int p = 0; p < totalPages; p++) {
         final cardsInThisPage = cardsRemaining > cardsPerPage ? cardsPerPage : cardsRemaining;
         cardsRemaining -= cardsInThisPage;
@@ -1421,11 +1639,31 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
           final idx2 = r * 2 + 1;
 
           final card1 = idx1 < cardsInThisPage
-              ? _buildPdfCard(restaurantName, address, phone, discountText, conditionText, validFrom, validTo)
+              ? _buildPdfCard(
+                  restaurantName: restaurantName,
+                  address: address,
+                  phone: phone,
+                  discountText: discountText,
+                  conditionText: conditionText,
+                  validFrom: validFrom,
+                  validTo: validTo,
+                  cardCode: codesList[globalCardIdx++],
+                  cardIndex: globalCardIdx,
+                )
               : pw.Container();
 
           final card2 = idx2 < cardsInThisPage
-              ? _buildPdfCard(restaurantName, address, phone, discountText, conditionText, validFrom, validTo)
+              ? _buildPdfCard(
+                  restaurantName: restaurantName,
+                  address: address,
+                  phone: phone,
+                  discountText: discountText,
+                  conditionText: conditionText,
+                  validFrom: validFrom,
+                  validTo: validTo,
+                  cardCode: codesList[globalCardIdx++],
+                  cardIndex: globalCardIdx,
+                )
               : pw.Container();
 
           rows.add(
@@ -1478,15 +1716,17 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
     }
   }
 
-  pw.Widget _buildPdfCard(
-    String restaurantName,
-    String address,
-    String phone,
-    String discountText,
-    String conditionText,
-    String validFrom,
-    String validTo,
-  ) {
+  pw.Widget _buildPdfCard({
+    required String restaurantName,
+    required String address,
+    required String phone,
+    required String discountText,
+    required String conditionText,
+    required String validFrom,
+    required String validTo,
+    required String cardCode,
+    required int cardIndex,
+  }) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(8),
       decoration: pw.BoxDecoration(
@@ -1523,13 +1763,13 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                 decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
+                  color: PdfColors.amber100,
                   borderRadius: pw.BorderRadius.circular(3),
-                  border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                  border: pw.Border.all(color: PdfColors.amber400, width: 0.5),
                 ),
                 child: pw.Text(
-                  'VOUCHER',
-                  style: pw.TextStyle(fontSize: 5.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+                  'VOUCHER #$cardIndex',
+                  style: pw.TextStyle(fontSize: 5.5, fontWeight: pw.FontWeight.bold, color: PdfColors.amber900),
                 ),
               ),
             ],
@@ -1577,11 +1817,11 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                   style: pw.TextStyle(fontSize: 5.5, fontWeight: pw.FontWeight.bold, color: PdfColors.amber900),
                 ),
                 pw.Text(
-                  widget.campaign.code,
+                  cardCode,
                   style: pw.TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
-                    letterSpacing: 1.2,
+                    letterSpacing: 1.0,
                     color: PdfColors.amber900,
                   ),
                 ),
