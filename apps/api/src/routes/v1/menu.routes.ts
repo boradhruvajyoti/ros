@@ -18,6 +18,14 @@ router.post('/categories',            requirePermission('menu:create'), asyncHan
 router.patch('/categories/:id',       requirePermission('menu:edit'),   asyncHandler(MenuController.updateCategory));
 router.delete('/categories/:id',      requirePermission('menu:delete'), asyncHandler(MenuController.deleteCategory));
 
+// Special Festive / Occasion Menus
+router.get('/special-menus',          requirePermission('menu:view', 'orders:create', 'orders:view', 'tables:view'),   asyncHandler(MenuController.listSpecialMenus));
+router.post('/special-menus',         requirePermission('menu:create'), asyncHandler(MenuController.createSpecialMenu));
+router.patch('/special-menus/:id',     requirePermission('menu:edit'),   asyncHandler(MenuController.updateSpecialMenu));
+router.delete('/special-menus/:id',    requirePermission('menu:delete'), asyncHandler(MenuController.deleteSpecialMenu));
+router.get('/active-mode',            requirePermission('menu:view', 'orders:create', 'orders:view', 'tables:view'),   asyncHandler(MenuController.getActiveMenuMode));
+router.post('/active-mode',           requirePermission('menu:edit'),   asyncHandler(MenuController.setActiveMenuMode));
+
 // Items
 router.get('/items',                  requirePermission('menu:view', 'orders:create', 'orders:view', 'tables:view'),   asyncHandler(MenuController.listItems));
 router.post('/items',                 requirePermission('menu:create'), asyncHandler(MenuController.createItem));

@@ -49,13 +49,65 @@ const modifierGroupSchema = z.object({
   minSelections: z.number().int().nonnegative().default(0),
   maxSelections: z.number().int().positive().default(1),
   isRequired: z.boolean().default(false),
+  isActive: z.boolean().default(true),
 });
 
 const modifierSchema = z.object({
   name: z.string().min(1).max(255),
   price: z.number().nonnegative().default(0),
+  isDefault: z.boolean().default(false),
+  isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
 });
+
+export function generateFoodLetterCode(name: string): string {
+  if (!name) return 'ITM';
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const code = words
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, '')[0])
+    .filter(Boolean)
+    .join('')
+    .toUpperCase();
+  return code || 'ITM';
+}
+
+export interface SpecialMenu {
+  id: string;
+  tenantId: string;
+  name: string;
+  occasion: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  categoryIds: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// In-memory persistent stores per tenant
+const specialMenusStore: Map<string, SpecialMenu[]> = new Map();
+const activeMenuModeStore: Map<string, { mode: 'ALL' | 'MAIN_ONLY' | 'SPECIAL_ONLY'; activeSpecialMenuId?: string }> = new Map();
+
+function getInitialSpecialMenus(tenantId: string): SpecialMenu[] {
+  const now = new Date();
+  const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  return [
+    {
+      id: `special-festive-1`,
+      tenantId,
+      name: 'Diwali & Festive Celebration Menu',
+      occasion: 'Festive Season',
+      description: 'Exclusive festival signature dishes, royal desserts & traditional feast items',
+      startDate: now.toISOString().split('T')[0],
+      endDate: nextMonth.toISOString().split('T')[0],
+      categoryIds: [],
+      isActive: true,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    },
+  ];
+}
 
 export class MenuController {
   // ── Categories ─────────────────────────────────────────────────────────────
@@ -118,6 +170,14 @@ export class MenuController {
   // ── Items ──────────────────────────────────────────────────────────────────
   static async listItems(req: Request, res: Response): Promise<void> {
     const { categoryId, search, isActive } = req.query;
+    const allTenantItems = await prisma.menuItem.findMany({
+      where: { tenantId: req.user!.tid, isActive: true },
+      orderBy: [{ createdAt: 'asc' }, { sortOrder: 'asc' }],
+      select: { id: true, name: true },
+    });
+    const itemIndexMap = new Map<string, number>();
+    allTenantItems.forEach((it, idx) => itemIndexMap.set(it.id, idx + 1));
+
     const items = await prisma.menuItem.findMany({
       where: {
         tenantId: req.user!.tid,
@@ -144,7 +204,21 @@ export class MenuController {
       },
       orderBy: [{ categoryId: 'asc' }, { sortOrder: 'asc' }],
     });
-    sendSuccess(res, items);
+
+    const enrichedItems = items.map((item) => {
+      const idx = itemIndexMap.get(item.id) || 1;
+      const itemNumber = String(idx).padStart(3, '0');
+      const letterCode = generateFoodLetterCode(item.name);
+      return {
+        ...item,
+        letterCode,
+        itemNumber,
+        itemCode: `${letterCode} • #${itemNumber}`,
+        sku: item.sku || `${letterCode}-${itemNumber}`,
+      };
+    });
+
+    sendSuccess(res, enrichedItems);
   }
 
   static async createItem(req: Request, res: Response): Promise<void> {
@@ -341,12 +415,21 @@ export class MenuController {
 
   // ── POS Menu (cached, optimized) ───────────────────────────────────────────
   static async getPosMenu(req: Request, res: Response): Promise<void> {
-    const cacheKey = CacheKeys.menu(req.user!.tid, req.user!.bid);
+    const tid = req.user!.tid;
+    const cacheKey = CacheKeys.menu(tid, req.user!.bid);
     const cached = await cacheGet(cacheKey);
     if (cached) { sendSuccess(res, cached); return; }
 
+    const allTenantItems = await prisma.menuItem.findMany({
+      where: { tenantId: tid, isActive: true },
+      orderBy: [{ createdAt: 'asc' }, { sortOrder: 'asc' }],
+      select: { id: true, name: true },
+    });
+    const itemIndexMap = new Map<string, number>();
+    allTenantItems.forEach((it, idx) => itemIndexMap.set(it.id, idx + 1));
+
     const categories = await prisma.menuCategory.findMany({
-      where: { tenantId: req.user!.tid, isActive: true },
+      where: { tenantId: tid, isActive: true },
       orderBy: { sortOrder: 'asc' },
       include: {
         items: {
@@ -367,8 +450,139 @@ export class MenuController {
       },
     });
 
-    await cacheSet(cacheKey, categories, 300); // 5-min cache
-    sendSuccess(res, categories);
+    const enrichedCategories = categories.map((cat) => ({
+      ...cat,
+      items: cat.items.map((item) => {
+        const idx = itemIndexMap.get(item.id) || 1;
+        const itemNumber = String(idx).padStart(3, '0');
+        const letterCode = generateFoodLetterCode(item.name);
+        return {
+          ...item,
+          letterCode,
+          itemNumber,
+          itemCode: `${letterCode} • #${itemNumber}`,
+          sku: item.sku || `${letterCode}-${itemNumber}`,
+        };
+      }),
+    }));
+
+    await cacheSet(cacheKey, enrichedCategories, 300); // 5-min cache
+    sendSuccess(res, enrichedCategories);
+  }
+
+  // ── Special Festive / Occasion Menus & Active Menu Selector ─────────────────
+  static async listSpecialMenus(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    if (!specialMenusStore.has(tid)) {
+      specialMenusStore.set(tid, getInitialSpecialMenus(tid));
+    }
+    const menus = specialMenusStore.get(tid) || [];
+    const activeSetting = activeMenuModeStore.get(tid) || { mode: 'ALL' };
+    sendSuccess(res, { menus, activeMode: activeSetting.mode, activeSpecialMenuId: activeSetting.activeSpecialMenuId });
+  }
+
+  static async createSpecialMenu(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    const { name, occasion, description, startDate, endDate, categoryIds, isActive } = req.body;
+    if (!name || !name.trim()) {
+      throw new AppError('VALIDATION_ERROR', 'Special menu name is required', 400);
+    }
+
+    if (!specialMenusStore.has(tid)) {
+      specialMenusStore.set(tid, getInitialSpecialMenus(tid));
+    }
+    const menus = specialMenusStore.get(tid)!;
+
+    const newMenu: SpecialMenu = {
+      id: `sp-menu-${Date.now()}`,
+      tenantId: tid,
+      name: name.trim(),
+      occasion: occasion?.trim() || 'Festival Special',
+      description: description?.trim() || '',
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      categoryIds: Array.isArray(categoryIds) ? categoryIds : [],
+      isActive: isActive !== false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    menus.unshift(newMenu);
+    await cacheDel(CacheKeys.menu(tid, req.user!.bid));
+    emitToRoom(tid, req.user!.bid, { type: 'SPECIAL_MENU_CREATED', payload: newMenu } as any);
+    sendSuccess(res, newMenu, 201);
+  }
+
+  static async updateSpecialMenu(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    const { id } = req.params;
+    const { name, occasion, description, startDate, endDate, categoryIds, isActive } = req.body;
+
+    if (!specialMenusStore.has(tid)) {
+      specialMenusStore.set(tid, getInitialSpecialMenus(tid));
+    }
+    const menus = specialMenusStore.get(tid)!;
+    const idx = menus.findIndex((m) => m.id === id);
+    if (idx === -1) {
+      throw new AppError('NOT_FOUND', 'Special menu not found', 404);
+    }
+
+    const updated: SpecialMenu = {
+      ...menus[idx],
+      name: name !== undefined ? name.trim() : menus[idx].name,
+      occasion: occasion !== undefined ? occasion.trim() : menus[idx].occasion,
+      description: description !== undefined ? description.trim() : menus[idx].description,
+      startDate: startDate !== undefined ? startDate : menus[idx].startDate,
+      endDate: endDate !== undefined ? endDate : menus[idx].endDate,
+      categoryIds: Array.isArray(categoryIds) ? categoryIds : menus[idx].categoryIds,
+      isActive: isActive !== undefined ? isActive : menus[idx].isActive,
+      updatedAt: new Date().toISOString(),
+    };
+
+    menus[idx] = updated;
+    await cacheDel(CacheKeys.menu(tid, req.user!.bid));
+    emitToRoom(tid, req.user!.bid, { type: 'SPECIAL_MENU_UPDATED', payload: updated } as any);
+    sendSuccess(res, updated);
+  }
+
+  static async deleteSpecialMenu(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    const { id } = req.params;
+
+    if (!specialMenusStore.has(tid)) {
+      specialMenusStore.set(tid, getInitialSpecialMenus(tid));
+    }
+    const menus = specialMenusStore.get(tid)!;
+    const filtered = menus.filter((m) => m.id !== id);
+    specialMenusStore.set(tid, filtered);
+
+    await cacheDel(CacheKeys.menu(tid, req.user!.bid));
+    emitToRoom(tid, req.user!.bid, { type: 'SPECIAL_MENU_DELETED', payload: { id } } as any);
+    sendSuccess(res, { message: 'Special festive menu deleted successfully' });
+  }
+
+  static async getActiveMenuMode(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    const setting = activeMenuModeStore.get(tid) || { mode: 'ALL' };
+    sendSuccess(res, setting);
+  }
+
+  static async setActiveMenuMode(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    const { mode, activeSpecialMenuId } = req.body;
+    if (!['ALL', 'MAIN_ONLY', 'SPECIAL_ONLY'].includes(mode)) {
+      throw new AppError('VALIDATION_ERROR', 'Mode must be ALL, MAIN_ONLY, or SPECIAL_ONLY', 400);
+    }
+
+    const setting = {
+      mode: mode as 'ALL' | 'MAIN_ONLY' | 'SPECIAL_ONLY',
+      activeSpecialMenuId: activeSpecialMenuId || undefined,
+    };
+    activeMenuModeStore.set(tid, setting);
+
+    await cacheDel(CacheKeys.menu(tid, req.user!.bid));
+    emitToRoom(tid, req.user!.bid, { type: 'ACTIVE_MENU_MODE_CHANGED', payload: setting } as any);
+    sendSuccess(res, setting);
   }
 
   // ── Upload & Local Server OCR Parser (Zero Retention) ─────────────────────

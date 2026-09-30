@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { prisma } from '../../lib/prisma';
-import { sendSuccess } from '../../middlewares/error.middleware';
+import { prisma } from '../lib/prisma';
+import { sendSuccess } from '../middlewares/error.middleware';
 
 export interface PromotionCampaign {
   id: string;

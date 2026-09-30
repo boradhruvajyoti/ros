@@ -38,6 +38,17 @@ function getClientId(): string {
   });
 }
 
+function generateFoodLetterCode(name: string): string {
+  if (!name) return 'ITM';
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const code = words
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, '')[0])
+    .filter(Boolean)
+    .join('')
+    .toUpperCase();
+  return code || 'ITM';
+}
+
 interface Variant {
   id: string;
   name: string;
@@ -51,6 +62,10 @@ interface MenuItem {
   imageUrl?: string;
   variants?: Variant[];
   modifierGroups?: any[];
+  letterCode?: string;
+  itemNumber?: string;
+  itemCode?: string;
+  sku?: string;
 }
 
 interface Category {
@@ -481,14 +496,34 @@ export default function POSPage() {
     return categories.filter((c: any) => !c.parentId || !categories.some((p: any) => p.id === c.parentId));
   }, [categories]);
 
-  // Helper: Explode menu item variants into separate individual POS cards (e.g. Half / Full)
+  // Global Item Sequence Numbering starting from 001 for first created item (Job 2)
+  const itemSequenceMap = useMemo(() => {
+    const map = new Map<string, string>();
+    let count = 1;
+    for (const cat of categories || []) {
+      for (const item of cat.items || []) {
+        if (!map.has(item.id)) {
+          const num = (item as any).itemNumber || String(count).padStart(3, '0');
+          map.set(item.id, num);
+          count++;
+        }
+      }
+    }
+    return map;
+  }, [categories]);
+
+  // Helper: Explode menu item variants into separate individual POS cards (e.g. Half / Full / Small / Medium / Large)
   const explodeItemVariants = useCallback((item: MenuItem) => {
     const variants = Array.isArray(item.variants) && item.variants.length > 0
       ? item.variants
       : [{ id: `v-${item.id}`, name: '', price: (item as any).basePrice || (item as any).price || 299 }];
 
-    // Function to check if a variant is Half, Full, or a genuine multi-portion option (exclude 'Regular Portion', 'Standard', etc.)
-    const isHalfOrFullVariant = (name?: string) => {
+    const letterCode = item.letterCode || generateFoodLetterCode(item.name);
+    const itemNumber = item.itemNumber || itemSequenceMap.get(item.id) || '001';
+    const itemCode = item.itemCode || `${letterCode} • #${itemNumber}`;
+
+    // Function to check if a variant is Half, Full, Small, Medium, Large, or a genuine multi-portion option
+    const isSpecialVariant = (name?: string) => {
       if (!name) return false;
       const lower = name.toLowerCase().trim();
       if (
@@ -509,7 +544,7 @@ export default function POSPage() {
 
     if (variants.length <= 1) {
       const v = variants[0];
-      const showVariant = isHalfOrFullVariant(v.name);
+      const showVariant = isSpecialVariant(v.name);
       return [{
         cardId: `${item.id}_${v.id}`,
         menuItemId: item.id,
@@ -519,14 +554,17 @@ export default function POSPage() {
         variantName: showVariant ? v.name : undefined,
         price: Number(v.price || 0),
         foodType: item.foodType,
+        letterCode,
+        itemNumber,
+        itemCode,
         itemRef: item,
         variantRef: v,
       }];
     }
 
-    // Multiple variants (e.g. Half, Full) -> exploded into separate items
+    // Multiple variants (e.g. Half, Full, Small, Medium, Large) -> exploded into separate items
     return variants.map((v) => {
-      const showVariant = isHalfOrFullVariant(v.name);
+      const showVariant = isSpecialVariant(v.name);
       return {
         cardId: `${item.id}_${v.id}`,
         menuItemId: item.id,
@@ -536,11 +574,14 @@ export default function POSPage() {
         variantName: showVariant ? v.name : undefined,
         price: Number(v.price || 0),
         foodType: item.foodType,
+        letterCode,
+        itemNumber,
+        itemCode,
         itemRef: item,
         variantRef: v,
       };
     });
-  }, []);
+  }, [itemSequenceMap]);
 
   // ── Processed Subcategory Sections (Hierarchical View & Exploded Variants) ──
   const processedSections = useMemo(() => {
@@ -551,9 +592,20 @@ export default function POSPage() {
         if (foodTypeFilter === 'NON_VEG' && isVeg) return false;
       }
       if (search.trim()) {
-        const q = search.toLowerCase();
+        const q = search.toLowerCase().trim();
+        const letterMatch = card.letterCode && card.letterCode.toLowerCase().includes(q);
+        const numberMatch =
+          card.itemNumber &&
+          (card.itemNumber === q ||
+            card.itemNumber.includes(q) ||
+            String(parseInt(q, 10)) === String(parseInt(card.itemNumber, 10)));
+        const codeMatch = card.itemCode && card.itemCode.toLowerCase().includes(q);
+
         return (
           card.displayName.toLowerCase().includes(q) ||
+          letterMatch ||
+          numberMatch ||
+          codeMatch ||
           (card.itemRef.description && card.itemRef.description.toLowerCase().includes(q))
         );
       }
@@ -1336,8 +1388,13 @@ export default function POSPage() {
                                 )}
                               </div>
 
-                              {/* Food name — BIG and bold */}
-                              <div className="mt-1.5">
+                              {/* Food name — BIG and bold with Food Code */}
+                              <div className="mt-1.5 space-y-0.5">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-black font-mono text-primary bg-primary/10 border border-primary/25 px-1 py-0.2 rounded" title={`Food Code: ${card.letterCode} • #${card.itemNumber}`}>
+                                    {card.itemCode}
+                                  </span>
+                                </div>
                                 <p className="font-black text-xs text-foreground leading-snug line-clamp-2">
                                   {card.displayName}
                                 </p>
@@ -1441,14 +1498,22 @@ export default function POSPage() {
                               >
                                 {/* Top Badges */}
                                 <div className="flex items-center justify-between w-full">
-                                  {/* Veg / Non-Veg Indicator + Portion Badge */}
-                                  <div className="flex items-center gap-1.5">
+                                  {/* Veg / Non-Veg Indicator + Food Code + Portion Badge */}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <div className={cn(
                                       'w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border-2 flex items-center justify-center shrink-0',
                                       isVeg ? 'border-emerald-500' : 'border-red-500'
                                     )}>
                                       <div className={cn('w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full', isVeg ? 'bg-emerald-500' : 'bg-red-500')} />
                                     </div>
+
+                                    {/* Auto-applied Food Code (Job 2) */}
+                                    <span
+                                      className="text-[9px] sm:text-[10px] font-black font-mono text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5 rounded shadow-xs"
+                                      title={`Food Code: ${card.letterCode} • Item: #${card.itemNumber}`}
+                                    >
+                                      {card.itemCode}
+                                    </span>
 
                                     {card.variantName && (
                                       <span className={cn(

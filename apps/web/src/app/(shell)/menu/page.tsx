@@ -6,7 +6,8 @@ import {
   UtensilsCrossed, Plus, Search, CheckCircle2,
   XCircle, Edit3, Trash2, Tag,
   UploadCloud, FileCheck, ShieldCheck, RefreshCw, Wand2, X, Check,
-  Layers, ChevronRight, AlertCircle, Sparkles, CheckSquare, Square, FileDown, Loader2
+  Layers, ChevronRight, AlertCircle, Sparkles, CheckSquare, Square, FileDown, Loader2,
+  Calendar, PartyPopper, Flame, Sliders, ToggleLeft, ToggleRight, Info
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,17 @@ import { apiGet, apiPost, apiPatch, apiDelete, apiDownloadFile } from '@/lib/api
 import { formatCurrency } from '@ros/utils';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+
+function generateFoodLetterCode(name: string): string {
+  if (!name) return 'ITM';
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const code = words
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, '')[0])
+    .filter(Boolean)
+    .join('')
+    .toUpperCase();
+  return code || 'ITM';
+}
 
 interface MenuItem {
   id: string;
@@ -28,6 +40,10 @@ interface MenuItem {
   categoryId: string;
   category: { id: string; name: string; parentId?: string | null; parent?: { id: string; name: string } | null };
   variants: Array<{ id: string; name: string; price: number; cost: number }>;
+  letterCode?: string;
+  itemNumber?: string;
+  itemCode?: string;
+  sku?: string;
 }
 
 interface MenuCategory {
@@ -38,6 +54,18 @@ interface MenuCategory {
   children?: MenuCategory[];
   sortOrder: number;
   isActive?: boolean;
+}
+
+interface SpecialMenu {
+  id: string;
+  name: string;
+  occasion: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  categoryIds: string[];
+  isActive: boolean;
+  createdAt?: string;
 }
 
 export default function MenuPage() {
@@ -52,6 +80,17 @@ export default function MenuPage() {
   const [editingDish, setEditingDish] = useState<MenuItem | null>(null);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [isSpecialMenuModalOpen, setIsSpecialMenuModalOpen] = useState(false);
+  const [editingSpecialMenu, setEditingSpecialMenu] = useState<SpecialMenu | null>(null);
+
+  // Special Menu Form States
+  const [specialMenuName, setSpecialMenuName] = useState('');
+  const [specialMenuOccasion, setSpecialMenuOccasion] = useState('Diwali Special');
+  const [specialMenuDescription, setSpecialMenuDescription] = useState('');
+  const [specialMenuStartDate, setSpecialMenuStartDate] = useState('');
+  const [specialMenuEndDate, setSpecialMenuEndDate] = useState('');
+  const [specialMenuCategoryIds, setSpecialMenuCategoryIds] = useState<string[]>([]);
+  const [specialMenuIsActive, setSpecialMenuIsActive] = useState(true);
 
   // Quick subcategory creation in Dish Modal
   const [isQuickAddCategoryOpen, setIsQuickAddCategoryOpen] = useState(false);
@@ -64,10 +103,18 @@ export default function MenuPage() {
   const [dishDescription, setDishDescription] = useState('');
   const [dishFoodType, setDishFoodType] = useState<'VEG' | 'NON_VEG' | 'EGG' | 'VEGAN'>('VEG');
   const [dishSpiceLevel, setDishSpiceLevel] = useState<'NONE' | 'MILD' | 'MEDIUM' | 'HOT' | 'VERY_HOT'>('NONE');
-  const [dishPricingType, setDishPricingType] = useState<'single' | 'variants'>('single');
+  
+  // Pricing & Variant Model: Single, Half/Full, Small/Medium/Large, Custom
+  const [dishPricingType, setDishPricingType] = useState<'single' | 'half_full' | 'small_medium_large' | 'custom'>('single');
   const [dishSinglePrice, setDishSinglePrice] = useState<number>(250);
   const [dishHalfPrice, setDishHalfPrice] = useState<number>(180);
   const [dishFullPrice, setDishFullPrice] = useState<number>(320);
+  const [dishSmallPrice, setDishSmallPrice] = useState<number>(149);
+  const [dishMediumPrice, setDishMediumPrice] = useState<number>(249);
+  const [dishLargePrice, setDishLargePrice] = useState<number>(379);
+  const [dishCustomVariants, setDishCustomVariants] = useState<Array<{ name: string; price: number }>>([
+    { name: 'Standard Portion', price: 250 },
+  ]);
 
   // Category Management States
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -117,6 +164,26 @@ export default function MenuPage() {
     queryKey: ['menu', 'items'],
     queryFn: () => apiGet<MenuItem[]>('/menu/items'),
   });
+
+  // Special Menus Query
+  const { data: specialMenuData, isLoading: isLoadingSpecialMenus } = useQuery<{
+    menus: SpecialMenu[];
+    activeMode: 'ALL' | 'MAIN_ONLY' | 'SPECIAL_ONLY';
+    activeSpecialMenuId?: string;
+  }>({
+    queryKey: ['menu', 'special-menus'],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any>('/menu/special-menus');
+        return res || { menus: [], activeMode: 'ALL' };
+      } catch {
+        return { menus: [], activeMode: 'ALL' };
+      }
+    },
+  });
+
+  const specialMenus = specialMenuData?.menus || [];
+  const activeMenuMode = specialMenuData?.activeMode || 'ALL';
 
   // Derived top-level and subcategories
   const topLevelCategories = categories.filter((c) => !c.parentId);
@@ -234,6 +301,106 @@ export default function MenuPage() {
     onError: (err: any) => toast.error('Delete Failed', err.message),
   });
 
+  // Active Menu Mode Mutation
+  const setActiveMenuModeMutation = useMutation({
+    mutationFn: async (payload: { mode: 'ALL' | 'MAIN_ONLY' | 'SPECIAL_ONLY'; activeSpecialMenuId?: string }) =>
+      apiPost('/menu/active-mode', payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'special-menus'] });
+      queryClient.invalidateQueries({ queryKey: ['pos-menu'] });
+      const modeLabels = {
+        ALL: 'Both Regular & Festive Menus are Active 🔥',
+        MAIN_ONLY: 'Main Everyday Menu is Active 🌟',
+        SPECIAL_ONLY: 'Festive / Special Menu is Exclusively Active 🎉',
+      };
+      toast.success('Active Menu Updated', modeLabels[variables.mode]);
+    },
+    onError: (err: any) => toast.error('Failed to change active menu', err.message),
+  });
+
+  // Special Menu Mutations
+  const createSpecialMenuMutation = useMutation({
+    mutationFn: async (payload: any) => apiPost('/menu/special-menus', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'special-menus'] });
+      toast.success('Special Menu Created! 🎉', 'Festive special menu has been added.');
+      setIsSpecialMenuModalOpen(false);
+      resetSpecialMenuForm();
+    },
+    onError: (err: any) => toast.error('Creation Failed', err.message),
+  });
+
+  const updateSpecialMenuMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: any }) =>
+      apiPatch(`/menu/special-menus/${id}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'special-menus'] });
+      toast.success('Special Menu Updated ✨', 'Festive menu changes saved.');
+      setIsSpecialMenuModalOpen(false);
+      resetSpecialMenuForm();
+    },
+    onError: (err: any) => toast.error('Update Failed', err.message),
+  });
+
+  const deleteSpecialMenuMutation = useMutation({
+    mutationFn: async (id: string) => apiDelete(`/menu/special-menus/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'special-menus'] });
+      toast.success('Special Menu Deleted', 'Festive menu removed.');
+    },
+    onError: (err: any) => toast.error('Delete Failed', err.message),
+  });
+
+  const resetSpecialMenuForm = () => {
+    setEditingSpecialMenu(null);
+    setSpecialMenuName('');
+    setSpecialMenuOccasion('Festive Season');
+    setSpecialMenuDescription('');
+    setSpecialMenuStartDate('');
+    setSpecialMenuEndDate('');
+    setSpecialMenuCategoryIds([]);
+    setSpecialMenuIsActive(true);
+  };
+
+  const handleOpenCreateSpecialMenu = () => {
+    resetSpecialMenuForm();
+    setIsSpecialMenuModalOpen(true);
+  };
+
+  const handleOpenEditSpecialMenu = (m: SpecialMenu) => {
+    setEditingSpecialMenu(m);
+    setSpecialMenuName(m.name);
+    setSpecialMenuOccasion(m.occasion || 'Festive Season');
+    setSpecialMenuDescription(m.description || '');
+    setSpecialMenuStartDate(m.startDate || '');
+    setSpecialMenuEndDate(m.endDate || '');
+    setSpecialMenuCategoryIds(m.categoryIds || []);
+    setSpecialMenuIsActive(m.isActive !== false);
+    setIsSpecialMenuModalOpen(true);
+  };
+
+  const handleSaveSpecialMenu = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!specialMenuName.trim()) {
+      toast.error('Name Required', 'Please enter a name for the special festive menu.');
+      return;
+    }
+    const payload = {
+      name: specialMenuName.trim(),
+      occasion: specialMenuOccasion.trim(),
+      description: specialMenuDescription.trim() || undefined,
+      startDate: specialMenuStartDate || undefined,
+      endDate: specialMenuEndDate || undefined,
+      categoryIds: specialMenuCategoryIds,
+      isActive: specialMenuIsActive,
+    };
+    if (editingSpecialMenu) {
+      updateSpecialMenuMutation.mutate({ id: editingSpecialMenu.id, payload });
+    } else {
+      createSpecialMenuMutation.mutate(payload);
+    }
+  };
+
   const resetDishForm = () => {
     setDishName('');
     setDishCategoryId(categories[0]?.id || '');
@@ -244,6 +411,10 @@ export default function MenuPage() {
     setDishSinglePrice(250);
     setDishHalfPrice(180);
     setDishFullPrice(320);
+    setDishSmallPrice(149);
+    setDishMediumPrice(249);
+    setDishLargePrice(379);
+    setDishCustomVariants([{ name: 'Standard Portion', price: 250 }]);
   };
 
   const handleOpenAddDish = () => {
@@ -263,11 +434,28 @@ export default function MenuPage() {
     setDishSpiceLevel((item.spiceLevel as any) || 'NONE');
 
     if (item.variants && item.variants.length > 1) {
-      setDishPricingType('variants');
-      const half = item.variants.find((v) => v.name.toLowerCase().includes('half'));
-      const full = item.variants.find((v) => v.name.toLowerCase().includes('full')) || item.variants[1];
-      setDishHalfPrice(half?.price || item.variants[0].price);
-      setDishFullPrice(full?.price || item.variants[1].price);
+      const vNames = item.variants.map((v) => v.name.toLowerCase());
+      const hasSmallMediumLarge = vNames.some((n) => n.includes('small') || n.includes('medium') || n.includes('large'));
+      const hasHalfFull = vNames.some((n) => n.includes('half') || n.includes('full'));
+
+      if (hasSmallMediumLarge) {
+        setDishPricingType('small_medium_large');
+        const s = item.variants.find((v) => v.name.toLowerCase().includes('small'));
+        const m = item.variants.find((v) => v.name.toLowerCase().includes('medium'));
+        const l = item.variants.find((v) => v.name.toLowerCase().includes('large'));
+        setDishSmallPrice(s?.price || item.variants[0]?.price || 149);
+        setDishMediumPrice(m?.price || item.variants[1]?.price || 249);
+        setDishLargePrice(l?.price || item.variants[2]?.price || 379);
+      } else if (hasHalfFull) {
+        setDishPricingType('half_full');
+        const half = item.variants.find((v) => v.name.toLowerCase().includes('half'));
+        const full = item.variants.find((v) => v.name.toLowerCase().includes('full')) || item.variants[1];
+        setDishHalfPrice(half?.price || item.variants[0]?.price || 180);
+        setDishFullPrice(full?.price || item.variants[1]?.price || 320);
+      } else {
+        setDishPricingType('custom');
+        setDishCustomVariants(item.variants.map((v) => ({ name: v.name, price: Number(v.price) })));
+      }
     } else {
       setDishPricingType('single');
       setDishSinglePrice(item.variants?.[0]?.price || 200);
@@ -285,14 +473,40 @@ export default function MenuPage() {
       return;
     }
 
-    const variants = dishPricingType === 'variants'
-      ? [
-          { name: 'Half', price: Number(dishHalfPrice) || 100, cost: (Number(dishHalfPrice) || 100) * 0.35, sortOrder: 1 },
-          { name: 'Full', price: Number(dishFullPrice) || 200, cost: (Number(dishFullPrice) || 200) * 0.35, sortOrder: 2 },
-        ]
-      : [
-          { name: 'Regular Portion', price: Number(dishSinglePrice) || 100, cost: (Number(dishSinglePrice) || 100) * 0.35, sortOrder: 1 },
-        ];
+    let variants: Array<{ name: string; price: number; cost: number; sortOrder: number }> = [];
+
+    if (dishPricingType === 'single') {
+      const p = Number(dishSinglePrice) || 100;
+      variants = [{ name: 'Regular Portion', price: p, cost: p * 0.35, sortOrder: 1 }];
+    } else if (dishPricingType === 'half_full') {
+      const h = Number(dishHalfPrice) || 100;
+      const f = Number(dishFullPrice) || 200;
+      variants = [
+        { name: 'Half', price: h, cost: h * 0.35, sortOrder: 1 },
+        { name: 'Full', price: f, cost: f * 0.35, sortOrder: 2 },
+      ];
+    } else if (dishPricingType === 'small_medium_large') {
+      const s = Number(dishSmallPrice) || 149;
+      const m = Number(dishMediumPrice) || 249;
+      const l = Number(dishLargePrice) || 379;
+      variants = [
+        { name: 'Small', price: s, cost: s * 0.35, sortOrder: 1 },
+        { name: 'Medium', price: m, cost: m * 0.35, sortOrder: 2 },
+        { name: 'Large', price: l, cost: l * 0.35, sortOrder: 3 },
+      ];
+    } else if (dishPricingType === 'custom') {
+      const valid = dishCustomVariants.filter((v) => v.name.trim() && v.price > 0);
+      if (valid.length === 0) {
+        toast.error('Variants Required', 'Please provide at least one valid variant with a price.');
+        return;
+      }
+      variants = valid.map((v, idx) => ({
+        name: v.name.trim(),
+        price: Number(v.price),
+        cost: Number(v.price) * 0.35,
+        sortOrder: idx + 1,
+      }));
+    }
 
     const payload = {
       name: dishName.trim(),
@@ -501,6 +715,13 @@ DESSERTS & DRINKS
             Export Menu PDF
           </Button>
           <Button
+            onClick={handleOpenCreateSpecialMenu}
+            variant="outline"
+            className="gap-2 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 shadow-sm cursor-pointer font-semibold"
+          >
+            <PartyPopper className="w-4 h-4 text-purple-400" /> Special Festive Menus ({specialMenus.length})
+          </Button>
+          <Button
             onClick={() => setIsScanModalOpen(true)}
             variant="outline"
             className="gap-2 border-primary/40 bg-primary/5 hover:bg-primary/15 text-primary shadow-sm cursor-pointer"
@@ -519,6 +740,83 @@ DESSERTS & DRINKS
             className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Add Dish
+          </Button>
+        </div>
+      </div>
+
+      {/* SPECIAL FESTIVE MENU & ACTIVE MODE SWITCHER BAR */}
+      <div className="p-4 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-purple-900/20 to-card/60 backdrop-blur-md shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0">
+            <PartyPopper className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-foreground">Active Menu Configuration</span>
+              <Badge variant="outline" className="text-[10px] font-bold bg-purple-500/15 border-purple-500/30 text-purple-300">
+                {activeMenuMode === 'ALL'
+                  ? 'Both Menus Live (Main + Festive)'
+                  : activeMenuMode === 'SPECIAL_ONLY'
+                  ? 'Festive Special Menu Only'
+                  : 'Main Regular Menu Only'}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select which menu catalogue is actively served to POS terminals and customer QR standees during festivals &amp; occasions.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <div className="flex rounded-xl bg-muted/60 p-1 border border-border">
+            <button
+              type="button"
+              onClick={() => setActiveMenuModeMutation.mutate({ mode: 'MAIN_ONLY' })}
+              disabled={setActiveMenuModeMutation.isPending}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                activeMenuMode === 'MAIN_ONLY'
+                  ? 'bg-card text-foreground shadow-sm border border-border/80'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <span>🌟 Main Menu Only</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMenuModeMutation.mutate({ mode: 'SPECIAL_ONLY' })}
+              disabled={setActiveMenuModeMutation.isPending}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                activeMenuMode === 'SPECIAL_ONLY'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <span>🎉 Festive Menu Only</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMenuModeMutation.mutate({ mode: 'ALL' })}
+              disabled={setActiveMenuModeMutation.isPending}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                activeMenuMode === 'ALL'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <span>🔥 Both Menus Live</span>
+            </button>
+          </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleOpenCreateSpecialMenu}
+            className="text-xs h-9 px-3 gap-1.5 border-purple-500/40 hover:bg-purple-500/20 text-purple-300"
+          >
+            <Plus className="w-3.5 h-3.5" /> New Festive Menu
           </Button>
         </div>
       </div>
@@ -619,7 +917,7 @@ DESSERTS & DRINKS
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search dishes by name, ingredients, or description..."
+              placeholder="Search dishes by name, ingredients, or food code (e.g. CB, CHN, 001)..."
               className="pl-10 h-11 bg-card border-border rounded-xl"
             />
           </div>
@@ -677,11 +975,16 @@ DESSERTS & DRINKS
 
       {/* Dish Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-        {filteredItems.map((item) => {
+        {filteredItems.map((item, idx) => {
           const isSelected = selectedItemIds.includes(item.id);
           const categoryDisplay = item.category?.parent
             ? `${item.category.parent.name} › ${item.category.name}`
             : item.category?.name || 'Main';
+
+          const itemIndex = items.findIndex((i) => i.id === item.id);
+          const itemNumber = item.itemNumber || String(itemIndex >= 0 ? itemIndex + 1 : idx + 1).padStart(3, '0');
+          const letterCode = item.letterCode || generateFoodLetterCode(item.name);
+          const itemCode = item.itemCode || `${letterCode} • #${itemNumber}`;
 
           return (
             <Card
@@ -711,6 +1014,13 @@ DESSERTS & DRINKS
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {getFoodTypeBadge(item.foodType)}
+                        {/* Auto-applied Food Item Code Badge (Job 2) */}
+                        <span
+                          className="text-[10px] font-black font-mono text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5 rounded shadow-xs"
+                          title={`Auto Food Code: ${letterCode} | Item Sequence: #${itemNumber}`}
+                        >
+                          {itemCode}
+                        </span>
                         {item.spiceLevel && item.spiceLevel !== 'NONE' && (
                           <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase">
                             {item.spiceLevel}
@@ -1061,31 +1371,68 @@ DESSERTS & DRINKS
                 />
               </div>
 
-              {/* Pricing & Portion Configuration */}
+              {/* Pricing & Portion Configuration (Job 3) */}
               <div className="border border-border/70 rounded-xl p-4 bg-muted/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-foreground">Portion & Pricing Model</label>
-                  <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-foreground block">Portion &amp; Pricing Model</label>
+                    <span className="text-[10px] text-muted-foreground">Select variant style for this food item</span>
+                  </div>
+                  <div className="flex flex-wrap rounded-lg border border-border overflow-hidden text-xs bg-card/60 p-0.5">
                     <button
                       type="button"
                       onClick={() => setDishPricingType('single')}
-                      className={cn('px-2.5 py-1 font-semibold transition-colors', dishPricingType === 'single' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
+                      className={cn(
+                        'px-2 py-1 font-semibold rounded transition-colors text-[11px]',
+                        dishPricingType === 'single'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:bg-muted'
+                      )}
                     >
                       Single Price
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDishPricingType('variants')}
-                      className={cn('px-2.5 py-1 font-semibold transition-colors', dishPricingType === 'variants' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
+                      onClick={() => setDishPricingType('half_full')}
+                      className={cn(
+                        'px-2 py-1 font-semibold rounded transition-colors text-[11px]',
+                        dishPricingType === 'half_full'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:bg-muted'
+                      )}
                     >
                       Half / Full
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDishPricingType('small_medium_large')}
+                      className={cn(
+                        'px-2 py-1 font-semibold rounded transition-colors text-[11px]',
+                        dishPricingType === 'small_medium_large'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      Small / Med / Large
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDishPricingType('custom')}
+                      className={cn(
+                        'px-2 py-1 font-semibold rounded transition-colors text-[11px]',
+                        dishPricingType === 'custom'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      Custom
                     </button>
                   </div>
                 </div>
 
-                {dishPricingType === 'single' ? (
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] text-muted-foreground">Standard Portion Price (₹)</label>
+                {dishPricingType === 'single' && (
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] text-muted-foreground font-semibold">Standard Portion Price (₹)</label>
                     <Input
                       type="number"
                       value={dishSinglePrice}
@@ -1093,10 +1440,12 @@ DESSERTS & DRINKS
                       className="font-mono font-bold"
                     />
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
+                )}
+
+                {dishPricingType === 'half_full' && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1">
-                      <label className="text-[11px] text-muted-foreground">Half Portion (₹)</label>
+                      <label className="text-[11px] text-muted-foreground font-semibold">Half Portion (₹)</label>
                       <Input
                         type="number"
                         value={dishHalfPrice}
@@ -1105,13 +1454,104 @@ DESSERTS & DRINKS
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[11px] text-muted-foreground">Full Portion (₹)</label>
+                      <label className="text-[11px] text-muted-foreground font-semibold">Full Portion (₹)</label>
                       <Input
                         type="number"
                         value={dishFullPrice}
                         onChange={(e) => setDishFullPrice(parseFloat(e.target.value) || 0)}
                         className="font-mono font-bold"
                       />
+                    </div>
+                  </div>
+                )}
+
+                {dishPricingType === 'small_medium_large' && (
+                  <div className="grid grid-cols-3 gap-2.5 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-muted-foreground font-semibold">Small (₹)</label>
+                      <Input
+                        type="number"
+                        value={dishSmallPrice}
+                        onChange={(e) => setDishSmallPrice(parseFloat(e.target.value) || 0)}
+                        className="font-mono font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-muted-foreground font-semibold">Medium (₹)</label>
+                      <Input
+                        type="number"
+                        value={dishMediumPrice}
+                        onChange={(e) => setDishMediumPrice(parseFloat(e.target.value) || 0)}
+                        className="font-mono font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-muted-foreground font-semibold">Large (₹)</label>
+                      <Input
+                        type="number"
+                        value={dishLargePrice}
+                        onChange={(e) => setDishLargePrice(parseFloat(e.target.value) || 0)}
+                        className="font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {dishPricingType === 'custom' && (
+                  <div className="space-y-2.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Custom Variants</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDishCustomVariants((prev) => [...prev, { name: '', price: 100 }])}
+                        className="h-6 px-2 text-[10px] text-primary hover:text-primary font-bold"
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> Add Variant
+                      </Button>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {dishCustomVariants.map((v, vIdx) => (
+                        <div key={vIdx} className="flex items-center gap-2">
+                          <Input
+                            placeholder="Variant name (e.g. 500ml, 4 Pcs)"
+                            value={v.name}
+                            onChange={(e) =>
+                              setDishCustomVariants((prev) =>
+                                prev.map((item, idx) => (idx === vIdx ? { ...item, name: e.target.value } : item))
+                              )
+                            }
+                            className="h-8 text-xs flex-1"
+                          />
+                          <div className="w-24">
+                            <Input
+                              type="number"
+                              placeholder="Price"
+                              value={v.price}
+                              onChange={(e) =>
+                                setDishCustomVariants((prev) =>
+                                  prev.map((item, idx) =>
+                                    idx === vIdx ? { ...item, price: parseFloat(e.target.value) || 0 } : item
+                                  )
+                                )
+                              }
+                              className="h-8 text-xs font-mono font-bold"
+                            />
+                          </div>
+                          {dishCustomVariants.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDishCustomVariants((prev) => prev.filter((_, idx) => idx !== vIdx))
+                              }
+                              className="text-muted-foreground hover:text-destructive p-1"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1610,6 +2050,300 @@ DESSERTS & DRINKS
                     <Check className="w-3.5 h-3.5" /> Import Dishes to Menu Catalogue
                   </>
                 )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SPECIAL FESTIVE & OCCASIONS MENU MANAGEMENT MODAL (Job 1) */}
+      {isSpecialMenuModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-purple-500/30 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
+                  <PartyPopper className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    Special Occasion &amp; Festival Menus
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Create standalone menus for festivals and choose which menu is active on POS &amp; QR
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsSpecialMenuModalOpen(false);
+                  resetSpecialMenuForm();
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-5 pr-1">
+              {/* Active Menu Mode Switcher in Modal */}
+              <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-950/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-200 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Active Menu Mode for Restaurant
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-bold bg-purple-500/20 text-purple-300 border-purple-500/30">
+                    Live Status
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveMenuModeMutation.mutate({ mode: 'MAIN_ONLY' })}
+                    disabled={setActiveMenuModeMutation.isPending}
+                    className={cn(
+                      'p-2.5 rounded-lg border text-left transition-all',
+                      activeMenuMode === 'MAIN_ONLY'
+                        ? 'border-primary bg-primary/10 shadow-sm'
+                        : 'border-border bg-card/60 hover:bg-muted/40 text-muted-foreground'
+                    )}
+                  >
+                    <div className="font-bold text-xs text-foreground">🌟 Main Menu Only</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">Regular daily catalogue</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveMenuModeMutation.mutate({ mode: 'SPECIAL_ONLY' })}
+                    disabled={setActiveMenuModeMutation.isPending}
+                    className={cn(
+                      'p-2.5 rounded-lg border text-left transition-all',
+                      activeMenuMode === 'SPECIAL_ONLY'
+                        ? 'border-purple-500 bg-purple-500/15 shadow-sm'
+                        : 'border-border bg-card/60 hover:bg-muted/40 text-muted-foreground'
+                    )}
+                  >
+                    <div className="font-bold text-xs text-purple-300">🎉 Festive Menu Only</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">Exclusive festival edition</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveMenuModeMutation.mutate({ mode: 'ALL' })}
+                    disabled={setActiveMenuModeMutation.isPending}
+                    className={cn(
+                      'p-2.5 rounded-lg border text-left transition-all',
+                      activeMenuMode === 'ALL'
+                        ? 'border-emerald-500 bg-emerald-500/10 shadow-sm'
+                        : 'border-border bg-card/60 hover:bg-muted/40 text-muted-foreground'
+                    )}
+                  >
+                    <div className="font-bold text-xs text-emerald-400">🔥 Both Menus Live</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">Main + Festive combined</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Create / Edit Form */}
+              <form onSubmit={handleSaveSpecialMenu} className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5 text-primary" />
+                    {editingSpecialMenu ? 'Edit Special Festive Menu' : 'Create New Special Festive Menu'}
+                  </span>
+                  {editingSpecialMenu && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetSpecialMenuForm}
+                      className="h-6 text-[10px] text-muted-foreground"
+                    >
+                      Clear &amp; Create New
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-foreground">Menu Name *</label>
+                    <Input
+                      value={specialMenuName}
+                      onChange={(e) => setSpecialMenuName(e.target.value)}
+                      placeholder="e.g. Diwali Dhamaka Grand Feast"
+                      className="h-9 text-xs"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-foreground">Occasion / Festival</label>
+                    <Input
+                      value={specialMenuOccasion}
+                      onChange={(e) => setSpecialMenuOccasion(e.target.value)}
+                      placeholder="e.g. Diwali, Christmas, Valentine's Day, New Year"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-foreground">Start Date (Optional)</label>
+                    <Input
+                      type="date"
+                      value={specialMenuStartDate}
+                      onChange={(e) => setSpecialMenuStartDate(e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-foreground">End Date (Optional)</label>
+                    <Input
+                      type="date"
+                      value={specialMenuEndDate}
+                      onChange={(e) => setSpecialMenuEndDate(e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-foreground">Description / Chef Note</label>
+                  <Input
+                    value={specialMenuDescription}
+                    onChange={(e) => setSpecialMenuDescription(e.target.value)}
+                    placeholder="e.g. Authentic celebration thalis, royal delicacies, and chef festive specials"
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                {/* Categories Association */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-foreground">Include Specific Categories in this Special Menu</label>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-background/80 rounded-lg border border-border/60">
+                    {categories.map((c) => {
+                      const isChecked = specialMenuCategoryIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setSpecialMenuCategoryIds((prev) =>
+                              isChecked ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                            );
+                          }}
+                          className={cn(
+                            'px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors flex items-center gap-1',
+                            isChecked
+                              ? 'bg-purple-500/20 border-purple-500/40 text-purple-300 font-bold'
+                              : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          {isChecked ? <Check className="w-3 h-3 text-purple-400" /> : <Plus className="w-3 h-3 text-muted-foreground" />}
+                          <span>{c.name}</span>
+                        </button>
+                      );
+                    })}
+                    {categories.length === 0 && (
+                      <span className="text-xs text-muted-foreground">No categories available.</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Tip: If no categories are checked, all categories will be accessible under the special festive menu banner.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={createSpecialMenuMutation.isPending || updateSpecialMenuMutation.isPending}
+                    className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 text-xs font-semibold"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    {editingSpecialMenu ? 'Update Special Menu' : 'Create Special Menu'}
+                  </Button>
+                </div>
+              </form>
+
+              {/* List of Existing Special Menus */}
+              <div className="space-y-2.5">
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
+                  Configured Festive Menus ({specialMenus.length})
+                </span>
+                {specialMenus.length > 0 ? (
+                  <div className="space-y-2">
+                    {specialMenus.map((m) => (
+                      <div
+                        key={m.id}
+                        className="p-3.5 rounded-xl border border-purple-500/20 bg-card/60 flex items-center justify-between gap-3"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-foreground">{m.name}</span>
+                            <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/30">
+                              🎉 {m.occasion}
+                            </Badge>
+                            {m.startDate && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> {m.startDate} {m.endDate ? `to ${m.endDate}` : ''}
+                              </span>
+                            )}
+                          </div>
+                          {m.description && (
+                            <p className="text-[11px] text-muted-foreground line-clamp-1">{m.description}</p>
+                          )}
+                          {m.categoryIds && m.categoryIds.length > 0 && (
+                            <p className="text-[10px] text-purple-400 font-medium">
+                              🏷️ {m.categoryIds.length} categories assigned
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEditSpecialMenu(m)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                            title="Edit Special Menu"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`Delete special festive menu "${m.name}"?`)) {
+                                deleteSpecialMenuMutation.mutate(m.id);
+                              }
+                            }}
+                            className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                            title="Delete Special Menu"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border border-dashed rounded-xl p-4 text-muted-foreground">
+                    <p className="text-xs font-medium">No special festive menus created yet.</p>
+                    <p className="text-[10px] mt-0.5">Use the form above to add your first festival or occasion menu.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-border/60 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsSpecialMenuModalOpen(false);
+                  resetSpecialMenuForm();
+                }}
+              >
+                Close
               </Button>
             </div>
           </div>
