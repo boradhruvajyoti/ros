@@ -19,6 +19,8 @@ export interface CreateOrderDto {
   waiterId?: string;
   notes?: string;
   clientId?: string; // idempotency key
+  guestCount?: number | null;
+  covers?: number | null;
   items: CreateOrderItemDto[];
 }
 
@@ -342,6 +344,12 @@ export class OrderService {
     const taxAmount = taxRate > 0 ? Math.round((subtotal * (taxRate / 100)) * 100) / 100 : 0;
     const total = toAmount(addAmounts(subtotal, taxAmount));
 
+    const rawGuestCount = dto.guestCount || dto.covers;
+    let initialNotes = dto.notes || '';
+    if (rawGuestCount && rawGuestCount > 0 && !initialNotes.includes('[Pax:') && !initialNotes.includes('[Guests:')) {
+      initialNotes = `[Pax: ${rawGuestCount}] ${initialNotes}`.trim();
+    }
+
     return prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
@@ -354,7 +362,7 @@ export class OrderService {
           tableId: dto.tableId || null,
           customerId: dto.customerId || null,
           waiterId: dto.waiterId || null,
-          notes: dto.notes,
+          notes: initialNotes || null,
           clientId: dto.clientId || null,
           subtotal,
           taxAmount,
@@ -1154,7 +1162,7 @@ export class OrderService {
 
   private orderInclude() {
     return {
-      table: { select: { id: true, name: true } },
+      table: { select: { id: true, name: true, capacity: true } },
       customer: { select: { id: true, name: true, phone: true } },
       items: {
         include: {

@@ -671,6 +671,7 @@ class CartState {
   final String? tableId;
   final String? customerId;
   final String? notes;
+  final int guestCount;
   final double discountAmount;
   final String? discountType; // FLAT | PERCENTAGE
   final double discountValue;
@@ -681,6 +682,7 @@ class CartState {
     this.tableId,
     this.customerId,
     this.notes,
+    this.guestCount = 2,
     this.discountAmount = 0.0,
     this.discountType,
     this.discountValue = 0.0,
@@ -697,6 +699,7 @@ class CartState {
     Object? tableId = _kUnset,
     Object? customerId = _kUnset,
     Object? notes = _kUnset,
+    int? guestCount,
     double? discountAmount,
     Object? discountType = _kUnset,
     double? discountValue,
@@ -707,6 +710,7 @@ class CartState {
         tableId: identical(tableId, _kUnset) ? this.tableId : tableId as String?,
         customerId: identical(customerId, _kUnset) ? this.customerId : customerId as String?,
         notes: identical(notes, _kUnset) ? this.notes : notes as String?,
+        guestCount: guestCount ?? this.guestCount,
         discountAmount: discountAmount ?? this.discountAmount,
         discountType: identical(discountType, _kUnset) ? this.discountType : discountType as String?,
         discountValue: discountValue ?? this.discountValue,
@@ -717,6 +721,10 @@ const _kUnset = Object();
 
 class CartNotifier extends StateNotifier<CartState> {
   CartNotifier() : super(const CartState());
+
+  void setGuestCount(int count) {
+    state = state.copyWith(guestCount: count > 0 ? count : 1);
+  }
 
   void addItem(CartItem item) {
     final existing = state.items.indexWhere(

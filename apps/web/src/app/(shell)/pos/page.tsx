@@ -8,7 +8,7 @@ import {
   Check, Sparkles, CheckCircle2, Utensils, QrCode,
   DollarSign, Banknote, Coffee, Flame, Pizza, Heart, ArrowRight,
   Volume2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X,
-  MessageSquarePlus, Edit2, Tag, Gift, Percent, Copy
+  MessageSquarePlus, Edit2, Tag, Gift, Percent, Copy, Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -179,6 +179,7 @@ export default function POSPage() {
   );
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string | null>(null);
+  const [guestCount, setGuestCount] = useState<number>(2);
   const [notes, setNotes] = useState('');
   const [showFastPayModal, setShowFastPayModal] = useState(false);
   const [cashTendered, setCashTendered] = useState<number | null>(null);
@@ -461,6 +462,9 @@ export default function POSPage() {
 
     setSelectedTable(t.id);
     setSelectedTableName(t.name);
+    if (t.capacity && t.capacity > 0) {
+      setGuestCount(t.capacity);
+    }
     setOrderType('DINE_IN');
 
     const tableOrder = (activeOrders || []).find((o: any) => o.tableId === t.id && ['CONFIRMED', 'DRAFT'].includes(o.status));
@@ -953,6 +957,7 @@ export default function POSPage() {
       }
 
       const formattedNotes = [
+        guestCount > 0 ? `[Pax: ${guestCount}]` : null,
         notes.trim() || null,
         appliedDiscount ? `Applied Discount: ${appliedDiscount.label}` : null,
       ].filter(Boolean).join(' | ');
@@ -962,6 +967,8 @@ export default function POSPage() {
         status: 'SENT_TO_KITCHEN',
         tableId: selectedTable || undefined,
         notes: formattedNotes || undefined,
+        guestCount: orderType === 'DINE_IN' ? guestCount : undefined,
+        covers: orderType === 'DINE_IN' ? guestCount : undefined,
         discountAmount: discountAmount > 0 ? discountAmount : undefined,
         clientId: getClientId(),
         items: cart.map((c) => ({
@@ -1000,9 +1007,15 @@ export default function POSPage() {
   });
 
   const handlePlaceOrder = () => {
-    if (orderType === 'DINE_IN' && !selectedTable) {
-      toast.error('Dining Table Required', 'Please select a seated table before sending to kitchen.');
-      return;
+    if (orderType === 'DINE_IN') {
+      if (!selectedTable) {
+        toast.error('Dining Table Required', 'Please select a seated table before sending to kitchen.');
+        return;
+      }
+      if (!guestCount || guestCount < 1) {
+        toast.error('Number of Guests Required', 'Please specify the number of guests (covers) for Dine-In order.');
+        return;
+      }
     }
     if (cart.length === 0) {
       toast.error('Cart is empty', 'Please select food items from the menu.');
@@ -1012,9 +1025,15 @@ export default function POSPage() {
   };
 
   const handleFastPayment = async (method: 'CASH' | 'UPI' | 'CARD') => {
-    if (orderType === 'DINE_IN' && !selectedTable) {
-      toast.error('Dining Table Required', 'Please select a seated table before settling order.');
-      return;
+    if (orderType === 'DINE_IN') {
+      if (!selectedTable) {
+        toast.error('Dining Table Required', 'Please select a seated table before settling order.');
+        return;
+      }
+      if (!guestCount || guestCount < 1) {
+        toast.error('Number of Guests Required', 'Please specify the number of guests (covers) before settling.');
+        return;
+      }
     }
     if (cart.length === 0) {
       toast.error('Cart is empty', 'Please select food items first.');
@@ -1881,6 +1900,38 @@ export default function POSPage() {
                     </div>
                   </div>
 
+                  {/* Mandatory Dine-in Guest Count */}
+                  {orderType === 'DINE_IN' && (
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-primary/10 border border-primary/30">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-primary shrink-0" />
+                        <div>
+                          <span className="text-[11px] font-black text-foreground flex items-center gap-1">
+                            Number of Guests <span className="text-rose-500 font-bold">*</span>
+                          </span>
+                          <span className="text-[9.5px] text-muted-foreground block">Mandatory for Dine-In</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-background p-1 rounded-lg border border-border">
+                        <button
+                          type="button"
+                          onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
+                          className="w-6 h-6 rounded bg-muted flex items-center justify-center font-bold text-foreground hover:bg-muted/80 active:scale-95 cursor-pointer text-xs"
+                        >
+                          -
+                        </button>
+                        <span className="w-6 text-center text-xs font-black font-mono text-primary">{guestCount}</span>
+                        <button
+                          type="button"
+                          onClick={() => setGuestCount(guestCount + 1)}
+                          className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold active:scale-95 cursor-pointer text-xs"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <Button
                       size="lg"
@@ -2171,6 +2222,38 @@ export default function POSPage() {
                 </span>
               </div>
             </div>
+
+            {/* Mandatory Dine-in Guest Count (Desktop) */}
+            {orderType === 'DINE_IN' && (
+              <div className="flex items-center justify-between p-2.5 rounded-2xl bg-primary/10 border border-primary/30">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary shrink-0" />
+                  <div>
+                    <span className="text-xs font-black text-foreground flex items-center gap-1">
+                      Number of Guests <span className="text-rose-500 font-bold">*</span>
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block">Mandatory for Dine-In covers</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 bg-background p-1 rounded-xl border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
+                    className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center font-bold text-foreground hover:bg-muted/80 active:scale-95 cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <span className="w-8 text-center text-xs font-black font-mono text-primary">{guestCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => setGuestCount(guestCount + 1)}
+                    className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold active:scale-95 cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Giant Action Buttons */}
             <div className="grid grid-cols-2 gap-2 pt-1">

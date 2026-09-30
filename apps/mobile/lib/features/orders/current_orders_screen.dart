@@ -945,6 +945,39 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                             ],
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: RosTheme.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.zero,
+                            border: Border.all(
+                              color: RosTheme.primary.withValues(alpha: 0.4),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.people_alt_rounded,
+                                size: 11,
+                                color: RosTheme.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${widget.order.effectiveGuestCount}p',
+                                style: const TextStyle(
+                                  color: RosTheme.primary,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ] else ...[
                         Container(
                           padding: const EdgeInsets.symmetric(

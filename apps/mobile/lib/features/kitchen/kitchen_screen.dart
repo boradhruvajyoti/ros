@@ -13,19 +13,23 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/sound_alert_service.dart';
 
-enum KdsCategory { kitchen, foh, management }
+enum KdsCategory { kitchen, beverage, foh, management, outside }
 
 class KdsAccessInfo {
   final KdsCategory category;
+  final String categoryLabel;
   final bool canViewCook;
   final bool canViewWaiter;
   final bool canToggle;
+  final bool canChangeStatus;
 
   const KdsAccessInfo({
     required this.category,
+    required this.categoryLabel,
     required this.canViewCook,
     required this.canViewWaiter,
     required this.canToggle,
+    required this.canChangeStatus,
   });
 }
 
@@ -33,9 +37,11 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
   if (user == null) {
     return const KdsAccessInfo(
       category: KdsCategory.management,
+      categoryLabel: 'Management',
       canViewCook: true,
       canViewWaiter: true,
       canToggle: true,
+      canChangeStatus: true,
     );
   }
 
@@ -46,9 +52,9 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
   final designation = (user.designation ?? '').toLowerCase().trim();
   final department = (user.department ?? '').toLowerCase().trim();
 
-  // 1. Management & Leadership (full access & toggle)
+  // 1. Management & Operations Leadership (Full administrative control)
   final isMgmtRole = userRoles.any((r) =>
-      ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'GENERAL_MANAGER'].any((m) => r.contains(m)));
+      ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'GENERAL_MANAGER', 'SUPERVISOR', 'DIRECTOR'].any((m) => r.contains(m)));
   final isMgmtDesignation = designation.contains('manager') ||
       designation.contains('supervisor') ||
       designation.contains('director') ||
@@ -61,46 +67,17 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
   if (isMgmtRole || isMgmtDesignation) {
     return const KdsAccessInfo(
       category: KdsCategory.management,
+      categoryLabel: 'Management & Operations',
       canViewCook: true,
       canViewWaiter: true,
       canToggle: true,
+      canChangeStatus: true,
     );
   }
 
-  // 2. Submodule-level permission check (from tenant admin RBAC assignment)
-  // This takes priority over role/designation heuristics for staff
-  final hasCookSubPerm = user.permissions.contains('sub:kds_cook_station');
-  final hasRunnerSubPerm = user.permissions.contains('sub:kds_runner_station');
-
-  if (hasCookSubPerm || hasRunnerSubPerm) {
-    if (hasCookSubPerm && !hasRunnerSubPerm) {
-      return const KdsAccessInfo(
-        category: KdsCategory.kitchen,
-        canViewCook: true,
-        canViewWaiter: false,
-        canToggle: false,
-      );
-    }
-    if (!hasCookSubPerm && hasRunnerSubPerm) {
-      return const KdsAccessInfo(
-        category: KdsCategory.foh,
-        canViewCook: false,
-        canViewWaiter: true,
-        canToggle: false,
-      );
-    }
-    // Both — management-level access
-    return const KdsAccessInfo(
-      category: KdsCategory.management,
-      canViewCook: true,
-      canViewWaiter: true,
-      canToggle: true,
-    );
-  }
-
-  // 3. Kitchen & Culinary (heuristic fallback)
+  // 2. Kitchen & Culinary Category
   final isKitchenRole = userRoles.any((r) =>
-      ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY'].any((k) => r.contains(k)));
+      ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY', 'TANDOOR'].any((k) => r.contains(k)));
   final isKitchenDesignation = designation.contains('chef') ||
       designation.contains('cook') ||
       designation.contains('baker') ||
@@ -110,21 +87,50 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
       designation.contains('commis') ||
       designation.contains('prep') ||
       designation.contains('helper') ||
+      designation.contains('kitchen') ||
       department.contains('kitchen') ||
       department.contains('culinary');
 
   if (isKitchenDesignation || isKitchenRole) {
     return const KdsAccessInfo(
       category: KdsCategory.kitchen,
+      categoryLabel: 'Kitchen & Culinary',
       canViewCook: true,
       canViewWaiter: false,
       canToggle: false,
+      canChangeStatus: true,
     );
   }
 
-  // 4. Front of House & Guest Service (heuristic fallback)
+  // 3. Beverage, Bar & Cafe Category
+  final isBeverageRole = userRoles.any((r) =>
+      ['BARISTA', 'BARTENDER', 'MIXOLOGIST', 'SOMMELIER', 'BEVERAGE', 'BAR', 'CAFE', 'BARBACK'].any((b) => r.contains(b)));
+  final isBeverageDesignation = designation.contains('barista') ||
+      designation.contains('bartender') ||
+      designation.contains('mixologist') ||
+      designation.contains('sommelier') ||
+      designation.contains('beverage') ||
+      designation.contains('bar') ||
+      designation.contains('cafe') ||
+      designation.contains('barback') ||
+      department.contains('beverage') ||
+      department.contains('bar') ||
+      department.contains('cafe');
+
+  if (isBeverageDesignation || isBeverageRole) {
+    return const KdsAccessInfo(
+      category: KdsCategory.beverage,
+      categoryLabel: 'Beverage, Bar & Cafe',
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+      canChangeStatus: true,
+    );
+  }
+
+  // 4. Front of House & Guest Service Category
   final isFohRole = userRoles.any((r) =>
-      ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'BARISTA', 'BARTENDER', 'FOH'].any((f) => r.contains(f)));
+      ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'FOH', 'STEWARD', 'POS'].any((f) => r.contains(f)));
   final isFohDesignation = designation.contains('waiter') ||
       designation.contains('waitress') ||
       designation.contains('captain') ||
@@ -136,50 +142,69 @@ KdsAccessInfo getKdsAccess(AuthUser? user) {
       designation.contains('delivery') ||
       designation.contains('rider') ||
       designation.contains('driver') ||
-      designation.contains('bartender') ||
-      designation.contains('barista') ||
-      designation.contains('sommelier') ||
-      designation.contains('beverage') ||
       designation.contains('steward') ||
-      designation.contains('clean') ||
+      designation.contains('service') ||
+      designation.contains('guest') ||
       department.contains('front') ||
       department.contains('service') ||
       department.contains('guest') ||
-      department.contains('bar') ||
       department.contains('cashier');
 
   if (isFohDesignation || isFohRole) {
     return const KdsAccessInfo(
       category: KdsCategory.foh,
+      categoryLabel: 'Front of House & Guest Service',
       canViewCook: false,
       canViewWaiter: true,
       canToggle: false,
+      canChangeStatus: true,
     );
   }
 
-  // 5. Fallback check by department
-  if (department.contains('kitchen')) {
+  // 5. Explicit Submodule RBAC check
+  final hasCookSubPerm = user.permissions.contains('sub:kds_cook_station');
+  final hasRunnerSubPerm = user.permissions.contains('sub:kds_runner_station');
+
+  if (hasCookSubPerm || hasRunnerSubPerm) {
+    if (hasCookSubPerm && !hasRunnerSubPerm) {
+      return const KdsAccessInfo(
+        category: KdsCategory.kitchen,
+        categoryLabel: 'Kitchen Staff',
+        canViewCook: true,
+        canViewWaiter: false,
+        canToggle: false,
+        canChangeStatus: true,
+      );
+    }
+    if (!hasCookSubPerm && hasRunnerSubPerm) {
+      return const KdsAccessInfo(
+        category: KdsCategory.foh,
+        categoryLabel: 'Service Staff',
+        canViewCook: false,
+        canViewWaiter: true,
+        canToggle: false,
+        canChangeStatus: true,
+      );
+    }
     return const KdsAccessInfo(
-      category: KdsCategory.kitchen,
+      category: KdsCategory.management,
+      categoryLabel: 'KDS Operator',
       canViewCook: true,
-      canViewWaiter: false,
-      canToggle: false,
-    );
-  }
-  if (department.contains('service') || department.contains('bar') || department.contains('cashier')) {
-    return const KdsAccessInfo(
-      category: KdsCategory.foh,
-      canViewCook: false,
       canViewWaiter: true,
-      canToggle: false,
+      canToggle: true,
+      canChangeStatus: true,
     );
   }
 
-  return const KdsAccessInfo(
-    category: KdsCategory.management,
+  // 6. Outside Categories (Inventory, Finance, Audit, Housekeeping, Marketing, General Staff)
+  // Strictly VIEW-ONLY: can NOT change status
+  return KdsAccessInfo(
+    category: KdsCategory.outside,
+    categoryLabel: user.designation ?? 'Staff (View Only)',
     canViewCook: true,
     canViewWaiter: true,
     canToggle: true,
+    canChangeStatus: false,
   );
 }
 
@@ -846,6 +871,30 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
             ),
           ),
 
+          // ── View-Only Mode Alert Banner (Outside Roles) ─────────────────────
+          if (!access.canChangeStatus)
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 2, 14, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: RosTheme.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.zero,
+                border: Border.all(color: RosTheme.warning.withValues(alpha: 0.5), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline_rounded, size: 16, color: RosTheme.warning),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'KDS View-Only Mode: Dish status changes are restricted to Kitchen, Beverage & FOH staff (${access.categoryLabel}).',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: RosTheme.warning),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // ── 2. Station Filter Chips ─────────────────────────────────────────
           if (_stations.isNotEmpty) _buildStationFilterBar(),
 
@@ -868,11 +917,13 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                         kots: cookNewKots,
                         emptyMessage: 'No active orders cooking right now.\nNew KOTs will appear here instantly.',
                         isCookNewView: true,
+                        canChangeStatus: access.canChangeStatus,
                       )
                     : _buildKotsList(
                         kots: waiterReadyKots,
                         emptyMessage: 'Pass Counter is clear.\nWhen dishes are ready, they will appear here.',
                         isWaiterReadyView: true,
+                        canChangeStatus: access.canChangeStatus,
                       ),
           ),
         ],
@@ -1049,6 +1100,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
     required String emptyMessage,
     bool isCookNewView = false,
     bool isWaiterReadyView = false,
+    bool canChangeStatus = true,
   }) {
     if (kots.isEmpty) {
       return Center(
@@ -1092,6 +1144,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
           if (isCookNewView) {
             return _CookNewKotCard(
               kot: kot,
+              canChangeStatus: canChangeStatus,
               onCompleteItem: (itemId) => _updateKotItemStatus(kot.id, itemId, 'READY'),
               onUndoItem: (itemId) => _updateKotItemStatus(kot.id, itemId, 'PREPARING'),
               onCompleteAll: () => _updateKotStatus(kot.id, 'READY'),
@@ -1103,6 +1156,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
           } else {
             return _WaiterReadyKotCard(
               kot: kot,
+              canChangeStatus: canChangeStatus,
               onServeItem: (itemId) => _updateKotItemStatus(kot.id, itemId, 'SERVED'),
               onServeAll: () => _updateKotStatus(kot.id, 'SERVED'),
             );
@@ -1116,6 +1170,7 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
 // ── 1. COOK / CHEF KOT CARD (Horizontal Layout in Single Column) ─────────────
 class _CookNewKotCard extends StatelessWidget {
   final OrderKot kot;
+  final bool canChangeStatus;
   final Function(String itemId) onCompleteItem;
   final Function(String itemId)? onUndoItem;
   final VoidCallback onCompleteAll;
@@ -1124,6 +1179,7 @@ class _CookNewKotCard extends StatelessWidget {
 
   const _CookNewKotCard({
     required this.kot,
+    this.canChangeStatus = true,
     required this.onCompleteItem,
     this.onUndoItem,
     required this.onCompleteAll,
@@ -1261,14 +1317,34 @@ class _CookNewKotCard extends StatelessWidget {
                 const SizedBox(width: 4),
 
                 // Cancel KOT
-                IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: RosTheme.textMuted, size: 20),
-                  tooltip: 'Cancel KOT Ticket',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: onRequestCancelKot,
-                ),
+                if (canChangeStatus)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: RosTheme.textMuted, size: 20),
+                    tooltip: 'Cancel KOT Ticket',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: onRequestCancelKot,
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: RosTheme.bgElevated,
+                      border: Border.all(color: RosTheme.bgBorder),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.lock_rounded, size: 11, color: RosTheme.textMuted),
+                        SizedBox(width: 2.5),
+                        Text(
+                          'Locked',
+                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: RosTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1425,7 +1501,7 @@ class _CookNewKotCard extends StatelessWidget {
                                     ],
                                   ),
                                 ),
-                                if (onUndoItem != null) ...[
+                                if (onUndoItem != null && canChangeStatus) ...[
                                   const SizedBox(width: 4),
                                   IconButton(
                                     onPressed: () => onUndoItem!(item.id),
@@ -1436,7 +1512,7 @@ class _CookNewKotCard extends StatelessWidget {
                                     constraints: const BoxConstraints(),
                                   ),
                                 ],
-                              ] else ...[
+                              ] else if (canChangeStatus) ...[
                                 // Complete Item Button
                                 ElevatedButton.icon(
                                   onPressed: () => onCompleteItem(item.id),
@@ -1463,6 +1539,29 @@ class _CookNewKotCard extends StatelessWidget {
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   onPressed: () => onRequestCancelItem(item.id, fullTitle),
+                                ),
+                              ] else ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: RosTheme.bgBorder.withValues(alpha: 0.3),
+                                    border: Border.all(color: RosTheme.bgBorder),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.lock_rounded, size: 11, color: RosTheme.textMuted),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Cooking',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: RosTheme.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ],
@@ -1502,25 +1601,45 @@ class _CookNewKotCard extends StatelessWidget {
           if (pendingItems.isNotEmpty)
             Container(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: ElevatedButton.icon(
-                onPressed: onCompleteAll,
-                icon: const Icon(Icons.done_all_rounded, size: 20),
-                label: Text(
-                  'COMPLETE ALL ITEMS (${pendingItems.length})',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: RosTheme.secondary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                  elevation: 2,
-                ),
-              ),
+              child: canChangeStatus
+                  ? ElevatedButton.icon(
+                      onPressed: onCompleteAll,
+                      icon: const Icon(Icons.done_all_rounded, size: 20),
+                      label: Text(
+                        'COMPLETE ALL ITEMS (${pendingItems.length})',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: RosTheme.secondary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        elevation: 2,
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      alignment: Alignment.center,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lock_rounded, size: 14, color: RosTheme.textMuted),
+                          SizedBox(width: 4),
+                          Text(
+                            'Status updates locked for this role',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: RosTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
         ],
       ),
@@ -1531,11 +1650,13 @@ class _CookNewKotCard extends StatelessWidget {
 // ── 2. WAITER READY TO SERVE CARD (Horizontal Layout in Single Column) ───────
 class _WaiterReadyKotCard extends StatelessWidget {
   final OrderKot kot;
+  final bool canChangeStatus;
   final Function(String itemId) onServeItem;
   final VoidCallback onServeAll;
 
   const _WaiterReadyKotCard({
     required this.kot,
+    this.canChangeStatus = true,
     required this.onServeItem,
     required this.onServeAll,
   });
@@ -1851,21 +1972,45 @@ class _WaiterReadyKotCard extends StatelessWidget {
 
                             // Action Button: Clickable Serve if Ready
                             if (isReady)
-                              ElevatedButton.icon(
-                                onPressed: () => onServeItem(item.id),
-                                icon: const Icon(Icons.room_service_rounded, size: 14),
-                                label: const Text(
-                                  'Serve',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: RosTheme.secondary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                                  elevation: 2,
-                                ),
-                              )
+                              if (canChangeStatus)
+                                ElevatedButton.icon(
+                                  onPressed: () => onServeItem(item.id),
+                                  icon: const Icon(Icons.room_service_rounded, size: 14),
+                                  label: const Text(
+                                    'Serve',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: RosTheme.secondary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                                    elevation: 2,
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: RosTheme.secondary.withValues(alpha: 0.15),
+                                    border: Border.all(color: RosTheme.secondary.withValues(alpha: 0.4)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.lock_rounded, size: 12, color: RosTheme.secondary),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Ready',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: RosTheme.secondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
                             else if (isCooking)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1909,25 +2054,45 @@ class _WaiterReadyKotCard extends StatelessWidget {
           if (readyItems.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: ElevatedButton.icon(
-                onPressed: onServeAll,
-                icon: const Icon(Icons.room_service_rounded, size: 20),
-                label: Text(
-                  'MARK ALL READY DISHES SERVED (${readyItems.length})',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: RosTheme.secondary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                  elevation: 2,
-                ),
-              ),
+              child: canChangeStatus
+                  ? ElevatedButton.icon(
+                      onPressed: onServeAll,
+                      icon: const Icon(Icons.room_service_rounded, size: 20),
+                      label: Text(
+                        'MARK ALL READY DISHES SERVED (${readyItems.length})',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: RosTheme.secondary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        elevation: 2,
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      alignment: Alignment.center,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lock_rounded, size: 14, color: RosTheme.textMuted),
+                          SizedBox(width: 4),
+                          Text(
+                            'Status updates locked for this role',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: RosTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
         ],
       ),

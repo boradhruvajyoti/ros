@@ -1730,7 +1730,106 @@ class _OrderTicketDrawer extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // Mandatory Dine-in Guest Count
+          if (cart.orderType == 'DINE_IN') ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: RosTheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.people_alt_rounded, size: 16, color: RosTheme.primary),
+                      SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Guests / Covers',
+                                style: TextStyle(
+                                  color: RosTheme.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                ' *',
+                                style: TextStyle(
+                                  color: RosTheme.danger,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'Mandatory for Dine-In',
+                            style: TextStyle(
+                              color: RosTheme.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: RosTheme.bgElevated,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: RosTheme.bgBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(cartProvider.notifier).setGuestCount(cart.guestCount - 1);
+                          },
+                          icon: const Icon(Icons.remove_rounded, color: RosTheme.textPrimary, size: 16),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          padding: EdgeInsets.zero,
+                        ),
+                        SizedBox(
+                          width: 24,
+                          child: Text(
+                            '${cart.guestCount}',
+                            style: const TextStyle(
+                              color: RosTheme.primary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'monospace',
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(cartProvider.notifier).setGuestCount(cart.guestCount + 1);
+                          },
+                          icon: const Icon(Icons.add_rounded, color: RosTheme.textPrimary, size: 16),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // Two Giant Action Buttons: Send KOT & Fast Pay
           Row(
@@ -1838,11 +1937,19 @@ class _OrderTicketDrawer extends ConsumerWidget {
         return itemMap;
       }).toList();
 
+      final formattedNotes = [
+        cart.guestCount > 0 ? '[Pax: ${cart.guestCount}]' : null,
+        cart.notes,
+      ].where((n) => n != null && n.isNotEmpty).join(' | ');
+
       final payload = <String, dynamic>{
         'type': cart.orderType,
         'orderType': cart.orderType,
         'status': 'SENT_TO_KITCHEN',
         'items': itemsPayload,
+        if (formattedNotes.isNotEmpty) 'notes': formattedNotes,
+        if (cart.orderType == 'DINE_IN') 'guestCount': cart.guestCount,
+        if (cart.orderType == 'DINE_IN') 'covers': cart.guestCount,
       };
 
       if (cart.tableId != null && cart.tableId!.isNotEmpty) {

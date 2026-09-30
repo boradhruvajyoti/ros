@@ -38,6 +38,8 @@ const createOrderSchema = z.object({
   discountAmount: z.number().nonnegative().nullable().optional(),
   serviceCharge: z.number().nonnegative().nullable().optional(),
   finalAmount: z.number().nonnegative().nullable().optional(),
+  guestCount: z.number().int().positive().max(999).nullable().optional(),
+  covers: z.number().int().positive().max(999).nullable().optional(),
 });
 
 const statusSchema = z.object({

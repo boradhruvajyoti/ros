@@ -734,6 +734,7 @@ class Order {
   final double total;
   final double paidAmount;
   final String? notes;
+  final int? guestCount;
   final List<OrderItem> items;
   final List<Payment> payments;
   final List<OrderKot> kots;
@@ -754,6 +755,7 @@ class Order {
     required this.total,
     required this.paidAmount,
     this.notes,
+    this.guestCount,
     this.items = const [],
     this.payments = const [],
     this.kots = const [],
@@ -777,6 +779,9 @@ class Order {
     total: parseDouble(json['total'], 0.0),
     paidAmount: parseDouble(json['paidAmount'], 0.0),
     notes: json['notes'] as String?,
+    guestCount: parseInt(json['guestCount'] ?? json['covers'], 0) > 0
+        ? parseInt(json['guestCount'] ?? json['covers'], 0)
+        : null,
     items: (json['items'] as List<dynamic>?)
         ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
         .toList() ?? [],
@@ -789,6 +794,18 @@ class Order {
     createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
     updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
   );
+
+  int get effectiveGuestCount {
+    if (guestCount != null && guestCount! > 0) return guestCount!;
+    if (notes != null) {
+      final match = RegExp(r'(?:\[(?:Pax|Guests|Guest Count):\s*(\d+)\])|(?:(?:Pax|Guests|Guest Count):\s*(\d+))', caseSensitive: false).firstMatch(notes!);
+      if (match != null) {
+        final val = int.tryParse(match.group(1) ?? match.group(2) ?? '');
+        if (val != null && val > 0) return val;
+      }
+    }
+    return table?.capacity ?? 1;
+  }
 
   double get balanceDue => total - paidAmount;
   bool get isFullyPaid => paidAmount >= total;
@@ -820,6 +837,8 @@ class OrderItem {
     this.notes,
     this.modifiers = const [],
   });
+
+  String get name => menuItemName ?? 'Dish';
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     final qty = parseInt(json['quantity'], 1);

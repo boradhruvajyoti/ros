@@ -53,11 +53,27 @@ interface Kot {
   items: KotItem[];
 }
 
+interface KdsAccessInfo {
+  category: 'KITCHEN' | 'BEVERAGE' | 'FOH' | 'MANAGEMENT' | 'OUTSIDE_VIEW_ONLY';
+  categoryLabel: string;
+  canViewCook: boolean;
+  canViewWaiter: boolean;
+  canToggle: boolean;
+  canChangeStatus: boolean;
+}
+
 function getKdsAccess(
   user: { role?: string; roles?: string[]; designation?: string; department?: string; permissions?: string[] } | null | undefined
-) {
+): KdsAccessInfo {
   if (!user) {
-    return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
+    return {
+      category: 'MANAGEMENT',
+      categoryLabel: 'Management',
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+      canChangeStatus: true,
+    };
   }
 
   const userRoles = [
@@ -66,10 +82,11 @@ function getKdsAccess(
   ].map((r) => r.toUpperCase());
   const designation = (user.designation || '').toLowerCase().trim();
   const department = (user.department || '').toLowerCase().trim();
+  const perms: string[] = user.permissions || [];
 
-  // 1. Management & Leadership (full access) — always gets toggle
+  // 1. Management & Operations Leadership (Full administrative control)
   const isMgmtRole = userRoles.some((r) =>
-    ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'GENERAL_MANAGER'].some((m) => r.includes(m))
+    ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'GENERAL_MANAGER', 'SUPERVISOR', 'DIRECTOR'].some((m) => r.includes(m))
   );
   const isMgmtDesignation =
     designation.includes('manager') ||
@@ -82,29 +99,19 @@ function getKdsAccess(
     department.includes('admin');
 
   if (isMgmtRole || isMgmtDesignation) {
-    return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
+    return {
+      category: 'MANAGEMENT',
+      categoryLabel: 'Management & Operations',
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+      canChangeStatus: true,
+    };
   }
 
-  // 2. Check submodule-level permissions (from tenant admin RBAC assignment)
-  // These take priority over role/designation heuristics for staff users
-  const perms: string[] = user.permissions || [];
-  const hasCookSubPerm = perms.includes('sub:kds_cook_station');
-  const hasRunnerSubPerm = perms.includes('sub:kds_runner_station');
-
-  if (hasCookSubPerm || hasRunnerSubPerm) {
-    const canToggle = hasCookSubPerm && hasRunnerSubPerm;
-    if (hasCookSubPerm && !hasRunnerSubPerm) {
-      return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
-    }
-    if (!hasCookSubPerm && hasRunnerSubPerm) {
-      return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
-    }
-    return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
-  }
-
-  // 3. Kitchen & Culinary (role/designation heuristics)
+  // 2. Kitchen & Culinary Category
   const isKitchenRole = userRoles.some((r) =>
-    ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY'].some((k) => r.includes(k))
+    ['CHEF', 'COOK', 'KITCHEN', 'BAKER', 'COMMIS', 'PIZZA', 'CULINARY', 'TANDOOR'].some((k) => r.includes(k))
   );
   const isKitchenDesignation =
     designation.includes('chef') ||
@@ -116,16 +123,52 @@ function getKdsAccess(
     designation.includes('commis') ||
     designation.includes('prep') ||
     designation.includes('helper') ||
+    designation.includes('kitchen') ||
     department.includes('kitchen') ||
     department.includes('culinary');
 
   if (isKitchenDesignation || isKitchenRole) {
-    return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
+    return {
+      category: 'KITCHEN',
+      categoryLabel: 'Kitchen & Culinary',
+      canViewCook: true,
+      canViewWaiter: false,
+      canToggle: false,
+      canChangeStatus: true,
+    };
   }
 
-  // 4. Front of House & Guest Service (role/designation heuristics)
+  // 3. Beverage, Bar & Cafe Category
+  const isBeverageRole = userRoles.some((r) =>
+    ['BARISTA', 'BARTENDER', 'MIXOLOGIST', 'SOMMELIER', 'BEVERAGE', 'BAR', 'CAFE', 'BARBACK'].some((b) => r.includes(b))
+  );
+  const isBeverageDesignation =
+    designation.includes('barista') ||
+    designation.includes('bartender') ||
+    designation.includes('mixologist') ||
+    designation.includes('sommelier') ||
+    designation.includes('beverage') ||
+    designation.includes('bar') ||
+    designation.includes('cafe') ||
+    designation.includes('barback') ||
+    department.includes('beverage') ||
+    department.includes('bar') ||
+    department.includes('cafe');
+
+  if (isBeverageDesignation || isBeverageRole) {
+    return {
+      category: 'BEVERAGE',
+      categoryLabel: 'Beverage, Bar & Cafe',
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+      canChangeStatus: true,
+    };
+  }
+
+  // 4. Front of House & Guest Service Category
   const isFohRole = userRoles.some((r) =>
-    ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'BARISTA', 'BARTENDER', 'FOH'].some((f) => r.includes(f))
+    ['WAITER', 'CAPTAIN', 'CASHIER', 'SERVER', 'RUNNER', 'DELIVERY', 'RIDER', 'FOH', 'STEWARD', 'POS'].some((f) => r.includes(f))
   );
   const isFohDesignation =
     designation.includes('waiter') ||
@@ -139,31 +182,70 @@ function getKdsAccess(
     designation.includes('delivery') ||
     designation.includes('rider') ||
     designation.includes('driver') ||
-    designation.includes('bartender') ||
-    designation.includes('barista') ||
-    designation.includes('sommelier') ||
-    designation.includes('beverage') ||
     designation.includes('steward') ||
-    designation.includes('clean') ||
+    designation.includes('service') ||
+    designation.includes('guest') ||
     department.includes('front') ||
     department.includes('service') ||
     department.includes('guest') ||
-    department.includes('bar') ||
     department.includes('cashier');
 
   if (isFohDesignation || isFohRole) {
-    return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
+    return {
+      category: 'FOH',
+      categoryLabel: 'Front of House & Guest Service',
+      canViewCook: false,
+      canViewWaiter: true,
+      canToggle: false,
+      canChangeStatus: true,
+    };
   }
 
-  // 5. Fallback check by department
-  if (department.includes('kitchen')) {
-    return { category: 'KITCHEN', canViewCook: true, canViewWaiter: false, canToggle: false };
-  }
-  if (department.includes('service') || department.includes('bar') || department.includes('cashier')) {
-    return { category: 'FOH', canViewCook: false, canViewWaiter: true, canToggle: false };
+  // 5. Explicit Submodule RBAC check
+  const hasCookSubPerm = perms.includes('sub:kds_cook_station');
+  const hasRunnerSubPerm = perms.includes('sub:kds_runner_station');
+
+  if (hasCookSubPerm || hasRunnerSubPerm) {
+    if (hasCookSubPerm && !hasRunnerSubPerm) {
+      return {
+        category: 'KITCHEN',
+        categoryLabel: 'Kitchen Staff',
+        canViewCook: true,
+        canViewWaiter: false,
+        canToggle: false,
+        canChangeStatus: true,
+      };
+    }
+    if (!hasCookSubPerm && hasRunnerSubPerm) {
+      return {
+        category: 'FOH',
+        categoryLabel: 'Service Staff',
+        canViewCook: false,
+        canViewWaiter: true,
+        canToggle: false,
+        canChangeStatus: true,
+      };
+    }
+    return {
+      category: 'MANAGEMENT',
+      categoryLabel: 'KDS Operator',
+      canViewCook: true,
+      canViewWaiter: true,
+      canToggle: true,
+      canChangeStatus: true,
+    };
   }
 
-  return { category: 'MANAGEMENT', canViewCook: true, canViewWaiter: true, canToggle: true };
+  // 6. Outside Categories (Inventory, Finance, Audit, Housekeeping, Marketing, etc.)
+  // Strictly VIEW-ONLY: can NOT change status
+  return {
+    category: 'OUTSIDE_VIEW_ONLY',
+    categoryLabel: user.designation || 'Staff (View Only)',
+    canViewCook: true,
+    canViewWaiter: true,
+    canToggle: true,
+    canChangeStatus: false,
+  };
 }
 
 export default function KitchenPage() {
@@ -525,6 +607,21 @@ export default function KitchenPage() {
         </div>
       </div>
 
+      {/* ── Role Status Modification Authorization Banner ───────────────────── */}
+      {!kdsAccess.canChangeStatus && (
+        <div className="p-3.5 rounded-none bg-amber-500/15 border-2 border-amber-500/50 flex flex-wrap items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-black">
+            <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>
+              KDS View-Only Mode: Food item status updates are exclusively permitted to Kitchen &amp; Culinary, Beverage &amp; Bar, and Front of House staff.
+            </span>
+          </div>
+          <Badge variant="outline" className="text-[10px] font-mono font-bold shrink-0 border-amber-500/40 bg-amber-500/10">
+            Role: {kdsAccess.categoryLabel} (View-Only)
+          </Badge>
+        </div>
+      )}
+
       {/* ── 2-Column Side-by-Side KDS Layout ──────────────────────────────────── */}
       {isLoading ? (
         <div className="py-20 flex flex-col items-center justify-center text-muted-foreground gap-3">
@@ -569,6 +666,7 @@ export default function KitchenPage() {
                 <CookKotCard
                   key={kot.id}
                   kot={kot}
+                  canChangeStatus={kdsAccess.canChangeStatus}
                   targetItemStatus="NEW_OR_COOKING"
                   onCompleteItem={(itemId) =>
                     updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'READY' })
@@ -628,6 +726,7 @@ export default function KitchenPage() {
                 <WaiterReadyKotCard
                   key={kot.id}
                   kot={kot}
+                  canChangeStatus={kdsAccess.canChangeStatus}
                   onServeItem={(itemId) =>
                     updateKotItemStatus.mutate({ kotId: kot.id, itemId, status: 'SERVED' })
                   }
@@ -764,6 +863,7 @@ export default function KitchenPage() {
 // ── 1. COOK / CHEF NEW ORDERS CARD (Horizontal Layout) ───────────────────────
 function CookKotCard({
   kot,
+  canChangeStatus = true,
   onCompleteItem,
   onUndoItem,
   onCompleteKot,
@@ -771,6 +871,7 @@ function CookKotCard({
   onRequestCancelKot,
 }: {
   kot: Kot;
+  canChangeStatus?: boolean;
   targetItemStatus: string;
   onCompleteItem: (itemId: string) => void;
   onUndoItem?: (itemId: string) => void;
@@ -827,14 +928,20 @@ function CookKotCard({
             <span>{kot.ageMinutes}m elapsed</span>
           </div>
 
-          <button
-            type="button"
-            onClick={onRequestCancelKot}
-            title="Cancel Entire KOT Ticket"
-            className="p-1.5 rounded-none text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer border border-transparent hover:border-rose-500/30"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {canChangeStatus ? (
+            <button
+              type="button"
+              onClick={onRequestCancelKot}
+              title="Cancel Entire KOT Ticket"
+              className="p-1.5 rounded-none text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer border border-transparent hover:border-rose-500/30"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          ) : (
+            <span className="text-[10.5px] font-bold text-muted-foreground flex items-center gap-1 px-2 py-1 bg-muted border border-border">
+              <Lock className="w-3 h-3" /> View Only
+            </span>
+          )}
         </div>
       </div>
 
@@ -888,7 +995,7 @@ function CookKotCard({
                       )}>
                         {fullItemTitle}
                       </p>
-                      {!isItemCancelled && !isItemReady && (
+                      {!isItemCancelled && !isItemReady && canChangeStatus && (
                         <button
                           type="button"
                           onClick={() => onRequestCancelItem(item.id, fullItemTitle)}
@@ -924,7 +1031,7 @@ function CookKotCard({
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 px-2 py-1 rounded-none">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Completed
                         </span>
-                        {onUndoItem && (
+                        {onUndoItem && canChangeStatus && (
                           <button
                             type="button"
                             onClick={() => onUndoItem(item.id)}
@@ -935,7 +1042,7 @@ function CookKotCard({
                           </button>
                         )}
                       </div>
-                    ) : (
+                    ) : canChangeStatus ? (
                       <button
                         type="button"
                         onClick={() => onCompleteItem(item.id)}
@@ -944,6 +1051,10 @@ function CookKotCard({
                         <Check className="w-4 h-4" />
                         <span>Complete</span>
                       </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-muted-foreground bg-muted border border-border">
+                        <Lock className="w-3 h-3" /> In Kitchen
+                      </span>
                     )}
                   </div>
                 )}
@@ -961,15 +1072,24 @@ function CookKotCard({
 
       {/* Footer: Complete All Button */}
       {pendingItems.length > 0 && (
-        <div className="px-5 py-3 bg-muted/30 border-t-2 border-border/80 flex items-center justify-end">
-          <button
-            type="button"
-            onClick={onCompleteKot}
-            className="px-5 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer border border-emerald-500"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>COMPLETE ALL ITEMS ({pendingItems.length})</span>
-          </button>
+        <div className="px-5 py-3 bg-muted/30 border-t-2 border-border/80 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground font-semibold">
+            {pendingItems.length} item{pendingItems.length > 1 ? 's' : ''} left to prepare
+          </span>
+          {canChangeStatus ? (
+            <button
+              type="button"
+              onClick={onCompleteKot}
+              className="px-5 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer border border-emerald-500"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>COMPLETE ALL ITEMS ({pendingItems.length})</span>
+            </button>
+          ) : (
+            <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+              <Lock className="w-3.5 h-3.5" /> Status updates locked for this role
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -979,10 +1099,12 @@ function CookKotCard({
 // ── 2. WAITER / RUNNER READY TO SERVE CARD (Horizontal Layout) ────────────────
 function WaiterReadyKotCard({
   kot,
+  canChangeStatus = true,
   onServeItem,
   onServeKot,
 }: {
   kot: Kot;
+  canChangeStatus?: boolean;
   onServeItem: (itemId: string) => void;
   onServeKot: () => void;
 }) {
@@ -1117,14 +1239,20 @@ function WaiterReadyKotCard({
 
                 {/* Serve Button */}
                 {isReady && (
-                  <button
-                    type="button"
-                    onClick={() => onServeItem(item.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer shrink-0 ml-1 border border-emerald-500"
-                  >
-                    <Utensils className="w-3.5 h-3.5" />
-                    <span>Serve</span>
-                  </button>
+                  canChangeStatus ? (
+                    <button
+                      type="button"
+                      onClick={() => onServeItem(item.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer shrink-0 ml-1 border border-emerald-500"
+                    >
+                      <Utensils className="w-3.5 h-3.5" />
+                      <span>Serve</span>
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-muted-foreground bg-muted border border-border shrink-0 ml-1">
+                      <Lock className="w-3 h-3" /> Ready
+                    </span>
+                  )
                 )}
               </div>
             );
@@ -1134,15 +1262,24 @@ function WaiterReadyKotCard({
 
       {/* Footer Action */}
       {readyItems.length > 0 && (
-        <div className="px-5 py-3 bg-muted/30 border-t-2 border-border/80 flex items-center justify-end">
-          <button
-            type="button"
-            onClick={onServeKot}
-            className="px-5 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer border border-emerald-500"
-          >
-            <Utensils className="w-4 h-4" />
-            <span>SERVE ALL READY ({readyItems.length})</span>
-          </button>
+        <div className="px-5 py-3 bg-muted/30 border-t-2 border-border/80 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground font-semibold">
+            {readyItems.length} dish{readyItems.length > 1 ? 'es' : ''} ready to dispatch
+          </span>
+          {canChangeStatus ? (
+            <button
+              type="button"
+              onClick={onServeKot}
+              className="px-5 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer border border-emerald-500"
+            >
+              <Utensils className="w-4 h-4" />
+              <span>SERVE ALL READY ({readyItems.length})</span>
+            </button>
+          ) : (
+            <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+              <Lock className="w-3.5 h-3.5" /> Status updates locked for this role
+            </span>
+          )}
         </div>
       )}
     </div>

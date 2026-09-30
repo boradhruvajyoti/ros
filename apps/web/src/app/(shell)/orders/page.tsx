@@ -19,6 +19,19 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { printHtmlInSameTab } from '@/lib/print-utils';
 
+function extractGuestCount(order: any): number {
+  if (typeof order.guestCount === 'number' && order.guestCount > 0) return order.guestCount;
+  if (typeof order.covers === 'number' && order.covers > 0) return order.covers;
+  if (order.notes) {
+    const match = String(order.notes).match(/(?:\[(?:Pax|Guests|Guest Count):\s*(\d+)\])|(?:(?:Pax|Guests|Guest Count):\s*(\d+))/i);
+    if (match) {
+      const c = parseInt(match[1] || match[2], 10);
+      if (!isNaN(c) && c > 0) return c;
+    }
+  }
+  return order.table?.capacity || 1;
+}
+
 function formatCurrency(amount: any): string {
   const num = Number(amount);
   if (isNaN(num) || !isFinite(num)) return '₹0.00';
@@ -668,17 +681,20 @@ export default function CurrentOrdersPage() {
                           <span className="text-xs uppercase tracking-wide">
                             TABLE: {order.table.name}
                           </span>
-                          {order.table.capacity && (
-                            <span className="text-[10px] text-rose-700/80 dark:text-rose-300/80 font-bold">
-                              ({order.table.capacity}p)
-                            </span>
-                          )}
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-none bg-primary/20 text-primary border border-primary/40 font-mono">
+                            👥 {extractGuestCount(order)} {extractGuestCount(order) === 1 ? 'Guest' : 'Guests'}
+                          </span>
                         </div>
                       ) : isDineIn ? (
-                        <Badge variant="outline" className="gap-1 rounded-none bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/50 text-xs font-black">
-                          <UtensilsCrossed className="w-3 h-3" />
-                          <span>Dine-In Table</span>
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="gap-1 rounded-none bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/50 text-xs font-black">
+                            <UtensilsCrossed className="w-3 h-3" />
+                            <span>Dine-In</span>
+                          </Badge>
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-none bg-primary/20 text-primary border border-primary/40 font-mono">
+                            👥 {extractGuestCount(order)} {extractGuestCount(order) === 1 ? 'Guest' : 'Guests'}
+                          </span>
+                        </div>
                       ) : isTakeaway ? (
                         <Badge variant="outline" className="gap-1 rounded-none bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/50 text-xs font-black">
                           <Package className="w-3 h-3" />
