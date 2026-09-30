@@ -6,7 +6,8 @@ import {
   Tag, Percent, Plus, Gift, Clock, Send, CheckCircle2,
   Sparkles, Megaphone, Users, ArrowUpRight, Calendar,
   UtensilsCrossed, Layers, Flame, Coffee, Check, Trash2,
-  Power, Copy, HelpCircle, ShieldCheck, QrCode, Sliders
+  Power, Copy, HelpCircle, ShieldCheck, QrCode, Sliders,
+  Printer, FileText, Scissors
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@ros/utils';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
+import { printHtmlInSameTab } from '@/lib/print-utils';
 import { cn } from '@/lib/utils';
 
 export interface PromotionCampaign {
@@ -111,6 +113,13 @@ export default function MarketingPage() {
     return items;
   }, [menuCategories]);
 
+  // Fetch Current Tenant for Printable Cards Branding
+  const { data: tenant } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: () => apiGet<any>('/tenants/current'),
+    staleTime: 1000 * 60 * 10,
+  });
+
   // Fetch Campaigns
   const { data: campaigns = [], isLoading } = useQuery<PromotionCampaign[]>({
     queryKey: ['marketing-promotions'],
@@ -123,6 +132,290 @@ export default function MarketingPage() {
       }
     },
   });
+
+  // Printable Coupon Cards State
+  const [printCouponModal, setPrintCouponModal] = useState<PromotionCampaign | null>(null);
+  const [printCardCount, setPrintCardCount] = useState<number>(8);
+
+  const handleGenerateAndPrintCouponPdf = (camp: PromotionCampaign, count: number) => {
+    const restaurantName = tenant?.name || 'Restaurant OS';
+    const rawAddress = tenant?.address || tenant?.branches?.[0]?.address || 'Main Branch, City Center';
+    const rawPhone = tenant?.phone || tenant?.branches?.[0]?.phone || '+1 (555) 019-2834';
+    const logoUrl = tenant?.logoUrl || '';
+
+    const totalCards = Math.max(1, count);
+    const cardsPerPage = 8;
+    const totalPages = Math.ceil(totalCards / cardsPerPage);
+
+    const discountText = camp.discountType === 'PERCENTAGE'
+      ? `${camp.discountValue}% OFF`
+      : `₹${camp.discountValue} FLAT OFF`;
+
+    const conditionText = [
+      camp.minOrderValue ? `Min Spend: ₹${camp.minOrderValue}` : 'No Min Spend',
+      camp.maxDiscount ? `Max Cap: ₹${camp.maxDiscount}` : null,
+    ].filter(Boolean).join(' • ');
+
+    const validFromFormatted = camp.validFrom ? camp.validFrom.split('T')[0] : 'Today';
+    const validToFormatted = camp.validTo ? camp.validTo.split('T')[0] : 'End of Month';
+
+    // Build pages
+    let pagesHtml = '';
+    let cardsRemaining = totalCards;
+
+    for (let p = 0; p < totalPages; p++) {
+      const cardsInThisPage = Math.min(cardsPerPage, cardsRemaining);
+      cardsRemaining -= cardsInThisPage;
+
+      let cardsHtml = '';
+      for (let c = 0; c < cardsInThisPage; c++) {
+        cardsHtml += `
+          <div class="coupon-card">
+            <div class="cut-corner-mark cut-tl">✂</div>
+            <div class="card-header">
+              <div class="brand-left">
+                ${logoUrl ? `<img src="${logoUrl}" class="brand-logo" alt="Logo" />` : `<div class="logo-fallback">🍽️</div>`}
+                <div>
+                  <div class="restaurant-name">${restaurantName}</div>
+                  <div class="restaurant-contact">${rawAddress} • Tel: ${rawPhone}</div>
+                </div>
+              </div>
+              <div class="badge-tag">EXCLUSIVE VOUCHER</div>
+            </div>
+
+            <div class="offer-row">
+              <div class="discount-badge">${discountText}</div>
+              <div class="offer-conditions">
+                <div class="condition-bold">${conditionText}</div>
+                <div class="applicable-text">Valid on Dine-In & Takeaway Orders</div>
+              </div>
+            </div>
+
+            <div class="code-cutout-container">
+              <div class="scissors-line">
+                <span>✂ CUT & PRESENT AT BILLING</span>
+              </div>
+              <div class="code-box">
+                <div class="code-label">PROMO CODE</div>
+                <div class="code-text">${camp.code}</div>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              <div class="validity-badge">
+                <strong>VALIDITY:</strong> ${validFromFormatted} to ${validToFormatted}
+              </div>
+              <div class="terms-note">*Single use per bill. T&C apply.</div>
+            </div>
+          </div>
+        `;
+      }
+
+      pagesHtml += `<div class="a4-page">${cardsHtml}</div>`;
+    }
+
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Printable Coupons - ${camp.code}</title>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 8mm 6mm;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #0f172a;
+          }
+          .a4-page {
+            width: 100%;
+            height: 281mm;
+            max-height: 281mm;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 3.5mm;
+            page-break-after: always;
+            page-break-inside: avoid;
+            box-sizing: border-box;
+            background: #ffffff;
+          }
+          .a4-page:last-child {
+            page-break-after: auto;
+          }
+          .coupon-card {
+            border: 1.5px dashed #64748b;
+            border-radius: 8px;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: #ffffff;
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
+          }
+          .cut-corner-mark {
+            position: absolute;
+            font-size: 8px;
+            color: #94a3b8;
+            line-height: 1;
+          }
+          .cut-tl { top: 2px; right: 4px; }
+          .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+            gap: 6px;
+          }
+          .brand-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow: hidden;
+          }
+          .brand-logo {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+            border-radius: 4px;
+          }
+          .logo-fallback {
+            font-size: 16px;
+            line-height: 1;
+          }
+          .restaurant-name {
+            font-size: 11px;
+            font-weight: 900;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 155px;
+          }
+          .restaurant-contact {
+            font-size: 7px;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 155px;
+          }
+          .badge-tag {
+            font-size: 6.5px;
+            font-weight: 800;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 2px 5px;
+            border-radius: 4px;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+            border: 0.5px solid #cbd5e1;
+          }
+          .offer-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            margin: 3px 0;
+          }
+          .discount-badge {
+            font-size: 16px;
+            font-weight: 900;
+            color: #d97706;
+            letter-spacing: -0.3px;
+            line-height: 1;
+          }
+          .offer-conditions {
+            text-align: right;
+          }
+          .condition-bold {
+            font-size: 8px;
+            font-weight: 800;
+            color: #1e293b;
+          }
+          .applicable-text {
+            font-size: 7px;
+            color: #64748b;
+          }
+          .code-cutout-container {
+            background: #fffbeb;
+            border: 1.2px dashed #f59e0b;
+            border-radius: 6px;
+            padding: 4px 6px;
+            margin: 2px 0;
+          }
+          .scissors-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 6.5px;
+            font-weight: 800;
+            color: #b45309;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+          }
+          .code-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+          .code-label {
+            font-size: 7px;
+            font-weight: 800;
+            color: #92400e;
+            letter-spacing: 0.5px;
+          }
+          .code-text {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            font-weight: 900;
+            color: #b45309;
+            letter-spacing: 1.5px;
+          }
+          .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 3px;
+            font-size: 7px;
+            color: #64748b;
+          }
+          .validity-badge {
+            color: #0f172a;
+          }
+          .validity-badge strong {
+            color: #d97706;
+          }
+          .terms-note {
+            font-style: italic;
+          }
+        </style>
+      </head>
+      <body>
+        ${pagesHtml}
+      </body>
+      </html>
+    `;
+
+    printHtmlInSameTab(fullHtml);
+    toast.success('Print Dialog Opened', `Prepared ${totalCards} printable coupon cards across ${totalPages} A4 sheet(s).`);
+  };
 
   // Toggle Status Mutation
   const toggleStatusMutation = useMutation({
@@ -571,6 +864,22 @@ export default function MarketingPage() {
                       </Badge>
                     )}
 
+                    {isCoupon && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setPrintCouponModal(camp);
+                          setPrintCardCount(8);
+                        }}
+                        className="gap-1 text-xs font-bold rounded-xl border-amber-500/40 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 h-8 px-2.5"
+                        title="Generate Printable A4 Coupon Cards PDF"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print Cards</span>
+                      </Button>
+                    )}
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -968,6 +1277,186 @@ export default function MarketingPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          PRINTABLE COUPON CARDS MODAL (A4 Multi-Card PDF Layout)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {printCouponModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-foreground">Printable Coupon Cards</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Standard A4 Sheet Layout (8 Single-Sided Cards / Page in 2x4 Grid with Cut Guides)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPrintCouponModal(null)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-lg hover:bg-muted"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Print Configuration Controls */}
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-foreground">
+                    How many coupon cards would you like to create?
+                  </label>
+                  <span className="text-xs font-mono font-bold text-amber-500">
+                    {Math.ceil(printCardCount / 8)} A4 Page{Math.ceil(printCardCount / 8) > 1 ? 's' : ''} ({printCardCount} cards)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={printCardCount || ''}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setPrintCardCount(isNaN(val) ? 0 : Math.max(1, Math.min(val, 500)));
+                    }}
+                    className="h-10 w-32 rounded-xl bg-background border-border font-mono font-bold text-sm"
+                    placeholder="e.g. 16"
+                  />
+                  
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[8, 16, 24, 32, 48, 80].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setPrintCardCount(num)}
+                        className={cn(
+                          'text-xs font-bold px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer',
+                          printCardCount === num
+                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-sm'
+                            : 'bg-muted/40 text-muted-foreground border-border/60 hover:bg-muted'
+                        )}
+                      >
+                        {num} ({num / 8} {num / 8 === 1 ? 'page' : 'pages'})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Single Card Preview */}
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+                  Card Preview & Print Details:
+                </label>
+
+                <div className="p-4 rounded-2xl bg-muted/30 border border-border flex flex-col md:flex-row items-center justify-center gap-4">
+                  {/* Card Simulation */}
+                  <div className="w-full max-w-sm bg-white text-slate-900 border-2 border-dashed border-slate-400 rounded-xl p-3.5 shadow-md relative overflow-hidden space-y-2.5">
+                    <div className="absolute top-1 right-2 text-[10px] text-slate-400 font-mono">✂ cut line</div>
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2 gap-2">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        {tenant?.logoUrl ? (
+                          <img src={tenant.logoUrl} alt="Logo" className="w-7 h-7 object-contain rounded" />
+                        ) : (
+                          <div className="w-7 h-7 bg-amber-100 text-amber-700 rounded flex items-center justify-center font-bold text-xs">
+                            🍽️
+                          </div>
+                        )}
+                        <div className="truncate">
+                          <h4 className="text-xs font-black uppercase text-slate-900 leading-tight truncate">
+                            {tenant?.name || 'Restaurant OS'}
+                          </h4>
+                          <p className="text-[9px] text-slate-500 truncate">
+                            {tenant?.address || tenant?.branches?.[0]?.address || 'Main Branch, City Center'} • {tenant?.phone || tenant?.branches?.[0]?.phone || '+1 555-0199'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[8px] font-black uppercase bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                        Voucher
+                      </span>
+                    </div>
+
+                    {/* Offer Highlight */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-lg font-black text-amber-600 tracking-tight">
+                        {printCouponModal.discountType === 'PERCENTAGE'
+                          ? `${printCouponModal.discountValue}% OFF`
+                          : `₹${printCouponModal.discountValue} FLAT OFF`}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] font-bold text-slate-800">
+                          {printCouponModal.minOrderValue ? `Min Spend: ₹${printCouponModal.minOrderValue}` : 'No Minimum Order'}
+                        </div>
+                        {printCouponModal.maxDiscount && (
+                          <div className="text-[9px] text-slate-500">Max Discount: ₹{printCouponModal.maxDiscount}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Coupon Code Pill */}
+                    <div className="bg-amber-50 border border-dashed border-amber-400 rounded-lg p-2 flex items-center justify-between">
+                      <div className="text-[9px] font-black text-amber-800">✂ PROMO CODE:</div>
+                      <div className="font-mono text-sm font-black tracking-widest text-amber-700">
+                        {printCouponModal.code}
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between text-[9px] text-slate-500 border-t border-slate-100 pt-1.5">
+                      <div>
+                        <strong>Valid:</strong> {printCouponModal.validFrom.split('T')[0]} → {printCouponModal.validTo.split('T')[0]}
+                      </div>
+                      <div className="italic text-[8px] text-slate-400">*Single use per bill</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Layout Specifications Note */}
+              <div className="p-3 rounded-2xl bg-background/50 border border-border/70 text-xs text-muted-foreground flex items-center gap-2.5">
+                <Scissors className="w-4 h-4 text-amber-500 shrink-0" />
+                <p>
+                  Cards are sized for standard wallet/voucher dimensions (<span className="font-semibold text-foreground">94mm × 62mm</span>), laid out in an <span className="font-semibold text-foreground">8-card 2×4 grid per A4 page</span> with minimum cutting gaps to save paper.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPrintCouponModal(null)}
+                className="rounded-xl font-bold"
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  handleGenerateAndPrintCouponPdf(printCouponModal, printCardCount);
+                  setPrintCouponModal(null);
+                }}
+                className="rounded-xl font-bold gap-2 bg-amber-500 hover:bg-amber-600 text-black shadow-lg"
+              >
+                <Printer className="w-4 h-4" />
+                Generate & Print A4 PDF ({printCardCount} Cards)
+              </Button>
+            </div>
           </div>
         </div>
       )}

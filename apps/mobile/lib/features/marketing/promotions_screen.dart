@@ -5,6 +5,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../core/providers/providers.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
@@ -121,6 +124,19 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => const _CreatePromoSheet(),
+    );
+  }
+
+  void _openPrintCouponSheet(PromotionCampaign campaign) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: RosTheme.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _PrintCouponSheet(campaign: campaign),
     );
   }
 
@@ -640,7 +656,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     const SizedBox(height: 8),
                   ],
 
-                  // Validity and Broadcast Footer
+                  // Validity and Actions Footer
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -654,15 +670,32 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                           ),
                         ],
                       ),
-                      TextButton.icon(
-                        onPressed: () => _triggerBroadcastSimulator(campaign.name),
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          foregroundColor: RosTheme.primary,
-                        ),
-                        icon: const Icon(Icons.send_rounded, size: 12),
-                        label: const Text('Broadcast Blast', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                      Row(
+                        children: [
+                          if (campaign.type == 'LIMITED_TIME_COUPON') ...[
+                            TextButton.icon(
+                              onPressed: () => _openPrintCouponSheet(campaign),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                foregroundColor: const Color(0xFFF59E0B),
+                              ),
+                              icon: const Icon(Icons.print_rounded, size: 12),
+                              label: const Text('Print Cards', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          TextButton.icon(
+                            onPressed: () => _triggerBroadcastSimulator(campaign.name),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              foregroundColor: RosTheme.primary,
+                            ),
+                            icon: const Icon(Icons.send_rounded, size: 12),
+                            label: const Text('Broadcast', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1288,6 +1321,626 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRINTABLE COUPON CARDS SHEET (A4 Multi-Card PDF Layout)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PrintCouponSheet extends ConsumerStatefulWidget {
+  final PromotionCampaign campaign;
+
+  const _PrintCouponSheet({required this.campaign});
+
+  @override
+  ConsumerState<_PrintCouponSheet> createState() => _PrintCouponSheetState();
+}
+
+class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
+  int _cardCount = 8;
+  late final TextEditingController _countController;
+  bool _generating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _countController = TextEditingController(text: '8');
+  }
+
+  @override
+  void dispose() {
+    _countController.dispose();
+    super.dispose();
+  }
+
+  void _setCount(int count) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _cardCount = count.clamp(1, 500);
+      _countController.text = '$_cardCount';
+    });
+  }
+
+  Future<void> _handlePrintPdf() async {
+    setState(() => _generating = true);
+    HapticFeedback.mediumImpact();
+
+    try {
+      final api = ref.read(apiClientProvider);
+
+      String restaurantName = 'Restaurant OS';
+      String address = 'Main Branch, City Center';
+      String phone = '+1 (555) 019-2834';
+
+      try {
+        final tenantData = await api.get<dynamic>('/tenants/current');
+        if (tenantData is Map) {
+          restaurantName = tenantData['name']?.toString() ?? restaurantName;
+          if (tenantData['address'] != null && tenantData['address'].toString().isNotEmpty) {
+            address = tenantData['address'].toString();
+          } else if (tenantData['branches'] is List && (tenantData['branches'] as List).isNotEmpty) {
+            address = tenantData['branches'][0]['address']?.toString() ?? address;
+          }
+          if (tenantData['phone'] != null && tenantData['phone'].toString().isNotEmpty) {
+            phone = tenantData['phone'].toString();
+          } else if (tenantData['branches'] is List && (tenantData['branches'] as List).isNotEmpty) {
+            phone = tenantData['branches'][0]['phone']?.toString() ?? phone;
+          }
+        }
+      } catch (_) {}
+
+      final count = _cardCount.clamp(1, 500);
+      final cardsPerPage = 8;
+      final totalPages = (count / cardsPerPage).ceil();
+
+      final discountText = widget.campaign.discountType == 'PERCENTAGE'
+          ? '${widget.campaign.discountValue.toStringAsFixed(0)}% OFF'
+          : '₹${widget.campaign.discountValue.toStringAsFixed(0)} FLAT OFF';
+
+      final conditionText = [
+        if (widget.campaign.minOrderValue > 0) 'Min Spend: ₹${widget.campaign.minOrderValue.toStringAsFixed(0)}' else 'No Min Spend',
+        if (widget.campaign.maxDiscount != null && widget.campaign.maxDiscount! > 0)
+          'Max Cap: ₹${widget.campaign.maxDiscount!.toStringAsFixed(0)}',
+      ].join(' • ');
+
+      final validFrom = widget.campaign.validFrom.split('T').first;
+      final validTo = widget.campaign.validTo.split('T').first;
+
+      final doc = pw.Document();
+
+      int cardsRemaining = count;
+      for (int p = 0; p < totalPages; p++) {
+        final cardsInThisPage = cardsRemaining > cardsPerPage ? cardsPerPage : cardsRemaining;
+        cardsRemaining -= cardsInThisPage;
+
+        final List<pw.Widget> rows = [];
+        for (int r = 0; r < 4; r++) {
+          final idx1 = r * 2;
+          final idx2 = r * 2 + 1;
+
+          final card1 = idx1 < cardsInThisPage
+              ? _buildPdfCard(restaurantName, address, phone, discountText, conditionText, validFrom, validTo)
+              : pw.Container();
+
+          final card2 = idx2 < cardsInThisPage
+              ? _buildPdfCard(restaurantName, address, phone, discountText, conditionText, validFrom, validTo)
+              : pw.Container();
+
+          rows.add(
+            pw.Expanded(
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Expanded(child: card1),
+                  pw.SizedBox(width: 8),
+                  pw.Expanded(child: card2),
+                ],
+              ),
+            ),
+          );
+
+          if (r < 3) {
+            rows.add(pw.SizedBox(height: 8));
+          }
+        }
+
+        doc.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(16),
+            build: (pw.Context ctx) {
+              return pw.Column(children: rows);
+            },
+          ),
+        );
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      await Printing.layoutPdf(
+        name: 'Coupons_${widget.campaign.code}.pdf',
+        onLayout: (PdfPageFormat format) async => doc.save(),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error generating PDF: $e'), backgroundColor: RosTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _generating = false);
+      }
+    }
+  }
+
+  pw.Widget _buildPdfCard(
+    String restaurantName,
+    String address,
+    String phone,
+    String discountText,
+    String conditionText,
+    String validFrom,
+    String validTo,
+  ) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey500, width: 0.8, style: pw.BorderStyle.dashed),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        color: PdfColors.white,
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          // Header Row
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      restaurantName.toUpperCase(),
+                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey900),
+                      maxLines: 1,
+                    ),
+                    pw.Text(
+                      '$address • Tel: $phone',
+                      style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(3),
+                  border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                ),
+                child: pw.Text(
+                  'VOUCHER',
+                  style: pw.TextStyle(fontSize: 5.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+                ),
+              ),
+            ],
+          ),
+
+          // Offer Highlight
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Text(
+                discountText,
+                style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.amber900),
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    conditionText,
+                    style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+                  ),
+                  pw.Text(
+                    'Valid on Dine-In & Takeaway',
+                    style: const pw.TextStyle(fontSize: 5.5, color: PdfColors.grey600),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Code Box
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.amber50,
+              border: pw.Border.all(color: PdfColors.amber700, width: 0.8, style: pw.BorderStyle.dashed),
+              borderRadius: pw.BorderRadius.circular(4),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  '✂ CUT & PRESENT AT BILLING:',
+                  style: pw.TextStyle(fontSize: 5.5, fontWeight: pw.FontWeight.bold, color: PdfColors.amber900),
+                ),
+                pw.Text(
+                  widget.campaign.code,
+                  style: pw.TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: pw.FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: PdfColors.amber900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Footer
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Valid: $validFrom to $validTo',
+                style: pw.TextStyle(fontSize: 6, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+              ),
+              pw.Text(
+                '*Single use per bill. T&C Apply.',
+                style: const pw.TextStyle(fontSize: 5, color: PdfColors.grey600),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalPages = (_cardCount / 8).ceil();
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: RosTheme.bgBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Sheet Title
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.print_rounded, color: Color(0xFFF59E0B), size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Printable Coupon Cards',
+                        style: TextStyle(color: RosTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'A4 Multi-Card Layout (8 Cards / Sheet in 2x4 Grid)',
+                        style: TextStyle(color: RosTheme.textMuted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 18),
+
+            // Number of cards prompt
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'How many cards to create?',
+                  style: TextStyle(color: RosTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  '$totalPages A4 Page${totalPages > 1 ? "s" : ""} ($_cardCount cards)',
+                  style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // Number Input and Presets
+            Row(
+              children: [
+                SizedBox(
+                  width: 90,
+                  child: TextField(
+                    controller: _countController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: RosTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: RosTheme.bgElevated,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.primary)),
+                    ),
+                    onChanged: (val) {
+                      final n = int.tryParse(val);
+                      if (n != null) {
+                        setState(() => _cardCount = n.clamp(1, 500));
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [8, 16, 24, 32, 48, 80].map((presetCount) {
+                        final isSelected = _cardCount == presetCount;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: GestureDetector(
+                            onTap: () => _setCount(presetCount),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFFF59E0B).withValues(alpha: 0.2) : RosTheme.bgElevated,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFFF59E0B) : RosTheme.bgBorder,
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Text(
+                                '$presetCount (${presetCount ~/ 8}p)',
+                                style: TextStyle(
+                                  color: isSelected ? const Color(0xFFF59E0B) : RosTheme.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 18),
+
+            // Live Card Preview
+            const Text(
+              'Card Preview & Layout:',
+              style: TextStyle(color: RosTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade400, width: 1.5, style: BorderStyle.solid),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text('🍽️', style: TextStyle(fontSize: 12)),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'RESTAURANT OS',
+                                style: TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.w900),
+                              ),
+                              Text(
+                                'Main Branch, City Center • Tel: +1 555-0199',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 8),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'VOUCHER',
+                          style: TextStyle(color: Colors.grey.shade700, fontSize: 8, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        widget.campaign.discountType == 'PERCENTAGE'
+                            ? '${widget.campaign.discountValue.toStringAsFixed(0)}% OFF'
+                            : '₹${widget.campaign.discountValue.toStringAsFixed(0)} FLAT OFF',
+                        style: TextStyle(color: Colors.amber.shade800, fontSize: 16, fontWeight: FontWeight.w900),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            widget.campaign.minOrderValue > 0
+                                ? 'Min Spend: ₹${widget.campaign.minOrderValue.toStringAsFixed(0)}'
+                                : 'No Min Spend',
+                            style: const TextStyle(color: Colors.black87, fontSize: 9, fontWeight: FontWeight.w700),
+                          ),
+                          if (widget.campaign.maxDiscount != null && widget.campaign.maxDiscount! > 0)
+                            Text(
+                              'Max Cap: ₹${widget.campaign.maxDiscount!.toStringAsFixed(0)}',
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 8),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.amber.shade400, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '✂ CUT & USE CODE:',
+                          style: TextStyle(color: Colors.amber.shade900, fontSize: 8.5, fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          widget.campaign.code,
+                          style: TextStyle(
+                            color: Colors.amber.shade900,
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Valid: ${widget.campaign.validFrom.split("T").first} → ${widget.campaign.validTo.split("T").first}',
+                        style: const TextStyle(color: Colors.black87, fontSize: 8.5, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        '*Single use per bill. T&C Apply.',
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 7.5, fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Layout description
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: RosTheme.bgElevated,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: RosTheme.bgBorder),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.content_cut_rounded, size: 14, color: Color(0xFFF59E0B)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Standard card size (94mm × 62mm) with cutting borders. Fits 8 cards per A4 page with minimal paper waste.',
+                      style: TextStyle(color: RosTheme.textMuted, fontSize: 10.5, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            // Action Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: _generating ? null : _handlePrintPdf,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF59E0B),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 2,
+                ),
+                icon: _generating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                      )
+                    : const Icon(Icons.picture_as_pdf_rounded, size: 20),
+                label: Text(
+                  _generating ? 'Generating PDF...' : 'Generate & Print A4 PDF ($_cardCount Cards)',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
