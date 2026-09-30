@@ -141,7 +141,7 @@ export default function MarketingPage() {
   const [printCardCount, setPrintCardCount] = useState<number>(8);
 
   const handleGenerateAndPrintCouponPdf = (camp: PromotionCampaign, count: number) => {
-    const restaurantName = tenant?.name || 'Restaurant OS';
+    const restaurantName = tenant?.name || 'Restaurant';
     const rawAddress = tenant?.address || tenant?.branches?.[0]?.address || 'Main Branch, City Center';
     const rawPhone = tenant?.phone || tenant?.branches?.[0]?.phone || '+1 (555) 019-2834';
     const logoUrl = tenant?.logoUrl || '';
@@ -227,6 +227,7 @@ export default function MarketingPage() {
               </div>
               <div class="terms-note">*Single use per bill. T&C apply.</div>
             </div>
+            <div class="powered-by-brand">Powered by Oxomsoft Software Solution (www.oxomsoft.com)</div>
           </div>
         `;
       }
@@ -415,6 +416,13 @@ export default function MarketingPage() {
             padding-top: 3px;
             font-size: 7px;
             color: #64748b;
+          }
+          .powered-by-brand {
+            font-size: 5.5px;
+            color: #94a3b8;
+            text-align: center;
+            letter-spacing: 0.2px;
+            margin-top: 2px;
           }
           .validity-badge {
             color: #0f172a;
@@ -1545,7 +1553,7 @@ export default function MarketingPage() {
                         )}
                         <div className="truncate">
                           <h4 className="text-xs font-black uppercase text-slate-900 leading-tight truncate">
-                            {tenant?.name || 'Restaurant OS'}
+                            {tenant?.name || 'Restaurant'}
                           </h4>
                           <p className="text-[9px] text-slate-500 truncate">
                             {tenant?.address || tenant?.branches?.[0]?.address || 'Main Branch, City Center'} • {tenant?.phone || tenant?.branches?.[0]?.phone || '+1 555-0199'}
@@ -1588,6 +1596,9 @@ export default function MarketingPage() {
                         <strong>Valid:</strong> {printCouponModal.validFrom.split('T')[0]} → {printCouponModal.validTo.split('T')[0]}
                       </div>
                       <div className="italic text-[8px] text-slate-400">*Single use per bill</div>
+                    </div>
+                    <div className="text-[7.5px] text-slate-400 text-center font-medium pt-0.5">
+                      Powered by Oxomsoft Software Solution (www.oxomsoft.com)
                     </div>
                   </div>
                 </div>

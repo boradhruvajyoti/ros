@@ -379,15 +379,21 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       children: [
                         const Text(
                           'ORDERS',
-                          style: TextStyle(color: RosTheme.textMuted, fontSize: 9, fontWeight: FontWeight.w800),
+                          style: TextStyle(color: RosTheme.textMuted, fontSize: 8.5, fontWeight: FontWeight.w800),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          '${filtered.length}',
-                          style: const TextStyle(
-                            color: RosTheme.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '${filtered.length}',
+                            style: const TextStyle(
+                              color: RosTheme.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                       ],
@@ -410,21 +416,29 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.people_alt_rounded, size: 10, color: RosTheme.primary),
+                            Icon(Icons.people_alt_rounded, size: 9.5, color: RosTheme.primary),
                             SizedBox(width: 3),
-                            Text(
-                              'GUESTS (PAX)',
-                              style: TextStyle(color: RosTheme.primary, fontSize: 9, fontWeight: FontWeight.w900),
+                            Flexible(
+                              child: Text(
+                                'GUESTS',
+                                style: TextStyle(color: RosTheme.primary, fontSize: 8.5, fontWeight: FontWeight.w900),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          '$_totalGuests',
-                          style: const TextStyle(
-                            color: RosTheme.primary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '$_totalGuests',
+                            style: const TextStyle(
+                              color: RosTheme.primary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                       ],
@@ -447,22 +461,28 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       children: [
                         const Text(
                           'PAID REVENUE',
-                          style: TextStyle(color: RosTheme.secondary, fontSize: 9, fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '₹${_grossRevenue.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            color: RosTheme.secondary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                          ),
+                          style: TextStyle(color: RosTheme.secondary, fontSize: 8.5, fontWeight: FontWeight.w800),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '₹${_grossRevenue.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: RosTheme.secondary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                         Text(
                           '$_settledCount settled',
                           style: const TextStyle(color: RosTheme.textMuted, fontSize: 8.5, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -711,26 +731,36 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w800,
                                                 ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                               const SizedBox(height: 3),
-                                              Row(
+                                              Wrap(
+                                                spacing: 4,
+                                                runSpacing: 2,
+                                                crossAxisAlignment: WrapCrossAlignment.center,
                                                 children: [
                                                   Text(
                                                     '${group.totalOrders} ${group.totalOrders == 1 ? 'order' : 'orders'}',
                                                     style: const TextStyle(color: RosTheme.textMuted, fontSize: 11),
                                                   ),
-                                                  const Text(' · ', style: TextStyle(color: RosTheme.textMuted)),
-                                                  const Icon(Icons.people_alt_rounded, size: 11, color: RosTheme.primary),
-                                                  const SizedBox(width: 2),
-                                                  Text(
-                                                    '${group.totalGuests} Guests',
-                                                    style: const TextStyle(
-                                                      color: RosTheme.primary,
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
+                                                  const Text('·', style: TextStyle(color: RosTheme.textMuted, fontSize: 11)),
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.people_alt_rounded, size: 11, color: RosTheme.primary),
+                                                      const SizedBox(width: 2),
+                                                      Text(
+                                                        '${group.totalGuests} Guests',
+                                                        style: const TextStyle(
+                                                          color: RosTheme.primary,
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                  const Text(' · ', style: TextStyle(color: RosTheme.textMuted)),
+                                                  const Text('·', style: TextStyle(color: RosTheme.textMuted, fontSize: 11)),
                                                   Text(
                                                     '₹${group.totalRevenue.toStringAsFixed(0)} paid',
                                                     style: const TextStyle(
@@ -936,11 +966,12 @@ class _OrderTile extends StatelessWidget {
           border: Border.all(color: RosTheme.bgBorder.withValues(alpha: 0.8)),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Order type badge icon avatar
             Container(
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: RosTheme.bgCard,
                 borderRadius: BorderRadius.circular(8),
@@ -955,31 +986,32 @@ class _OrderTile extends StatelessWidget {
                             ? Icons.delivery_dining_rounded
                             : Icons.takeout_dining_rounded,
                 color: order.type == 'PRE_ORDER' ? const Color(0xFFA855F7) : RosTheme.textSecondary,
-                size: 19,
+                size: 18,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 9),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1: Order Number + Order Type Tag + Guest Count Tag + Status Badge
-                  Row(
+                  // Row 1: Order Number + Order Type Tag + Guest Count Tag
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 3,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         '#${order.orderNumber}',
                         style: const TextStyle(
                           color: RosTheme.textPrimary,
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(width: 6),
                       _buildOrderTypeBadge(),
-                      const SizedBox(width: 4),
                       // Guest Count Tag
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                         decoration: BoxDecoration(
                           color: RosTheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
@@ -988,34 +1020,17 @@ class _OrderTile extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.people_alt_rounded, size: 9.5, color: RosTheme.primary),
-                            const SizedBox(width: 2.5),
+                            const Icon(Icons.people_alt_rounded, size: 9, color: RosTheme.primary),
+                            const SizedBox(width: 2),
                             Text(
                               '${guests}p',
                               style: const TextStyle(
                                 color: RosTheme.primary,
-                                fontSize: 9.5,
+                                fontSize: 9,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                      const Spacer(),
-                      // Status Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _statusColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          order.status.replaceAll('_', ' '),
-                          style: TextStyle(
-                            color: _statusColor,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
                         ),
                       ),
                     ],
@@ -1026,19 +1041,24 @@ class _OrderTile extends StatelessWidget {
                   Row(
                     children: [
                       if (order.table != null) ...[
-                        Text(
-                          'Table: ${order.table!.name}',
-                          style: const TextStyle(
-                            color: RosTheme.textSecondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                        Flexible(
+                          child: Text(
+                            'Table: ${order.table!.name}',
+                            style: const TextStyle(
+                              color: RosTheme.textSecondary,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Text(' · ', style: TextStyle(color: RosTheme.textMuted)),
+                        const Text(' · ', style: TextStyle(color: RosTheme.textMuted, fontSize: 10.5)),
                       ],
                       Text(
                         DateFormat('d MMM, h:mm a').format(order.createdAt),
-                        style: const TextStyle(color: RosTheme.textMuted, fontSize: 11),
+                        style: const TextStyle(color: RosTheme.textMuted, fontSize: 10.5),
+                        maxLines: 1,
                       ),
                     ],
                   ),
@@ -1047,34 +1067,53 @@ class _OrderTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
 
-            // Right side: Price & Payment method
+            // Right side: Status Badge + Price & Payment method
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // Status Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    order.status.replaceAll('_', ' '),
+                    style: TextStyle(
+                      color: _statusColor,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+                const SizedBox(height: 3),
                 Text(
                   '₹${order.total.toStringAsFixed(0)}',
                   style: const TextStyle(
                     color: RosTheme.primary,
-                    fontSize: 14.5,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   '${order.items.length} items',
-                  style: const TextStyle(color: RosTheme.textMuted, fontSize: 10.5),
+                  style: const TextStyle(color: RosTheme.textMuted, fontSize: 9.5),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 // Payment Method Tag
                 if (order.payments.isNotEmpty)
                   Wrap(
-                    spacing: 3,
+                    spacing: 2,
+                    alignment: WrapAlignment.end,
                     children: order.payments
                         .map((p) => p.method)
                         .toSet()
                         .map((method) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: RosTheme.secondary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(3),
@@ -1083,7 +1122,7 @@ class _OrderTile extends StatelessWidget {
                           method.toUpperCase(),
                           style: const TextStyle(
                             color: RosTheme.secondary,
-                            fontSize: 8.5,
+                            fontSize: 8,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -1092,7 +1131,7 @@ class _OrderTile extends StatelessWidget {
                   )
                 else if (order.status == 'PAID' || order.status == 'COMPLETED')
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
                       color: const Color(0xFF10B981).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(3),
@@ -1101,14 +1140,14 @@ class _OrderTile extends StatelessWidget {
                       'PAID',
                       style: TextStyle(
                         color: Color(0xFF10B981),
-                        fontSize: 8.5,
+                        fontSize: 8,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                   )
                 else if (order.balanceDue > 0.01)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
                       color: RosTheme.danger.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(3),
@@ -1117,7 +1156,7 @@ class _OrderTile extends StatelessWidget {
                       'DUE ₹${order.balanceDue.toStringAsFixed(0)}',
                       style: const TextStyle(
                         color: RosTheme.danger,
-                        fontSize: 8.5,
+                        fontSize: 8,
                         fontWeight: FontWeight.w800,
                       ),
                     ),

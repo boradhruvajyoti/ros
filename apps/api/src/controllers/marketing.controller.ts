@@ -34,7 +34,7 @@ export interface PromotionCampaign {
   createdAt: string;
 }
 
-// In-memory store fallback per tenant
+// In-memory store cache per tenant
 const promotionStore: Map<string, PromotionCampaign[]> = new Map();
 
 function generateUniqueCouponCodes(prefix: string, count: number): string[] {
@@ -50,131 +50,6 @@ function generateUniqueCouponCodes(prefix: string, count: number): string[] {
     codes.add(`${cleanPrefix}-${suffix}`);
   }
   return Array.from(codes);
-}
-
-function getInitialCampaigns(tenantId: string): PromotionCampaign[] {
-  const now = new Date();
-  const oneMonthLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const twoMonthsLater = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-
-  return [
-    // 1. Limited Time Period Coupon with Dynamic Codes
-    {
-      id: `promo-ltc-1`,
-      tenantId,
-      name: 'Weekend Feast 20% Off',
-      code: 'WEEKEND20',
-      type: 'LIMITED_TIME_COUPON',
-      discountType: 'PERCENTAGE',
-      discountValue: 20,
-      minOrderValue: 499,
-      maxDiscount: 200,
-      validFrom: now.toISOString().split('T')[0],
-      validTo: oneMonthLater.toISOString().split('T')[0],
-      cardCount: 8,
-      generatedCodes: [
-        'WEEKEND20-7K9B',
-        'WEEKEND20-3M4X',
-        'WEEKEND20-8P2Q',
-        'WEEKEND20-5N6T',
-        'WEEKEND20-9R1V',
-        'WEEKEND20-2H7W',
-        'WEEKEND20-4L8Y',
-        'WEEKEND20-6Z3C',
-      ],
-      autoApply: false,
-      highlightOnQrMenu: true,
-      status: 'ACTIVE',
-      redemptions: 48,
-      totalSavings: 4320,
-      createdAt: now.toISOString(),
-    },
-    // 2. Bill Threshold Promo (Auto Apply) — Money Discount or Complementary Item
-    {
-      id: `promo-threshold-1`,
-      tenantId,
-      name: 'Mega Dining: Free Dessert / Brownie over ₹999',
-      code: 'AUTO-MEGADINE',
-      type: 'BILL_THRESHOLD',
-      minOrderValue: 999,
-      rewardType: 'COMPLIMENTARY_ITEM',
-      complementaryItemId: 'item-dessert-special',
-      complementaryItemName: 'Signature Chocolate Brownie',
-      complementaryItemQuantity: 1,
-      validFrom: now.toISOString().split('T')[0],
-      validTo: twoMonthsLater.toISOString().split('T')[0],
-      autoApply: true,
-      highlightOnQrMenu: true,
-      status: 'ACTIVE',
-      redemptions: 112,
-      totalSavings: 14560,
-      createdAt: now.toISOString(),
-    },
-    {
-      id: `promo-threshold-2`,
-      tenantId,
-      name: 'Spend ₹1499+ Get ₹200 Flat Off',
-      code: 'AUTO-SPEND1500',
-      type: 'BILL_THRESHOLD',
-      minOrderValue: 1499,
-      rewardType: 'DISCOUNT',
-      discountType: 'FLAT',
-      discountValue: 200,
-      validFrom: now.toISOString().split('T')[0],
-      validTo: twoMonthsLater.toISOString().split('T')[0],
-      autoApply: true,
-      highlightOnQrMenu: true,
-      status: 'ACTIVE',
-      redemptions: 64,
-      totalSavings: 12800,
-      createdAt: now.toISOString(),
-    },
-    // 3. Complementary Item on Specific Food Items Combo
-    {
-      id: `promo-combo-1`,
-      tenantId,
-      name: 'Free Hot Coffee with Burger & Pizza Combo',
-      code: 'COMBO-FREECOFFEE',
-      type: 'ITEM_COMBO_COMPLIMENTARY',
-      triggerItems: [
-        { menuItemId: 'item-burger', name: 'Burger', quantity: 1 },
-        { menuItemId: 'item-pizza', name: 'Pizza', quantity: 1 },
-      ],
-      rewardType: 'COMPLIMENTARY_ITEM',
-      complementaryItemId: 'item-coffee',
-      complementaryItemName: 'Fresh Brewed Cappuccino / Coffee',
-      complementaryItemQuantity: 1,
-      validFrom: now.toISOString().split('T')[0],
-      validTo: twoMonthsLater.toISOString().split('T')[0],
-      autoApply: true,
-      highlightOnQrMenu: true,
-      status: 'ACTIVE',
-      redemptions: 89,
-      totalSavings: 8010,
-      createdAt: now.toISOString(),
-    },
-    // 4. Custom Additional Discount presets during billing
-    {
-      id: `promo-custom-1`,
-      tenantId,
-      name: 'Cashier & Billing Custom Discount Presets',
-      code: 'CUSTOM-BILLING-DISCOUNT',
-      type: 'CUSTOM_DISCOUNT',
-      customPresets: {
-        percentages: [5, 10, 15, 20],
-        flatAmounts: [50, 100, 150, 200],
-        reasons: ['Owner Courtesy', 'VIP Guest', 'Customer Delight / Delay', 'Staff Family', 'Special Event Offer'],
-      },
-      validFrom: now.toISOString().split('T')[0],
-      validTo: twoMonthsLater.toISOString().split('T')[0],
-      autoApply: false,
-      highlightOnQrMenu: false,
-      status: 'ACTIVE',
-      redemptions: 175,
-      totalSavings: 18900,
-      createdAt: now.toISOString(),
-    },
-  ];
 }
 
 export class MarketingController {
@@ -193,10 +68,13 @@ export class MarketingController {
       });
 
       // 2. Clean expired campaigns from tenant settings in DB
-      const tenant = await prisma.tenant.findUnique({
+      let tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { settings: true },
+        select: { id: true, settings: true },
       });
+      if (!tenant) {
+        tenant = await prisma.tenant.findFirst({ select: { id: true, settings: true } });
+      }
 
       if (tenant) {
         let parsedSettings: any = {};
@@ -205,7 +83,11 @@ export class MarketingController {
         } catch {}
 
         if (Array.isArray(parsedSettings.promotions)) {
+          // Also filter out any legacy demo offers if present
           const validPromotions = parsedSettings.promotions.filter((p: any) => {
+            if (p.id && (p.id.startsWith('promo-ltc-1') || p.id.startsWith('promo-threshold-') || p.id.startsWith('promo-combo-1') || p.id.startsWith('promo-custom-1'))) {
+              return false; // remove demo offer
+            }
             if (p.validTo && p.validTo < todayStr) return false;
             return true;
           });
@@ -213,7 +95,7 @@ export class MarketingController {
           if (validPromotions.length !== parsedSettings.promotions.length) {
             parsedSettings.promotions = validPromotions;
             await prisma.tenant.update({
-              where: { id: tenantId },
+              where: { id: tenant.id },
               data: { settings: JSON.stringify(parsedSettings) },
             });
           }
@@ -223,7 +105,12 @@ export class MarketingController {
       // 3. Purge from in-memory cache
       if (promotionStore.has(tenantId)) {
         const current = promotionStore.get(tenantId)!;
-        const valid = current.filter((c) => !c.validTo || c.validTo >= todayStr);
+        const valid = current.filter((c) => {
+          if (c.id && (c.id.startsWith('promo-ltc-1') || c.id.startsWith('promo-threshold-') || c.id.startsWith('promo-combo-1') || c.id.startsWith('promo-custom-1'))) {
+            return false;
+          }
+          return !c.validTo || c.validTo >= todayStr;
+        });
         promotionStore.set(tenantId, valid);
       }
     } catch (err) {
@@ -238,10 +125,13 @@ export class MarketingController {
 
     // Try loading from tenant.settings in DB
     try {
-      const tenant = await prisma.tenant.findUnique({
+      let tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { settings: true },
+        select: { id: true, settings: true },
       });
+      if (!tenant) {
+        tenant = await prisma.tenant.findFirst({ select: { id: true, settings: true } });
+      }
 
       if (tenant) {
         let parsedSettings: any = {};
@@ -249,38 +139,29 @@ export class MarketingController {
           parsedSettings = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : (tenant.settings || {});
         } catch {}
 
-        if (Array.isArray(parsedSettings.promotions) && parsedSettings.promotions.length > 0) {
-          promotionStore.set(tenantId, parsedSettings.promotions);
-          return parsedSettings.promotions;
+        if (Array.isArray(parsedSettings.promotions)) {
+          // Strip out demo offers
+          const valid = parsedSettings.promotions.filter((p: any) => {
+            if (p.id && (p.id.startsWith('promo-ltc-1') || p.id.startsWith('promo-threshold-') || p.id.startsWith('promo-combo-1') || p.id.startsWith('promo-custom-1'))) {
+              return false;
+            }
+            return true;
+          });
+          promotionStore.set(tenantId, valid);
+          return valid;
         }
       }
-    } catch {}
-
-    if (!promotionStore.has(tenantId)) {
-      const initial = getInitialCampaigns(tenantId);
-      promotionStore.set(tenantId, initial);
-      // Persist initial to DB
-      try {
-        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
-        if (tenant) {
-          let parsedSettings: any = {};
-          try {
-            parsedSettings = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : (tenant.settings || {});
-          } catch {}
-          parsedSettings.promotions = initial;
-          await prisma.tenant.update({ where: { id: tenantId }, data: { settings: JSON.stringify(parsedSettings) } });
-        }
-      } catch {}
+    } catch (err) {
+      console.error('[getTenantPromotionsAsync Error]:', err);
     }
 
-    return promotionStore.get(tenantId)!;
+    // Default clean state without demo offers
+    promotionStore.set(tenantId, []);
+    return [];
   }
 
   static getTenantPromotions(tenantId: string): PromotionCampaign[] {
-    if (!promotionStore.has(tenantId)) {
-      promotionStore.set(tenantId, getInitialCampaigns(tenantId));
-    }
-    return promotionStore.get(tenantId)!;
+    return promotionStore.get(tenantId) || [];
   }
 
   static async listPromotions(req: Request, res: Response): Promise<void> {
@@ -389,14 +270,17 @@ export class MarketingController {
       }
 
       // Also persist campaigns array to tenant settings in DB
-      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
+      let tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, settings: true } });
+      if (!tenant) {
+        tenant = await prisma.tenant.findFirst({ select: { id: true, settings: true } });
+      }
       if (tenant) {
         let parsedSettings: any = {};
         try {
           parsedSettings = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : (tenant.settings || {});
         } catch {}
         parsedSettings.promotions = current;
-        await prisma.tenant.update({ where: { id: tenantId }, data: { settings: JSON.stringify(parsedSettings) } });
+        await prisma.tenant.update({ where: { id: tenant.id }, data: { settings: JSON.stringify(parsedSettings) } });
       }
     } catch (err) {
       console.error('[Create Promotion DB Persistence Error]:', err);
@@ -421,12 +305,15 @@ export class MarketingController {
         });
 
         // Update DB tenant settings
-        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
+        let tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, settings: true } });
+        if (!tenant) {
+          tenant = await prisma.tenant.findFirst({ select: { id: true, settings: true } });
+        }
         if (tenant) {
           let parsedSettings: any = {};
           try { parsedSettings = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : (tenant.settings || {}); } catch {}
           parsedSettings.promotions = current;
-          await prisma.tenant.update({ where: { id: tenantId }, data: { settings: JSON.stringify(parsedSettings) } });
+          await prisma.tenant.update({ where: { id: tenant.id }, data: { settings: JSON.stringify(parsedSettings) } });
         }
       } catch {}
     }
@@ -449,12 +336,15 @@ export class MarketingController {
         });
 
         // Update DB tenant settings
-        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
+        let tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, settings: true } });
+        if (!tenant) {
+          tenant = await prisma.tenant.findFirst({ select: { id: true, settings: true } });
+        }
         if (tenant) {
           let parsedSettings: any = {};
           try { parsedSettings = typeof tenant.settings === 'string' ? JSON.parse(tenant.settings) : (tenant.settings || {}); } catch {}
           parsedSettings.promotions = current;
-          await prisma.tenant.update({ where: { id: tenantId }, data: { settings: JSON.stringify(parsedSettings) } });
+          await prisma.tenant.update({ where: { id: tenant.id }, data: { settings: JSON.stringify(parsedSettings) } });
         }
       } catch {}
     }

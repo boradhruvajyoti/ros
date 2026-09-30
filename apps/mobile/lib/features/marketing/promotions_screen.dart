@@ -1830,16 +1830,28 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
           ),
 
           // Footer
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              pw.Text(
-                'Valid: $validFrom to $validTo',
-                style: pw.TextStyle(fontSize: 6, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Valid: $validFrom to $validTo',
+                    style: pw.TextStyle(fontSize: 6, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+                  ),
+                  pw.Text(
+                    '*Single use per bill. T&C Apply.',
+                    style: const pw.TextStyle(fontSize: 5, color: PdfColors.grey600),
+                  ),
+                ],
               ),
-              pw.Text(
-                '*Single use per bill. T&C Apply.',
-                style: const pw.TextStyle(fontSize: 5, color: PdfColors.grey600),
+              pw.SizedBox(height: 2),
+              pw.Center(
+                child: pw.Text(
+                  'Powered by Oxomsoft Software Solution (www.oxomsoft.com)',
+                  style: const pw.TextStyle(fontSize: 4.8, color: PdfColors.grey500),
+                ),
               ),
             ],
           ),
@@ -1850,6 +1862,8 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final tenantName = auth.user?.tenantName ?? 'Restaurant';
     final totalPages = (_cardCount / 8).ceil();
 
     return Padding(
@@ -2028,9 +2042,9 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'RESTAURANT OS',
-                                style: TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.w900),
+                              Text(
+                                tenantName.toUpperCase(),
+                                style: const TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.w900),
                               ),
                               Text(
                                 'Main Branch, City Center • Tel: +1 555-0199',
@@ -2122,6 +2136,13 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                         style: TextStyle(color: Colors.grey.shade500, fontSize: 7.5, fontStyle: FontStyle.italic),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Center(
+                    child: Text(
+                      'Powered by Oxomsoft Software Solution (www.oxomsoft.com)',
+                      style: TextStyle(color: Colors.grey, fontSize: 7.5, fontWeight: FontWeight.w500),
+                    ),
                   ),
                 ],
               ),
