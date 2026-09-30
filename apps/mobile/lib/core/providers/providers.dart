@@ -228,9 +228,19 @@ final socketProvider = Provider<io.Socket?>((ref) {
           type == 'MENU_AVAILABILITY_CHANGED' ||
           type == 'MENU_CATEGORY_CREATED' ||
           type == 'MENU_CATEGORY_UPDATED' ||
-          type == 'MENU_CATEGORY_DELETED') {
+          type == 'MENU_CATEGORY_DELETED' ||
+          type == 'SPECIAL_MENU_CREATED' ||
+          type == 'SPECIAL_MENU_UPDATED' ||
+          type == 'SPECIAL_MENU_DELETED' ||
+          type == 'ACTIVE_MENU_MODE_CHANGED') {
         ref.invalidate(posMenuProvider);
         ref.invalidate(menuCategoriesProvider);
+        ref.invalidate(specialMenusProvider);
+        ref.invalidate(activeMenuModeProvider);
+      } else if (type == 'PROMOTION_CREATED' ||
+          type == 'PROMOTION_UPDATED' ||
+          type == 'PROMOTION_DELETED') {
+        ref.invalidate(promotionsProvider);
       } else if (type == 'TABLE_UPDATED' || type == 'TABLE_STATUS_CHANGED') {
         ref.invalidate(tablesProvider);
         ref.invalidate(activeOrdersProvider);
@@ -298,6 +308,8 @@ void refreshScreenRouteData(WidgetRef ref, String path) {
   } else if (clean.startsWith('/menu')) {
     ref.invalidate(posMenuProvider);
     ref.invalidate(menuCategoriesProvider);
+    ref.invalidate(specialMenusProvider);
+    ref.invalidate(activeMenuModeProvider);
   } else if (clean.startsWith('/inventory')) {
     ref.invalidate(inventoryProvider);
   } else if (clean.startsWith('/staff')) {
@@ -306,6 +318,8 @@ void refreshScreenRouteData(WidgetRef ref, String path) {
     ref.invalidate(customersProvider);
   } else if (clean.startsWith('/reservations')) {
     ref.invalidate(reservationsProvider);
+  } else if (clean.startsWith('/promotions') || clean.startsWith('/marketing')) {
+    ref.invalidate(promotionsProvider);
   }
 }
 
@@ -321,9 +335,43 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
     try {
       final posData = await api.get<dynamic>('/menu/pos-menu');
       if (posData is List && posData.isNotEmpty) {
+        int itemIndex = 1;
         final categories = posData
             .where((e) => e != null && e is Map<String, dynamic>)
             .map((e) => MenuCategory.fromJson(e as Map<String, dynamic>))
+            .map((cat) {
+              final mappedItems = cat.items.map((item) {
+                final numStr = item.itemNumber ?? itemIndex.toString().padLeft(3, '0');
+                itemIndex++;
+                return MenuItem(
+                  id: item.id,
+                  categoryId: item.categoryId,
+                  name: item.name,
+                  description: item.description,
+                  imageUrl: item.imageUrl,
+                  foodType: item.foodType,
+                  spiceLevel: item.spiceLevel,
+                  isAvailable: item.isAvailable,
+                  isActive: item.isActive,
+                  sortOrder: item.sortOrder,
+                  variants: item.variants,
+                  modifierGroups: item.modifierGroups,
+                  kitchenStationId: item.kitchenStationId,
+                  letterCode: item.letterCode,
+                  itemNumber: numStr,
+                  itemCode: item.itemCode ?? '${item.letterCode} • #$numStr',
+                  specialMenuId: item.specialMenuId,
+                );
+              }).toList();
+              return MenuCategory(
+                id: cat.id,
+                name: cat.name,
+                imageUrl: cat.imageUrl,
+                sortOrder: cat.sortOrder,
+                isActive: cat.isActive,
+                items: mappedItems,
+              );
+            })
             .toList();
 
         final allItems = categories.expand((c) => c.items).toList();
@@ -349,9 +397,33 @@ final posMenuProvider = FutureProvider<List<MenuCategory>>((ref) async {
     final itemsData = await api.get<dynamic>('/menu/items');
     final catList = categoriesData is List ? categoriesData : [];
     final itemList = itemsData is List ? itemsData : [];
+    int itemSeq = 1;
     final allItems = itemList
         .where((e) => e != null && e is Map<String, dynamic>)
-        .map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
+        .map((e) {
+          final item = MenuItem.fromJson(e as Map<String, dynamic>);
+          final numStr = item.itemNumber ?? itemSeq.toString().padLeft(3, '0');
+          itemSeq++;
+          return MenuItem(
+            id: item.id,
+            categoryId: item.categoryId,
+            name: item.name,
+            description: item.description,
+            imageUrl: item.imageUrl,
+            foodType: item.foodType,
+            spiceLevel: item.spiceLevel,
+            isAvailable: item.isAvailable,
+            isActive: item.isActive,
+            sortOrder: item.sortOrder,
+            variants: item.variants,
+            modifierGroups: item.modifierGroups,
+            kitchenStationId: item.kitchenStationId,
+            letterCode: item.letterCode,
+            itemNumber: numStr,
+            itemCode: item.itemCode ?? '${item.letterCode} • #$numStr',
+            specialMenuId: item.specialMenuId,
+          );
+        })
         .toList();
 
     final result = <MenuCategory>[];
@@ -427,6 +499,37 @@ final menuItemsProvider = FutureProvider.family<List<MenuItem>, String?>(
     return list.map((e) => MenuItem.fromJson(e as Map<String, dynamic>)).toList();
   },
 );
+
+final specialMenusProvider = FutureProvider<List<SpecialMenu>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  try {
+    final data = await api.get<dynamic>('/menu/special-menus');
+    final list = data is List ? data : [];
+    return list.map((e) => SpecialMenu.fromJson(e as Map<String, dynamic>)).toList();
+  } catch (_) {
+    return [];
+  }
+});
+
+final activeMenuModeProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  try {
+    final data = await api.get<dynamic>('/menu/active-mode');
+    if (data is Map<String, dynamic>) return data;
+  } catch (_) {}
+  return {'mode': 'ALL'};
+});
+
+final promotionsProvider = FutureProvider<List<PromotionCampaign>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  try {
+    final data = await api.get<dynamic>('/marketing/promotions');
+    final list = data is List ? data : [];
+    return list.map((e) => PromotionCampaign.fromJson(e as Map<String, dynamic>)).toList();
+  } catch (_) {
+    return [];
+  }
+});
 
 // ── Tables Providers ──────────────────────────────────────────────────────────
 

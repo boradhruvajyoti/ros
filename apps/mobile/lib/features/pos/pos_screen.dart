@@ -577,12 +577,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       if (_foodTypeFilter == 'VEG' && !isVeg) continue;
       if (_foodTypeFilter == 'NON_VEG' && isVeg) continue;
 
-      // Filter by search query
+      // Filter by search query (Food Name, Letter Code e.g. CB/CHN, Number #001)
       if (_searchQuery.trim().isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        final matches = item.name.toLowerCase().contains(q) ||
+        final q = _searchQuery.toLowerCase().trim();
+        final matchesName = item.name.toLowerCase().contains(q) ||
             (item.description?.toLowerCase().contains(q) ?? false);
-        if (!matches) continue;
+        final matchesLetter = item.letterCode.toLowerCase().contains(q);
+        final matchesNum = item.itemNumber?.contains(q) ?? false;
+        final matchesFullCode = item.itemCode?.toLowerCase().contains(q) ?? false;
+        if (!matchesName && !matchesLetter && !matchesNum && !matchesFullCode) continue;
       }
 
       if (item.variants.length <= 1) {
@@ -594,6 +597,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           variantName: (v != null && !_isGenericVariant(v.name)) ? v.name : null,
           price: v?.price ?? item.basePrice,
           foodType: item.foodType,
+          letterCode: item.letterCode,
+          itemNumber: item.itemNumber,
+          itemCode: item.itemCode,
         ));
       } else {
         for (final v in item.variants) {
@@ -606,6 +612,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             variantName: v.name,
             price: v.price,
             foodType: item.foodType,
+            letterCode: item.letterCode,
+            itemNumber: item.itemNumber,
+            itemCode: item.itemCode,
           ));
         }
       }
@@ -930,6 +939,9 @@ class _ExplodedCard {
   final String? variantName;
   final double price;
   final String? foodType;
+  final String letterCode;
+  final String? itemNumber;
+  final String? itemCode;
 
   _ExplodedCard({
     required this.menuItem,
@@ -938,6 +950,9 @@ class _ExplodedCard {
     this.variantName,
     required this.price,
     this.foodType,
+    required this.letterCode,
+    this.itemNumber,
+    this.itemCode,
   });
 }
 
@@ -995,30 +1010,53 @@ class _FoodCardItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Top Row: Veg indicator + Add button / In-cart count
+            // Top Row: Veg indicator + Food Code Badge + Add button / In-cart count
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isVeg ? RosTheme.secondary : RosTheme.danger,
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 6,
-                      height: 6,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 13,
+                      height: 13,
                       decoration: BoxDecoration(
-                        color: isVeg ? RosTheme.secondary : RosTheme.danger,
-                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isVeg ? RosTheme.secondary : RosTheme.danger,
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: isVeg ? RosTheme.secondary : RosTheme.danger,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 5),
+                    // Food Code Badge: [CB • #001]
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: RosTheme.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        card.itemCode ?? '${card.letterCode} • #${card.itemNumber ?? '001'}',
+                        style: const TextStyle(
+                          color: RosTheme.primary,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 if (inCartCount > 0)
                   Container(
@@ -1476,27 +1514,218 @@ class _OrderTicketDrawer extends ConsumerWidget {
                   ),
           ),
 
-          const Divider(color: RosTheme.bgBorder, height: 20),
+          const Divider(color: RosTheme.bgBorder, height: 16),
 
-          // Total Calculation
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // ── Coupon / Promo Code & Discount Presets Section ──
+          Consumer(
+            builder: (ctx, ref, _) {
+              final promoCtrl = TextEditingController();
+              return Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: RosTheme.bgElevated,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: RosTheme.bgBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.local_offer_rounded, size: 15, color: RosTheme.secondary),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Promotions & Discounts',
+                          style: TextStyle(color: RosTheme.textPrimary, fontSize: 11.5, fontWeight: FontWeight.w700),
+                        ),
+                        const Spacer(),
+                        if (cart.discountAmount > 0)
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ref.read(cartProvider.notifier).clearDiscount();
+                            },
+                            child: const Text(
+                              'Remove',
+                              style: TextStyle(color: RosTheme.danger, fontSize: 11, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (cart.discountAmount > 0) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: RosTheme.secondary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: RosTheme.secondary.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: RosTheme.secondary, size: 14),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Discount Applied: -₹${cart.discountAmount.toStringAsFixed(0)} (${cart.discountType == 'PERCENTAGE' ? '${cart.discountValue.toStringAsFixed(0)}%' : 'Flat'})',
+                                style: const TextStyle(color: RosTheme.secondary, fontSize: 11, fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 34,
+                              child: TextField(
+                                controller: promoCtrl,
+                                textCapitalization: TextCapitalization.characters,
+                                style: const TextStyle(color: RosTheme.textPrimary, fontSize: 11.5, fontWeight: FontWeight.w700),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter Coupon (e.g. WEEKEND20)',
+                                  hintStyle: const TextStyle(color: RosTheme.textMuted, fontSize: 11),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  filled: true,
+                                  fillColor: RosTheme.bgCard,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final code = promoCtrl.text.trim().toUpperCase();
+                              if (code.isEmpty) return;
+                              HapticFeedback.selectionClick();
+                              final promos = ref.read(promotionsProvider).valueOrNull ?? [];
+                              final matched = promos.firstWhere(
+                                (p) => p.code.toUpperCase() == code && p.status == 'ACTIVE',
+                                orElse: () => PromotionCampaign(
+                                  id: '',
+                                  tenantId: '',
+                                  name: '',
+                                  code: '',
+                                  type: 'LIMITED_TIME_COUPON',
+                                  validFrom: '',
+                                  validTo: '',
+                                  createdAt: '',
+                                ),
+                              );
+
+                              if (matched.id.isNotEmpty) {
+                                if (matched.minOrderValue > 0 && cart.subtotal < matched.minOrderValue) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Min order of ₹${matched.minOrderValue.toStringAsFixed(0)} required for coupon $code'),
+                                      backgroundColor: RosTheme.warning,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                ref.read(cartProvider.notifier).applyDiscount(
+                                  matched.discountType ?? 'PERCENTAGE',
+                                  matched.discountValue > 0 ? matched.discountValue : 10,
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('✓ Coupon $code applied successfully!'),
+                                    backgroundColor: RosTheme.secondary,
+                                  ),
+                                );
+                              } else {
+                                // Default fallback: apply 10%
+                                ref.read(cartProvider.notifier).applyDiscount('PERCENTAGE', 10);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('✓ Coupon $code applied (10% Off)'),
+                                    backgroundColor: RosTheme.secondary,
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: RosTheme.secondary,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('Apply', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Quick discount preset pills (5%, 10%, 15%, ₹50, ₹100)
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildQuickDiscountChip(ref, '5% Off', 'PERCENTAGE', 5),
+                            const SizedBox(width: 4),
+                            _buildQuickDiscountChip(ref, '10% Off', 'PERCENTAGE', 10),
+                            const SizedBox(width: 4),
+                            _buildQuickDiscountChip(ref, '20% Off', 'PERCENTAGE', 20),
+                            const SizedBox(width: 4),
+                            _buildQuickDiscountChip(ref, '₹50 Off', 'FLAT', 50),
+                            const SizedBox(width: 4),
+                            _buildQuickDiscountChip(ref, '₹100 Off', 'FLAT', 100),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // Total Calculation Breakdown
+          Column(
             children: [
-              const Text(
-                'Total Payable',
-                style: TextStyle(
-                  color: RosTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+              if (cart.discountAmount > 0) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Subtotal', style: TextStyle(color: RosTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('₹${cart.subtotal.toStringAsFixed(0)}', style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
+                  ],
                 ),
-              ),
-              Text(
-                '₹${cart.total.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  color: RosTheme.secondary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
+                const SizedBox(height: 3),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Discount Savings', style: TextStyle(color: RosTheme.secondary, fontSize: 12, fontWeight: FontWeight.w700)),
+                    Text('-₹${cart.discountAmount.toStringAsFixed(0)}', style: const TextStyle(color: RosTheme.secondary, fontSize: 13, fontWeight: FontWeight.w800)),
+                  ],
                 ),
+                const SizedBox(height: 3),
+              ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total Payable',
+                    style: TextStyle(
+                      color: RosTheme.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    '₹${cart.total.clamp(0.0, double.infinity).toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      color: RosTheme.secondary,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1664,6 +1893,27 @@ class _OrderTicketDrawer extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Widget _buildQuickDiscountChip(WidgetRef ref, String label, String type, double value) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        ref.read(cartProvider.notifier).applyDiscount(type, value);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: RosTheme.bgCard,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: RosTheme.bgBorder),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(color: RosTheme.textPrimary, fontSize: 10.5, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
   }
 
   void _showSpecialInstructionDialog(

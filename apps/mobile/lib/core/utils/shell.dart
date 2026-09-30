@@ -992,6 +992,7 @@ const Map<String, List<String>> _moduleSubmoduleMap = {
   '/reservations':   ['res_calendar', 'res_booking_mgmt', 'res_checkin', 'res_alerts'],
   '/menu':           ['menu_dish_master', 'menu_categories', 'menu_variants', 'menu_modifiers', 'menu_86_toggle'],
   '/inventory':      ['inv_live_balance', 'inv_low_alerts', 'inv_adjustments', 'inv_reconciliation'],
+  '/promotions':     ['promo_coupons', 'promo_thresholds', 'promo_combos', 'promo_cashier_presets'],
   '/customers':      ['cust_directory', 'cust_history', 'cust_loyalty', 'cust_segments'],
   '/staff':          ['staff_roster', 'staff_attendance', 'staff_rbac', 'staff_telegram'],
   '/reports':        ['rep_sales_summary', 'rep_item_performance', 'rep_tax_gst', 'rep_pnl_statement'],
@@ -1068,6 +1069,9 @@ bool isRouteAccessible(String path, AuthUser? user) {
   if (baseRoute == '/inventory') {
     return checkAccess('/inventory', ['inventory:view']);
   }
+  if (baseRoute == '/promotions' || baseRoute == '/marketing') {
+    return checkAccess('/promotions', ['marketing:view', 'marketing:manage', 'menu:view', 'reports:view']);
+  }
   if (baseRoute == '/staff') {
     return checkAccess('/staff', ['staff:view', 'staff:create']);
   }
@@ -1095,7 +1099,7 @@ String getDefaultLandingRoute(AuthUser? user) {
 
   const routePriority = [
     '/tables', '/kitchen', '/current-orders', '/order-history',
-    '/menu', '/inventory', '/reservations', '/customers', '/reports',
+    '/menu', '/inventory', '/promotions', '/reservations', '/customers', '/reports',
     '/staff', '/dashboard', '/settings',
   ];
 
@@ -1116,7 +1120,8 @@ const List<Object> _restaurantNavSections = [
   _SectionDivider('INVENTORY & MENU'),
   _NavItem(path: '/menu',           label: 'Menu Catalog',     icon: Icons.menu_book_rounded),
   _NavItem(path: '/inventory',      label: 'Stock Inventory',  icon: Icons.inventory_2_rounded),
-  _SectionDivider('FINANCE & TEAM'),
+  _SectionDivider('FINANCE & MARKETING'),
+  _NavItem(path: '/promotions',     label: 'Promotions & Offers', icon: Icons.campaign_rounded),
   _NavItem(path: '/customers',      label: 'Customers & CRM',  icon: Icons.people_rounded),
   _NavItem(path: '/staff',          label: 'Staff & Team',     icon: Icons.badge_rounded),
   _NavItem(path: '/reports',        label: 'Sales & Reports',  icon: Icons.bar_chart_rounded),

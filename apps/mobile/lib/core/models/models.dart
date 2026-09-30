@@ -369,6 +369,71 @@ class Branch {
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 
+String generateFoodLetterCode(String name) {
+  if (name.trim().isEmpty) return 'ITM';
+  final words = name.trim().split(RegExp(r'\s+'));
+  final initials = words
+      .map((w) => w.replaceAll(RegExp(r'[^a-zA-Z0-9]'), ''))
+      .where((w) => w.isNotEmpty)
+      .map((w) => w[0].toUpperCase())
+      .join('');
+  return initials.isNotEmpty ? initials : 'ITM';
+}
+
+class SpecialMenu {
+  final String id;
+  final String tenantId;
+  final String name;
+  final String occasion;
+  final String description;
+  final String? startDate;
+  final String? endDate;
+  final List<String> categoryIds;
+  final bool isActive;
+  final String createdAt;
+  final String updatedAt;
+
+  const SpecialMenu({
+    required this.id,
+    required this.tenantId,
+    required this.name,
+    required this.occasion,
+    required this.description,
+    this.startDate,
+    this.endDate,
+    this.categoryIds = const [],
+    this.isActive = true,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory SpecialMenu.fromJson(Map<String, dynamic> json) => SpecialMenu(
+    id: json['id']?.toString() ?? '',
+    tenantId: json['tenantId']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    occasion: json['occasion']?.toString() ?? 'Festival Special',
+    description: json['description']?.toString() ?? '',
+    startDate: json['startDate']?.toString(),
+    endDate: json['endDate']?.toString(),
+    categoryIds: (json['categoryIds'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    isActive: parseBool(json['isActive'], true),
+    createdAt: json['createdAt']?.toString() ?? '',
+    updatedAt: json['updatedAt']?.toString() ?? '',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'tenantId': tenantId,
+    'name': name,
+    'occasion': occasion,
+    'description': description,
+    'startDate': startDate,
+    'endDate': endDate,
+    'categoryIds': categoryIds,
+    'isActive': isActive,
+  };
+}
+
 class MenuCategory {
   final String id;
   final String name;
@@ -413,6 +478,10 @@ class MenuItem {
   final List<MenuItemVariant> variants;
   final List<ModifierGroupLink> modifierGroups;
   final String? kitchenStationId;
+  final String letterCode;
+  final String? itemNumber;
+  final String? itemCode;
+  final String? specialMenuId;
 
   const MenuItem({
     required this.id,
@@ -428,6 +497,10 @@ class MenuItem {
     this.variants = const [],
     this.modifierGroups = const [],
     this.kitchenStationId,
+    required this.letterCode,
+    this.itemNumber,
+    this.itemCode,
+    this.specialMenuId,
   });
 
   factory MenuItem.fromJson(Map<String, dynamic> json) {
@@ -452,10 +525,15 @@ class MenuItem {
       ];
     }
 
+    final name = json['name']?.toString() ?? 'Item';
+    final letterCode = json['letterCode']?.toString() ?? generateFoodLetterCode(name);
+    final itemNumber = json['itemNumber']?.toString();
+    final itemCode = json['itemCode']?.toString() ?? (itemNumber != null ? '$letterCode • #$itemNumber' : null);
+
     return MenuItem(
       id: json['id']?.toString() ?? '',
       categoryId: json['categoryId']?.toString() ?? json['category']?['id']?.toString() ?? 'general',
-      name: json['name']?.toString() ?? 'Item',
+      name: name,
       description: json['description']?.toString(),
       imageUrl: json['imageUrl']?.toString(),
       foodType: json['foodType']?.toString() ?? 'VEG',
@@ -469,6 +547,10 @@ class MenuItem {
           .map((e) => ModifierGroupLink.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
       kitchenStationId: json['kitchenStationId']?.toString(),
+      letterCode: letterCode,
+      itemNumber: itemNumber,
+      itemCode: itemCode,
+      specialMenuId: json['specialMenuId']?.toString(),
     );
   }
 
@@ -1236,4 +1318,160 @@ class KitchenStation {
     displayColor: json['displayColor'] as String? ?? '#3B82F6',
     isActive: json['isActive'] as bool? ?? true,
   );
+}
+
+// ── Promotions / Marketing ───────────────────────────────────────────────────
+
+class PromotionTriggerItem {
+  final String menuItemId;
+  final String name;
+  final int quantity;
+
+  const PromotionTriggerItem({
+    required this.menuItemId,
+    required this.name,
+    this.quantity = 1,
+  });
+
+  factory PromotionTriggerItem.fromJson(Map<String, dynamic> json) => PromotionTriggerItem(
+    menuItemId: json['menuItemId']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    quantity: parseInt(json['quantity'], 1),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'menuItemId': menuItemId,
+    'name': name,
+    'quantity': quantity,
+  };
+}
+
+class PromotionCustomPresets {
+  final List<double> percentages;
+  final List<double> flatAmounts;
+  final List<String> reasons;
+
+  const PromotionCustomPresets({
+    this.percentages = const [5, 10, 15, 20],
+    this.flatAmounts = const [50, 100, 150, 200],
+    this.reasons = const ['Owner Courtesy', 'VIP Guest', 'Customer Delight', 'Staff Family'],
+  });
+
+  factory PromotionCustomPresets.fromJson(Map<String, dynamic> json) => PromotionCustomPresets(
+    percentages: (json['percentages'] as List<dynamic>?)?.map((e) => parseDouble(e, 0.0)).toList() ?? const [5, 10, 15, 20],
+    flatAmounts: (json['flatAmounts'] as List<dynamic>?)?.map((e) => parseDouble(e, 0.0)).toList() ?? const [50, 100, 150, 200],
+    reasons: (json['reasons'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const ['Owner Courtesy', 'VIP Guest', 'Customer Delight', 'Staff Family'],
+  );
+
+  Map<String, dynamic> toJson() => {
+    'percentages': percentages,
+    'flatAmounts': flatAmounts,
+    'reasons': reasons,
+  };
+}
+
+class PromotionCampaign {
+  final String id;
+  final String tenantId;
+  final String name;
+  final String code;
+  final String type; // LIMITED_TIME_COUPON | BILL_THRESHOLD | ITEM_COMBO_COMPLIMENTARY | CUSTOM_DISCOUNT
+  final String? discountType; // PERCENTAGE | FLAT
+  final double discountValue;
+  final double minOrderValue;
+  final double? maxDiscount;
+  final String validFrom;
+  final String validTo;
+  final String? rewardType; // DISCOUNT | COMPLIMENTARY_ITEM
+  final String? complementaryItemId;
+  final String? complementaryItemName;
+  final int complementaryItemQuantity;
+  final List<PromotionTriggerItem> triggerItems;
+  final PromotionCustomPresets? customPresets;
+  final bool autoApply;
+  final bool highlightOnQrMenu;
+  final String status; // ACTIVE | PAUSED
+  final int redemptions;
+  final double totalSavings;
+  final String createdAt;
+
+  const PromotionCampaign({
+    required this.id,
+    required this.tenantId,
+    required this.name,
+    required this.code,
+    required this.type,
+    this.discountType = 'PERCENTAGE',
+    this.discountValue = 0.0,
+    this.minOrderValue = 0.0,
+    this.maxDiscount,
+    required this.validFrom,
+    required this.validTo,
+    this.rewardType = 'DISCOUNT',
+    this.complementaryItemId,
+    this.complementaryItemName,
+    this.complementaryItemQuantity = 1,
+    this.triggerItems = const [],
+    this.customPresets,
+    this.autoApply = false,
+    this.highlightOnQrMenu = true,
+    this.status = 'ACTIVE',
+    this.redemptions = 0,
+    this.totalSavings = 0.0,
+    required this.createdAt,
+  });
+
+  factory PromotionCampaign.fromJson(Map<String, dynamic> json) => PromotionCampaign(
+    id: json['id']?.toString() ?? '',
+    tenantId: json['tenantId']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    code: json['code']?.toString() ?? '',
+    type: json['type']?.toString() ?? 'LIMITED_TIME_COUPON',
+    discountType: json['discountType']?.toString() ?? 'PERCENTAGE',
+    discountValue: parseDouble(json['discountValue'], 0.0),
+    minOrderValue: parseDouble(json['minOrderValue'], 0.0),
+    maxDiscount: parseNullableDouble(json['maxDiscount']),
+    validFrom: json['validFrom']?.toString() ?? '',
+    validTo: json['validTo']?.toString() ?? '',
+    rewardType: json['rewardType']?.toString() ?? 'DISCOUNT',
+    complementaryItemId: json['complementaryItemId']?.toString(),
+    complementaryItemName: json['complementaryItemName']?.toString(),
+    complementaryItemQuantity: parseInt(json['complementaryItemQuantity'], 1),
+    triggerItems: (json['triggerItems'] as List<dynamic>?)
+        ?.where((e) => e != null && e is Map<String, dynamic>)
+        .map((e) => PromotionTriggerItem.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+    customPresets: json['customPresets'] != null && json['customPresets'] is Map<String, dynamic>
+        ? PromotionCustomPresets.fromJson(json['customPresets'] as Map<String, dynamic>)
+        : null,
+    autoApply: parseBool(json['autoApply'], false),
+    highlightOnQrMenu: parseBool(json['highlightOnQrMenu'], true),
+    status: json['status']?.toString() ?? 'ACTIVE',
+    redemptions: parseInt(json['redemptions'], 0),
+    totalSavings: parseDouble(json['totalSavings'], 0.0),
+    createdAt: json['createdAt']?.toString() ?? '',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'tenantId': tenantId,
+    'name': name,
+    'code': code,
+    'type': type,
+    'discountType': discountType,
+    'discountValue': discountValue,
+    'minOrderValue': minOrderValue,
+    'maxDiscount': maxDiscount,
+    'validFrom': validFrom,
+    'validTo': validTo,
+    'rewardType': rewardType,
+    'complementaryItemId': complementaryItemId,
+    'complementaryItemName': complementaryItemName,
+    'complementaryItemQuantity': complementaryItemQuantity,
+    'triggerItems': triggerItems.map((e) => e.toJson()).toList(),
+    'customPresets': customPresets?.toJson(),
+    'autoApply': autoApply,
+    'highlightOnQrMenu': highlightOnQrMenu,
+    'status': status,
+  };
 }
