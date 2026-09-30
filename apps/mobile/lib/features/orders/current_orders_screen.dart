@@ -95,6 +95,7 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
     // Filter by Tab and Search
     final filteredOrders = allOrders.where((order) {
       if (_selectedTab == 'DINE_IN' && order.type != 'DINE_IN') return false;
+      if (_selectedTab == 'PRE_ORDER' && order.type != 'PRE_ORDER') return false;
       if (_selectedTab == 'TAKEAWAY' &&
           !['TAKEAWAY', 'PICKUP', 'DRIVE_THRU'].contains(order.type)) {
         return false;
@@ -120,6 +121,7 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
 
     // Stats calculations
     int dineInCount = 0;
+    int preOrderCount = 0;
     int takeawayCount = 0;
     int deliveryCount = 0;
     double totalRevenue = 0.0;
@@ -128,6 +130,8 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
       totalRevenue += ord.total;
       if (ord.type == 'DINE_IN') {
         dineInCount++;
+      } else if (ord.type == 'PRE_ORDER') {
+        preOrderCount++;
       } else if (['TAKEAWAY', 'PICKUP', 'DRIVE_THRU'].contains(ord.type)) {
         takeawayCount++;
       } else {
@@ -258,6 +262,16 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                         Icons.table_restaurant_rounded,
                         _selectedTab == 'DINE_IN',
                         () => setState(() => _selectedTab = 'DINE_IN'),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildKpiCard(
+                        'PRE-ORDER',
+                        '$preOrderCount',
+                        'pre-orders',
+                        const Color(0xFFA855F7),
+                        Icons.auto_awesome_rounded,
+                        _selectedTab == 'PRE_ORDER',
+                        () => setState(() => _selectedTab = 'PRE_ORDER'),
                       ),
                       const SizedBox(width: 8),
                       _buildKpiCard(
@@ -574,6 +588,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
       DateTime.now().difference(widget.order.createdAt).inMinutes;
 
   Color get _typeColor => switch (widget.order.type) {
+        'PRE_ORDER' => const Color(0xFFA855F7),
         'DINE_IN' => RosTheme.statusOccupied,
         'TAKEAWAY' || 'PICKUP' || 'DRIVE_THRU' => RosTheme.warning,
         'DELIVERY' || 'ONLINE' => RosTheme.secondary,
@@ -581,6 +596,11 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
       };
 
   String get _typeLabel {
+    if (widget.order.type == 'PRE_ORDER') {
+      return widget.order.table != null
+          ? '🎟️ Pre-Order (${widget.order.table!.name})'
+          : '🎟️ Pre-Order';
+    }
     if (widget.order.type == 'DINE_IN') {
       return widget.order.table != null
           ? '🍽️ ${widget.order.table!.name}'
@@ -1054,8 +1074,67 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
             ),
           ),
 
+          // ── Prominent Pre-Order Arrival Info Banner ──
+          if (widget.order.isPreOrder)
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFA855F7).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.zero,
+                border: Border.all(
+                  color: const Color(0xFFA855F7).withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.alarm_rounded, size: 13, color: Color(0xFFA855F7)),
+                      const SizedBox(width: 5),
+                      Text(
+                        'ARRIVAL: ${() {
+                          final meta = widget.order.preOrderMetadata;
+                          if (meta != null && meta['expectedArrivalTime'] != null) {
+                            try {
+                              final dt = DateTime.parse(meta['expectedArrivalTime']);
+                              return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                            } catch (_) {}
+                          }
+                          return 'As Scheduled';
+                        }()}',
+                        style: const TextStyle(
+                          color: Color(0xFFA855F7),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    widget.order.preOrderMetadata?['staffStatus'] == 'PENDING_ACCEPTANCE'
+                        ? '⏳ AWAITING ACCEPTANCE'
+                        : widget.order.preOrderMetadata?['paymentStatus'] == 'PAID'
+                            ? '✓ PAID PREPAID'
+                            : '💳 AWAITING PAYMENT',
+                    style: TextStyle(
+                      color: widget.order.preOrderMetadata?['staffStatus'] == 'PENDING_ACCEPTANCE'
+                          ? RosTheme.warning
+                          : widget.order.preOrderMetadata?['paymentStatus'] == 'PAID'
+                              ? const Color(0xFF10B981)
+                              : RosTheme.secondary,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // ── Prominent Running Table Order Banner ──
-          if (widget.order.table != null)
+          if (!widget.order.isPreOrder && widget.order.table != null)
             Container(
               margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
@@ -1436,14 +1515,63 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                             borderRadius: BorderRadius.zero),
                       ),
                     ),
-                    // Settle & Mark Paid (Only when all KOTs of the table are completely served)
+                    // Settle & Mark Paid or Pre-Order Accept/Reject
                     () {
+                      // Pending Pre-Order Acceptance
+                      if (widget.order.isPreOrder && widget.order.preOrderMetadata?['staffStatus'] == 'PENDING_ACCEPTANCE') {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Row(
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: _isProcessing
+                                    ? null
+                                    : () async {
+                                        final messenger = ScaffoldMessenger.of(context);
+                                        setState(() => _isProcessing = true);
+                                        try {
+                                          final api = ref.read(apiClientProvider);
+                                          await api.patch('/orders/${widget.order.id}/status', data: {'status': 'CONFIRMED'});
+                                          widget.onRefresh();
+                                          if (mounted) {
+                                            messenger.showSnackBar(
+                                              SnackBar(
+                                                content: Text('✓ Pre-Order #${widget.order.orderNumber} Accepted! Payment link unlocked for guest.'),
+                                                backgroundColor: const Color(0xFF10B981),
+                                                behavior: SnackBarBehavior.floating,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            messenger.showSnackBar(
+                                              SnackBar(content: Text('Failed: $e'), backgroundColor: RosTheme.danger),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) setState(() => _isProcessing = false);
+                                        }
+                                      },
+                                icon: const Icon(Icons.check_circle_rounded, size: 14),
+                                label: const Text('Accept', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF10B981),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
                       final activeKots = widget.order.kots.where((k) => k.status != 'CANCELLED').toList();
                       final totalKots = activeKots.length;
                       final servedKots = activeKots.where((k) => k.status == 'SERVED').length;
                       final bool allKotsServed = totalKots > 0 && servedKots == totalKots;
                       final bool canSettle = !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].contains(widget.order.status) &&
-                          (totalKots == 0 ? ['SERVED', 'BILLED', 'PARTIALLY_PAID'].contains(widget.order.status) : allKotsServed);
+                          (totalKots == 0 ? ['SERVED', 'BILLED', 'PARTIALLY_PAID', 'CONFIRMED'].contains(widget.order.status) : allKotsServed);
 
                       if (canSettle) {
                         return Padding(

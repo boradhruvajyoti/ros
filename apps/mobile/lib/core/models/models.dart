@@ -2,6 +2,8 @@
 // Core Data Models — matching backend Prisma schema exactly
 // =============================================================================
 
+import 'dart:convert';
+
 double parseDouble(dynamic value, [double defaultValue = 0.0]) {
   if (value == null) return defaultValue;
   if (value is num) return value.toDouble();
@@ -805,6 +807,17 @@ class Order {
       }
     }
     return table?.capacity ?? 1;
+  }
+
+  bool get isPreOrder => type == 'PRE_ORDER';
+
+  Map<String, dynamic>? get preOrderMetadata {
+    if (notes == null || notes!.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(notes!);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+    return null;
   }
 
   double get balanceDue => total - paidAmount;

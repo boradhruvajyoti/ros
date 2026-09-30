@@ -6,7 +6,7 @@ import {
   Settings, Building2, Percent, Printer, Shield, Save,
   CheckCircle2, Bell, Globe, Sparkles, UploadCloud, Trash2,
   ChefHat, Store, Phone, Mail, MapPin, Receipt, FileText, Loader2,
-  Sliders, Server, Laptop
+  Sliders, Server, Laptop, Copy, ExternalLink, Clock, AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { downscaleImage } from '@/lib/image-utils';
 import { useAuthStore } from '@/stores/auth.store';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'general' | 'logo' | 'tax' | 'printer' | 'security'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'preorder' | 'logo' | 'tax' | 'printer' | 'security'>('general');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -67,6 +67,15 @@ export default function SettingsPage() {
   const [serviceCharge, setServiceCharge] = useState('5.0');
   const [packagingFee, setPackagingFee] = useState('25');
 
+  // Pre-Order & Table Reservation Policy State
+  const [preOrderEnabled, setPreOrderEnabled] = useState(true);
+  const [noShowGraceMinutes, setNoShowGraceMinutes] = useState('30');
+  const [noShowPolicy, setNoShowPolicy] = useState<'REALLOCATE_TABLE' | 'CHARGEABLE_HOURLY' | 'CHARGEABLE_HALF_HOURLY' | 'FREE_HOLD'>('REALLOCATE_TABLE');
+  const [noShowHoldingCharge, setNoShowHoldingCharge] = useState('150');
+  const [restaurantSlug, setRestaurantSlug] = useState('');
+  const [preOrderWelcomeNote, setPreOrderWelcomeNote] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
+
   // Populate state when tenant or platformConfig loads
   useEffect(() => {
     if (tenant || platformConfig) {
@@ -97,6 +106,14 @@ export default function SettingsPage() {
       if (parsedSettings?.serviceChargeRate !== undefined) {
         setServiceCharge(String(parsedSettings.serviceChargeRate));
       }
+
+      // Pre-order & Reservation policies
+      setRestaurantSlug(tenant?.slug || '');
+      if (parsedSettings?.preOrderEnabled !== undefined) setPreOrderEnabled(Boolean(parsedSettings.preOrderEnabled));
+      if (parsedSettings?.noShowGraceMinutes) setNoShowGraceMinutes(String(parsedSettings.noShowGraceMinutes));
+      if (parsedSettings?.noShowPolicy) setNoShowPolicy(parsedSettings.noShowPolicy);
+      if (parsedSettings?.noShowHoldingCharge) setNoShowHoldingCharge(String(parsedSettings.noShowHoldingCharge));
+      if (parsedSettings?.preOrderWelcomeNote) setPreOrderWelcomeNote(parsedSettings.preOrderWelcomeNote);
 
       // Populate flagship branch info if available
       const mainBranch = tenant?.branches?.[0];
@@ -170,6 +187,7 @@ export default function SettingsPage() {
 
       const payload = {
         name: name.trim(),
+        slug: restaurantSlug.trim() || undefined,
         logoUrl: logoUrl.trim() || null,
         settings: {
           ...currentSettings,
@@ -177,6 +195,11 @@ export default function SettingsPage() {
           faviconUrl: faviconUrl.trim() || null,
           taxRate: totalTax,
           serviceChargeRate: parseFloat(serviceCharge) || 0,
+          preOrderEnabled,
+          noShowGraceMinutes: parseInt(noShowGraceMinutes, 10) || 30,
+          noShowPolicy,
+          noShowHoldingCharge: parseFloat(noShowHoldingCharge) || 0,
+          preOrderWelcomeNote: preOrderWelcomeNote.trim(),
           ...(isPlatformSuperAdmin
             ? {
                 platformConfig: {
@@ -266,6 +289,7 @@ export default function SettingsPage() {
       <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto scrollbar-none">
         {[
           { id: 'general', label: isPlatformSuperAdmin ? 'Platform Info' : 'Restaurant Info', icon: isPlatformSuperAdmin ? Globe : Building2 },
+          ...(!isPlatformSuperAdmin ? [{ id: 'preorder', label: 'Pre-Orders & Reservations', icon: Sparkles }] : []),
           { id: 'logo', label: isPlatformSuperAdmin ? 'Platform Logo & Media' : 'Brand Logo & Media', icon: UploadCloud },
           { id: 'tax', label: isPlatformSuperAdmin ? 'Global Tax Defaults' : 'Taxes & Charges', icon: Percent },
           { id: 'printer', label: isPlatformSuperAdmin ? 'Hardware & Printers' : 'KOT & Printers', icon: Printer },
@@ -291,6 +315,242 @@ export default function SettingsPage() {
           );
         })}
       </div>
+
+      {/* Pre-Orders & Table Reservation Policy Tab */}
+      {activeTab === 'preorder' && (
+        <div className="space-y-6">
+          {/* Public Welcome Page & Link Card */}
+          <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <span>Public Welcome & Pre-Order Link</span>
+              </CardTitle>
+              <CardDescription>
+                Your guests can view your restaurant welcome page, book tables on interactive layouts, and pre-order food online before visiting.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Public URL Box */}
+              <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/5 dark:bg-purple-950/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                    Live Public Welcome URL
+                  </span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                    ● Active
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="flex-1 px-3 py-2 rounded-lg bg-background border border-border font-mono text-xs text-foreground select-all overflow-x-auto">
+                    https://ros.oxomsoft.com/{restaurantSlug || tenant?.slug || 'restaurant'}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = `${window.location.origin}/${restaurantSlug || tenant?.slug || 'restaurant'}`;
+                        navigator.clipboard.writeText(url);
+                        setCopiedLink(true);
+                        toast.success('Link Copied!', 'Public welcome page URL copied to clipboard.');
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }}
+                      className="gap-1.5 text-xs font-bold"
+                    >
+                      {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        window.open(`/${restaurantSlug || tenant?.slug || 'restaurant'}`, '_blank');
+                      }}
+                      className="gap-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Visit Public Page</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Slug & Notice Configuration */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">
+                    Custom Restaurant URL Slug
+                  </label>
+                  <div className="flex items-center">
+                    <span className="px-3 py-2 text-xs font-mono bg-muted border border-r-0 border-border rounded-l-lg text-muted-foreground">
+                      ros.oxomsoft.com/
+                    </span>
+                    <Input
+                      value={restaurantSlug}
+                      onChange={(e) => setRestaurantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                      placeholder="e.g. spice-hub"
+                      className="rounded-l-none font-mono text-xs font-bold"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Unique identifier for your restaurant in the public URL.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">
+                    Welcome Banner Note for Guests
+                  </label>
+                  <Input
+                    value={preOrderWelcomeNote}
+                    onChange={(e) => setPreOrderWelcomeNote(e.target.value)}
+                    placeholder="e.g. Enjoy 10% off on all pre-orders during happy hours!"
+                    className="text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Displayed prominently on your public welcome page.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Table Reservation & Late Arrival / No-Show Policy Card */}
+          <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                <span>Late Arrival & Table Reservation Policy</span>
+              </CardTitle>
+              <CardDescription>
+                Define automated rules for table reservation holding and late arrivals if a guest does not arrive at the expected arrival time.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* No-Show Grace Period Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                  Late Arrival Grace Period
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { value: '15', label: '15 Minutes' },
+                    { value: '30', label: '30 Minutes (Standard)' },
+                    { value: '45', label: '45 Minutes' },
+                    { value: '60', label: '1 Hour' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setNoShowGraceMinutes(opt.value)}
+                      className={cn(
+                        'px-3 py-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer',
+                        noShowGraceMinutes === opt.value
+                          ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                          : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Time window after the guest's expected arrival time before the table holding policy triggers.
+                </p>
+              </div>
+
+              {/* No-Show Policy Actions */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                  Policy when Guest Does Not Arrive:
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    {
+                      id: 'REALLOCATE_TABLE',
+                      title: 'Allot for Dine-In to Walk-in Guests',
+                      desc: 'Auto-release the table reservation so present walk-in guests inside the restaurant can be seated immediately.',
+                      icon: '🪑',
+                    },
+                    {
+                      id: 'CHARGEABLE_HOURLY',
+                      title: 'Chargeable Holding (Per Hour)',
+                      desc: 'Keep table reserved exclusively for the pre-order guest with a preset hourly reservation fee added to bill.',
+                      icon: '⏱️',
+                    },
+                    {
+                      id: 'CHARGEABLE_HALF_HOURLY',
+                      title: 'Chargeable Holding (Per Half Hour)',
+                      desc: 'Keep table reserved exclusively with a preset half-hourly reservation fee added to bill.',
+                      icon: '⏳',
+                    },
+                    {
+                      id: 'FREE_HOLD',
+                      title: 'Free Holding Until Occupied',
+                      desc: 'Keep table held for free without late charges until another guest arrives and takes the table.',
+                      icon: '🤝',
+                    },
+                  ].map((item) => {
+                    const isSel = noShowPolicy === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => setNoShowPolicy(item.id as any)}
+                        className={cn(
+                          'p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3',
+                          isSel
+                            ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-sm'
+                            : 'border-border bg-background hover:border-border/80'
+                        )}
+                      >
+                        <span className="text-2xl shrink-0 mt-0.5">{item.icon}</span>
+                        <div className="space-y-1">
+                          <p className={cn('text-xs font-bold', isSel ? 'text-primary' : 'text-foreground')}>
+                            {item.title}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            {item.desc}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Preset Holding Fee if Chargeable */}
+              {(noShowPolicy === 'CHARGEABLE_HOURLY' || noShowPolicy === 'CHARGEABLE_HALF_HOURLY') && (
+                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 dark:bg-amber-950/20 space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                        Preset Table Reservation Charge Amount
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Rate charged {noShowPolicy === 'CHARGEABLE_HOURLY' ? 'per hour' : 'per half hour'} after grace period expires.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-sm text-foreground">₹</span>
+                      <Input
+                        type="number"
+                        value={noShowHoldingCharge}
+                        onChange={(e) => setNoShowHoldingCharge(e.target.value)}
+                        className="w-24 h-9 font-mono font-bold text-sm text-right bg-background"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Brand Logo & Media Tab */}
       {activeTab === 'logo' && (

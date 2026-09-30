@@ -37,11 +37,16 @@ import drivethruRoutes from './v1/drivethru.routes';
 import iotRoutes from './v1/iot.routes';
 import franchiseRoutes from './v1/franchise.routes';
 import expediterRoutes from './v1/expediter.routes';
+import preorderRoutes from './v1/preorder.routes';
 
 export const router = Router();
 
 // Apply global API rate limit (auth has its own stricter limit)
 router.use(apiRateLimit);
+
+// Public Pre-Order & Welcome Routes (Unauthenticated)
+router.use('/public/pre-order', preorderRoutes);
+router.use('/pre-orders', preorderRoutes);
 
 router.use('/auth', authRoutes);
 router.use('/tenants', tenantRoutes);

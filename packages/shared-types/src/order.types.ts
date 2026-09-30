@@ -2,7 +2,7 @@
 // ROS Shared Types — Orders
 // =============================================================================
 
-export type OrderType = 'DINE_IN' | 'TAKEAWAY' | 'PICKUP' | 'DELIVERY' | 'ONLINE';
+export type OrderType = 'DINE_IN' | 'TAKEAWAY' | 'PICKUP' | 'DELIVERY' | 'ONLINE' | 'PRE_ORDER';
 
 export type OrderStatus =
   | 'DRAFT'

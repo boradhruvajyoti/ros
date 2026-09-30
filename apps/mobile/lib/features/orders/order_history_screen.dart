@@ -82,6 +82,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
 
   final _typeOptions = [
     'ALL',
+    'PRE_ORDER',
     'DINE_IN',
     'TAKEAWAY',
     'DELIVERY',
@@ -862,6 +863,12 @@ class _OrderTile extends StatelessWidget {
   Widget _buildOrderTypeBadge() {
     final type = order.type.toUpperCase();
     final (Color bg, Color fg, IconData icon, String label) = switch (type) {
+      'PRE_ORDER' => (
+        const Color(0xFFA855F7).withValues(alpha: 0.15),
+        const Color(0xFFA855F7),
+        Icons.auto_awesome_rounded,
+        'Pre Order'
+      ),
       'DINE_IN' => (
         const Color(0xFFE11D48).withValues(alpha: 0.15),
         const Color(0xFFF43F5E),
@@ -940,12 +947,14 @@ class _OrderTile extends StatelessWidget {
                 border: Border.all(color: RosTheme.bgBorder),
               ),
               child: Icon(
-                order.type == 'DINE_IN'
-                    ? Icons.table_restaurant_rounded
-                    : order.type == 'DELIVERY'
-                        ? Icons.delivery_dining_rounded
-                        : Icons.takeout_dining_rounded,
-                color: RosTheme.textSecondary,
+                order.type == 'PRE_ORDER'
+                    ? Icons.auto_awesome_rounded
+                    : order.type == 'DINE_IN'
+                        ? Icons.table_restaurant_rounded
+                        : order.type == 'DELIVERY'
+                            ? Icons.delivery_dining_rounded
+                            : Icons.takeout_dining_rounded,
+                color: order.type == 'PRE_ORDER' ? const Color(0xFFA855F7) : RosTheme.textSecondary,
                 size: 19,
               ),
             ),

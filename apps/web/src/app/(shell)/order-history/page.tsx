@@ -50,6 +50,12 @@ function extractGuestCount(order: any): number {
 function getOrderTypeBadge(type?: string) {
   const t = (type || 'DINE_IN').toUpperCase();
   switch (t) {
+    case 'PRE_ORDER':
+      return (
+        <span className="inline-flex items-center gap-1 text-[10.5px] font-black px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40">
+          🎟️ Pre Order
+        </span>
+      );
     case 'DINE_IN':
       return (
         <span className="inline-flex items-center gap-1 text-[10.5px] font-black px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/40">
@@ -73,7 +79,7 @@ function getOrderTypeBadge(type?: string) {
     case 'ONLINE':
     case 'QR_ORDER':
       return (
-        <span className="inline-flex items-center gap-1 text-[10.5px] font-black px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40">
+        <span className="inline-flex items-center gap-1 text-[10.5px] font-black px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40">
           📱 Online QR
         </span>
       );
@@ -763,7 +769,8 @@ export default function OrderHistoryPage() {
               onChange={(e) => setSelectedType(e.target.value)}
               className="w-full h-8.5 px-2.5 rounded-lg border border-border/60 bg-background text-xs text-foreground font-normal focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             >
-              <option value="ALL">All Types (Dine-In / Online / Takeaway)</option>
+              <option value="ALL">All Types (Dine-In / Pre-Order / Takeaway)</option>
+              <option value="PRE_ORDER">🎟️ Pre-Order (Advance Booking)</option>
               <option value="DINE_IN">🍽️ Dine-In Table</option>
               <option value="TAKEAWAY">📦 Takeaway / Pickup</option>
               <option value="DELIVERY">🛵 Direct Delivery</option>

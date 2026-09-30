@@ -16,8 +16,8 @@ import { TelegramService } from '../services/telegram.service';
 import { ReceiptImageService } from '../services/receipt-image.service';
 
 const createOrderSchema = z.object({
-  type: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).nullable().optional(),
-  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).nullable().optional(),
+  type: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'PRE_ORDER', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).nullable().optional(),
+  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'PICKUP', 'DELIVERY', 'ONLINE', 'PRE_ORDER', 'ROOM_SERVICE', 'DRIVE_THRU', 'CATERING', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY']).nullable().optional(),
   status: z.enum(['DRAFT', 'CONFIRMED', 'SENT_TO_KITCHEN']).nullable().optional(),
   tableId: z.string().nullable().optional(),
   customerId: z.string().nullable().optional(),
@@ -198,6 +198,26 @@ export class OrderController {
       entityId: req.params.id,
       newValue: { status: dto.status, reason: dto.reason },
     });
+
+    if (order.type === 'PRE_ORDER') {
+      try {
+        let meta: any = {};
+        if (typeof order.notes === 'string') {
+          try { meta = JSON.parse(order.notes); } catch {}
+        }
+        if (dto.status === 'CONFIRMED' || dto.status === 'ACCEPTED' as any) {
+          meta.staffStatus = 'ACCEPTED';
+        } else if (dto.status === 'CANCELLED' || dto.status === 'VOIDED') {
+          meta.staffStatus = 'REJECTED';
+        }
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { notes: JSON.stringify(meta) },
+        });
+      } catch (err) {
+        console.error('Error updating pre-order metadata staffStatus:', err);
+      }
+    }
 
     if (dto.status === 'SERVED') {
       const fullOrder = await prisma.order.findUnique({

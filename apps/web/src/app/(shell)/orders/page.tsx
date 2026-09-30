@@ -130,7 +130,7 @@ export default function CurrentOrdersPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
-  const [activeTab, setActiveTab] = useState<'ALL' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'DINE_IN' | 'PRE_ORDER' | 'TAKEAWAY' | 'DELIVERY'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [settlingOrder, setSettlingOrder] = useState<any | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
@@ -192,6 +192,7 @@ export default function CurrentOrdersPage() {
     return activeOrders.filter((order) => {
       // Tab filter
       if (activeTab === 'DINE_IN' && order.type !== 'DINE_IN') return false;
+      if (activeTab === 'PRE_ORDER' && order.type !== 'PRE_ORDER') return false;
       if (activeTab === 'TAKEAWAY' && !['TAKEAWAY', 'PICKUP', 'DRIVE_THRU'].includes(order.type)) return false;
       if (activeTab === 'DELIVERY' && !['DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY'].includes(order.type)) return false;
 
@@ -215,6 +216,7 @@ export default function CurrentOrdersPage() {
   // Statistics
   const stats = useMemo(() => {
     let dineInCount = 0;
+    let preOrderCount = 0;
     let takeawayCount = 0;
     let deliveryCount = 0;
     let totalRevenue = 0;
@@ -224,6 +226,8 @@ export default function CurrentOrdersPage() {
       totalRevenue += tot;
       if (ord.type === 'DINE_IN') {
         dineInCount++;
+      } else if (ord.type === 'PRE_ORDER') {
+        preOrderCount++;
       } else if (['TAKEAWAY', 'PICKUP', 'DRIVE_THRU'].includes(ord.type)) {
         takeawayCount++;
       } else {
@@ -234,6 +238,7 @@ export default function CurrentOrdersPage() {
     return {
       total: activeOrders.length,
       dineInCount,
+      preOrderCount,
       takeawayCount,
       deliveryCount,
       totalRevenue,
@@ -451,7 +456,7 @@ export default function CurrentOrdersPage() {
       </div>
 
       {/* KPI Stats Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Total Active */}
         <div
           onClick={() => setActiveTab('ALL')}
@@ -489,6 +494,26 @@ export default function CurrentOrdersPage() {
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-2xl font-bold text-rose-600 dark:text-rose-400 font-mono">{stats.dineInCount}</span>
             <span className="text-[11px] text-muted-foreground font-semibold">tables</span>
+          </div>
+        </div>
+
+        {/* Pre-Orders */}
+        <div
+          onClick={() => setActiveTab('PRE_ORDER')}
+          className={cn(
+            'p-3.5 rounded-none border-2 shadow-sm flex flex-col justify-between cursor-pointer transition-colors',
+            activeTab === 'PRE_ORDER'
+              ? 'bg-purple-500/10 border-purple-500 dark:bg-purple-950/40'
+              : 'bg-card dark:bg-zinc-900 border-border/80 dark:border-zinc-800 hover:border-border'
+          )}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-purple-600 dark:text-purple-400">Pre-Order</span>
+            <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400 font-mono">{stats.preOrderCount}</span>
+            <span className="text-[11px] text-muted-foreground font-semibold">pre-orders</span>
           </div>
         </div>
 
@@ -553,6 +578,7 @@ export default function CurrentOrdersPage() {
           {[
             { id: 'ALL', label: 'All Live', count: stats.total, icon: ShoppingBag },
             { id: 'DINE_IN', label: 'Dine-In', count: stats.dineInCount, icon: UtensilsCrossed },
+            { id: 'PRE_ORDER', label: 'Pre-Order', count: stats.preOrderCount, icon: Sparkles },
             { id: 'TAKEAWAY', label: 'Takeaway', count: stats.takeawayCount, icon: Package },
             { id: 'DELIVERY', label: 'Delivery', count: stats.deliveryCount, icon: Bike },
           ].map((tab) => {
@@ -646,8 +672,16 @@ export default function CurrentOrdersPage() {
             };
 
             const isDineIn = order.type === 'DINE_IN';
+            const isPreOrder = order.type === 'PRE_ORDER';
             const isTakeaway = ['TAKEAWAY', 'PICKUP', 'DRIVE_THRU'].includes(order.type);
             const isDelivery = ['DELIVERY', 'ONLINE', 'ROOM_SERVICE', 'AGGREGATOR_ZOMATO', 'AGGREGATOR_SWIGGY'].includes(order.type);
+
+            let preOrderMeta: any = null;
+            if (isPreOrder && order.notes) {
+              try {
+                preOrderMeta = JSON.parse(order.notes);
+              } catch {}
+            }
 
             const activeKots = (order.kots || []).filter((k: any) => k.status !== 'CANCELLED');
             const totalKots = activeKots.length;
@@ -660,6 +694,7 @@ export default function CurrentOrdersPage() {
                 key={order.id}
                 className={cn(
                   'rounded-none bg-card dark:bg-zinc-900 border-2 transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md',
+                  isPreOrder ? 'border-purple-500/60 hover:border-purple-500 bg-purple-500/[0.02]' : '',
                   isDineIn ? 'border-rose-500/50 hover:border-rose-500' : '',
                   isTakeaway ? 'border-amber-500/50 hover:border-amber-500' : '',
                   isDelivery ? 'border-blue-500/50 hover:border-blue-500' : 'border-border/80 dark:border-zinc-800'
@@ -674,8 +709,23 @@ export default function CurrentOrdersPage() {
                         #{order.orderNumber}
                       </span>
 
-                      {/* Bold Table Badge if Table Order */}
-                      {order.table ? (
+                      {/* Pre-Order or Table Badge */}
+                      {isPreOrder ? (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="outline" className="gap-1 rounded-none bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/50 text-xs font-black">
+                            <Sparkles className="w-3 h-3" />
+                            <span>Pre-Order</span>
+                          </Badge>
+                          {order.table && (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-none bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 font-mono">
+                              🍽️ Table {order.table.name}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-none bg-primary/20 text-primary border border-primary/40 font-mono">
+                            👥 {extractGuestCount(order)} {extractGuestCount(order) === 1 ? 'Guest' : 'Guests'}
+                          </span>
+                        </div>
+                      ) : order.table ? (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-none bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/60 font-black">
                           <UtensilsCrossed className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 stroke-[2.5]" />
                           <span className="text-xs uppercase tracking-wide">
@@ -724,8 +774,39 @@ export default function CurrentOrdersPage() {
                     </div>
                   </div>
 
-                  {/* Prominent Running Order Table Banner */}
-                  {order.table && (
+                  {/* Pre-Order Arrival Info Banner */}
+                  {isPreOrder && (
+                    <div className="mt-2.5 p-2 rounded-none bg-purple-500/10 dark:bg-purple-950/60 border border-purple-500/40 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1 text-[11px]">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Expected Arrival: {preOrderMeta?.expectedArrivalTime ? new Date(preOrderMeta.expectedArrivalTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'As Scheduled'}</span>
+                        </span>
+                        <span className={cn(
+                          'text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-none border',
+                          preOrderMeta?.staffStatus === 'PENDING_ACCEPTANCE'
+                            ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/50 animate-pulse'
+                            : preOrderMeta?.paymentStatus === 'PAID'
+                            ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/50'
+                            : 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50'
+                        )}>
+                          {preOrderMeta?.staffStatus === 'PENDING_ACCEPTANCE'
+                            ? '⏳ Awaiting Staff Acceptance'
+                            : preOrderMeta?.paymentStatus === 'PAID'
+                            ? '✓ Paid Online'
+                            : '💳 Awaiting Payment'}
+                        </span>
+                      </div>
+                      {preOrderMeta?.customerAddress && (
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          📍 {preOrderMeta.customerAddress}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Prominent Running Order Table Banner for Dine-In */}
+                  {!isPreOrder && order.table && (
                     <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-none bg-rose-500/10 dark:bg-rose-950/60 border border-rose-500/50">
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-none bg-rose-500 animate-pulse" />
@@ -760,7 +841,7 @@ export default function CurrentOrdersPage() {
                     )}
                   </div>
 
-                  {/* Customer Info (if Takeaway or Delivery) */}
+                  {/* Customer Info */}
                   {order.customer && (
                     <div className="mt-2 text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
                       <span className="font-bold text-foreground">Guest:</span>
@@ -934,12 +1015,62 @@ export default function CurrentOrdersPage() {
                 {/* Primary Settle & Clear Action Footer */}
                 <div className="p-3 bg-muted/40 dark:bg-zinc-950/80 border-t-2 border-border/80 dark:border-zinc-800 flex items-center gap-2">
                   {(() => {
+                    // Pre-Order Pending Acceptance by Staff
+                    if (isPreOrder && preOrderMeta?.staffStatus === 'PENDING_ACCEPTANCE') {
+                      return (
+                        <div className="flex items-center gap-2 w-full">
+                          <Button
+                            onClick={async () => {
+                              try {
+                                await apiPatch(`/orders/${order.id}/status`, { status: 'CONFIRMED' });
+                                queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+                                showToast(`✓ Pre-Order #${order.orderNumber} Accepted! Guest payment link unlocked.`);
+                              } catch (e: any) {
+                                showToast(`Failed: ${e?.message || 'Error'}`);
+                              }
+                            }}
+                            className="flex-1 rounded-none bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs h-9 gap-1.5 shadow-sm border border-emerald-500"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Accept Pre-Order</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => handleCancelOrder(order)}
+                            className="rounded-none border-rose-500/50 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs h-9 px-3"
+                          >
+                            <span>Reject</span>
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    // Pre-Order Accepted but Unpaid by Guest
+                    if (isPreOrder && preOrderMeta?.staffStatus === 'ACCEPTED' && preOrderMeta?.paymentStatus === 'UNPAID') {
+                      return (
+                        <div className="flex items-center gap-2 w-full">
+                          <div className="flex-1 flex items-center justify-center gap-1.5 h-9 px-3 rounded-none bg-purple-500/15 border border-purple-500/40 text-purple-700 dark:text-purple-300 text-xs font-bold select-none">
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Awaiting Guest Payment</span>
+                          </div>
+                          <Button
+                            onClick={() => setSettlingOrder(order)}
+                            variant="outline"
+                            className="rounded-none border-emerald-500/60 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs h-9 px-2.5"
+                            title="Settle manually if guest pays at counter"
+                          >
+                            <span>Settle</span>
+                          </Button>
+                        </div>
+                      );
+                    }
+
                     const activeKots = (order.kots || []).filter((k: any) => k.status !== 'CANCELLED');
                     const totalKots = activeKots.length;
                     const servedKots = activeKots.filter((k: any) => k.status === 'SERVED').length;
                     const allKotsServed = totalKots > 0 && servedKots === totalKots;
                     const canSettle = !['PAID', 'COMPLETED', 'CANCELLED', 'VOIDED'].includes(order.status) &&
-                      (totalKots === 0 ? ['SERVED', 'BILLED', 'PARTIALLY_PAID'].includes(order.status) : allKotsServed);
+                      (totalKots === 0 ? ['SERVED', 'BILLED', 'PARTIALLY_PAID', 'CONFIRMED'].includes(order.status) : allKotsServed);
 
                     if (canSettle) {
                       return (
