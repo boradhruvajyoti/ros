@@ -10,7 +10,6 @@ import { asyncHandler } from '../../middlewares/error.middleware';
 
 const router = Router();
 
-router.get('/verify-domain', asyncHandler(AuthController.verifyDomain));
 router.post('/onboard',      authRateLimit, asyncHandler(AuthController.onboard));
 router.post('/parse-menu',   authRateLimit, asyncHandler(AuthController.parseMenu));
 router.post('/login',        authRateLimit, asyncHandler(AuthController.login));
