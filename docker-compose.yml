@@ -32,12 +32,14 @@ services:
       DB_PORT: 5432
       DB_NAME: ros_db
       POOL_MODE: transaction
-      MAX_CLIENT_CONN: 1000
-      DEFAULT_POOL_SIZE: 20
+      MAX_CLIENT_CONN: 2000
+      DEFAULT_POOL_SIZE: 25
       MIN_POOL_SIZE: 5
       RESERVE_POOL_SIZE: 5
+      MAX_DB_CONNECTIONS: 80
       SERVER_IDLE_TIMEOUT: 60
       AUTH_TYPE: md5
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,search_path,options
     ports:
       - '6432:6432'
     depends_on:
