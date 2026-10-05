@@ -462,4 +462,76 @@ export class AuthController {
       message: 'Telegram connection and all associated credentials completely deleted from database.',
     });
   }
+
+  static async verifyDomain(req: Request, res: Response): Promise<void> {
+    const rawDomain = ((req.query.domain as string) || (req.query.slug as string) || '').toLowerCase().trim();
+    if (!rawDomain) {
+      res.status(400).send('Domain parameter missing');
+      return;
+    }
+
+    const host = rawDomain.split(':')[0];
+    const baseDomain = (process.env.APP_DOMAIN || 'oxomsoft.com').toLowerCase();
+
+    // 1. Root and platform system domains are always authorized
+    const platformHosts = new Set([
+      baseDomain,
+      `www.${baseDomain}`,
+      `api.${baseDomain}`,
+      `app.${baseDomain}`,
+      `admin.${baseDomain}`,
+      `pos.${baseDomain}`,
+      'localhost',
+      '127.0.0.1',
+    ]);
+
+    if (platformHosts.has(host)) {
+      res.status(200).send('OK');
+      return;
+    }
+
+    // 2. Tenant Subdomain check (*.oxomsoft.com)
+    if (host.endsWith(`.${baseDomain}`)) {
+      const slug = host.slice(0, -(baseDomain.length + 1));
+      if (!slug || slug === 'www') {
+        res.status(200).send('OK');
+        return;
+      }
+
+      const tenant = await prisma.tenant.findFirst({
+        where: {
+          slug: slug,
+          status: { in: ['ACTIVE', 'TRIAL'] },
+        },
+        select: { id: true, slug: true, status: true },
+      });
+
+      if (tenant) {
+        res.status(200).send('OK');
+        return;
+      }
+
+      res.status(404).send('Tenant subdomain not found or inactive');
+      return;
+    }
+
+    // 3. Custom domain check (if tenant configured custom domain in settings)
+    const customTenant = await prisma.tenant.findFirst({
+      where: {
+        settings: {
+          contains: host,
+        },
+        status: { in: ['ACTIVE', 'TRIAL'] },
+      },
+      select: { id: true },
+    });
+
+    if (customTenant) {
+      res.status(200).send('OK');
+      return;
+    }
+
+    res.status(404).send('Domain not authorized');
+  }
 }
+

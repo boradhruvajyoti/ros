@@ -744,16 +744,17 @@ DESSERTS & DRINKS
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">
-                    URL Identifier / Tenant Slug
+                    Subdomain / Restaurant Website URL
                   </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-xs text-muted-foreground font-mono">ros.io/</span>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 text-xs text-muted-foreground font-mono select-none">https://</span>
                     <Input
-                      placeholder="bella-napoli"
+                      placeholder="devils-kitchen"
                       value={slug}
                       onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                      className="h-11 bg-background pl-16 text-sm font-mono"
+                      className="h-11 bg-background pl-16 pr-32 text-sm font-mono"
                     />
+                    <span className="absolute right-3 text-xs text-primary font-mono font-bold select-none">.oxomsoft.com</span>
                   </div>
                 </div>
 

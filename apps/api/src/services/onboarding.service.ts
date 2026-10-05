@@ -331,13 +331,19 @@ export class OnboardingService {
   /** Atomically provision a brand-new restaurant tenant, flagship branch, RBAC, tables, menu, and owner account */
   static async onboardRestaurant(dto: OnboardRestaurantDto) {
     const slugBase = (dto.slug || dto.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'restaurant';
-    let cleanSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
-    let attempts = 0;
-    while (attempts < 5) {
-      const existingTenant = await prisma.tenant.findUnique({ where: { slug: cleanSlug } });
-      if (!existingTenant) break;
-      cleanSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}-${attempts + 1}`;
-      attempts++;
+    let cleanSlug = slugBase;
+    
+    // Check if base slug is available, otherwise append random suffix
+    const existingBase = await prisma.tenant.findUnique({ where: { slug: cleanSlug } });
+    if (existingBase) {
+      cleanSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
+      let attempts = 0;
+      while (attempts < 5) {
+        const existingTenant = await prisma.tenant.findUnique({ where: { slug: cleanSlug } });
+        if (!existingTenant) break;
+        cleanSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}-${attempts + 1}`;
+        attempts++;
+      }
     }
 
     // Check if owner email is already taken in system (or for this slug)
@@ -771,6 +777,9 @@ export class OnboardingService {
       },
     });
 
+    const baseDomain = process.env.APP_DOMAIN || 'oxomsoft.com';
+    const subdomainUrl = `https://${result.tenant.slug}.${baseDomain}`;
+
     return {
       accessToken,
       refreshToken,
@@ -779,6 +788,7 @@ export class OnboardingService {
         name: result.tenant.name,
         slug: result.tenant.slug,
         plan: result.tenant.plan,
+        subdomainUrl,
       },
       branch: {
         id: result.branch.id,

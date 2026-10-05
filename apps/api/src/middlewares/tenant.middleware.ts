@@ -39,7 +39,26 @@ export function resolveTenant(options: { required?: boolean } = { required: true
       }
 
       // If slug passed instead of UUID
-      const tenantSlug = req.headers['x-tenant-slug'] as string;
+      let tenantSlug = req.headers['x-tenant-slug'] as string;
+
+      // Auto-resolve slug from subdomain (e.g. devils-kitchen.oxomsoft.com)
+      if (!tenantId && !tenantSlug && req.headers.host) {
+        const host = req.headers.host.split(':')[0].toLowerCase();
+        const baseDomain = (process.env.APP_DOMAIN || 'oxomsoft.com').toLowerCase();
+        const reserved = new Set(['www', 'api', 'app', 'admin', 'pos', 'mail', 'minio', 'localhost']);
+
+        if (host.endsWith(`.${baseDomain}`)) {
+          const sub = host.slice(0, -(baseDomain.length + 1));
+          if (sub && !reserved.has(sub)) {
+            tenantSlug = sub;
+          }
+        } else if (host.endsWith('.localhost')) {
+          const sub = host.slice(0, -'.localhost'.length);
+          if (sub && !reserved.has(sub)) {
+            tenantSlug = sub;
+          }
+        }
+      }
 
       if (!tenantId && !tenantSlug) {
         if (options.required) {
