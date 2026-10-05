@@ -21,6 +21,7 @@ router.use(auth());
 router.get('/floors',                requirePermission('tables:view'),   asyncHandler(TableController.listFloors));
 router.post('/floors',               requirePermission('tables:create'), asyncHandler(TableController.createFloor));
 router.patch('/floors/:id',          requirePermission('tables:edit'),   asyncHandler(TableController.updateFloor));
+router.delete('/floors/:id',         requirePermission('tables:delete'), asyncHandler(TableController.deleteFloor));
 
 router.get('/',                      requirePermission('tables:view'),   asyncHandler(TableController.list));
 router.post('/',                     requirePermission('tables:create'), asyncHandler(TableController.create));

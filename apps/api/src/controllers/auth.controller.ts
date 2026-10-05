@@ -156,9 +156,21 @@ export class AuthController {
       select: { designation: true, department: true },
     });
 
+    const isPlatformOwner = req.user?.email?.toLowerCase() === 'superadmin@ros.com' || req.user?.tid === 'tenant-platform';
+    const availableBranches = isPlatformOwner
+      ? await prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true, address: true, phone: true, isActive: true } })
+      : await prisma.branch.findMany({ where: { tenantId: user?.tenantId || req.user!.tid, isActive: true }, select: { id: true, name: true, address: true, phone: true, isActive: true } });
+
+    const activeBranchId = req.branchId || req.user?.bid;
+    const currentBranch = availableBranches.find((b) => b.id === activeBranchId) || availableBranches[0];
+
     sendSuccess(res, {
       user: {
         ...user,
+        activeBranchId: currentBranch?.id || activeBranchId,
+        branchId: currentBranch?.id || activeBranchId,
+        branchName: currentBranch?.name || 'Main Outlet',
+        availableBranches,
         designation: employee?.designation || '',
         department: employee?.department || '',
       },

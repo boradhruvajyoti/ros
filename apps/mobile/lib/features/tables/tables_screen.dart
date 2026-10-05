@@ -450,7 +450,6 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
   // ── Floor Filter Tabs ───────────────────────────────────────────────────────
 
   Widget _buildFloorTabs(List<Floor> floors) {
-    if (floors.isEmpty) return const SizedBox.shrink();
     return Container(
       height: 40,
       margin: const EdgeInsets.only(top: 4, bottom: 2),
@@ -459,7 +458,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
         padding: const EdgeInsets.symmetric(horizontal: 14),
         children: [
           _buildFloorChip(
-            label: 'All Floors',
+            label: 'All Areas',
             selected: _selectedFloorId == null,
             onTap: () {
               HapticFeedback.selectionClick();
@@ -474,7 +473,234 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                   setState(() => _selectedFloorId = f.id);
                 },
               )),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => _showDiningAreaManagementSheet(floors),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: RosTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: RosTheme.primary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded, size: 14, color: RosTheme.primary),
+                    SizedBox(width: 4),
+                    Text(
+                      'Area',
+                      style: TextStyle(
+                        color: RosTheme.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _showDiningAreaManagementSheet(List<Floor> floors) {
+    HapticFeedback.mediumImpact();
+    final nameCtrl = TextEditingController();
+    final sortCtrl = TextEditingController(text: '${floors.length + 1}');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: RosTheme.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalCtx, setModalState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              MediaQuery.of(modalCtx).viewInsets.bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: RosTheme.textMuted.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    Icon(Icons.layers_rounded, color: RosTheme.primary, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Manage Dining Areas',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: RosTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Form to Add Dining Area
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: RosTheme.bgElevated,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: RosTheme.bgBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '+ Create New Dining Area',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: RosTheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: nameCtrl,
+                        style: const TextStyle(color: RosTheme.textPrimary, fontSize: 13.5),
+                        decoration: const InputDecoration(
+                          labelText: 'Area / Floor Name (e.g. Rooftop, AC Hall)',
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final name = nameCtrl.text.trim();
+                            if (name.isEmpty) return;
+                            try {
+                              final api = ref.read(apiClientProvider);
+                              await api.post('/tables/floors', data: {
+                                'name': name,
+                                'sortOrder': int.tryParse(sortCtrl.text) ?? (floors.length + 1),
+                              });
+                              ref.invalidate(floorsProvider);
+                              ref.invalidate(tablesProvider);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Dining Area "$name" created successfully')),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to create area: $e'), backgroundColor: RosTheme.danger),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.add_rounded, size: 16),
+                          label: const Text('Add Dining Area', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'EXISTING AREAS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: RosTheme.textMuted,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 180),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: floors.length,
+                    separatorBuilder: (_, __) => const Divider(color: RosTheme.bgBorder, height: 1),
+                    itemBuilder: (c, idx) {
+                      final fl = floors[idx];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: RosTheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.location_on_rounded, size: 16, color: RosTheme.primary),
+                        ),
+                        title: Text(fl.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: RosTheme.textPrimary)),
+                        subtitle: Text('Sort Order: ${fl.sortOrder}', style: const TextStyle(fontSize: 11, color: RosTheme.textMuted)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: RosTheme.danger),
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (dCtx) => AlertDialog(
+                                backgroundColor: RosTheme.bgCard,
+                                title: const Text('Delete Dining Area', style: TextStyle(color: RosTheme.textPrimary)),
+                                content: Text('Delete "${fl.name}" and its tables?', style: const TextStyle(color: RosTheme.textSecondary)),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancel')),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: RosTheme.danger),
+                                    onPressed: () => Navigator.pop(dCtx, true),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirmed == true) {
+                              try {
+                                final api = ref.read(apiClientProvider);
+                                await api.delete('/tables/floors/${fl.id}');
+                                ref.invalidate(floorsProvider);
+                                ref.invalidate(tablesProvider);
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              } catch (err) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Cannot delete area: $err'), backgroundColor: RosTheme.danger),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

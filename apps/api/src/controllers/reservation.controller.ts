@@ -31,7 +31,11 @@ export class ReservationController {
         branchId: req.user!.bid!,
       },
       include: {
-        table: true,
+        table: {
+          include: {
+            floor: true,
+          },
+        },
         customer: true,
       },
       orderBy: { date: 'desc' },

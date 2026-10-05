@@ -89,6 +89,48 @@ export class TableController {
     sendSuccess(res, floor);
   }
 
+  static async deleteFloor(req: Request, res: Response): Promise<void> {
+    const floor = await prisma.floor.findFirst({
+      where: { id: req.params.id, tenantId: req.user!.tid, branchId: req.user!.bid, isActive: true },
+      include: {
+        tables: {
+          where: { isActive: true },
+          include: {
+            orders: {
+              where: { status: { notIn: ['COMPLETED', 'CANCELLED', 'VOIDED', 'PAID', 'REFUNDED'] } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!floor) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Dining area not found', 404);
+    }
+
+    const hasActiveOrders = floor.tables.some((t) => t.orders.length > 0);
+    if (hasActiveOrders) {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        'Cannot delete dining area with tables that have active dining orders. Please clear or complete active orders first.',
+        400
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.floor.update({
+        where: { id: floor.id },
+        data: { isActive: false },
+      });
+      await tx.restaurantTable.updateMany({
+        where: { floorId: floor.id, tenantId: req.user!.tid, branchId: req.user!.bid },
+        data: { isActive: false },
+      });
+    });
+
+    sendSuccess(res, { message: 'Dining area deleted successfully' });
+  }
+
   static async list(req: Request, res: Response): Promise<void> {
     const { status, floorId } = req.query;
     const tables = await prisma.restaurantTable.findMany({
@@ -221,6 +263,8 @@ export class TableController {
     const table = await prisma.restaurantTable.findFirst({
       where: { qrCodeToken: token, isActive: true },
       include: {
+        floor: { select: { id: true, name: true } },
+        section: { select: { id: true, name: true } },
         tenant: { select: { id: true, name: true, slug: true, logoUrl: true, settings: true } },
         branch: { select: { id: true, name: true, phone: true, address: true } },
       },
@@ -360,6 +404,8 @@ export class TableController {
         name: table.name,
         capacity: table.capacity,
         status: table.status,
+        floorName: table.floor?.name || null,
+        sectionName: table.section?.name || null,
       },
       restaurant: {
         name: table.tenant.name,

@@ -8,8 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/providers/providers.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/api/api_client.dart';
 import '../auth/telegram_connection_sheet.dart';
+import '../auth/outlet_switcher_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -20,8 +20,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _version = '';
-  Map<String, dynamic>? _tenantSettings;
-  bool _loading = true;
 
   @override
   void initState() {
@@ -31,14 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _load() async {
     final info = await PackageInfo.fromPlatform();
-    setState(() => _version = info.version);
-    try {
-      final api = ref.read(apiClientProvider);
-      final data = await api.get<Map<String, dynamic>>('/settings');
-      setState(() { _tenantSettings = data; _loading = false; });
-    } catch (_) {
-      setState(() => _loading = false);
-    }
+    if (mounted) setState(() => _version = info.version);
   }
 
   @override
@@ -81,7 +72,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 20),
-          _SectionHeader('Restaurant'),
+          _SectionHeader('Restaurant & Branches'),
+          _SettingsTile(
+            Icons.storefront_rounded,
+            'Outlets & Locations',
+            user?.branchName != null ? 'Active: ${user!.branchName}' : 'Switch or provision branches',
+            onTap: () => OutletSwitcherSheet.show(context),
+          ),
           _SettingsTile(Icons.store_rounded, 'Restaurant Info', 'Name, address & GST details', onTap: () {}),
           _SettingsTile(Icons.receipt_rounded, 'Tax Configuration', 'CGST, SGST rates', onTap: () {}),
           _SettingsTile(Icons.qr_code_rounded, 'QR Codes', 'Table QR code management', onTap: () {}),

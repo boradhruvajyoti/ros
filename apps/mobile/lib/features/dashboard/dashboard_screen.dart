@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../auth/outlet_switcher_sheet.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -44,7 +45,7 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       body: dashAsync.when(
-        data: (data) => _buildDashboard(context, data, user?.name),
+        data: (data) => _buildDashboard(context, data, user),
         loading: () => const Center(
           child: CircularProgressIndicator(color: RosTheme.primary),
         ),
@@ -54,7 +55,8 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildDashboard(
-      BuildContext context, Map<String, dynamic> data, String? name) {
+      BuildContext context, Map<String, dynamic> data, AuthUser? user) {
+    final name = user?.name;
     final todayRevenue = parseDouble(data['todayRevenue'], 0.0);
     final todayOrders = parseInt(data['todayOrders'], 0);
     final activeOrders = parseInt(data['activeOrders'], 0);
@@ -66,32 +68,75 @@ class DashboardScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Greeting Header ──
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good ${_greeting()}, ${name?.split(' ').first ?? 'Staff'}',
-                  style: const TextStyle(
-                    color: RosTheme.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
+          // ── Greeting Header & Active Branch ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Good ${_greeting()}, ${name?.split(' ').first ?? 'Staff'}',
+                        style: const TextStyle(
+                          color: RosTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        nowFormatted,
+                        style: const TextStyle(
+                          color: RosTheme.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  nowFormatted,
-                  style: const TextStyle(
-                    color: RosTheme.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+              ),
+              InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  OutletSwitcherSheet.show(context);
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: RosTheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.storefront_rounded, size: 14, color: RosTheme.primary),
+                      const SizedBox(width: 5),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 100),
+                        child: Text(
+                          user?.branchName ?? 'Outlet',
+                          style: const TextStyle(
+                            color: RosTheme.primary,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.swap_horiz_rounded, size: 14, color: RosTheme.primary),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
 

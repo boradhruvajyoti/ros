@@ -6,13 +6,25 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Permission } from '@ros/shared-types';
 
+export interface AvailableBranch {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  gstin?: string | null;
+  isActive?: boolean;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   phone?: string;
   tenantId: string;
+  tenantName?: string;
   branchId: string;
+  branchName?: string;
+  availableBranches?: AvailableBranch[];
   roles?: string[];
   role?: string;
   designation?: string;
@@ -28,6 +40,9 @@ interface AuthState {
 
   setAuth: (token: string, user: Partial<AuthUser> & { id: string; name: string; email: string }) => void;
   setAccessToken: (token: string) => void;
+  setActiveBranch: (branchId: string, branchName: string, newAccessToken?: string) => void;
+  setAvailableBranches: (branches: AvailableBranch[]) => void;
+  updateUser: (partialUser: Partial<AuthUser>) => void;
   setHasHydrated: (state: boolean) => void;
   logout: () => void;
   hasPermission: (permission: Permission) => boolean;
@@ -92,7 +107,10 @@ export const useAuthStore = create<AuthState>()(
           email: user.email,
           phone: (user as any).phone || undefined,
           tenantId: user.tenantId || 'tenant-default',
-          branchId: user.branchId || 'branch-default',
+          tenantName: user.tenantName || undefined,
+          branchId: user.branchId || (user as any).activeBranchId || 'branch-default',
+          branchName: user.branchName || 'Main Outlet',
+          availableBranches: user.availableBranches || [],
           roles,
           permissions,
         };
@@ -101,6 +119,31 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setAccessToken: (token) => set({ accessToken: token }),
+
+      setActiveBranch: (branchId, branchName, newAccessToken) => {
+        const { user, accessToken } = get();
+        if (!user) return;
+        set({
+          user: { ...user, branchId, branchName },
+          accessToken: newAccessToken || accessToken,
+        });
+      },
+
+      setAvailableBranches: (branches) => {
+        const { user } = get();
+        if (!user) return;
+        set({
+          user: { ...user, availableBranches: branches },
+        });
+      },
+
+      updateUser: (partialUser) => {
+        const { user } = get();
+        if (!user) return;
+        set({
+          user: { ...user, ...partialUser },
+        });
+      },
 
       logout: () => {
         clearWebSessionCache();

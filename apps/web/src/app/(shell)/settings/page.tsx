@@ -6,22 +6,44 @@ import {
   Settings, Building2, Percent, Printer, Shield, Save,
   CheckCircle2, Bell, Globe, Sparkles, UploadCloud, Trash2,
   ChefHat, Store, Phone, Mail, MapPin, Receipt, FileText, Loader2,
-  Sliders, Server, Laptop, Copy, ExternalLink, Clock, AlertTriangle
+  Sliders, Server, Laptop, Copy, ExternalLink, Clock, AlertTriangle,
+  Plus, Edit3, Check, X, RefreshCw, UtensilsCrossed
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPatch } from '@/lib/api';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
 import { downscaleImage } from '@/lib/image-utils';
 import { useAuthStore } from '@/stores/auth.store';
 
+interface BranchOutlet {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  gstin?: string | null;
+  timezone?: string;
+  currency?: string;
+  isActive?: boolean;
+  isActiveBranch?: boolean;
+  _count?: {
+    restaurantTables?: number;
+    floors?: number;
+    kitchenStations?: number;
+    orders?: number;
+    userBranchRoles?: number;
+  };
+}
+
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'general' | 'preorder' | 'logo' | 'tax' | 'printer' | 'security'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'outlets' | 'preorder' | 'logo' | 'tax' | 'printer' | 'security'>('general');
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const user = useAuthStore((s) => s.user);
+  const { user, setActiveBranch } = useAuthStore();
 
   // Load current tenant settings from API
   const { data: tenant, isLoading } = useQuery({
@@ -29,6 +51,19 @@ export default function SettingsPage() {
     queryFn: async () => {
       const res = await apiGet<any>('/tenants/current');
       return res;
+    },
+  });
+
+  // Load tenant branches / outlets
+  const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
+    queryKey: ['tenant-branches', user?.tenantId],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<BranchOutlet[]>('/branches');
+        return Array.isArray(res) ? res : [];
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -75,6 +110,19 @@ export default function SettingsPage() {
   const [restaurantSlug, setRestaurantSlug] = useState('');
   const [preOrderWelcomeNote, setPreOrderWelcomeNote] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Outlet Modal State
+  const [showOutletModal, setShowOutletModal] = useState(false);
+  const [editingOutlet, setEditingOutlet] = useState<BranchOutlet | null>(null);
+  const [outletForm, setOutletForm] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    gstin: '',
+    timezone: 'Asia/Kolkata',
+    currency: 'INR',
+  });
 
   // Populate state when tenant or platformConfig loads
   useEffect(() => {
@@ -247,6 +295,87 @@ export default function SettingsPage() {
     },
   });
 
+  // Switch Branch Mutation
+  const switchBranchMutation = useMutation({
+    mutationFn: (branchId: string) => apiPost<any>('/branches/switch', { branchId }),
+    onSuccess: (data: any, branchId: string) => {
+      const targetBranch = branches.find((b) => b.id === branchId);
+      const bName = targetBranch?.name || data?.user?.branchName || 'Selected Outlet';
+      setActiveBranch(branchId, bName, data?.accessToken);
+      toast.success('Active Outlet Switched', `Now operating under ${bName}`);
+      queryClient.invalidateQueries();
+    },
+    onError: (err: any) => {
+      toast.error('Switch Failed', err?.response?.data?.error?.message || err?.message || 'Could not switch active branch.');
+    },
+  });
+
+  // Save / Create Outlet Mutation
+  const saveOutletMutation = useMutation({
+    mutationFn: async () => {
+      if (editingOutlet) {
+        return await apiPatch(`/branches/${editingOutlet.id}`, outletForm);
+      } else {
+        return await apiPost('/branches', outletForm);
+      }
+    },
+    onSuccess: () => {
+      toast.success(
+        editingOutlet ? 'Outlet Updated' : 'Outlet Created',
+        `Outlet '${outletForm.name}' has been successfully ${editingOutlet ? 'updated' : 'provisioned and configured'}.`
+      );
+      setShowOutletModal(false);
+      setEditingOutlet(null);
+      queryClient.invalidateQueries({ queryKey: ['tenant-branches'] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        editingOutlet ? 'Update Failed' : 'Outlet Creation Failed',
+        err?.response?.data?.error?.message || err?.message || 'Could not save outlet.'
+      );
+    },
+  });
+
+  // Delete / Archive Outlet Mutation
+  const deleteOutletMutation = useMutation({
+    mutationFn: (branchId: string) => apiDelete(`/branches/${branchId}`),
+    onSuccess: () => {
+      toast.success('Outlet Archived', 'The outlet has been deactivated.');
+      queryClient.invalidateQueries({ queryKey: ['tenant-branches'] });
+    },
+    onError: (err: any) => {
+      toast.error('Archive Failed', err?.response?.data?.error?.message || err?.message || 'Could not archive outlet.');
+    },
+  });
+
+  const openAddOutletModal = () => {
+    setEditingOutlet(null);
+    setOutletForm({
+      name: '',
+      address: '',
+      phone: '',
+      email: '',
+      gstin: '',
+      timezone: 'Asia/Kolkata',
+      currency: 'INR',
+    });
+    setShowOutletModal(true);
+  };
+
+  const openEditOutletModal = (b: BranchOutlet) => {
+    setEditingOutlet(b);
+    setOutletForm({
+      name: b.name,
+      address: b.address || '',
+      phone: b.phone || '',
+      email: b.email || '',
+      gstin: b.gstin || '',
+      timezone: b.timezone || 'Asia/Kolkata',
+      currency: b.currency || 'INR',
+    });
+    setShowOutletModal(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -263,14 +392,14 @@ export default function SettingsPage() {
           <p className="text-sm text-muted-foreground mt-0.5">
             {isPlatformSuperAdmin
               ? 'Configure global platform brand identity, site title, tagline, logo, support contacts, and system policies'
-              : 'Configure restaurant brand logo, outlet address, GST tax rules, and receipt printing'}
+              : 'Configure restaurant brand logo, multi-outlet locations, GST tax rules, and receipt printing'}
           </p>
         </div>
         <Button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending || isLoading}
           className={cn(
-            'gap-2 shadow-sm',
+            'gap-2 shadow-sm cursor-pointer',
             isPlatformSuperAdmin
               ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold'
               : 'bg-primary hover:bg-primary/90 text-primary-foreground'
@@ -289,6 +418,7 @@ export default function SettingsPage() {
       <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto scrollbar-none">
         {[
           { id: 'general', label: isPlatformSuperAdmin ? 'Platform Info' : 'Restaurant Info', icon: isPlatformSuperAdmin ? Globe : Building2 },
+          ...(!isPlatformSuperAdmin ? [{ id: 'outlets', label: `Outlets & Locations (${branches.length})`, icon: Store }] : []),
           ...(!isPlatformSuperAdmin ? [{ id: 'preorder', label: 'Pre-Orders & Reservations', icon: Sparkles }] : []),
           { id: 'logo', label: isPlatformSuperAdmin ? 'Platform Logo & Media' : 'Brand Logo & Media', icon: UploadCloud },
           { id: 'tax', label: isPlatformSuperAdmin ? 'Global Tax Defaults' : 'Taxes & Charges', icon: Percent },
@@ -301,7 +431,7 @@ export default function SettingsPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap',
+                'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap cursor-pointer',
                 activeTab === tab.id
                   ? isPlatformSuperAdmin
                     ? 'bg-indigo-600 text-white shadow-sm'
@@ -315,6 +445,251 @@ export default function SettingsPage() {
           );
         })}
       </div>
+
+      {/* ── OUTLETS & BRANCHES TAB ── */}
+      {activeTab === 'outlets' && (
+        <div className="space-y-6">
+          <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Store className="w-5 h-5 text-primary" />
+                  <span>Restaurant Outlets & Multi-Unit Branches</span>
+                </CardTitle>
+                <CardDescription>
+                  Manage all physical outlets, sister branches, and franchise locations operating under your restaurant brand.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={openAddOutletModal}
+                className="gap-1.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" /> Add New Outlet
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoadingBranches ? (
+                <div className="p-8 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading outlets...
+                </div>
+              ) : branches.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground space-y-2 border border-dashed border-border rounded-xl">
+                  <p className="font-semibold text-foreground">No Outlets Registered</p>
+                  <p className="text-xs">Click "Add New Outlet" to initialize your first restaurant branch location.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {branches.map((b) => {
+                    const isCurrent = b.id === (user?.branchId || branches[0]?.id);
+                    return (
+                      <div
+                        key={b.id}
+                        className={cn(
+                          "p-4 rounded-xl border transition-all space-y-3 relative",
+                          isCurrent
+                            ? "bg-primary/5 border-primary/40 shadow-xs ring-1 ring-primary/20"
+                            : "bg-accent/20 border-border hover:border-foreground/20"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-sm text-foreground">{b.name}</h3>
+                              {isCurrent ? (
+                                <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
+                                  CURRENT OPERATING OUTLET
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px]">
+                                  {b.isActive ? 'ACTIVE' : 'INACTIVE'}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <MapPin className="w-3 h-3 shrink-0 opacity-70" />
+                              <span>{b.address || 'Address not specified'}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1 border-t border-border/60">
+                          <div>
+                            <span className="font-semibold text-foreground/80">Phone:</span> {b.phone || 'N/A'}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-foreground/80">GSTIN:</span> {b.gstin || 'N/A'}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-foreground/80">Tables:</span> {b._count?.restaurantTables || 0}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-foreground/80">Kitchen Stations:</span> {b._count?.kitchenStations || 0}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+                          <div>
+                            {!isCurrent ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={switchBranchMutation.isPending}
+                                onClick={() => switchBranchMutation.mutate(b.id)}
+                                className="h-7 text-xs font-semibold hover:bg-primary hover:text-primary-foreground cursor-pointer"
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1" /> Switch to This Outlet
+                              </Button>
+                            ) : (
+                              <span className="text-xs font-semibold text-primary flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Active in POS & Kitchen
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openEditOutletModal(b)}
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit
+                            </Button>
+                            {branches.length > 1 && !isCurrent && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={deleteOutletMutation.isPending}
+                                onClick={() => {
+                                  if (confirm(`Archive outlet '${b.name}'?`)) {
+                                    deleteOutletMutation.mutate(b.id);
+                                  }
+                                }}
+                                className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── ADD / EDIT OUTLET MODAL ── */}
+      {showOutletModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-100">
+          <div className="w-full max-w-lg bg-card border border-border p-6 shadow-2xl space-y-4 text-foreground relative">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Store className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-base text-foreground">
+                  {editingOutlet ? `Edit Outlet: ${editingOutlet.name}` : 'Add New Restaurant Outlet'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOutletModal(false)}
+                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-foreground">Outlet Name *</label>
+                <Input
+                  placeholder="e.g. Indiranagar Flagship Outlet or Downtown Express"
+                  value={outletForm.name}
+                  onChange={(e) => setOutletForm({ ...outletForm, name: e.target.value })}
+                  className="bg-background text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-foreground">Street Address / Location</label>
+                <Input
+                  placeholder="e.g. 100 Feet Rd, Indiranagar, Bengaluru"
+                  value={outletForm.address}
+                  onChange={(e) => setOutletForm({ ...outletForm, address: e.target.value })}
+                  className="bg-background text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">Phone Number</label>
+                  <Input
+                    placeholder="+91 98765 43210"
+                    value={outletForm.phone}
+                    onChange={(e) => setOutletForm({ ...outletForm, phone: e.target.value })}
+                    className="bg-background text-xs font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">Email Address</label>
+                  <Input
+                    placeholder="branch@restaurant.com"
+                    value={outletForm.email}
+                    onChange={(e) => setOutletForm({ ...outletForm, email: e.target.value })}
+                    className="bg-background text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">GSTIN / Tax ID</label>
+                  <Input
+                    placeholder="29AAAAA0000A1Z5"
+                    value={outletForm.gstin}
+                    onChange={(e) => setOutletForm({ ...outletForm, gstin: e.target.value })}
+                    className="bg-background text-xs font-mono uppercase"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">Currency</label>
+                  <Input
+                    value={outletForm.currency}
+                    onChange={(e) => setOutletForm({ ...outletForm, currency: e.target.value })}
+                    className="bg-background text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowOutletModal(false)}
+                className="text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!outletForm.name.trim() || saveOutletMutation.isPending}
+                onClick={() => saveOutletMutation.mutate()}
+                className="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
+              >
+                {saveOutletMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                ) : (
+                  <Save className="w-3.5 h-3.5 mr-1" />
+                )}
+                {editingOutlet ? 'Update Outlet' : 'Provision Outlet'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pre-Orders & Table Reservation Policy Tab */}
       {activeTab === 'preorder' && (
@@ -349,398 +724,149 @@ export default function SettingsPage() {
 
                   <div className="flex items-center gap-2">
                     <Button
-                      type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const url = `${window.location.origin}/${restaurantSlug || tenant?.slug || 'restaurant'}`;
+                        const url = `https://ros.oxomsoft.com/${restaurantSlug || tenant?.slug || 'restaurant'}`;
                         navigator.clipboard.writeText(url);
                         setCopiedLink(true);
-                        toast.success('Link Copied!', 'Public welcome page URL copied to clipboard.');
-                        setTimeout(() => setCopiedLink(false), 2000);
+                        toast.success('Link Copied!', 'Public welcome URL copied to clipboard.');
+                        setTimeout(() => setCopiedLink(false), 2500);
                       }}
-                      className="gap-1.5 text-xs font-bold"
+                      className="gap-1.5 text-xs h-8"
                     >
                       {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
                     </Button>
 
                     <Button
-                      type="button"
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         window.open(`/${restaurantSlug || tenant?.slug || 'restaurant'}`, '_blank');
                       }}
-                      className="gap-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white"
+                      className="gap-1.5 text-xs h-8"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Visit Public Page</span>
+                      <span>Preview</span>
                     </Button>
                   </div>
                 </div>
               </div>
 
-              {/* Slug & Notice Configuration */}
+              {/* Slug customization */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">
-                    Custom Restaurant URL Slug
-                  </label>
-                  <div className="flex items-center">
-                    <span className="px-3 py-2 text-xs font-mono bg-muted border border-r-0 border-border rounded-l-lg text-muted-foreground">
-                      ros.oxomsoft.com/
-                    </span>
+                  <label className="text-xs font-semibold text-foreground">Custom Handle / URL Slug</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-mono">ros.oxomsoft.com/</span>
                     <Input
                       value={restaurantSlug}
-                      onChange={(e) => setRestaurantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                      placeholder="e.g. spice-hub"
-                      className="rounded-l-none font-mono text-xs font-bold"
+                      onChange={(e) => setRestaurantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      placeholder="royal-biryani"
+                      className="font-mono text-xs bg-background"
                     />
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Unique identifier for your restaurant in the public URL.
-                  </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">
-                    Welcome Banner Note for Guests
-                  </label>
-                  <Input
-                    value={preOrderWelcomeNote}
-                    onChange={(e) => setPreOrderWelcomeNote(e.target.value)}
-                    placeholder="e.g. Enjoy 10% off on all pre-orders during happy hours!"
-                    className="text-xs"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Displayed prominently on your public welcome page.
-                  </p>
+                  <label className="text-xs font-semibold text-foreground">Enable Online Pre-Orders</label>
+                  <div className="flex items-center gap-3 pt-1">
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={preOrderEnabled}
+                        onChange={(e) => setPreOrderEnabled(e.target.checked)}
+                        className="rounded border-border"
+                      />
+                      <span>Allow guests to pre-order dishes from public menu</span>
+                    </label>
+                  </div>
                 </div>
+              </div>
+
+              {/* Custom Welcome Note */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">Hero Welcome Note / Tagline for Guests</label>
+                <Input
+                  value={preOrderWelcomeNote}
+                  onChange={(e) => setPreOrderWelcomeNote(e.target.value)}
+                  placeholder="Welcome to our restaurant! Book your favorite table & order fresh gourmet food in advance."
+                  className="text-xs bg-background"
+                />
               </div>
             </CardContent>
           </Card>
 
-          {/* Table Reservation & Late Arrival / No-Show Policy Card */}
+          {/* Table Reservation & No-Show Policy Card */}
           <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                <span>Late Arrival & Table Reservation Policy</span>
+                <span>Table Reservation & No-Show Grace Period Policies</span>
               </CardTitle>
               <CardDescription>
-                Define automated rules for table reservation holding and late arrivals if a guest does not arrive at the expected arrival time.
+                Define automated rules for late guest arrivals, grace duration, and holding compensation charges.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* No-Show Grace Period Selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Late Arrival Grace Period
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {[
-                    { value: '15', label: '15 Minutes' },
-                    { value: '30', label: '30 Minutes (Standard)' },
-                    { value: '45', label: '45 Minutes' },
-                    { value: '60', label: '1 Hour' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setNoShowGraceMinutes(opt.value)}
-                      className={cn(
-                        'px-3 py-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer',
-                        noShowGraceMinutes === opt.value
-                          ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                          : 'border-border bg-background hover:bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Grace Period */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Grace Period (Minutes)</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="5"
+                      max="120"
+                      value={noShowGraceMinutes}
+                      onChange={(e) => setNoShowGraceMinutes(e.target.value)}
+                      className="w-32 text-xs bg-background font-mono"
+                    />
+                    <span className="text-xs text-muted-foreground">minutes after scheduled booking time</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Table is protected during this period. Once expired, the configured no-show policy triggers automatically.
+                  </p>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Time window after the guest's expected arrival time before the table holding policy triggers.
-                </p>
-              </div>
 
-              {/* No-Show Policy Actions */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Policy when Guest Does Not Arrive:
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {[
-                    {
-                      id: 'REALLOCATE_TABLE',
-                      title: 'Allot for Dine-In to Walk-in Guests',
-                      desc: 'Auto-release the table reservation so present walk-in guests inside the restaurant can be seated immediately.',
-                      icon: '🪑',
-                    },
-                    {
-                      id: 'CHARGEABLE_HOURLY',
-                      title: 'Chargeable Holding (Per Hour)',
-                      desc: 'Keep table reserved exclusively for the pre-order guest with a preset hourly reservation fee added to bill.',
-                      icon: '⏱️',
-                    },
-                    {
-                      id: 'CHARGEABLE_HALF_HOURLY',
-                      title: 'Chargeable Holding (Per Half Hour)',
-                      desc: 'Keep table reserved exclusively with a preset half-hourly reservation fee added to bill.',
-                      icon: '⏳',
-                    },
-                    {
-                      id: 'FREE_HOLD',
-                      title: 'Free Holding Until Occupied',
-                      desc: 'Keep table held for free without late charges until another guest arrives and takes the table.',
-                      icon: '🤝',
-                    },
-                  ].map((item) => {
-                    const isSel = noShowPolicy === item.id;
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => setNoShowPolicy(item.id as any)}
-                        className={cn(
-                          'p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3',
-                          isSel
-                            ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-sm'
-                            : 'border-border bg-background hover:border-border/80'
-                        )}
-                      >
-                        <span className="text-2xl shrink-0 mt-0.5">{item.icon}</span>
-                        <div className="space-y-1">
-                          <p className={cn('text-xs font-bold', isSel ? 'text-primary' : 'text-foreground')}>
-                            {item.title}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground leading-relaxed">
-                            {item.desc}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* Policy Action */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Action Upon Grace Period Expiry</label>
+                  <select
+                    value={noShowPolicy}
+                    onChange={(e) => setNoShowPolicy(e.target.value as any)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="REALLOCATE_TABLE">Auto-Reallocate Table to Walk-in Guests (Release Hold)</option>
+                    <option value="CHARGEABLE_HOURLY">Charge Retainer / Holding Fee (Per Hour Table Occupancy)</option>
+                    <option value="CHARGEABLE_HALF_HOURLY">Charge Retainer / Holding Fee (Per 30 Mins)</option>
+                    <option value="FREE_HOLD">Keep Reserved Indefinitely (No Auto-Release)</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Preset Holding Fee if Chargeable */}
+              {/* Charge amount if chargeable */}
               {(noShowPolicy === 'CHARGEABLE_HOURLY' || noShowPolicy === 'CHARGEABLE_HALF_HOURLY') && (
-                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 dark:bg-amber-950/20 space-y-2 animate-in fade-in">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                        Preset Table Reservation Charge Amount
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Rate charged {noShowPolicy === 'CHARGEABLE_HOURLY' ? 'per hour' : 'per half hour'} after grace period expires.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold text-sm text-foreground">₹</span>
-                      <Input
-                        type="number"
-                        value={noShowHoldingCharge}
-                        onChange={(e) => setNoShowHoldingCharge(e.target.value)}
-                        className="w-24 h-9 font-mono font-bold text-sm text-right bg-background"
-                      />
-                    </div>
+                <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-300">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Table Holding Rate</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold">₹</span>
+                    <Input
+                      type="number"
+                      value={noShowHoldingCharge}
+                      onChange={(e) => setNoShowHoldingCharge(e.target.value)}
+                      className="w-32 text-xs bg-background font-mono"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {noShowPolicy === 'CHARGEABLE_HOURLY' ? 'per hour delay added to final invoice' : 'per 30-min delay added to final invoice'}
+                    </span>
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Brand Logo & Media Tab */}
-      {activeTab === 'logo' && (
-        <div className="space-y-6">
-          {/* Logo Card */}
-          <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-primary" />
-                {isPlatformSuperAdmin ? 'Platform Brand Logo & Digital Identity' : 'Restaurant Brand Logo & Digital Identity'}
-              </CardTitle>
-              <CardDescription>
-                {isPlatformSuperAdmin
-                  ? 'This logo will appear on your top navigation bar, sidebar, login portal, and superadmin control plane.'
-                  : 'This logo will appear on your top navigation bar, guest QR ordering menus, invoices, and physical standees.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="p-6 rounded-2xl border border-border bg-background/50 flex flex-col md:flex-row items-center gap-6">
-                {/* Logo Preview Container */}
-                <div className="w-32 h-32 rounded-full border-2 border-dashed border-primary/40 bg-card flex flex-col items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt={name || (isPlatformSuperAdmin ? 'Platform Logo' : 'Restaurant Logo')}
-                      className="w-full h-full object-cover rounded-full p-1"
-                    />
-                  ) : isPlatformSuperAdmin ? (
-                    <div className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 flex flex-col items-center justify-center text-white p-2 text-center rounded-full">
-                      <Globe className="w-10 h-10 mb-1 drop-shadow-sm" />
-                      <span className="text-[8px] font-black tracking-wider uppercase">DEFAULT LOGO</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center text-muted-foreground p-3 text-center">
-                      <ChefHat className="w-8 h-8 opacity-40 mb-1" />
-                      <span className="text-[10px] font-bold tracking-wider">NO LOGO</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Upload Actions & Direct URL */}
-                <div className="flex-1 w-full space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        className="hidden"
-                      />
-                      <div className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-accent text-xs font-bold text-foreground flex items-center gap-2 transition-colors shadow-sm">
-                        <UploadCloud className="w-4 h-4 text-primary" />
-                        Upload {isPlatformSuperAdmin ? 'Platform' : 'Restaurant'} Logo Image File (PNG/JPG/SVG)
-                      </div>
-                    </label>
-
-                    {logoUrl && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setLogoUrl('')}
-                        className="text-xs h-10 rounded-xl text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4 mr-1.5" /> {isPlatformSuperAdmin ? 'Reset to Default Platform Logo' : 'Remove Logo'}
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">
-                      Or specify Direct Public Image URL
-                    </label>
-                    <Input
-                      placeholder="https://example.com/logo.png"
-                      value={logoUrl}
-                      onChange={(e) => setLogoUrl(e.target.value)}
-                      className="h-10 bg-card text-xs font-mono"
-                    />
-                  </div>
-
-                  <p className="text-[11px] text-muted-foreground">
-                    💡 Tip: High-resolution PNG or SVG files with transparent backgrounds display best in dark and light modes.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Favicon & Browser Tab Icon Card */}
-          <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
-                {isPlatformSuperAdmin ? 'Platform Favicon & Browser Tab Icon' : 'Browser Favicon & Tab Icon'}
-              </CardTitle>
-              <CardDescription>
-                Customize the icon displayed on browser tabs, bookmarks, and mobile home screen shortcuts for this portal.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Browser Tab Simulation Preview */}
-              <div className="p-4 rounded-xl border border-border bg-background/80 space-y-3">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Live Browser Tab Simulation
-                </p>
-                <div className="flex items-center gap-2 max-w-sm px-3.5 py-2 rounded-t-xl bg-card border-t border-x border-border shadow-xs">
-                  <div className="w-4 h-4 rounded-md overflow-hidden flex items-center justify-center shrink-0">
-                    {faviconUrl ? (
-                      <img src={faviconUrl} alt="Favicon" className="w-full h-full object-contain" />
-                    ) : logoUrl ? (
-                      <img src={logoUrl} alt="Favicon" className="w-full h-full object-contain" />
-                    ) : isPlatformSuperAdmin ? (
-                      <div className="w-full h-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center rounded-sm">
-                        <Globe className="w-3 h-3 text-white" />
-                      </div>
-                    ) : (
-                      <ChefHat className="w-3.5 h-3.5 text-primary" />
-                    )}
-                  </div>
-                  <span className="text-xs font-bold text-foreground truncate flex-1">
-                    {name || (isPlatformSuperAdmin ? 'ROS — Platform Control Plane' : 'Restaurant Operating System')}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-mono">✕</span>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-2xl border border-border bg-background/50 flex flex-col md:flex-row items-center gap-6">
-                {/* Favicon Preview Container */}
-                <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-indigo-500/40 bg-card flex flex-col items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
-                  {faviconUrl ? (
-                    <img
-                      src={faviconUrl}
-                      alt="Favicon Preview"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center text-muted-foreground p-2 text-center">
-                      <Sparkles className="w-6 h-6 text-indigo-400 opacity-60 mb-0.5" />
-                      <span className="text-[8px] font-bold tracking-wider">AUTO / LOGO</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Upload Actions & Direct URL for Favicon */}
-                <div className="flex-1 w-full space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/png,image/x-icon,image/svg+xml,image/jpeg,image/webp"
-                        onChange={handleFaviconUpload}
-                        className="hidden"
-                      />
-                      <div className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-accent text-xs font-bold text-foreground flex items-center gap-2 transition-colors shadow-sm">
-                        <UploadCloud className="w-4 h-4 text-indigo-400" />
-                        Upload Custom Favicon (PNG/ICO/SVG)
-                      </div>
-                    </label>
-
-                    {faviconUrl && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFaviconUrl('')}
-                        className="text-xs h-10 rounded-xl text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4 mr-1.5" /> Reset to Default Favicon
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">
-                      Or specify Direct Favicon Image URL
-                    </label>
-                    <Input
-                      placeholder="https://example.com/favicon.ico or favicon.png"
-                      value={faviconUrl}
-                      onChange={(e) => setFaviconUrl(e.target.value)}
-                      className="h-10 bg-card text-xs font-mono"
-                    />
-                  </div>
-
-                  <p className="text-[11px] text-muted-foreground">
-                    💡 Tip: 32x32px or 64x64px square PNG or ICO images with transparent backgrounds work best. If no favicon is uploaded, your brand logo is automatically used as the fallback.
-                  </p>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -751,150 +877,209 @@ export default function SettingsPage() {
         <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-lg">
-              {isPlatformSuperAdmin ? 'Platform Brand Identity & Global Configuration' : 'Restaurant Identity & Flagship Outlet'}
+              {isPlatformSuperAdmin ? 'Platform Brand Identity & Support Coordinates' : 'Restaurant Identity & Flagship Outlet'}
             </CardTitle>
             <CardDescription>
               {isPlatformSuperAdmin
-                ? 'Global site title, platform tagline, and support contact credentials'
-                : 'Details printed on guest invoices, receipts, and KOT tickets'}
+                ? 'Global public metadata displayed across platform dashboards, tenant consoles, and system communications'
+                : 'Basic restaurant brand info displayed on customer receipts, invoices, and digital menus'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Quick Logo Bar in General Tab */}
-            <div className="p-4 rounded-xl border border-border bg-background/50 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full border-2 border-primary/40 bg-card flex items-center justify-center overflow-hidden shrink-0">
-                  {logoUrl ? (
-                    <img src={logoUrl} alt={name} className="w-full h-full object-cover rounded-full p-0.5" />
-                  ) : isPlatformSuperAdmin ? (
-                    <div className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 flex items-center justify-center text-white">
-                      <Globe className="w-6 h-6 drop-shadow-sm" />
-                    </div>
-                  ) : (
-                    <ChefHat className="w-6 h-6 text-muted-foreground opacity-50" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground">
-                    {isPlatformSuperAdmin ? 'Platform Brand Logo' : 'Restaurant Brand Logo'}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {logoUrl ? 'Custom logo is active' : (isPlatformSuperAdmin ? 'Default platform logo is active' : 'No custom logo uploaded yet')}
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab('logo')}
-                className="text-xs gap-1.5"
-              >
-                <UploadCloud className="w-3.5 h-3.5 text-primary" />
-                Change Logo
-              </Button>
-            </div>
-
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Platform / Site Title' : 'Restaurant Name'}
+                  {isPlatformSuperAdmin ? 'Primary Platform / System Name' : 'Restaurant Brand Name'}
                 </label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? 'e.g. Restaurant OS (ROS)' : 'Restaurant Name'}
-                  className="h-10 bg-background font-medium"
+                  placeholder={isPlatformSuperAdmin ? 'Restaurant OS (ROS)' : 'Royal Biryani House'}
+                  className="bg-background text-xs font-medium"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Platform Tagline / Slogan' : 'Tagline / Brand Slogan'}
-                </label>
+                <label className="text-xs font-semibold text-foreground">Tagline / Motto</label>
                 <Input
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? 'e.g. Enterprise Multi-Tenant Restaurant Cloud & Point of Sale' : 'e.g. Authentic Wood-Fired Dining'}
-                  className="h-10 bg-background"
+                  placeholder={isPlatformSuperAdmin ? 'Culinary Operating System' : 'Authentic Hyderabadi Flavors Since 1998'}
+                  className="bg-background text-xs font-medium"
                 />
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Primary Platform Cluster / HQ Name' : 'Primary Branch / Outlet Name'}
-                </label>
-                <Input
-                  value={branchName}
-                  onChange={(e) => setBranchName(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? 'e.g. Global Multi-Tenant Cloud Cluster' : 'Connaught Place Flagship'}
-                  className="h-10 bg-background"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Platform Support Phone Number' : 'Contact Phone Number'}
+                  {isPlatformSuperAdmin ? 'Platform Support Phone' : 'Flagship Outlet Phone'}
                 </label>
                 <Input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? '+1 (800) 555-0199' : '+91 98765 43210'}
-                  className="h-10 bg-background"
+                  placeholder="+91 98765 43210"
+                  className="bg-background text-xs font-mono"
                 />
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Platform Support & Billing Email' : 'Official Email Address'}
+                  {isPlatformSuperAdmin ? 'Platform Support Email' : 'Official Business Email'}
                 </label>
                 <Input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? 'support@restaurantos.cloud' : 'contact@restaurant.com'}
-                  className="h-10 bg-background"
+                  placeholder={isPlatformSuperAdmin ? 'support@restaurantos.cloud' : 'info@royalbiryani.com'}
+                  className="bg-background text-xs font-medium"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Corporate / Tax ID (GSTIN / EIN)' : 'GSTIN / Tax ID'}
-                </label>
-                <Input
-                  value={gstin}
-                  onChange={(e) => setGstin(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? '27AAAAA0000A1Z5 / US-EIN' : '27AAAAA0000A1Z5'}
-                  className="h-10 bg-background font-mono"
-                />
+
+              {!isPlatformSuperAdmin && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">GSTIN / Tax Identification</label>
+                    <Input
+                      value={gstin}
+                      onChange={(e) => setGstin(e.target.value)}
+                      placeholder="29AAAAA0000A1Z5"
+                      className="bg-background text-xs font-mono uppercase"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">FSSAI Food License No.</label>
+                    <Input
+                      value={fssai}
+                      onChange={(e) => setFssai(e.target.value)}
+                      placeholder="11223344556677"
+                      className="bg-background text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-semibold text-foreground">Primary Flagship Address</label>
+                    <Input
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Plot 42, 100 Feet Rd, Indiranagar, Bengaluru, Karnataka 560038"
+                      className="bg-background text-xs font-medium"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Brand Logo & Media */}
+      {activeTab === 'logo' && (
+        <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {isPlatformSuperAdmin ? 'Platform Brand Identity & Media' : 'Brand Logo & Favicon'}
+            </CardTitle>
+            <CardDescription>
+              {isPlatformSuperAdmin
+                ? 'High-definition brand logos and browser icons displayed across the global control plane and client portals'
+                : 'Upload your restaurant brand logo and favicon. Automatically resized and optimized for receipts and digital menus.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Logo Upload Box */}
+              <div className="p-4 rounded-xl border border-border bg-accent/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs text-foreground">Primary Brand Logo</span>
+                  {logoUrl && (
+                    <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Configured
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-xl border border-border bg-background flex items-center justify-center overflow-hidden p-1 shrink-0">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Brand Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <UtensilsCrossed className="w-8 h-8 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      id="logo-upload"
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="logo-upload"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer transition-all"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>Upload Logo</span>
+                    </label>
+                    <p className="text-[11px] text-muted-foreground">PNG, SVG or JPEG. Max 10MB.</p>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Platform Regulatory / Compliance ID' : 'FSSAI License No.'}
-                </label>
-                <Input
-                  value={fssai}
-                  onChange={(e) => setFssai(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? 'ISO-27001 / SOC-2 / FSSAI' : '10019011000543'}
-                  className="h-10 bg-background font-mono"
-                />
-              </div>
-              <div className="col-span-full space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {isPlatformSuperAdmin ? 'Platform Corporate Headquarters Address' : 'Full Physical Address'}
-                </label>
-                <Input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder={isPlatformSuperAdmin ? 'Corporate HQ, Tech Park, Suite 400, Silicon Valley' : 'Full street address, city, state, postal code'}
-                  className="h-10 bg-background"
-                />
+
+              {/* Favicon Upload Box */}
+              <div className="p-4 rounded-xl border border-border bg-accent/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs text-foreground">Browser Tab Favicon</span>
+                  {faviconUrl && (
+                    <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Configured
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl border border-border bg-background flex items-center justify-center overflow-hidden p-1 shrink-0">
+                    {faviconUrl ? (
+                      <img src={faviconUrl} alt="Favicon" className="w-full h-full object-contain" />
+                    ) : (
+                      <Globe className="w-6 h-6 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFaviconUpload}
+                      id="favicon-upload"
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="favicon-upload"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer transition-all"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>Upload Favicon</span>
+                    </label>
+                    <p className="text-[11px] text-muted-foreground">Square PNG or ICO (64x64px recommended).</p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Tax Settings */}
+      {/* Tax & Charges Settings */}
       {activeTab === 'tax' && (
         <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Tax Configuration & Surcharges</CardTitle>
-            <CardDescription>Configure itemized GST rates and optional service charges applied on billing</CardDescription>
+            <CardTitle className="text-lg">
+              {isPlatformSuperAdmin ? 'Platform Global Tax Rules' : 'GST Tax & Service Charges'}
+            </CardTitle>
+            <CardDescription>
+              {isPlatformSuperAdmin
+                ? 'Default tax rates applied to new restaurant workspaces created on the platform'
+                : 'Configure CGST, SGST, service charges and packaging fees automatically applied to dine-in and takeaway bills'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -912,7 +1097,7 @@ export default function SettingsPage() {
                     <span className="text-xs font-bold">%</span>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Applies automatically to all food & beverage items</p>
+                <p className="text-xs text-muted-foreground">Standard restaurant CGST rate (usually 2.5% for non-AC/AC composite)</p>
               </div>
 
               <div className="p-4 rounded-xl border border-border bg-accent/30 space-y-2">
@@ -929,16 +1114,16 @@ export default function SettingsPage() {
                     <span className="text-xs font-bold">%</span>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Applies automatically to all food & beverage items</p>
+                <p className="text-xs text-muted-foreground">Standard restaurant SGST rate (usually 2.5% for non-AC/AC composite)</p>
               </div>
 
               <div className="p-4 rounded-xl border border-border bg-accent/30 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-foreground">Service Charge (Optional)</span>
+                  <span className="font-semibold text-sm text-foreground">Service Charge</span>
                   <div className="flex items-center gap-1">
                     <Input
                       type="number"
-                      step="0.1"
+                      step="0.5"
                       value={serviceCharge}
                       onChange={(e) => setServiceCharge(e.target.value)}
                       className="w-16 h-8 text-right bg-background text-xs font-bold"
@@ -946,7 +1131,7 @@ export default function SettingsPage() {
                     <span className="text-xs font-bold">%</span>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Discretionary service charge for dine-in orders</p>
+                <p className="text-xs text-muted-foreground">Optional dine-in hospitality service charge (0% to disable)</p>
               </div>
 
               <div className="p-4 rounded-xl border border-border bg-accent/30 space-y-2">

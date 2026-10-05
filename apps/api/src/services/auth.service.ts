@@ -146,6 +146,14 @@ export class AuthService {
       select: { designation: true, department: true },
     });
 
+    const isPlatformOwner = user.email?.toLowerCase() === 'superadmin@ros.com' || user.tenantId === 'tenant-platform';
+    const availableBranches = isPlatformOwner
+      ? await prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true, address: true, phone: true, isActive: true } })
+      : await prisma.branch.findMany({ where: { tenantId: user.tenantId, isActive: true }, select: { id: true, name: true, address: true, phone: true, isActive: true } });
+
+    const currentBranch = availableBranches.find((b) => b.id === activeBranchId) || availableBranches[0];
+    const activeBranchName = currentBranch ? currentBranch.name : 'Main Outlet';
+
     return {
       accessToken,
       refreshToken,
@@ -157,6 +165,8 @@ export class AuthService {
         tenantName: user.tenant.name,
         activeBranchId,
         branchId: activeBranchId,
+        branchName: activeBranchName,
+        availableBranches,
         roles,
         role: roles[0] || '',
         permissions,
@@ -371,6 +381,10 @@ export class AuthService {
       { expiresIn: ACCESS_EXPIRY as any }
     );
 
+    const availableBranches = isSuperAdmin
+      ? await prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true, address: true, phone: true, isActive: true } })
+      : await prisma.branch.findMany({ where: { tenantId: user.tenantId, isActive: true }, select: { id: true, name: true, address: true, phone: true, isActive: true } });
+
     return {
       accessToken,
       user: {
@@ -380,6 +394,7 @@ export class AuthService {
         tenantId: branch.tenantId,
         branchId: branch.id,
         branchName: branch.name,
+        availableBranches,
         roles,
         permissions,
       },
@@ -410,7 +425,7 @@ export class AuthService {
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: targetTenantId },
-      include: { branches: { where: { isActive: true }, take: 1 } },
+      include: { branches: { where: { isActive: true } } },
     });
 
     if (!tenant) {
@@ -469,6 +484,14 @@ export class AuthService {
       }
     }
 
+    const targetBranches = tenant.branches.map((b) => ({
+      id: b.id,
+      name: b.name,
+      address: b.address,
+      phone: b.phone,
+      isActive: b.isActive,
+    }));
+
     return {
       accessToken,
       tenant: {
@@ -485,6 +508,7 @@ export class AuthService {
         tenantId: tenant.id,
         branchId: branch.id,
         branchName: branch.name,
+        availableBranches: targetBranches,
         roles,
         permissions,
       },

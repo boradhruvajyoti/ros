@@ -97,6 +97,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _ref.invalidate(superAdminTenantsProvider);
     _ref.invalidate(saasPlansProvider);
     _ref.invalidate(telegramStatusProvider);
+    _ref.invalidate(branchesProvider);
   }
 
   Future<void> login(String email, String password, {String? branchId}) async {
@@ -167,26 +168,39 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
-  Future<void> switchBranch(String branchId) async {
+  Future<bool> switchBranch(String branchId) async {
     try {
       final res = await _api.post<Map<String, dynamic>>(
-        '/auth/switch-branch',
+        '/branches/switch',
         data: {'branchId': branchId},
       );
       final token = res['accessToken'] as String?;
       if (token != null) {
         await _storage.saveAccessToken(token);
-        state = state.copyWith(accessToken: token);
       }
-      // Update user branchId
-      final userData = await _storage.getUser();
-      if (userData != null) {
-        userData['branchId'] = branchId;
-        await _storage.saveUser(userData);
-        state = state.copyWith(user: AuthUser.fromJson(userData));
+      if (res['user'] != null && res['user'] is Map) {
+        final updatedUserJson = res['user'] as Map<String, dynamic>;
+        await _storage.saveUser(updatedUserJson);
+        state = state.copyWith(
+          accessToken: token ?? state.accessToken,
+          user: AuthUser.fromJson(updatedUserJson),
+        );
+      } else {
+        final userData = await _storage.getUser();
+        if (userData != null) {
+          userData['branchId'] = branchId;
+          await _storage.saveUser(userData);
+          state = state.copyWith(
+            accessToken: token ?? state.accessToken,
+            user: AuthUser.fromJson(userData),
+          );
+        }
       }
       _clearSessionCache();
-    } catch (_) {}
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   void clearError() => state = state.copyWith(error: null);
@@ -829,4 +843,18 @@ final saasPlansProvider = FutureProvider<List<SaasPlanItem>>((ref) async {
 final telegramStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final api = ref.watch(apiClientProvider);
   return api.get<Map<String, dynamic>>('/auth/me/telegram');
+});
+
+// ── Branches / Multi-Outlet Providers ───────────────────────────────────────
+
+final branchesProvider = FutureProvider<List<Branch>>((ref) async {
+  final auth = ref.watch(authProvider);
+  if (!auth.isAuthenticated) return [];
+  final api = ref.watch(apiClientProvider);
+  try {
+    final res = await api.get<List<dynamic>>('/branches');
+    return res.map((b) => Branch.fromJson(b as Map<String, dynamic>)).toList();
+  } catch (_) {
+    return [];
+  }
 });

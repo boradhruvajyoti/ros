@@ -52,6 +52,7 @@ class AuthUser {
   final String tenantId;
   final String? tenantName;
   final String branchId;
+  final String? branchName;
   final String? designation;
   final String? department;
   final List<String> roles;
@@ -59,6 +60,7 @@ class AuthUser {
   final List<String> telegramNotifications;
   final String? telegramChatId;
   final String? telegramUsername;
+  final List<Branch> availableBranches;
 
   const AuthUser({
     required this.id,
@@ -68,6 +70,7 @@ class AuthUser {
     required this.tenantId,
     this.tenantName,
     required this.branchId,
+    this.branchName,
     this.designation,
     this.department,
     this.roles = const [],
@@ -75,6 +78,7 @@ class AuthUser {
     this.telegramNotifications = const [],
     this.telegramChatId,
     this.telegramUsername,
+    this.availableBranches = const [],
   });
 
   String get role => roles.isNotEmpty ? roles.first : '';
@@ -115,6 +119,15 @@ class AuthUser {
       }
     }
 
+    final availBranches = <Branch>[];
+    if (json['availableBranches'] != null && json['availableBranches'] is List) {
+      for (final b in json['availableBranches'] as List) {
+        if (b is Map<String, dynamic>) {
+          availBranches.add(Branch.fromJson(b));
+        }
+      }
+    }
+
     return AuthUser(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? 'User',
@@ -123,6 +136,7 @@ class AuthUser {
       tenantId: json['tenantId'] as String? ?? 'tenant-default',
       tenantName: json['tenantName'] as String?,
       branchId: branchId,
+      branchName: json['branchName'] as String?,
       designation: json['designation'] as String?,
       department: json['department'] as String?,
       roles: roles,
@@ -130,6 +144,7 @@ class AuthUser {
       telegramNotifications: telegramNotifs,
       telegramChatId: json['telegramChatId'] as String?,
       telegramUsername: json['telegramUsername'] as String?,
+      availableBranches: availBranches,
     );
   }
 
@@ -141,6 +156,7 @@ class AuthUser {
     'tenantId': tenantId,
     'tenantName': tenantName,
     'branchId': branchId,
+    'branchName': branchName,
     'roles': roles,
     'permissions': permissions,
     'telegramNotifications': telegramNotifications,
@@ -346,27 +362,64 @@ class Branch {
   final String? address;
   final String? phone;
   final String? email;
+  final String? gstin;
+  final String? timezone;
+  final String? currency;
   final bool isActive;
+  final bool isActiveBranch;
+  final int tablesCount;
+  final int kitchenStationsCount;
+  final int ordersCount;
 
   const Branch({
     required this.id,
-    required this.tenantId,
+    this.tenantId = '',
     required this.name,
     this.address,
     this.phone,
     this.email,
-    required this.isActive,
+    this.gstin,
+    this.timezone,
+    this.currency,
+    this.isActive = true,
+    this.isActiveBranch = false,
+    this.tablesCount = 0,
+    this.kitchenStationsCount = 0,
+    this.ordersCount = 0,
   });
 
-  factory Branch.fromJson(Map<String, dynamic> json) => Branch(
-    id: json['id'] as String,
-    tenantId: json['tenantId'] as String,
-    name: json['name'] as String,
-    address: json['address'] as String?,
-    phone: json['phone'] as String?,
-    email: json['email'] as String?,
-    isActive: json['isActive'] as bool? ?? true,
-  );
+  factory Branch.fromJson(Map<String, dynamic> json) {
+    final counts = json['_count'] as Map<String, dynamic>?;
+    return Branch(
+      id: json['id'] as String? ?? '',
+      tenantId: json['tenantId'] as String? ?? '',
+      name: json['name'] as String? ?? 'Outlet',
+      address: json['address'] as String?,
+      phone: json['phone'] as String?,
+      email: json['email'] as String?,
+      gstin: json['gstin'] as String?,
+      timezone: json['timezone'] as String? ?? 'Asia/Kolkata',
+      currency: json['currency'] as String? ?? 'INR',
+      isActive: json['isActive'] as bool? ?? true,
+      isActiveBranch: json['isActiveBranch'] as bool? ?? false,
+      tablesCount: parseInt(counts?['restaurantTables'] ?? json['tablesCount'], 0),
+      kitchenStationsCount: parseInt(counts?['kitchenStations'] ?? json['kitchenStationsCount'], 0),
+      ordersCount: parseInt(counts?['orders'] ?? json['ordersCount'], 0),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'tenantId': tenantId,
+    'name': name,
+    'address': address,
+    'phone': phone,
+    'email': email,
+    'gstin': gstin,
+    'timezone': timezone,
+    'currency': currency,
+    'isActive': isActive,
+  };
 }
 
 // ── Menu ─────────────────────────────────────────────────────────────────────

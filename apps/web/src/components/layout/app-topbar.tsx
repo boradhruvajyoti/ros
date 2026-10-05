@@ -15,16 +15,18 @@ import { Badge } from '@/components/ui/badge';
 import {
   Menu, Search, Sun, Moon, Maximize2, Minimize2, ChevronDown,
   LogOut, Send, UtensilsCrossed, Globe, Sparkles as SparklesIcon,
-  MessageSquare, ExternalLink, Link2, Unlink, Check, Shield
+  MessageSquare, ExternalLink, Link2, Unlink, Check, Shield,
+  Store, Building2, MapPin, CheckCircle2, ArrowRight, Plus
 } from 'lucide-react';
 
 export function AppTopbar() {
-  const { user, setAuth, logout } = useAuthStore();
+  const { user, setAuth, logout, setActiveBranch } = useAuthStore();
   const { toggleMobileSidebar, isFullscreen, toggleFullscreen } = useUIStore();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showBranchMenu, setShowBranchMenu] = useState(false);
   const [telegramPhoneInput, setTelegramPhoneInput] = useState('');
   const [telegramChatIdInput, setTelegramChatIdInput] = useState('');
   const [telegramUsernameInput, setTelegramUsernameInput] = useState('');
@@ -68,6 +70,38 @@ export function AppTopbar() {
     },
     staleTime: 1000 * 60 * 5,
     enabled: !!user?.tenantId,
+  });
+
+  // Available Outlets / Branches query
+  const { data: branches = [] } = useQuery({
+    queryKey: ['tenant-branches', user?.tenantId],
+    queryFn: async () => {
+      try {
+        const res = await apiGet<any[]>('/branches');
+        return Array.isArray(res) ? res : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 2,
+    enabled: !!user?.tenantId,
+  });
+
+  // Switch Active Branch Mutation
+  const switchBranchMutation = useMutation({
+    mutationFn: (branchId: string) => apiPost<any>('/branches/switch', { branchId }),
+    onSuccess: (data: any, branchId: string) => {
+      const targetBranch = branches.find((b) => b.id === branchId);
+      const branchName = targetBranch?.name || data?.user?.branchName || 'Selected Outlet';
+      setActiveBranch(branchId, branchName, data?.accessToken);
+      setShowBranchMenu(false);
+      toast.success('Active Outlet Switched', `Now operating under ${branchName}`);
+      // Invalidate queries to refresh data for the new branch
+      queryClient.invalidateQueries();
+    },
+    onError: (err: any) => {
+      toast.error('Could not switch outlet', err?.response?.data?.error?.message || err?.message || 'Failed to switch active outlet context.');
+    },
   });
 
   // Current User Telegram Status
@@ -145,6 +179,9 @@ export function AppTopbar() {
     if (!isPlatformSuperAdmin && parsed?.tagline) tenantTagline = parsed.tagline;
   } catch {}
 
+  const currentActiveBranch = branches.find((b) => b.id === user?.branchId) || (branches.length > 0 ? branches[0] : null);
+  const activeBranchDisplayName = currentActiveBranch?.name || user?.branchName || 'Main Outlet';
+
   const handleLogout = async () => {
     try {
       await apiPost('/auth/logout');
@@ -157,7 +194,7 @@ export function AppTopbar() {
 
   return (
     <header className="h-13 border-b border-border bg-card flex items-center px-3 sm:px-5 gap-2.5 sm:gap-4 shrink-0 sticky top-0 z-40 justify-between shadow-card">
-      {/* Left: Mobile Drawer Trigger + Restaurant / Platform Logo & Title (Frozen) */}
+      {/* Left: Mobile Drawer Trigger + Restaurant / Platform Logo & Title + Outlet Switcher */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Mobile Hamburger Drawer Trigger */}
         <button
@@ -201,13 +238,137 @@ export function AppTopbar() {
           </div>
         </div>
 
+        {/* ── MULTI-OUTLET / BRANCH SWITCHER (Header Dropdown) ── */}
+        {!isPlatformSuperAdmin && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowBranchMenu(!showBranchMenu)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold border transition-all cursor-pointer select-none",
+                showBranchMenu
+                  ? "bg-primary/10 border-primary/40 text-primary ring-1 ring-primary/20"
+                  : "bg-muted/40 hover:bg-muted border-border text-foreground hover:border-foreground/20"
+              )}
+              title="Switch Active Outlet / Branch"
+            >
+              <Store className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="truncate max-w-[100px] sm:max-w-[150px] md:max-w-[190px]">
+                {activeBranchDisplayName}
+              </span>
+              {branches.length > 1 && (
+                <span className="px-1.5 py-0.2 bg-primary/15 text-primary text-[10px] font-bold rounded-sm shrink-0">
+                  {branches.length} Outlets
+                </span>
+              )}
+              <ChevronDown className="w-3 h-3 text-muted-foreground ml-0.5 shrink-0" />
+            </button>
+
+            {/* Outlet Selector Dropdown Menu */}
+            {showBranchMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowBranchMenu(false)}
+                />
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 border border-border bg-popover p-2.5 shadow-xl space-y-2 z-50 animate-in fade-in slide-in-from-top-1 duration-100 text-foreground"
+                  style={{ borderRadius: 0 }}
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-border px-1">
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Select Operating Outlet</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {branches.length} registered location{branches.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      Multi-Outlet
+                    </Badge>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto space-y-1 pr-0.5">
+                    {branches.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-muted-foreground">
+                        No additional outlets found.
+                      </div>
+                    ) : (
+                      branches.map((b) => {
+                        const isCurrent = b.id === (user?.branchId || currentActiveBranch?.id);
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            disabled={switchBranchMutation.isPending}
+                            onClick={() => switchBranchMutation.mutate(b.id)}
+                            className={cn(
+                              "w-full text-left p-2.5 border transition-all flex items-start justify-between gap-2 cursor-pointer",
+                              isCurrent
+                                ? "bg-primary/10 border-primary/40 text-foreground"
+                                : "bg-card hover:bg-muted/60 border-border/80 text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn("text-xs font-bold truncate", isCurrent && "text-primary")}>
+                                  {b.name}
+                                </span>
+                                {isCurrent && (
+                                  <span className="px-1.5 py-0.2 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold border border-emerald-500/30">
+                                    ACTIVE
+                                  </span>
+                                )}
+                              </div>
+                              {b.address && (
+                                <p className="text-[10px] text-muted-foreground truncate mt-0.5 flex items-center gap-1">
+                                  <MapPin className="w-2.5 h-2.5 shrink-0 opacity-70" />
+                                  <span className="truncate">{b.address}</span>
+                                </p>
+                              )}
+                              {b._count && (
+                                <p className="text-[9px] text-muted-foreground/80 mt-1">
+                                  {b._count.restaurantTables || 0} Tables • {b._count.kitchenStations || 0} Kitchen Stations
+                                </p>
+                              )}
+                            </div>
+                            {isCurrent ? (
+                              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                            ) : (
+                              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mt-0.5" />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Manage / Add Outlets Link */}
+                  <div className="pt-2 border-t border-border flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBranchMenu(false);
+                        router.push('/settings');
+                      }}
+                      className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Manage Outlets in Settings</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Search bar (Desktop / Tablet) */}
-        <div className="flex-1 max-w-xs hidden lg:block ml-2">
+        <div className="flex-1 max-w-xs hidden lg:block ml-1">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search dishes, orders..."
               className="w-full pl-8 pr-3 h-8 border border-border bg-muted/40 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring transition-all"
               style={{ borderRadius: 0 }}
             />
@@ -283,9 +444,14 @@ export function AppTopbar() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-foreground truncate">{user?.name || 'Staff User'}</p>
                     <p className="text-[11px] text-muted-foreground truncate">{user?.email || 'staff@restaurant.com'}</p>
-                    <Badge variant="outline" className="mt-1 text-[9px] font-medium border-border text-muted-foreground py-0">
-                      {user?.roles?.[0]?.replace('_', ' ') || 'STAFF'}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-[9px] font-medium border-border text-muted-foreground py-0">
+                        {user?.roles?.[0]?.replace('_', ' ') || 'STAFF'}
+                      </Badge>
+                      <Badge variant="secondary" className="text-[9px] font-medium py-0">
+                        {activeBranchDisplayName}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
 
@@ -564,4 +730,3 @@ export function AppTopbar() {
     </header>
   );
 }
-

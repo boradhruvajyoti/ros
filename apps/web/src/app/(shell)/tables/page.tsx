@@ -9,7 +9,8 @@ import {
   Utensils, DollarSign, CheckCircle2, AlertCircle, Sparkles, ArrowRight,
   Printer, Download, Eye, ExternalLink, Search, RefreshCw, Receipt,
   CheckCircle, XCircle, LayoutGrid, UtensilsCrossed, Volume2, CreditCard,
-  Banknote, User, AlertTriangle, Minus, Calendar, CalendarDays, CalendarRange
+  Banknote, User, AlertTriangle, Minus, Calendar, CalendarDays, CalendarRange,
+  Building2, Layers, MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -254,6 +255,13 @@ export default function TablesPage() {
   const [tableFloorIdInput, setTableFloorIdInput] = useState<string>('');
   const [qrModalTable, setQrModalTable] = useState<Table | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+
+  // ── Dining Area / Floor Filter & Management State ───────────────────────────
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
+  const [isManageFloorsModalOpen, setIsManageFloorsModalOpen] = useState(false);
+  const [editingFloor, setEditingFloor] = useState<any | null>(null);
+  const [floorNameInput, setFloorNameInput] = useState('');
+  const [floorSortOrderInput, setFloorSortOrderInput] = useState<number>(0);
 
   // ── View Mode: Normal vs Minimized (Compact Grid) ───────────────────────────
   const [viewMode, setViewMode] = useState<'normal' | 'minimized'>('normal');
@@ -783,6 +791,43 @@ export default function TablesPage() {
     onError: (err: any) => toast.error('Delete Failed', err.message || 'Could not delete table.'),
   });
 
+  const createFloorMutation = useMutation({
+    mutationFn: async (data: { name: string; sortOrder?: number }) => apiPost('/tables/floors', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['floors'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      toast.success('Dining Area Added', 'New dining area created.');
+      setFloorNameInput('');
+      setFloorSortOrderInput(0);
+      setEditingFloor(null);
+    },
+    onError: (err: any) => toast.error('Creation Failed', err.message || 'Could not add dining area.'),
+  });
+
+  const updateFloorMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; sortOrder?: number } }) =>
+      apiPatch(`/tables/floors/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['floors'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      toast.success('Dining Area Updated', 'Changes saved.');
+      setEditingFloor(null);
+      setFloorNameInput('');
+    },
+    onError: (err: any) => toast.error('Update Failed', err.message || 'Could not update dining area.'),
+  });
+
+  const deleteFloorMutation = useMutation({
+    mutationFn: async (id: string) => apiDelete(`/tables/floors/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['floors'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      if (selectedFloorId) setSelectedFloorId(null);
+      toast.success('Dining Area Deleted', 'Area removed.');
+    },
+    onError: (err: any) => toast.error('Cannot Delete Area', err.message || 'Could not delete dining area.'),
+  });
+
   const handleTableClick = (table: Table) => {
     if (table.status === 'OCCUPIED') {
       const activeOrder = activeOrderByTableId[table.id];
@@ -916,11 +961,36 @@ export default function TablesPage() {
     printHtmlInSameTab(htmlContent);
   };
 
+  const filteredTables = useMemo(() => {
+    return tables.filter((t: Table) => {
+      if (selectedFloorId && t.floorId !== selectedFloorId) return false;
+      if (tableStatusFilter && t.status !== tableStatusFilter) return false;
+      return true;
+    });
+  }, [tables, selectedFloorId, tableStatusFilter]);
+
+  const floorMetrics = useMemo(() => {
+    const map: Record<string, { total: number; occupied: number; available: number }> = {};
+    for (const t of tables) {
+      const fid = t.floorId || 'unassigned';
+      if (!map[fid]) map[fid] = { total: 0, occupied: 0, available: 0 };
+      map[fid].total++;
+      if (t.status === 'OCCUPIED') map[fid].occupied++;
+      if (t.status === 'AVAILABLE') map[fid].available++;
+    }
+    return map;
+  }, [tables]);
+
   const statusCounts = Object.entries(TABLE_STATUS_META).reduce((acc, [key]) => {
-    acc[key] = tables.filter((t) => t.status === key).length;
+    acc[key] = tables
+      .filter((t) => !selectedFloorId || t.floorId === selectedFloorId)
+      .filter((t) => t.status === key).length;
     return acc;
   }, {} as Record<string, number>);
 
+  const activeTablesCount = selectedFloorId
+    ? tables.filter((t) => t.floorId === selectedFloorId).length
+    : tables.length;
   const availableCount = statusCounts.AVAILABLE || 0;
   const occupiedCount = statusCounts.OCCUPIED || 0;
 
@@ -1036,6 +1106,15 @@ export default function TablesPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setIsManageFloorsModalOpen(true)}
+              className="text-xs h-9 rounded-xl gap-1.5 border-border/60 hover:bg-muted/50 font-medium"
+            >
+              <Building2 className="w-3.5 h-3.5 text-primary" /> Dining Areas
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handlePrintAllStandees}
               className="text-xs h-9 rounded-xl gap-1.5 border-border/60 hover:bg-muted/50 font-normal"
             >
@@ -1048,13 +1127,84 @@ export default function TablesPage() {
                 setTableNameInput('');
                 setTableCapacityInput(4);
                 setTableShapeInput('SQUARE');
-                setTableFloorIdInput((floors[0] as any)?.id || '');
+                setTableFloorIdInput(selectedFloorId || (floors[0] as any)?.id || '');
                 setIsCreateModalOpen(true);
               }}
               className="font-medium text-xs h-9 rounded-xl bg-primary text-primary-foreground gap-1.5 shadow-xs"
             >
               <Plus className="w-4 h-4" /> Add Table
             </Button>
+          </div>
+        </div>
+
+        {/* Dining Area / Floor Filter Tabs Strip */}
+        <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <button
+              type="button"
+              onClick={() => setSelectedFloorId(null)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 border',
+                selectedFloorId === null
+                  ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                  : 'bg-card text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted/40'
+              )}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>All Dining Areas</span>
+              <span className={cn(
+                'text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold',
+                selectedFloorId === null ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+              )}>
+                {tables.length}
+              </span>
+            </button>
+
+            {floors.map((floor: any) => {
+              const isSelected = selectedFloorId === floor.id;
+              const fMetrics = floorMetrics[floor.id] || { total: 0, occupied: 0, available: 0 };
+              return (
+                <button
+                  key={floor.id}
+                  type="button"
+                  onClick={() => setSelectedFloorId(floor.id)}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 border',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                      : 'bg-card text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted/40'
+                  )}
+                >
+                  <MapPin className={cn('w-3.5 h-3.5', isSelected ? 'text-primary-foreground' : 'text-primary')} />
+                  <span>{floor.name}</span>
+                  <span className={cn(
+                    'text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold',
+                    isSelected ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  )}>
+                    {fMetrics.total}
+                  </span>
+                  {fMetrics.occupied > 0 && (
+                    <span className={cn(
+                      'w-2 h-2 rounded-full bg-rose-500 animate-pulse',
+                      isSelected ? 'ring-2 ring-primary-foreground' : ''
+                    )} title={`${fMetrics.occupied} table(s) currently dining`} />
+                  )}
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingFloor(null);
+                setFloorNameInput('');
+                setFloorSortOrderInput(floors.length + 1);
+                setIsManageFloorsModalOpen(true);
+              }}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-medium text-primary hover:bg-primary/10 border border-dashed border-primary/40 flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Plus className="w-3 h-3" /> Area
+            </button>
           </div>
         </div>
 
@@ -1070,7 +1220,7 @@ export default function TablesPage() {
                 : 'bg-muted/40 text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/70'
             )}
           >
-            All Tables ({tables.length})
+            All Status ({activeTablesCount})
           </button>
           {Object.entries(TABLE_STATUS_META).map(([key, meta]) => {
             const count = statusCounts[key] || 0;
@@ -1096,22 +1246,51 @@ export default function TablesPage() {
         </div>
 
         {/* Tables Grid */}
-        <div className={cn(
-          'grid gap-4',
-          viewMode === 'minimized'
-            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5 sm:gap-3'
-            : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4'
-        )}>
-          {tables.map((table) => {
-            const meta = TABLE_STATUS_META[table.status] || TABLE_STATUS_META.AVAILABLE;
-            const activeOrder = activeOrderByTableId[table.id];
-            const kotProg = activeOrder ? getOrderKotProgress(activeOrder) : { total: 0, served: 0, allServed: false };
-            const isServed = activeOrder ? ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(activeOrder.status) : false;
-            const isCancelled = activeOrder ? ['CANCELLED', 'VOIDED'].includes(activeOrder.status) : false;
-            const payCheck = activeOrder ? checkCanMarkPaid(activeOrder) : { canPay: false };
-            const cancelCheck = activeOrder ? checkCanCancel(activeOrder) : { canCancel: false };
-            const orderCfg = activeOrder ? (ORDER_STATUS_CONFIG[activeOrder.status] || ORDER_STATUS_CONFIG.DRAFT) : null;
-            const validItems = activeOrder ? (activeOrder.items || []).filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status)) : [];
+        {filteredTables.length === 0 ? (
+          <div className="py-16 text-center space-y-3 rounded-2xl bg-card border border-dashed border-border/80 p-8">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+              <UtensilsCrossed className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-foreground">No Tables Found</p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                {selectedFloorId
+                  ? 'No tables have been placed in this dining area yet.'
+                  : 'No tables matching the selected filters.'}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                setTableNameInput('');
+                setTableCapacityInput(4);
+                setTableShapeInput('SQUARE');
+                setTableFloorIdInput(selectedFloorId || (floors[0] as any)?.id || '');
+                setIsCreateModalOpen(true);
+              }}
+              className="font-bold text-xs h-9 rounded-xl bg-primary text-primary-foreground gap-1.5 shadow-xs"
+            >
+              <Plus className="w-4 h-4" /> Add Table Here
+            </Button>
+          </div>
+        ) : (
+          <div className={cn(
+            'grid gap-4',
+            viewMode === 'minimized'
+              ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5 sm:gap-3'
+              : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4'
+          )}>
+            {filteredTables.map((table) => {
+              const meta = TABLE_STATUS_META[table.status] || TABLE_STATUS_META.AVAILABLE;
+              const activeOrder = activeOrderByTableId[table.id];
+              const kotProg = activeOrder ? getOrderKotProgress(activeOrder) : { total: 0, served: 0, allServed: false };
+              const isServed = activeOrder ? ['SERVED', 'BILLED', 'PAID', 'PARTIALLY_PAID', 'COMPLETED'].includes(activeOrder.status) : false;
+              const isCancelled = activeOrder ? ['CANCELLED', 'VOIDED'].includes(activeOrder.status) : false;
+              const payCheck = activeOrder ? checkCanMarkPaid(activeOrder) : { canPay: false };
+              const cancelCheck = activeOrder ? checkCanCancel(activeOrder) : { canCancel: false };
+              const orderCfg = activeOrder ? (ORDER_STATUS_CONFIG[activeOrder.status] || ORDER_STATUS_CONFIG.DRAFT) : null;
+              const validItems = activeOrder ? (activeOrder.items || []).filter((i: any) => !['CANCELLED', 'VOIDED'].includes(i.status)) : [];
+              const floorObj = floors.find((f: any) => f.id === table.floorId) || table.floor;
 
             const isOccupied = table.status === 'OCCUPIED' || Boolean(activeOrder);
             const isPendingAccept = activeOrder && ['CONFIRMED', 'DRAFT'].includes(activeOrder.status);
@@ -1538,14 +1717,7 @@ export default function TablesPage() {
             );
           })}
         </div>
-
-        {tables.length === 0 && !isTablesLoading && (
-          <div className="rounded-3xl border-2 border-dashed border-border p-12 text-center">
-            <Utensils className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-            <h3 className="text-sm font-bold text-foreground">No Tables Created</h3>
-            <p className="text-xs text-muted-foreground mt-1">Tap "Add Table" above to create dining tables.</p>
-          </div>
-        )}
+      )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
@@ -2112,6 +2284,33 @@ export default function TablesPage() {
               </div>
 
               <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-foreground">Dining Area / Section</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManageFloorsModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                  >
+                    <Plus className="w-3 h-3" /> Add Area
+                  </button>
+                </div>
+                <select
+                  value={tableFloorIdInput}
+                  onChange={(e) => setTableFloorIdInput(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">No Specific Area</option>
+                  {floors.map((fl: any) => (
+                    <option key={fl.id} value={fl.id}>
+                      {fl.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="text-xs font-bold text-foreground">Seating Capacity (Guests)</label>
                 <div className="flex items-center gap-3 mt-1.5">
                   <button
@@ -2454,6 +2653,196 @@ export default function TablesPage() {
                 className="rounded-xl text-xs font-bold"
               >
                 Close Log
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: MANAGE DINING AREAS & FLOORS
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {isManageFloorsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+          <div className="w-full max-w-lg bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-foreground">Manage Dining Areas</h3>
+                  <p className="text-xs text-muted-foreground font-normal">
+                    Organize tables across floors, halls, outdoor seating &amp; VIP lounges.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageFloorsModalOpen(false);
+                  setEditingFloor(null);
+                  setFloorNameInput('');
+                }}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Add / Edit Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!floorNameInput.trim()) return;
+                if (editingFloor) {
+                  updateFloorMutation.mutate({
+                    id: editingFloor.id,
+                    data: { name: floorNameInput.trim(), sortOrder: Number(floorSortOrderInput) || 0 },
+                  });
+                } else {
+                  createFloorMutation.mutate({
+                    name: floorNameInput.trim(),
+                    sortOrder: Number(floorSortOrderInput) || (floors.length + 1),
+                  });
+                }
+              }}
+              className="p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-foreground">
+                  {editingFloor ? `Edit Area: ${editingFloor.name}` : '+ Create New Dining Area'}
+                </span>
+                {editingFloor && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingFloor(null);
+                      setFloorNameInput('');
+                      setFloorSortOrderInput(0);
+                    }}
+                    className="text-[11px] font-bold text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel Editing
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                    Area / Floor Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Rooftop Terrace, AC Hall, Bar Lounge"
+                    value={floorNameInput}
+                    onChange={(e) => setFloorNameInput(e.target.value)}
+                    className="w-full h-10 px-3 rounded-xl border border-border bg-background text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    value={floorSortOrderInput}
+                    onChange={(e) => setFloorSortOrderInput(parseInt(e.target.value) || 0)}
+                    className="w-full h-10 px-3 rounded-xl border border-border bg-background text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={createFloorMutation.isPending || updateFloorMutation.isPending}
+                  className="font-bold text-xs h-9 rounded-xl bg-primary text-primary-foreground gap-1.5 shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{editingFloor ? 'Update Area' : 'Save Area'}</span>
+                </Button>
+              </div>
+            </form>
+
+            {/* Existing Areas List */}
+            <div className="space-y-2">
+              <span className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
+                Active Dining Areas ({floors.length})
+              </span>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {floors.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-3 text-center">
+                    No dining areas created yet. Add your first area above.
+                  </p>
+                ) : (
+                  floors.map((floor: any) => {
+                    const fMetrics = floorMetrics[floor.id] || { total: 0, occupied: 0, available: 0 };
+                    return (
+                      <div
+                        key={floor.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-all"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-xs">
+                            {floor.sortOrder || 1}
+                          </div>
+                          <div>
+                            <span className="text-sm font-bold text-foreground block">{floor.name}</span>
+                            <span className="text-[11px] text-muted-foreground font-medium">
+                              {fMetrics.total} Tables ({fMetrics.available} Free · {fMetrics.occupied} Dining)
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingFloor(floor);
+                              setFloorNameInput(floor.name);
+                              setFloorSortOrderInput(floor.sortOrder || 0);
+                            }}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted text-xs font-bold transition-colors cursor-pointer"
+                            title="Edit Dining Area"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete "${floor.name}" and all its tables?`)) {
+                                deleteFloorMutation.mutate(floor.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs font-bold transition-colors cursor-pointer"
+                            title="Delete Dining Area"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-border flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsManageFloorsModalOpen(false);
+                  setEditingFloor(null);
+                  setFloorNameInput('');
+                }}
+                className="rounded-xl text-xs font-bold"
+              >
+                Done
               </Button>
             </div>
           </div>

@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
 import '../../features/auth/telegram_connection_sheet.dart';
+import '../../features/auth/outlet_switcher_sheet.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
@@ -131,6 +132,43 @@ class AppShell extends ConsumerWidget {
         ],
       ),
       actions: [
+        // Compact Outlet Switcher chip (when not Platform SuperAdmin)
+        if (!isSuperAdmin)
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              OutletSwitcherSheet.show(context);
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: RosTheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.storefront_rounded, color: RosTheme.primary, size: 14),
+                  const SizedBox(width: 4),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 80),
+                    child: Text(
+                      user?.branchName ?? 'Outlet',
+                      style: const TextStyle(
+                        color: RosTheme.primary,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down_rounded, color: RosTheme.primary, size: 16),
+                ],
+              ),
+            ),
+          ),
         // Profile menu avatar button
         GestureDetector(
           onTap: () => _showProfileModal(context, ref, user, isSuperAdmin),
@@ -290,10 +328,36 @@ class AppShell extends ConsumerWidget {
               value: user?.tenantName ?? user?.tenantId ?? 'Default',
             ),
             const SizedBox(height: 8),
-            _buildInfoRow(
-              icon: Icons.location_on_rounded,
-              title: 'Active Branch',
-              value: user?.branchId ?? 'Main Branch',
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoRow(
+                    icon: Icons.location_on_rounded,
+                    title: 'Active Branch',
+                    value: user?.branchName ?? user?.branchId ?? 'Main Branch',
+                  ),
+                ),
+                if (!isSuperAdmin)
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      OutletSwitcherSheet.show(context);
+                    },
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 15, color: RosTheme.primary),
+                    label: const Text(
+                      'Switch',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: RosTheme.primary,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             _buildInfoRow(
@@ -863,6 +927,50 @@ class AppShell extends ConsumerWidget {
                 ],
               ),
             ),
+
+            // Branch Switcher Bar in Drawer for Fast Outlet Switching
+            if (!isSuperAdmin)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    OutletSwitcherSheet.show(context);
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: RosTheme.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: RosTheme.primary.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.storefront_rounded, color: RosTheme.primary, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Operating Branch',
+                                style: TextStyle(color: RosTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                user?.branchName ?? 'Select Outlet',
+                                style: const TextStyle(color: RosTheme.primary, fontSize: 12.5, fontWeight: FontWeight.w700),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.swap_horiz_rounded, color: RosTheme.primary, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
             // Navigation items
             Expanded(

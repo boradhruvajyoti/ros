@@ -1,5 +1,5 @@
 // =============================================================================
-// Auth middleware — JWT verification + user context on req
+// Auth middleware — JWT verification + user & branch context on req
 // =============================================================================
 
 import { Request, Response, NextFunction } from 'express';
@@ -12,6 +12,8 @@ declare global {
   namespace Express {
     interface Request {
       user?: JwtPayload;
+      tenantId?: string;
+      branchId?: string;
     }
   }
 }
@@ -28,6 +30,10 @@ export function auth() {
       const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
       req.user = payload;
       req.tenantId = payload.tid;
+      // Resolve active branch context from header override, query param, or JWT payload
+      const headerBranchId = req.headers['x-branch-id'] as string;
+      const queryBranchId = req.query?.branchId as string;
+      req.branchId = headerBranchId || queryBranchId || payload.bid;
       next();
     } catch (err) {
       if (err instanceof jwt.TokenExpiredError) {
