@@ -9,7 +9,7 @@ import {
   Layers, Users, Activity, ShieldCheck, Zap, Lock, ChevronRight, Filter, AlertTriangle,
   ExternalLink, BarChart3, TrendingUp, DollarSign, Terminal, Edit, Trash2, Settings,
   Radio, Cpu, Check, AlertCircle, Info, Sparkles, Phone, Mail, Sliders,
-  Send, Eye, EyeOff, Key, Bot, UploadCloud, Image as ImageIcon, ZoomIn, ZoomOut, RotateCcw
+  Send, Eye, EyeOff, Key, Bot, UploadCloud, Image as ImageIcon, ZoomIn, ZoomOut, RotateCcw, Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1507,15 +1507,171 @@ export default function SuperAdminPage() {
             </div>
             <Button
               onClick={() => setShowPlatformModal(true)}
-              className="gap-1.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="gap-1.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-none"
             >
-              <Sliders className="w-4 h-4" /> Edit Platform Parameters
+              <Sliders className="w-4 h-4" /> Edit All Parameters
             </Button>
           </div>
 
+          {/* Dedicated Global Site Logo & Sizing Studio Card */}
+          <Card className="border-border bg-card/60 backdrop-blur rounded-none">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-primary" /> Global Site Logo &amp; Sizing Studio
+                </CardTitle>
+                <CardDescription>
+                  Upload and dynamically scale the global platform logo in its natural aspect ratio across Web and Mobile
+                </CardDescription>
+              </div>
+              {platformForm.logoUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPlatformForm({ ...platformForm, logoUrl: null })}
+                  className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded-none"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Remove Logo
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Upload & URL row */}
+              <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
+                <label className="relative flex items-center justify-center gap-2 px-3.5 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-semibold cursor-pointer transition-colors shrink-0 rounded-none">
+                  <UploadCloud className="w-4 h-4" />
+                  Upload Platform Logo
+                  <input
+                    type="file"
+                    accept="image/*,.svg"
+                    className="hidden"
+                    onChange={handlePlatformLogoUpload}
+                  />
+                </label>
+                <span className="text-[11px] text-muted-foreground">or</span>
+                <input
+                  type="url"
+                  placeholder="https://example.com/platform-logo.png"
+                  value={platformForm.logoUrl || ''}
+                  onChange={(e) => setPlatformForm({ ...platformForm, logoUrl: e.target.value })}
+                  className="flex-1 h-9 px-3 border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary rounded-none"
+                />
+              </div>
+
+              {/* Live Preview Box */}
+              {platformForm.logoUrl ? (
+                <div className="p-3.5 bg-background border border-border space-y-3 rounded-none">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" /> Live Logo Preview (Natural Ratio):
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-border rounded-none">
+                      Height: {platformForm.logoHeight || 40}px | Scale: {platformForm.logoScale || 100}%
+                    </Badge>
+                  </div>
+
+                  <div className="min-h-[85px] p-4 flex items-center justify-center bg-card border border-border/60 overflow-auto">
+                    <img
+                      src={platformForm.logoUrl}
+                      alt="Global Site Logo Preview"
+                      style={{
+                        height: `${Math.round((platformForm.logoHeight || 40) * ((platformForm.logoScale || 100) / 100))}px`,
+                        maxWidth: '100%',
+                        objectFit: 'contain',
+                      }}
+                      className="transition-all duration-150"
+                    />
+                  </div>
+
+                  {/* Resizing Sliders */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <div className="flex justify-between text-[11px] font-semibold text-foreground mb-1">
+                        <span>Logo Height</span>
+                        <span className="text-primary font-mono">{platformForm.logoHeight || 40} px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="16"
+                        max="140"
+                        step="2"
+                        value={platformForm.logoHeight || 40}
+                        onChange={(e) => setPlatformForm({ ...platformForm, logoHeight: Number(e.target.value) })}
+                        className="w-full accent-primary h-1.5 bg-muted rounded-none cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] font-semibold text-foreground mb-1">
+                        <span>Scale Factor</span>
+                        <span className="text-primary font-mono">{platformForm.logoScale || 100} %</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="50"
+                        max="200"
+                        step="5"
+                        value={platformForm.logoScale || 100}
+                        onChange={(e) => setPlatformForm({ ...platformForm, logoScale: Number(e.target.value) })}
+                        className="w-full accent-primary h-1.5 bg-muted rounded-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Presets & Save Action */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">Quick Presets:</span>
+                      {[
+                        { label: 'Compact (28px)', h: 28 },
+                        { label: 'Standard (40px)', h: 40 },
+                        { label: 'Medium (56px)', h: 56 },
+                        { label: 'Large (76px)', h: 76 },
+                        { label: 'X-Large (96px)', h: 96 },
+                      ].map((p) => (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => setPlatformForm({ ...platformForm, logoHeight: p.h, logoScale: 100 })}
+                          className={cn(
+                            "px-2 py-0.5 text-[10px] font-semibold border transition-colors cursor-pointer rounded-none",
+                            (platformForm.logoHeight === p.h && (platformForm.logoScale || 100) === 100)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/60 hover:bg-muted text-foreground border-border"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      loading={updatePlatformMutation.isPending}
+                      onClick={() => updatePlatformMutation.mutate(platformForm)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-none shrink-0"
+                    >
+                      <Save className="w-3.5 h-3.5 mr-1" />
+                      Save Logo &amp; Sizing
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/60 rounded-none">
+                  <p className="text-[11px] text-muted-foreground italic">
+                    No custom platform logo uploaded. Default system icon is active. Upload an image above to customize dimensions.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Live Platform Configuration Card */}
-            <Card className="border-border bg-card/60 backdrop-blur">
+            <Card className="border-border bg-card/60 backdrop-blur rounded-none">
               <CardHeader>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Globe className="w-4 h-4 text-indigo-400" /> Platform Configuration
@@ -1523,35 +1679,35 @@ export default function SuperAdminPage() {
                 <CardDescription>Global SaaS environment and organizational branding parameters</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-xs">
-                <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex justify-between p-3 rounded-none bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Platform Brand</span>
                   <span className="font-bold text-foreground">{currentConfig.platformName}</span>
                 </div>
-                <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex justify-between p-3 rounded-none bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Support Helpdesk Email</span>
                   <span className="font-mono font-bold text-indigo-400">{currentConfig.supportEmail || 'Not configured'}</span>
                 </div>
-                <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex justify-between p-3 rounded-none bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Support Contact Hotline</span>
                   <span className="font-mono font-bold text-foreground">{currentConfig.supportPhone || 'Not configured'}</span>
                 </div>
-                <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex justify-between p-3 rounded-none bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Default Currency</span>
                   <span className="font-bold text-foreground">{currentConfig.defaultCurrency} (₹)</span>
                 </div>
-                <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex justify-between p-3 rounded-none bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Tenant Self-Registration</span>
-                  <Badge className={currentConfig.allowSelfRegistration ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}>
+                  <Badge className={currentConfig.allowSelfRegistration ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 rounded-none' : 'bg-red-500/10 text-red-400 border-red-500/30 rounded-none'}>
                     {currentConfig.allowSelfRegistration ? 'ENABLED' : 'DISABLED'}
                   </Badge>
                 </div>
-                <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex justify-between p-3 rounded-none bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Free Trial Window</span>
                   <span className="font-bold text-foreground">{currentConfig.maxFreeTrialDays} Days</span>
                 </div>
-                <div className="flex justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex justify-between p-3 rounded-none bg-muted/40 border border-border">
                   <span className="text-muted-foreground">Maintenance Mode</span>
-                  <Badge className={currentConfig.maintenanceMode ? 'bg-red-500/20 text-red-400 border-red-500/40 font-bold' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'}>
+                  <Badge className={currentConfig.maintenanceMode ? 'bg-red-500/20 text-red-400 border-red-500/40 font-bold rounded-none' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 rounded-none'}>
                     {currentConfig.maintenanceMode ? 'MAINTENANCE ACTIVE' : 'NORMAL PRODUCTION'}
                   </Badge>
                 </div>
@@ -2107,7 +2263,7 @@ export default function SuperAdminPage() {
       ───────────────────────────────────────────────────────────────────────────── */}
       {showPlatformModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg bg-card border border-border rounded-none p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
               <Sliders className="w-5 h-5 text-primary" />
               Configure Global Platform Parameters
@@ -2117,11 +2273,11 @@ export default function SuperAdminPage() {
             </p>
             <form onSubmit={handlePlatformSubmit} className="space-y-3.5">
               {/* Platform Logo & Custom Sizing Section */}
-              <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-3.5">
+              <div className="p-4 rounded-none bg-muted/40 border border-border space-y-3.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                     <ImageIcon className="w-4 h-4 text-primary" />
-                    Platform Logo & Custom Sizing
+                    Platform Logo &amp; Custom Sizing
                   </label>
                   {platformForm.logoUrl && (
                     <Button
@@ -2129,7 +2285,7 @@ export default function SuperAdminPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setPlatformForm({ ...platformForm, logoUrl: null })}
-                      className="h-6 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-950/40 p-1"
+                      className="h-6 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-950/40 p-1 rounded-none"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
                       Remove Logo
@@ -2139,7 +2295,7 @@ export default function SuperAdminPage() {
 
                 {/* Upload or URL input */}
                 <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
-                  <label className="relative flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-semibold cursor-pointer transition-colors shrink-0">
+                  <label className="relative flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-semibold cursor-pointer transition-colors shrink-0 rounded-none">
                     <UploadCloud className="w-4 h-4" />
                     Upload Logo Image
                     <input
@@ -2155,16 +2311,16 @@ export default function SuperAdminPage() {
                     placeholder="https://example.com/logo.png"
                     value={platformForm.logoUrl || ''}
                     onChange={(e) => setPlatformForm({ ...platformForm, logoUrl: e.target.value })}
-                    className="flex-1 h-9 px-3 border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="flex-1 h-9 px-3 border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary rounded-none"
                   />
                 </div>
 
                 {/* Live Logo Preview Box — natural aspect ratio, not square cropped */}
                 {platformForm.logoUrl ? (
-                  <div className="p-3 bg-background border border-border space-y-2.5">
+                  <div className="p-3 bg-background border border-border space-y-2.5 rounded-none">
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
                       <span>Live Logo Preview (Natural Dimensions):</span>
-                      <Badge variant="outline" className="text-[10px] font-mono border-border">
+                      <Badge variant="outline" className="text-[10px] font-mono border-border rounded-none">
                         Height: {platformForm.logoHeight || 40}px | Scale: {platformForm.logoScale || 100}%
                       </Badge>
                     </div>
@@ -2191,8 +2347,8 @@ export default function SuperAdminPage() {
                         </div>
                         <input
                           type="range"
-                          min="20"
-                          max="120"
+                          min="16"
+                          max="140"
                           step="2"
                           value={platformForm.logoHeight || 40}
                           onChange={(e) => setPlatformForm({ ...platformForm, logoHeight: Number(e.target.value) })}
@@ -2225,13 +2381,14 @@ export default function SuperAdminPage() {
                         { label: 'Standard (40px)', h: 40 },
                         { label: 'Medium (56px)', h: 56 },
                         { label: 'Large (76px)', h: 76 },
+                        { label: 'X-Large (96px)', h: 96 },
                       ].map((p) => (
                         <button
                           key={p.label}
                           type="button"
                           onClick={() => setPlatformForm({ ...platformForm, logoHeight: p.h, logoScale: 100 })}
                           className={cn(
-                            "px-2 py-0.5 text-[10px] font-semibold border transition-colors cursor-pointer",
+                            "px-2 py-0.5 text-[10px] font-semibold border transition-colors cursor-pointer rounded-none",
                             (platformForm.logoHeight === p.h && (platformForm.logoScale || 100) === 100)
                               ? "bg-primary text-primary-foreground border-primary"
                               : "bg-muted/60 hover:bg-muted text-foreground border-border"
@@ -2256,7 +2413,7 @@ export default function SuperAdminPage() {
                   required
                   value={platformForm.platformName}
                   onChange={(e) => setPlatformForm({ ...platformForm, platformName: e.target.value })}
-                  className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -2266,7 +2423,7 @@ export default function SuperAdminPage() {
                   type="text"
                   value={platformForm.tagline}
                   onChange={(e) => setPlatformForm({ ...platformForm, tagline: e.target.value })}
-                  className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -2278,7 +2435,7 @@ export default function SuperAdminPage() {
                     required
                     value={platformForm.supportEmail}
                     onChange={(e) => setPlatformForm({ ...platformForm, supportEmail: e.target.value })}
-                    className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
@@ -2287,7 +2444,7 @@ export default function SuperAdminPage() {
                     type="text"
                     value={platformForm.supportPhone}
                     onChange={(e) => setPlatformForm({ ...platformForm, supportPhone: e.target.value })}
-                    className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -2298,7 +2455,7 @@ export default function SuperAdminPage() {
                   <select
                     value={platformForm.defaultCurrency}
                     onChange={(e) => setPlatformForm({ ...platformForm, defaultCurrency: e.target.value })}
-                    className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none"
+                    className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs text-foreground focus:outline-none"
                   >
                     <option value="INR">INR (₹)</option>
                     <option value="USD">USD ($)</option>
@@ -2314,7 +2471,7 @@ export default function SuperAdminPage() {
                     max="90"
                     value={platformForm.maxFreeTrialDays}
                     onChange={(e) => setPlatformForm({ ...platformForm, maxFreeTrialDays: Number(e.target.value) })}
-                    className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none"
+                    className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs text-foreground focus:outline-none"
                   />
                 </div>
               </div>
@@ -2326,7 +2483,7 @@ export default function SuperAdminPage() {
                   placeholder="Banner shown on platform dashboards..."
                   value={platformForm.announcementBanner}
                   onChange={(e) => setPlatformForm({ ...platformForm, announcementBanner: e.target.value })}
-                  className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -2336,11 +2493,11 @@ export default function SuperAdminPage() {
                   type="text"
                   value={platformForm.edgeApiGatewayUrl}
                   onChange={(e) => setPlatformForm({ ...platformForm, edgeApiGatewayUrl: e.target.value })}
-                  className="w-full mt-1 h-10 px-3 rounded-xl border border-border bg-background text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full mt-1 h-10 px-3 rounded-none border border-border bg-background text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
+              <div className="p-3.5 rounded-none bg-muted/40 border border-border space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-xs font-bold text-foreground">Allow Self-Registration</label>
@@ -2350,29 +2507,29 @@ export default function SuperAdminPage() {
                     type="checkbox"
                     checked={platformForm.allowSelfRegistration}
                     onChange={(e) => setPlatformForm({ ...platformForm, allowSelfRegistration: e.target.checked })}
-                    className="w-4 h-4 rounded text-primary"
+                    className="w-4 h-4 rounded-none text-primary"
                   />
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <div>
                     <label className="text-xs font-bold text-red-400">Maintenance Mode</label>
-                    <p className="text-[11px] text-muted-foreground">Block all guest QR & tenant traffic</p>
+                    <p className="text-[11px] text-muted-foreground">Block all guest QR &amp; tenant traffic</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={platformForm.maintenanceMode}
                     onChange={(e) => setPlatformForm({ ...platformForm, maintenanceMode: e.target.checked })}
-                    className="w-4 h-4 rounded text-red-500"
+                    className="w-4 h-4 rounded-none text-red-500"
                   />
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowPlatformModal(false)}>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowPlatformModal(false)} className="rounded-none">
                   Cancel
                 </Button>
-                <Button type="submit" size="sm" loading={updatePlatformMutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
+                <Button type="submit" size="sm" loading={updatePlatformMutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-none">
                   Save Platform Settings
                 </Button>
               </div>

@@ -89,6 +89,8 @@ export default function SettingsPage() {
   // Local Form State
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoHeight, setLogoHeight] = useState<number>(40);
+  const [logoScale, setLogoScale] = useState<number>(100);
   const [faviconUrl, setFaviconUrl] = useState('');
   const [tagline, setTagline] = useState('');
   const [branchName, setBranchName] = useState('');
@@ -144,7 +146,9 @@ export default function SettingsPage() {
         setFaviconUrl(parsedSettings?.faviconUrl || '');
       }
 
-      setLogoUrl(tenant?.logoUrl || '');
+      setLogoUrl(tenant?.logoUrl || platformConfig?.logoUrl || '');
+      setLogoHeight(parsedSettings?.logoHeight || platformConfig?.logoHeight || 40);
+      setLogoScale(parsedSettings?.logoScale || platformConfig?.logoScale || 100);
 
       if (parsedSettings?.taxRate) {
         const half = (Number(parsedSettings.taxRate) / 2).toFixed(1);
@@ -183,7 +187,7 @@ export default function SettingsPage() {
     }
   }, [tenant, platformConfig, isPlatformSuperAdmin]);
 
-  // Handle Logo file upload (auto-downscaled to max 150px)
+  // Handle Logo file upload (preserves natural aspect ratio, max 800px)
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -192,11 +196,11 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const downscaledBase64 = await downscaleImage(file, 150);
+      const downscaledBase64 = await downscaleImage(file, 800);
       setLogoUrl(downscaledBase64);
       toast.success(
-        isPlatformSuperAdmin ? 'Platform Logo Optimized & Selected' : 'Logo Optimized & Selected',
-        'Logo auto-downscaled to 150px. Click "Save All Changes" to persist.'
+        isPlatformSuperAdmin ? 'Platform Logo Uploaded' : 'Brand Logo Uploaded',
+        'Natural aspect ratio preserved. Use the resizing sliders below to adjust height & scale.'
       );
     } catch (err: any) {
       toast.error('Upload Failed', err.message || 'Could not process logo');
@@ -241,6 +245,8 @@ export default function SettingsPage() {
           ...currentSettings,
           tagline: tagline.trim(),
           faviconUrl: faviconUrl.trim() || null,
+          logoHeight: Number(logoHeight) || 40,
+          logoScale: Number(logoScale) || 100,
           taxRate: totalTax,
           serviceChargeRate: parseFloat(serviceCharge) || 0,
           preOrderEnabled,
@@ -254,6 +260,9 @@ export default function SettingsPage() {
                   ...(currentSettings.platformConfig || {}),
                   platformName: name.trim(),
                   tagline: tagline.trim(),
+                  logoUrl: logoUrl.trim() || null,
+                  logoHeight: Number(logoHeight) || 40,
+                  logoScale: Number(logoScale) || 100,
                   faviconUrl: faviconUrl.trim() || null,
                   supportEmail: email.trim(),
                   supportPhone: phone.trim(),
@@ -270,6 +279,9 @@ export default function SettingsPage() {
           await apiPatch('/superadmin/platform-details', {
             platformName: name.trim(),
             tagline: tagline.trim(),
+            logoUrl: logoUrl.trim() || null,
+            logoHeight: Number(logoHeight) || 40,
+            logoScale: Number(logoScale) || 100,
             faviconUrl: faviconUrl.trim() || null,
             supportEmail: email.trim(),
             supportPhone: phone.trim(),
@@ -986,43 +998,146 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Logo Upload Box */}
-              <div className="p-4 rounded-xl border border-border bg-accent/20 space-y-3">
+              {/* Logo Upload & Resizing Studio Box */}
+              <div className="p-4 border border-border bg-accent/20 space-y-4 col-span-1 md:col-span-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-xs text-foreground">Primary Brand Logo</span>
+                  <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                    <UploadCloud className="w-4 h-4 text-primary" />
+                    {isPlatformSuperAdmin ? 'Global Platform Brand Logo' : 'Primary Restaurant Brand Logo'}
+                  </span>
                   {logoUrl && (
-                    <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Configured
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Configured
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLogoUrl('')}
+                        className="h-6 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-950/40 p-1 rounded-none"
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-xl border border-border bg-background flex items-center justify-center overflow-hidden p-1 shrink-0">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="Brand Logo" className="w-full h-full object-contain" />
-                    ) : (
-                      <UtensilsCrossed className="w-8 h-8 text-muted-foreground/40" />
-                    )}
-                  </div>
-                  <div className="space-y-2 flex-1">
+                {/* Upload or URL input */}
+                <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
+                  <label className="relative flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-semibold cursor-pointer transition-colors shrink-0">
+                    <UploadCloud className="w-4 h-4" />
+                    Upload Logo File
                     <input
                       type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      id="logo-upload"
+                      accept="image/*,.svg"
                       className="hidden"
+                      onChange={handleLogoUpload}
                     />
-                    <label
-                      htmlFor="logo-upload"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer transition-all"
-                    >
-                      <UploadCloud className="w-3.5 h-3.5" />
-                      <span>Upload Logo</span>
-                    </label>
-                    <p className="text-[11px] text-muted-foreground">PNG, SVG or JPEG. Max 10MB.</p>
-                  </div>
+                  </label>
+                  <span className="text-[11px] text-muted-foreground">or</span>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    value={logoUrl}
+                    onChange={(e) => setLogoUrl(e.target.value)}
+                    className="flex-1 h-9 px-3 border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
+
+                {/* Live Logo Preview Box — natural aspect ratio, not forced square */}
+                {logoUrl ? (
+                  <div className="p-3 bg-background border border-border space-y-3">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                      <span>Live Logo Preview (Natural Dimensions):</span>
+                      <Badge variant="outline" className="text-[10px] font-mono border-border rounded-none">
+                        Height: {logoHeight}px | Scale: {logoScale}%
+                      </Badge>
+                    </div>
+
+                    <div className="min-h-[80px] p-4 flex items-center justify-center bg-card border border-border/60 overflow-auto">
+                      <img
+                        src={logoUrl}
+                        alt="Logo Preview"
+                        style={{
+                          height: `${Math.round(logoHeight * (logoScale / 100))}px`,
+                          maxWidth: '100%',
+                          objectFit: 'contain',
+                        }}
+                        className="transition-all duration-150"
+                      />
+                    </div>
+
+                    {/* Sizing Controls */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <div className="flex justify-between text-[11px] font-semibold text-foreground mb-1">
+                          <span>Logo Height</span>
+                          <span className="text-primary font-mono">{logoHeight} px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="16"
+                          max="140"
+                          step="2"
+                          value={logoHeight}
+                          onChange={(e) => setLogoHeight(Number(e.target.value))}
+                          className="w-full accent-primary h-1.5 bg-muted rounded-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] font-semibold text-foreground mb-1">
+                          <span>Scale Factor</span>
+                          <span className="text-primary font-mono">{logoScale} %</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="50"
+                          max="200"
+                          step="5"
+                          value={logoScale}
+                          onChange={(e) => setLogoScale(Number(e.target.value))}
+                          className="w-full accent-primary h-1.5 bg-muted rounded-none cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">Quick Presets:</span>
+                      {[
+                        { label: 'Compact (28px)', h: 28 },
+                        { label: 'Standard (40px)', h: 40 },
+                        { label: 'Medium (56px)', h: 56 },
+                        { label: 'Large (76px)', h: 76 },
+                        { label: 'X-Large (96px)', h: 96 },
+                      ].map((p) => (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => {
+                            setLogoHeight(p.h);
+                            setLogoScale(100);
+                          }}
+                          className={cn(
+                            "px-2 py-0.5 text-[10px] font-semibold border transition-colors cursor-pointer",
+                            (logoHeight === p.h && logoScale === 100)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/60 hover:bg-muted text-foreground border-border"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    No logo uploaded yet. Upload a PNG, SVG, or JPEG to customize sizing.
+                  </p>
+                )}
               </div>
 
               {/* Favicon Upload Box */}
