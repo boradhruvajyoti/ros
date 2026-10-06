@@ -469,6 +469,61 @@ String generateFoodLetterCode(String name) {
   return initials.isNotEmpty ? initials : 'ITM';
 }
 
+class SpecialMenuVariantConfig {
+  final String? variantId;
+  final String name;
+  final double price;
+
+  const SpecialMenuVariantConfig({
+    this.variantId,
+    required this.name,
+    required this.price,
+  });
+
+  factory SpecialMenuVariantConfig.fromJson(Map<String, dynamic> json) => SpecialMenuVariantConfig(
+    variantId: json['variantId']?.toString(),
+    name: json['name']?.toString() ?? '',
+    price: parseDouble(json['price'], 0.0),
+  );
+
+  Map<String, dynamic> toJson() => {
+    if (variantId != null) 'variantId': variantId,
+    'name': name,
+    'price': price,
+  };
+}
+
+class SpecialMenuItemConfig {
+  final String itemId;
+  final double? customPrice;
+  final bool isActive;
+  final List<SpecialMenuVariantConfig> variants;
+
+  const SpecialMenuItemConfig({
+    required this.itemId,
+    this.customPrice,
+    this.isActive = true,
+    this.variants = const [],
+  });
+
+  factory SpecialMenuItemConfig.fromJson(Map<String, dynamic> json) => SpecialMenuItemConfig(
+    itemId: json['itemId']?.toString() ?? '',
+    customPrice: json['customPrice'] != null ? parseDouble(json['customPrice'], 0.0) : null,
+    isActive: parseBool(json['isActive'], true),
+    variants: (json['variants'] as List<dynamic>?)
+        ?.where((e) => e != null && e is Map<String, dynamic>)
+        .map((e) => SpecialMenuVariantConfig.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
+  );
+
+  Map<String, dynamic> toJson() => {
+    'itemId': itemId,
+    if (customPrice != null) 'customPrice': customPrice,
+    'isActive': isActive,
+    'variants': variants.map((v) => v.toJson()).toList(),
+  };
+}
+
 class SpecialMenu {
   final String id;
   final String tenantId;
@@ -478,6 +533,7 @@ class SpecialMenu {
   final String? startDate;
   final String? endDate;
   final List<String> categoryIds;
+  final List<SpecialMenuItemConfig> items;
   final bool isActive;
   final String createdAt;
   final String updatedAt;
@@ -491,6 +547,7 @@ class SpecialMenu {
     this.startDate,
     this.endDate,
     this.categoryIds = const [],
+    this.items = const [],
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
@@ -505,6 +562,10 @@ class SpecialMenu {
     startDate: json['startDate']?.toString(),
     endDate: json['endDate']?.toString(),
     categoryIds: (json['categoryIds'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    items: (json['items'] as List<dynamic>?)
+        ?.where((e) => e != null && e is Map<String, dynamic>)
+        .map((e) => SpecialMenuItemConfig.fromJson(e as Map<String, dynamic>))
+        .toList() ?? [],
     isActive: parseBool(json['isActive'], true),
     createdAt: json['createdAt']?.toString() ?? '',
     updatedAt: json['updatedAt']?.toString() ?? '',
@@ -519,6 +580,7 @@ class SpecialMenu {
     'startDate': startDate,
     'endDate': endDate,
     'categoryIds': categoryIds,
+    'items': items.map((i) => i.toJson()).toList(),
     'isActive': isActive,
   };
 }

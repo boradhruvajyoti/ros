@@ -518,7 +518,7 @@ final specialMenusProvider = FutureProvider<List<SpecialMenu>>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
     final data = await api.get<dynamic>('/menu/special-menus');
-    final list = data is List ? data : [];
+    final list = data is Map ? (data['menus'] as List? ?? []) : (data is List ? data : []);
     return list.map((e) => SpecialMenu.fromJson(e as Map<String, dynamic>)).toList();
   } catch (_) {
     return [];
