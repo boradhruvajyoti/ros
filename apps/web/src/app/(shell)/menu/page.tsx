@@ -6,8 +6,9 @@ import {
   UtensilsCrossed, Plus, Search, CheckCircle2,
   XCircle, Edit3, Trash2, Tag,
   UploadCloud, FileCheck, ShieldCheck, RefreshCw, Wand2, X, Check,
-  Layers, ChevronRight, AlertCircle, Sparkles, CheckSquare, Square, FileDown, Loader2,
-  Calendar, PartyPopper, Flame, Sliders, ToggleLeft, ToggleRight, Info
+  Layers, ChevronRight, ChevronDown, ChevronUp, AlertCircle, Sparkles, CheckSquare, Square, FileDown, Loader2,
+  Calendar, PartyPopper, Flame, Sliders, ToggleLeft, ToggleRight, Info,
+  Gift, Percent, Eye, ArrowRight, Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,7 +57,25 @@ interface MenuCategory {
   isActive?: boolean;
 }
 
-interface SpecialMenu {
+export interface SpecialMenuVariantConfig {
+  id?: string;
+  name: string;
+  originalPrice: number;
+  festivePrice: number;
+}
+
+export interface SpecialMenuItemConfig {
+  itemId: string;
+  name: string;
+  foodType?: 'VEG' | 'NON_VEG' | 'EGG' | 'VEGAN' | string;
+  categoryName?: string;
+  imageUrl?: string;
+  basePrice?: number;
+  customPrice?: number;
+  variants?: SpecialMenuVariantConfig[];
+}
+
+export interface SpecialMenu {
   id: string;
   name: string;
   occasion: string;
@@ -64,8 +83,10 @@ interface SpecialMenu {
   startDate?: string;
   endDate?: string;
   categoryIds: string[];
+  items?: SpecialMenuItemConfig[];
   isActive: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export default function MenuPage() {
@@ -90,7 +111,25 @@ export default function MenuPage() {
   const [specialMenuStartDate, setSpecialMenuStartDate] = useState('');
   const [specialMenuEndDate, setSpecialMenuEndDate] = useState('');
   const [specialMenuCategoryIds, setSpecialMenuCategoryIds] = useState<string[]>([]);
+  const [specialMenuItems, setSpecialMenuItems] = useState<SpecialMenuItemConfig[]>([]);
   const [specialMenuIsActive, setSpecialMenuIsActive] = useState(true);
+  const [specialMenuDishSearch, setSpecialMenuDishSearch] = useState('');
+  const [specialMenuDishFilter, setSpecialMenuDishFilter] = useState<'ALL' | 'SELECTED' | 'VEG' | 'NON_VEG'>('ALL');
+  const [expandedSpecialMenuId, setExpandedSpecialMenuId] = useState<string | null>(null);
+
+  // Filter for Main Page Catalogue View (All vs Specific Festive Menu)
+  const [selectedFestiveMenuFilter, setSelectedFestiveMenuFilter] = useState<string>('all');
+
+  // Side Flyout Pop-up Modal States for Adding Dish to Festive Menu
+  const [isAddToFestiveModalOpen, setIsAddToFestiveModalOpen] = useState(false);
+  const [selectedDishForFestive, setSelectedDishForFestive] = useState<MenuItem | null>(null);
+  const [targetFestiveMenuId, setTargetFestiveMenuId] = useState<string>('');
+  const [flyoutCustomPrice, setFlyoutCustomPrice] = useState<number>(0);
+  const [flyoutVariants, setFlyoutVariants] = useState<SpecialMenuVariantConfig[]>([]);
+
+  // View All Festive Menus Modal
+  const [isViewAllFestiveMenusOpen, setIsViewAllFestiveMenusOpen] = useState(false);
+  const [viewingFestiveMenuDetails, setViewingFestiveMenuDetails] = useState<SpecialMenu | null>(null);
 
   // Quick subcategory creation in Dish Modal
   const [isQuickAddCategoryOpen, setIsQuickAddCategoryOpen] = useState(false);
@@ -351,6 +390,30 @@ export default function MenuPage() {
     onError: (err: any) => toast.error('Delete Failed', err.message),
   });
 
+  const addDishToFestiveMenuMutation = useMutation({
+    mutationFn: async ({ menuId, payload }: { menuId: string; payload: any }) =>
+      apiPost(`/menu/special-menus/${menuId}/items`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'special-menus'] });
+      toast.success('Added to Festive Menu! 🎉', `Dish saved in festive menu.`);
+      setIsAddToFestiveModalOpen(false);
+      setSelectedDishForFestive(null);
+    },
+    onError: (err: any) => toast.error('Failed to add dish to festive menu', err.message),
+  });
+
+  const removeDishFromFestiveMenuMutation = useMutation({
+    mutationFn: async ({ menuId, itemId }: { menuId: string; itemId: string }) =>
+      apiDelete(`/menu/special-menus/${menuId}/items/${itemId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'special-menus'] });
+      toast.success('Removed from Festive Menu', `Dish removed from festive menu.`);
+      setIsAddToFestiveModalOpen(false);
+      setSelectedDishForFestive(null);
+    },
+    onError: (err: any) => toast.error('Failed to remove dish', err.message),
+  });
+
   const resetSpecialMenuForm = () => {
     setEditingSpecialMenu(null);
     setSpecialMenuName('');
@@ -359,7 +422,10 @@ export default function MenuPage() {
     setSpecialMenuStartDate('');
     setSpecialMenuEndDate('');
     setSpecialMenuCategoryIds([]);
+    setSpecialMenuItems([]);
     setSpecialMenuIsActive(true);
+    setSpecialMenuDishSearch('');
+    setSpecialMenuDishFilter('ALL');
   };
 
   const handleOpenCreateSpecialMenu = () => {
@@ -375,8 +441,101 @@ export default function MenuPage() {
     setSpecialMenuStartDate(m.startDate || '');
     setSpecialMenuEndDate(m.endDate || '');
     setSpecialMenuCategoryIds(m.categoryIds || []);
+    setSpecialMenuItems(Array.isArray(m.items) ? [...m.items] : []);
     setSpecialMenuIsActive(m.isActive !== false);
+    setSpecialMenuDishSearch('');
+    setSpecialMenuDishFilter('ALL');
     setIsSpecialMenuModalOpen(true);
+  };
+
+  // Helper: Import all catalog dishes with their current pricing into the festive menu
+  const handleImportAllDishesToSpecialMenu = () => {
+    const imported: SpecialMenuItemConfig[] = items.map((itm) => {
+      const basePrice = itm.variants?.[0]?.price || 200;
+      return {
+        itemId: itm.id,
+        name: itm.name,
+        foodType: itm.foodType,
+        categoryName: itm.category?.name || 'General',
+        basePrice,
+        customPrice: basePrice,
+        variants: (itm.variants || []).map((v) => ({
+          id: v.id,
+          name: v.name,
+          originalPrice: v.price,
+          festivePrice: v.price,
+        })),
+      };
+    });
+    setSpecialMenuItems(imported);
+    toast.success('Imported All Dishes! ⚡', `Loaded ${imported.length} items with default pricing. You can now adjust festive prices.`);
+  };
+
+  // Helper: Toggle individual dish inclusion in festive menu
+  const handleToggleDishInSpecialMenu = (item: MenuItem) => {
+    const isPresent = specialMenuItems.some((i) => i.itemId === item.id);
+    if (isPresent) {
+      setSpecialMenuItems((prev) => prev.filter((i) => i.itemId !== item.id));
+    } else {
+      const basePrice = item.variants?.[0]?.price || 200;
+      const newItem: SpecialMenuItemConfig = {
+        itemId: item.id,
+        name: item.name,
+        foodType: item.foodType,
+        categoryName: item.category?.name || 'General',
+        basePrice,
+        customPrice: basePrice,
+        variants: (item.variants || []).map((v) => ({
+          id: v.id,
+          name: v.name,
+          originalPrice: v.price,
+          festivePrice: v.price,
+        })),
+      };
+      setSpecialMenuItems((prev) => [...prev, newItem]);
+    }
+  };
+
+  // Helper: Update custom price for standard single-portion dish in special menu
+  const handleUpdateSpecialMenuItemCustomPrice = (itemId: string, newPrice: number) => {
+    const safePrice = Math.max(0, newPrice);
+    setSpecialMenuItems((prev) =>
+      prev.map((i) => (i.itemId === itemId ? { ...i, customPrice: safePrice } : i))
+    );
+  };
+
+  // Helper: Update variant price for multi-variant dish in special menu
+  const handleUpdateSpecialMenuVariantPrice = (itemId: string, varIdx: number, newPrice: number) => {
+    const safePrice = Math.max(0, newPrice);
+    setSpecialMenuItems((prev) =>
+      prev.map((i) => {
+        if (i.itemId !== itemId) return i;
+        const variants = (i.variants || []).map((v, idx) => (idx === varIdx ? { ...v, festivePrice: safePrice } : v));
+        return { ...i, variants };
+      })
+    );
+  };
+
+  // Helper: Apply bulk percentage discount or surcharge to all imported festive dishes
+  const handleApplyBatchFestiveAdjustment = (percentage: number) => {
+    const factor = 1 + percentage / 100;
+    setSpecialMenuItems((prev) =>
+      prev.map((i) => {
+        const base = i.basePrice || i.customPrice || 200;
+        const customPrice = Math.round(base * factor);
+        const variants = (i.variants || []).map((v) => ({
+          ...v,
+          festivePrice: Math.round(v.originalPrice * factor),
+        }));
+        return { ...i, customPrice, variants };
+      })
+    );
+    toast.success(
+      'Festive Pricing Applied',
+      percentage >= 0
+        ? `Applied +${percentage}% festive surcharge across all festive items.`
+        : `Applied ${percentage}% discount across all festive items.`
+    );
   };
 
   const handleSaveSpecialMenu = (e: React.FormEvent) => {
@@ -392,6 +551,7 @@ export default function MenuPage() {
       startDate: specialMenuStartDate || undefined,
       endDate: specialMenuEndDate || undefined,
       categoryIds: specialMenuCategoryIds,
+      items: specialMenuItems,
       isActive: specialMenuIsActive,
     };
     if (editingSpecialMenu) {
@@ -399,6 +559,99 @@ export default function MenuPage() {
     } else {
       createSpecialMenuMutation.mutate(payload);
     }
+  };
+
+  // Helper: Open Side Flyout Pop-up for "+ Add to Festive Menu" on Food Item Card
+  const handleOpenAddToFestive = (item: MenuItem) => {
+    if (specialMenus.length === 0) {
+      toast.info('No Festive Menu Configured', 'Please create a festive menu first before adding dishes.');
+      handleOpenCreateSpecialMenu();
+      return;
+    }
+
+    setSelectedDishForFestive(item);
+    const initialTargetId = (activeMenuMode === 'SPECIAL_ONLY' && specialMenuData?.activeSpecialMenuId)
+      ? specialMenuData.activeSpecialMenuId
+      : specialMenus[0].id;
+    setTargetFestiveMenuId(initialTargetId);
+
+    const targetMenu = specialMenus.find((m) => m.id === initialTargetId);
+    const existingConfig = targetMenu?.items?.find((i) => i.itemId === item.id);
+
+    if (existingConfig) {
+      setFlyoutCustomPrice(existingConfig.customPrice ?? (item.variants?.[0]?.price || 200));
+      setFlyoutVariants(
+        existingConfig.variants && existingConfig.variants.length > 0
+          ? existingConfig.variants
+          : (item.variants || []).map((v) => ({
+              id: v.id,
+              name: v.name,
+              originalPrice: v.price,
+              festivePrice: v.price,
+            }))
+      );
+    } else {
+      const defaultPrice = item.variants?.[0]?.price || 200;
+      setFlyoutCustomPrice(defaultPrice);
+      setFlyoutVariants(
+        (item.variants || []).map((v) => ({
+          id: v.id,
+          name: v.name,
+          originalPrice: v.price,
+          festivePrice: v.price,
+        }))
+      );
+    }
+
+    setIsAddToFestiveModalOpen(true);
+  };
+
+  const handleSelectTargetFestiveMenu = (menuId: string) => {
+    setTargetFestiveMenuId(menuId);
+    if (!selectedDishForFestive) return;
+    const targetMenu = specialMenus.find((m) => m.id === menuId);
+    const existingConfig = targetMenu?.items?.find((i) => i.itemId === selectedDishForFestive.id);
+
+    if (existingConfig) {
+      setFlyoutCustomPrice(existingConfig.customPrice ?? (selectedDishForFestive.variants?.[0]?.price || 200));
+      setFlyoutVariants(
+        existingConfig.variants && existingConfig.variants.length > 0
+          ? existingConfig.variants
+          : (selectedDishForFestive.variants || []).map((v) => ({
+              id: v.id,
+              name: v.name,
+              originalPrice: v.price,
+              festivePrice: v.price,
+            }))
+      );
+    } else {
+      const defaultPrice = selectedDishForFestive.variants?.[0]?.price || 200;
+      setFlyoutCustomPrice(defaultPrice);
+      setFlyoutVariants(
+        (selectedDishForFestive.variants || []).map((v) => ({
+          id: v.id,
+          name: v.name,
+          originalPrice: v.price,
+          festivePrice: v.price,
+        }))
+      );
+    }
+  };
+
+  const handleSaveDishToFestiveMenu = () => {
+    if (!selectedDishForFestive || !targetFestiveMenuId) return;
+
+    const payload = {
+      itemId: selectedDishForFestive.id,
+      name: selectedDishForFestive.name,
+      foodType: selectedDishForFestive.foodType,
+      categoryName: selectedDishForFestive.category?.name || 'General',
+      basePrice: selectedDishForFestive.variants?.[0]?.price || 200,
+      customPrice: flyoutCustomPrice,
+      variants: flyoutVariants.length > 0 ? flyoutVariants : undefined,
+    };
+
+    addDishToFestiveMenuMutation.mutate({ menuId: targetFestiveMenuId, payload });
   };
 
   const resetDishForm = () => {
@@ -673,6 +926,22 @@ DESSERTS & DRINKS
 
   // Filter items
   const filteredItems = items.filter((item) => {
+    // Festive menu filter
+    if (selectedFestiveMenuFilter !== 'all') {
+      if (selectedFestiveMenuFilter === 'main') {
+        // Main catalogue filter
+      } else {
+        const targetMenu = specialMenus.find((m) => m.id === selectedFestiveMenuFilter);
+        if (targetMenu) {
+          const isExplicitlyInMenu = targetMenu.items?.some((i) => i.itemId === item.id);
+          const isCatInMenu = targetMenu.categoryIds && targetMenu.categoryIds.length > 0
+            ? targetMenu.categoryIds.includes(item.categoryId || item.category?.id)
+            : false;
+          if (!isExplicitlyInMenu && !isCatInMenu) return false;
+        }
+      }
+    }
+
     const itemCatId = item.categoryId || item.category?.id;
     const childCategoryIds = categories.filter((c) => c.parentId === selectedCategoryId).map((c) => c.id);
     const matchesCat =
@@ -681,11 +950,14 @@ DESSERTS & DRINKS
       childCategoryIds.includes(itemCatId);
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.itemCode && item.itemCode.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesType =
       selectedFoodType === 'ALL' || item.foodType === selectedFoodType;
     return matchesCat && matchesSearch && matchesType;
   });
+
+  const selectedFestiveMenuObj = specialMenus.find((m) => m.id === selectedFestiveMenuFilter);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -705,7 +977,7 @@ DESSERTS & DRINKS
             onClick={handleExportMenuPdf}
             disabled={isExportingPdf || items.length === 0}
             variant="outline"
-            className="gap-2 border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-500 shadow-sm cursor-pointer"
+            className="gap-2 border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-500 shadow-sm cursor-pointer rounded-none"
           >
             {isExportingPdf ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -715,29 +987,36 @@ DESSERTS & DRINKS
             Export Menu PDF
           </Button>
           <Button
+            onClick={() => setIsViewAllFestiveMenusOpen(true)}
+            variant="outline"
+            className="gap-2 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 shadow-sm cursor-pointer font-semibold rounded-none"
+          >
+            <Eye className="w-4 h-4 text-purple-400" /> View All Festive Menus ({specialMenus.length})
+          </Button>
+          <Button
             onClick={handleOpenCreateSpecialMenu}
             variant="outline"
-            className="gap-2 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 shadow-sm cursor-pointer font-semibold"
+            className="gap-2 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 shadow-sm cursor-pointer font-semibold rounded-none"
           >
-            <PartyPopper className="w-4 h-4 text-purple-400" /> Special Festive Menus ({specialMenus.length})
+            <PartyPopper className="w-4 h-4 text-purple-400" /> + Festive / Occasion Menu
           </Button>
           <Button
             onClick={() => setIsScanModalOpen(true)}
             variant="outline"
-            className="gap-2 border-primary/40 bg-primary/5 hover:bg-primary/15 text-primary shadow-sm cursor-pointer"
+            className="gap-2 border-primary/40 bg-primary/5 hover:bg-primary/15 text-primary shadow-sm cursor-pointer rounded-none"
           >
             <Wand2 className="w-4 h-4" /> Scan Menu Card
           </Button>
           <Button
             onClick={() => setIsManageCategoriesOpen(true)}
             variant="outline"
-            className="gap-2 cursor-pointer"
+            className="gap-2 cursor-pointer rounded-none"
           >
             <Tag className="w-4 h-4" /> Manage Categories
           </Button>
           <Button
             onClick={handleOpenAddDish}
-            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm cursor-pointer"
+            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm cursor-pointer rounded-none"
           >
             <Plus className="w-4 h-4" /> Add Dish
           </Button>
@@ -745,15 +1024,15 @@ DESSERTS & DRINKS
       </div>
 
       {/* SPECIAL FESTIVE MENU & ACTIVE MODE SWITCHER BAR */}
-      <div className="p-4 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-purple-900/20 to-card/60 backdrop-blur-md shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-4 rounded-none border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-purple-900/20 to-card/60 backdrop-blur-md shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0">
+          <div className="w-10 h-10 rounded-none bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0">
             <PartyPopper className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold text-foreground">Active Menu Configuration</span>
-              <Badge variant="outline" className="text-[10px] font-bold bg-purple-500/15 border-purple-500/30 text-purple-300">
+              <Badge variant="outline" className="text-[10px] font-bold bg-purple-500/15 border-purple-500/30 text-purple-300 rounded-none">
                 {activeMenuMode === 'ALL'
                   ? 'Both Menus Live (Main + Festive)'
                   : activeMenuMode === 'SPECIAL_ONLY'
@@ -768,13 +1047,13 @@ DESSERTS & DRINKS
         </div>
 
         <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <div className="flex rounded-xl bg-muted/60 p-1 border border-border">
+          <div className="flex rounded-none bg-muted/60 p-1 border border-border">
             <button
               type="button"
               onClick={() => setActiveMenuModeMutation.mutate({ mode: 'MAIN_ONLY' })}
               disabled={setActiveMenuModeMutation.isPending}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                'px-3 py-1.5 rounded-none text-xs font-semibold transition-all flex items-center gap-1.5',
                 activeMenuMode === 'MAIN_ONLY'
                   ? 'bg-card text-foreground shadow-sm border border-border/80'
                   : 'text-muted-foreground hover:text-foreground'
@@ -787,7 +1066,7 @@ DESSERTS & DRINKS
               onClick={() => setActiveMenuModeMutation.mutate({ mode: 'SPECIAL_ONLY' })}
               disabled={setActiveMenuModeMutation.isPending}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                'px-3 py-1.5 rounded-none text-xs font-semibold transition-all flex items-center gap-1.5',
                 activeMenuMode === 'SPECIAL_ONLY'
                   ? 'bg-purple-600 text-white shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -800,7 +1079,7 @@ DESSERTS & DRINKS
               onClick={() => setActiveMenuModeMutation.mutate({ mode: 'ALL' })}
               disabled={setActiveMenuModeMutation.isPending}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                'px-3 py-1.5 rounded-none text-xs font-semibold transition-all flex items-center gap-1.5',
                 activeMenuMode === 'ALL'
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -814,12 +1093,77 @@ DESSERTS & DRINKS
             size="sm"
             variant="outline"
             onClick={handleOpenCreateSpecialMenu}
-            className="text-xs h-9 px-3 gap-1.5 border-purple-500/40 hover:bg-purple-500/20 text-purple-300"
+            className="text-xs h-9 px-3 gap-1.5 border-purple-500/40 hover:bg-purple-500/20 text-purple-300 rounded-none"
           >
             <Plus className="w-3.5 h-3.5" /> New Festive Menu
           </Button>
         </div>
       </div>
+
+      {/* FESTIVE MENUS FILTER STRIP (Admin Quick Switcher) */}
+      {specialMenus.length > 0 && (
+        <div className="p-3 bg-muted/20 border border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-none">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <Gift className="w-3.5 h-3.5 text-purple-400" /> Filter by Menu:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedFestiveMenuFilter('all')}
+              className={cn(
+                'px-3 py-1 text-xs font-semibold border transition-all rounded-none',
+                selectedFestiveMenuFilter === 'all'
+                  ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                  : 'bg-card text-muted-foreground hover:text-foreground border-border'
+              )}
+            >
+              All Dishes ({items.length})
+            </button>
+            {specialMenus.map((sm) => {
+              const count = sm.items?.length || 0;
+              const isSelected = selectedFestiveMenuFilter === sm.id;
+              return (
+                <button
+                  key={sm.id}
+                  type="button"
+                  onClick={() => setSelectedFestiveMenuFilter(sm.id)}
+                  className={cn(
+                    'px-3 py-1 text-xs font-semibold border transition-all flex items-center gap-1.5 rounded-none',
+                    isSelected
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                      : 'bg-card text-purple-300 border-purple-500/30 hover:bg-purple-500/10'
+                  )}
+                >
+                  <PartyPopper className="w-3 h-3" />
+                  <span>{sm.name}</span>
+                  <Badge variant="outline" className={cn(
+                    'text-[10px] font-mono px-1 py-0 rounded-none',
+                    isSelected ? 'border-white/30 text-white' : 'border-purple-500/30 text-purple-300'
+                  )}>
+                    {count} dishes
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedFestiveMenuObj && (
+            <div className="flex items-center gap-2 shrink-0 text-xs">
+              <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/30 rounded-none">
+                Occasion: {selectedFestiveMenuObj.occasion}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleOpenEditSpecialMenu(selectedFestiveMenuObj)}
+                className="h-7 text-xs text-purple-300 hover:text-purple-200 hover:bg-purple-500/20 gap-1 rounded-none"
+              >
+                <Edit3 className="w-3 h-3" /> Edit Festive Menu
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Categories & Filter Bar */}
       <div className="flex flex-col gap-4">
@@ -986,13 +1330,19 @@ DESSERTS & DRINKS
           const letterCode = item.letterCode || generateFoodLetterCode(item.name);
           const itemCode = item.itemCode || `${letterCode} • #${itemNumber}`;
 
+          // Check if item belongs to any configured special festive menus
+          const specialMenuMemberships = specialMenus.filter((sm) =>
+            sm.items?.some((i) => i.itemId === item.id)
+          );
+
           return (
             <Card
               key={item.id}
               className={cn(
-                'border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden relative',
+                'border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden relative rounded-none',
                 !item.isAvailable && 'opacity-65 border-dashed',
-                isSelected && 'ring-2 ring-primary bg-primary/[0.03] border-primary/50 shadow-md'
+                isSelected && 'ring-2 ring-primary bg-primary/[0.03] border-primary/50 shadow-md',
+                specialMenuMemberships.length > 0 && 'border-purple-500/30'
               )}
             >
               <CardHeader className="p-5 pb-3">
@@ -1007,7 +1357,7 @@ DESSERTS & DRINKS
                             prev.includes(item.id) ? prev.filter((i) => i !== item.id) : [...prev, item.id]
                           );
                         }}
-                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary"
+                        className="w-4 h-4 rounded-none border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary"
                         title="Select dish for bulk actions"
                       />
                     </div>
@@ -1016,13 +1366,13 @@ DESSERTS & DRINKS
                         {getFoodTypeBadge(item.foodType)}
                         {/* Auto-applied Food Item Code Badge (Job 2) */}
                         <span
-                          className="text-[10px] font-black font-mono text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5 rounded shadow-xs"
+                          className="text-[10px] font-black font-mono text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5 rounded-none shadow-xs"
                           title={`Auto Food Code: ${letterCode} | Item Sequence: #${itemNumber}`}
                         >
                           {itemCode}
                         </span>
                         {item.spiceLevel && item.spiceLevel !== 'NONE' && (
-                          <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase">
+                          <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-none uppercase">
                             {item.spiceLevel}
                           </span>
                         )}
@@ -1037,7 +1387,7 @@ DESSERTS & DRINKS
                     onClick={() => toggleAvailabilityMutation.mutate({ id: item.id, isAvailable: !item.isAvailable })}
                     title={item.isAvailable ? 'Click to 86 / Mark Unavailable' : 'Click to Make Available'}
                     className={cn(
-                      'p-1.5 rounded-lg border transition-colors shrink-0',
+                      'p-1.5 rounded-none border transition-colors shrink-0',
                       item.isAvailable
                         ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
                         : 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
@@ -1050,6 +1400,27 @@ DESSERTS & DRINKS
                     )}
                   </button>
                 </div>
+
+                {/* Festive Menu Membership Tags */}
+                {specialMenuMemberships.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap pt-1.5">
+                    {specialMenuMemberships.map((sm) => {
+                      const cfg = sm.items?.find((i) => i.itemId === item.id);
+                      const displayPrice = cfg?.customPrice ?? cfg?.variants?.[0]?.festivePrice;
+                      return (
+                        <Badge
+                          key={sm.id}
+                          variant="outline"
+                          className="text-[10px] bg-purple-500/15 text-purple-300 border-purple-500/40 rounded-none font-mono py-0"
+                          title={`Configured in '${sm.name}'`}
+                        >
+                          🎉 {sm.name}: {displayPrice !== undefined ? formatCurrency(displayPrice) : 'Included'}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
                   {item.description || 'No description provided.'}
                 </p>
@@ -1065,7 +1436,7 @@ DESSERTS & DRINKS
                       item.variants.map((v) => (
                         <div
                           key={v.id || v.name}
-                          className="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-accent/40"
+                          className="flex items-center justify-between text-xs py-1 px-2.5 rounded-none bg-accent/40"
                         >
                           <span className="font-medium text-foreground">{v.name}</span>
                           <span className="font-bold text-foreground font-mono">
@@ -1079,16 +1450,33 @@ DESSERTS & DRINKS
                   </div>
 
                   {/* Card Footer Actions */}
-                  <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                    <span className="text-[11px] text-muted-foreground truncate max-w-[180px]" title={categoryDisplay}>
-                      Category: <span className="font-medium text-foreground">{categoryDisplay}</span>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40 gap-2">
+                    <span className="text-[11px] text-muted-foreground truncate max-w-[120px]" title={categoryDisplay}>
+                      <span className="font-medium text-foreground">{categoryDisplay}</span>
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* + Add to Festive Menu Button */}
+                      <Button
+                        onClick={() => handleOpenAddToFestive(item)}
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          'h-7 px-2 text-[11px] gap-1 rounded-none font-semibold transition-all',
+                          specialMenuMemberships.length > 0
+                            ? 'border-purple-500 bg-purple-500/15 text-purple-300 hover:bg-purple-500/25'
+                            : 'border-purple-500/40 text-purple-300 hover:bg-purple-500/20'
+                        )}
+                        title="Add or edit pricing in Special Festive Menu"
+                      >
+                        <PartyPopper className="w-3.5 h-3.5 text-purple-400" />
+                        <span>+ Festive</span>
+                      </Button>
+
                       <Button
                         onClick={() => handleOpenEditDish(item)}
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground rounded-none"
                         title="Edit dish"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -1101,7 +1489,7 @@ DESSERTS & DRINKS
                         }}
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                        className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-none"
                         title="Delete dish"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -2058,11 +2446,11 @@ DESSERTS & DRINKS
 
       {/* SPECIAL FESTIVE & OCCASIONS MENU MANAGEMENT MODAL (Job 1) */}
       {isSpecialMenuModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-purple-500/30 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-purple-500/40 rounded-none max-w-4xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border/60 pb-3 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
+                <div className="w-10 h-10 rounded-none bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
                   <PartyPopper className="w-5 h-5" />
                 </div>
                 <div>
@@ -2070,7 +2458,7 @@ DESSERTS & DRINKS
                     Special Occasion &amp; Festival Menus
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Create standalone menus for festivals and choose which menu is active on POS &amp; QR
+                    Import catalogue dishes, customize festive pricing, and configure which menu is served during festivals
                   </p>
                 </div>
               </div>
@@ -2087,12 +2475,12 @@ DESSERTS & DRINKS
 
             <div className="overflow-y-auto space-y-5 pr-1">
               {/* Active Menu Mode Switcher in Modal */}
-              <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-950/20 space-y-2">
+              <div className="p-3.5 rounded-none border border-purple-500/30 bg-purple-950/20 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-200 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Active Menu Mode for Restaurant
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold bg-purple-500/20 text-purple-300 border-purple-500/30">
+                  <Badge variant="outline" className="text-[10px] font-bold bg-purple-500/20 text-purple-300 border-purple-500/30 rounded-none">
                     Live Status
                   </Badge>
                 </div>
@@ -2102,7 +2490,7 @@ DESSERTS & DRINKS
                     onClick={() => setActiveMenuModeMutation.mutate({ mode: 'MAIN_ONLY' })}
                     disabled={setActiveMenuModeMutation.isPending}
                     className={cn(
-                      'p-2.5 rounded-lg border text-left transition-all',
+                      'p-2.5 rounded-none border text-left transition-all',
                       activeMenuMode === 'MAIN_ONLY'
                         ? 'border-primary bg-primary/10 shadow-sm'
                         : 'border-border bg-card/60 hover:bg-muted/40 text-muted-foreground'
@@ -2116,7 +2504,7 @@ DESSERTS & DRINKS
                     onClick={() => setActiveMenuModeMutation.mutate({ mode: 'SPECIAL_ONLY' })}
                     disabled={setActiveMenuModeMutation.isPending}
                     className={cn(
-                      'p-2.5 rounded-lg border text-left transition-all',
+                      'p-2.5 rounded-none border text-left transition-all',
                       activeMenuMode === 'SPECIAL_ONLY'
                         ? 'border-purple-500 bg-purple-500/15 shadow-sm'
                         : 'border-border bg-card/60 hover:bg-muted/40 text-muted-foreground'
@@ -2130,7 +2518,7 @@ DESSERTS & DRINKS
                     onClick={() => setActiveMenuModeMutation.mutate({ mode: 'ALL' })}
                     disabled={setActiveMenuModeMutation.isPending}
                     className={cn(
-                      'p-2.5 rounded-lg border text-left transition-all',
+                      'p-2.5 rounded-none border text-left transition-all',
                       activeMenuMode === 'ALL'
                         ? 'border-emerald-500 bg-emerald-500/10 shadow-sm'
                         : 'border-border bg-card/60 hover:bg-muted/40 text-muted-foreground'
@@ -2143,7 +2531,7 @@ DESSERTS & DRINKS
               </div>
 
               {/* Create / Edit Form */}
-              <form onSubmit={handleSaveSpecialMenu} className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-3.5">
+              <form onSubmit={handleSaveSpecialMenu} className="p-4 rounded-none border border-border/80 bg-muted/20 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                     <Plus className="w-3.5 h-3.5 text-primary" />
@@ -2155,7 +2543,7 @@ DESSERTS & DRINKS
                       variant="ghost"
                       size="sm"
                       onClick={resetSpecialMenuForm}
-                      className="h-6 text-[10px] text-muted-foreground"
+                      className="h-6 text-[10px] text-muted-foreground rounded-none"
                     >
                       Clear &amp; Create New
                     </Button>
@@ -2169,7 +2557,7 @@ DESSERTS & DRINKS
                       value={specialMenuName}
                       onChange={(e) => setSpecialMenuName(e.target.value)}
                       placeholder="e.g. Diwali Dhamaka Grand Feast"
-                      className="h-9 text-xs"
+                      className="h-9 text-xs rounded-none"
                       required
                     />
                   </div>
@@ -2179,7 +2567,7 @@ DESSERTS & DRINKS
                       value={specialMenuOccasion}
                       onChange={(e) => setSpecialMenuOccasion(e.target.value)}
                       placeholder="e.g. Diwali, Christmas, Valentine's Day, New Year"
-                      className="h-9 text-xs"
+                      className="h-9 text-xs rounded-none"
                     />
                   </div>
                 </div>
@@ -2191,7 +2579,7 @@ DESSERTS & DRINKS
                       type="date"
                       value={specialMenuStartDate}
                       onChange={(e) => setSpecialMenuStartDate(e.target.value)}
-                      className="h-9 text-xs"
+                      className="h-9 text-xs rounded-none"
                     />
                   </div>
                   <div className="space-y-1">
@@ -2200,7 +2588,7 @@ DESSERTS & DRINKS
                       type="date"
                       value={specialMenuEndDate}
                       onChange={(e) => setSpecialMenuEndDate(e.target.value)}
-                      className="h-9 text-xs"
+                      className="h-9 text-xs rounded-none"
                     />
                   </div>
                 </div>
@@ -2211,14 +2599,14 @@ DESSERTS & DRINKS
                     value={specialMenuDescription}
                     onChange={(e) => setSpecialMenuDescription(e.target.value)}
                     placeholder="e.g. Authentic celebration thalis, royal delicacies, and chef festive specials"
-                    className="h-9 text-xs"
+                    className="h-9 text-xs rounded-none"
                   />
                 </div>
 
                 {/* Categories Association */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-foreground">Include Specific Categories in this Special Menu</label>
-                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-background/80 rounded-lg border border-border/60">
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-background/80 rounded-none border border-border/60">
                     {categories.map((c) => {
                       const isChecked = specialMenuCategoryIds.includes(c.id);
                       return (
@@ -2231,7 +2619,7 @@ DESSERTS & DRINKS
                             );
                           }}
                           className={cn(
-                            'px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors flex items-center gap-1',
+                            'px-2.5 py-1 rounded-none text-[11px] font-medium border transition-colors flex items-center gap-1',
                             isChecked
                               ? 'bg-purple-500/20 border-purple-500/40 text-purple-300 font-bold'
                               : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'
@@ -2246,9 +2634,214 @@ DESSERTS & DRINKS
                       <span className="text-xs text-muted-foreground">No categories available.</span>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Tip: If no categories are checked, all categories will be accessible under the special festive menu banner.
-                  </p>
+                </div>
+
+                {/* DISHES SELECTION & FESTIVE PRICING PANEL */}
+                <div className="p-4 bg-background border border-purple-500/30 rounded-none space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-2">
+                    <div>
+                      <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <UtensilsCrossed className="w-4 h-4 text-purple-400" />
+                        Festive Dishes Selection &amp; Custom Pricing
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Select which dishes and variants are in this festive menu and adjust special festival prices
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleImportAllDishesToSpecialMenu}
+                        disabled={items.length === 0}
+                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8 gap-1.5 rounded-none font-bold shadow-sm"
+                      >
+                        <Zap className="w-3.5 h-3.5" /> Import All Main Menu Dishes ({items.length})
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Batch Pricing Adjustment Toolbar */}
+                  {specialMenuItems.length > 0 && (
+                    <div className="p-2.5 bg-purple-950/20 border border-purple-500/20 flex flex-wrap items-center justify-between gap-2 rounded-none">
+                      <span className="text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+                        <Percent className="w-3 h-3" /> Quick Batch Price Adjustments ({specialMenuItems.length} dishes selected):
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleApplyBatchFestiveAdjustment(-10)}
+                          className="px-2 py-1 text-[10px] font-bold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-none"
+                        >
+                          -10% Discount
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyBatchFestiveAdjustment(-15)}
+                          className="px-2 py-1 text-[10px] font-bold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-none"
+                        >
+                          -15% Discount
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyBatchFestiveAdjustment(10)}
+                          className="px-2 py-1 text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-none"
+                        >
+                          +10% Festive Surcharge
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyBatchFestiveAdjustment(0)}
+                          className="px-2 py-1 text-[10px] font-semibold bg-muted hover:bg-accent text-muted-foreground hover:text-foreground border border-border rounded-none"
+                        >
+                          Reset to Standard
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dish Search & Type Filter Inside Modal */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <Input
+                        value={specialMenuDishSearch}
+                        onChange={(e) => setSpecialMenuDishSearch(e.target.value)}
+                        placeholder="Search dish name or code..."
+                        className="pl-8 h-8 text-xs bg-card border-border rounded-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                      {(['ALL', 'SELECTED', 'VEG', 'NON_VEG'] as const).map((filter) => (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setSpecialMenuDishFilter(filter)}
+                          className={cn(
+                            'px-2.5 py-1 text-[11px] font-semibold border transition-all rounded-none',
+                            specialMenuDishFilter === filter
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'bg-card text-muted-foreground hover:text-foreground border-border'
+                          )}
+                        >
+                          {filter === 'ALL'
+                            ? `All Dishes (${items.length})`
+                            : filter === 'SELECTED'
+                            ? `Selected (${specialMenuItems.length})`
+                            : filter === 'VEG'
+                            ? '🟢 Veg'
+                            : '🔴 Non-Veg'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dish List for Special Menu */}
+                  <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40">
+                    {items
+                      .filter((itm) => {
+                        const matchesSearch =
+                          itm.name.toLowerCase().includes(specialMenuDishSearch.toLowerCase()) ||
+                          (itm.itemCode && itm.itemCode.toLowerCase().includes(specialMenuDishSearch.toLowerCase()));
+                        const isSelected = specialMenuItems.some((i) => i.itemId === itm.id);
+                        if (!matchesSearch) return false;
+                        if (specialMenuDishFilter === 'SELECTED') return isSelected;
+                        if (specialMenuDishFilter === 'VEG') return itm.foodType === 'VEG' || itm.foodType === 'VEGAN';
+                        if (specialMenuDishFilter === 'NON_VEG') return itm.foodType === 'NON_VEG' || itm.foodType === 'EGG';
+                        return true;
+                      })
+                      .map((itm) => {
+                        const isSelected = specialMenuItems.some((i) => i.itemId === itm.id);
+                        const configuredItem = specialMenuItems.find((i) => i.itemId === itm.id);
+
+                        return (
+                          <div
+                            key={itm.id}
+                            className={cn(
+                              'p-2.5 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors',
+                              isSelected ? 'bg-purple-500/5' : 'hover:bg-muted/30'
+                            )}
+                          >
+                            <div className="flex items-start gap-2.5 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleDishInSpecialMenu(itm)}
+                                className="w-4 h-4 rounded-none border-border text-purple-600 focus:ring-purple-500/20 cursor-pointer accent-purple-600 mt-0.5"
+                              />
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs">
+                                    {itm.foodType === 'NON_VEG' ? '🔴' : itm.foodType === 'EGG' ? '🟡' : '🟢'}
+                                  </span>
+                                  <span className="text-xs font-bold text-foreground">{itm.name}</span>
+                                  {itm.category?.name && (
+                                    <Badge variant="outline" className="text-[10px] py-0 px-1 rounded-none text-muted-foreground border-border">
+                                      {itm.category.name}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground font-mono">
+                                  Standard Price: {formatCurrency(itm.variants?.[0]?.price || 200)}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Festive Pricing Controls */}
+                            {isSelected && (
+                              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                                {itm.variants && itm.variants.length > 1 ? (
+                                  <div className="flex flex-wrap gap-1.5 items-center">
+                                    {itm.variants.map((v, vIdx) => {
+                                      const configuredVariant = configuredItem?.variants?.[vIdx];
+                                      const festivePrice = configuredVariant?.festivePrice ?? v.price;
+                                      return (
+                                        <div
+                                          key={v.id || v.name}
+                                          className="flex items-center gap-1 bg-card px-2 py-1 border border-purple-500/30 rounded-none text-[11px]"
+                                        >
+                                          <span className="text-muted-foreground font-semibold">{v.name}:</span>
+                                          <span className="text-purple-400 font-bold">₹</span>
+                                          <input
+                                            type="number"
+                                            value={festivePrice}
+                                            onChange={(e) =>
+                                              handleUpdateSpecialMenuVariantPrice(
+                                                itm.id,
+                                                vIdx,
+                                                parseFloat(e.target.value) || 0
+                                              )
+                                            }
+                                            className="w-14 bg-background px-1 py-0.5 border border-border text-foreground font-mono font-bold text-[11px] focus:outline-none focus:border-purple-500 rounded-none"
+                                          />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 bg-card px-2 py-1 border border-purple-500/30 rounded-none text-[11px]">
+                                    <span className="text-muted-foreground font-semibold">Festive Price:</span>
+                                    <span className="text-purple-400 font-bold">₹</span>
+                                    <input
+                                      type="number"
+                                      value={configuredItem?.customPrice ?? itm.variants?.[0]?.price ?? 200}
+                                      onChange={(e) =>
+                                        handleUpdateSpecialMenuItemCustomPrice(
+                                          itm.id,
+                                          parseFloat(e.target.value) || 0
+                                        )
+                                      }
+                                      className="w-16 bg-background px-1.5 py-0.5 border border-border text-foreground font-mono font-bold text-[11px] focus:outline-none focus:border-purple-500 rounded-none"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
@@ -2256,7 +2849,7 @@ DESSERTS & DRINKS
                     type="submit"
                     size="sm"
                     disabled={createSpecialMenuMutation.isPending || updateSpecialMenuMutation.isPending}
-                    className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 text-xs font-semibold"
+                    className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 text-xs font-semibold rounded-none px-4"
                   >
                     <Check className="w-3.5 h-3.5" />
                     {editingSpecialMenu ? 'Update Special Menu' : 'Create Special Menu'}
@@ -2264,69 +2857,129 @@ DESSERTS & DRINKS
                 </div>
               </form>
 
-              {/* List of Existing Special Menus */}
+              {/* List of Existing Special Menus with Dishes Preview */}
               <div className="space-y-2.5">
                 <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
                   Configured Festive Menus ({specialMenus.length})
                 </span>
                 {specialMenus.length > 0 ? (
-                  <div className="space-y-2">
-                    {specialMenus.map((m) => (
-                      <div
-                        key={m.id}
-                        className="p-3.5 rounded-xl border border-purple-500/20 bg-card/60 flex items-center justify-between gap-3"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-foreground">{m.name}</span>
-                            <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/30">
-                              🎉 {m.occasion}
-                            </Badge>
-                            {m.startDate && (
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Calendar className="w-3 h-3" /> {m.startDate} {m.endDate ? `to ${m.endDate}` : ''}
-                              </span>
-                            )}
-                          </div>
-                          {m.description && (
-                            <p className="text-[11px] text-muted-foreground line-clamp-1">{m.description}</p>
-                          )}
-                          {m.categoryIds && m.categoryIds.length > 0 && (
-                            <p className="text-[10px] text-purple-400 font-medium">
-                              🏷️ {m.categoryIds.length} categories assigned
-                            </p>
-                          )}
-                        </div>
+                  <div className="space-y-2.5">
+                    {specialMenus.map((m) => {
+                      const isExpanded = expandedSpecialMenuId === m.id;
+                      const menuItems = m.items || [];
+                      return (
+                        <div
+                          key={m.id}
+                          className="p-3.5 rounded-none border border-purple-500/25 bg-card/60 space-y-2"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-foreground">{m.name}</span>
+                                <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/30 rounded-none">
+                                  🎉 {m.occasion}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px] font-mono bg-card text-foreground border-border rounded-none">
+                                  {menuItems.length} festive dishes
+                                </Badge>
+                                {m.startDate && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> {m.startDate} {m.endDate ? `to ${m.endDate}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                              {m.description && (
+                                <p className="text-[11px] text-muted-foreground line-clamp-1">{m.description}</p>
+                              )}
+                            </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenEditSpecialMenu(m)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                            title="Edit Special Menu"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(`Delete special festive menu "${m.name}"?`)) {
-                                deleteSpecialMenuMutation.mutate(m.id);
-                              }
-                            }}
-                            className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
-                            title="Delete Special Menu"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setExpandedSpecialMenuId(isExpanded ? null : m.id)}
+                                className="h-7 text-[11px] px-2 text-purple-300 border-purple-500/30 hover:bg-purple-500/10 rounded-none gap-1"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                {isExpanded ? 'Hide Dishes' : 'View Dishes'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditSpecialMenu(m)}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground rounded-none"
+                                title="Edit Special Menu"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm(`Delete special festive menu "${m.name}"?`)) {
+                                    deleteSpecialMenuMutation.mutate(m.id);
+                                  }
+                                }}
+                                className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-none"
+                                title="Delete Special Menu"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Expandable Dishes Table */}
+                          {isExpanded && (
+                            <div className="pt-2 border-t border-border/50 space-y-1.5">
+                              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                                Included Festive Dishes ({menuItems.length})
+                              </div>
+                              {menuItems.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                                  {menuItems.map((item) => (
+                                    <div
+                                      key={item.itemId}
+                                      className="p-2 rounded-none bg-background border border-border/60 text-xs flex flex-col justify-between gap-1"
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="font-bold text-foreground truncate">{item.name}</span>
+                                        <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono rounded-none">
+                                          {item.foodType}
+                                        </Badge>
+                                      </div>
+                                      <div className="flex items-center justify-between text-[11px] font-mono pt-1 border-t border-border/40">
+                                        {item.variants && item.variants.length > 0 ? (
+                                          <div className="space-y-0.5 w-full">
+                                            {item.variants.map((v, vIdx) => (
+                                              <div key={vIdx} className="flex justify-between">
+                                                <span className="text-muted-foreground">{v.name}:</span>
+                                                <span className="font-bold text-purple-400">₹{v.festivePrice}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <span className="text-muted-foreground">Festive Price:</span>
+                                            <span className="font-bold text-purple-400">₹{item.customPrice ?? item.basePrice}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">
+                                  No dishes individually configured. All main dishes are accessible under this menu banner.
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="text-center py-6 border border-dashed rounded-xl p-4 text-muted-foreground">
+                  <div className="text-center py-6 border border-dashed rounded-none p-4 text-muted-foreground">
                     <p className="text-xs font-medium">No special festive menus created yet.</p>
                     <p className="text-[10px] mt-0.5">Use the form above to add your first festival or occasion menu.</p>
                   </div>
@@ -2338,10 +2991,391 @@ DESSERTS & DRINKS
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-none"
                 onClick={() => {
                   setIsSpecialMenuModalOpen(false);
                   resetSpecialMenuForm();
                 }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SIDE FLYOUT POP-UP MODAL: ADD / EDIT DISH IN FESTIVE MENU */}
+      {isAddToFestiveModalOpen && selectedDishForFestive && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-end p-0 sm:p-4">
+          <div className="bg-card border-l sm:border border-purple-500/40 rounded-none w-full max-w-md h-full sm:h-auto sm:max-h-[90vh] p-6 shadow-2xl space-y-5 animate-in slide-in-from-right duration-200 flex flex-col justify-between">
+            <div className="space-y-4 overflow-y-auto pr-1">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-none bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
+                    <PartyPopper className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Add to Festive Menu</h3>
+                    <p className="text-[11px] text-muted-foreground">Configure custom festival price for POS &amp; QR</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAddToFestiveModalOpen(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Selected Dish Card Summary */}
+              <div className="p-3.5 bg-muted/30 border border-border space-y-1.5 rounded-none">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs">
+                    {selectedDishForFestive.foodType === 'NON_VEG' ? '🔴' : selectedDishForFestive.foodType === 'EGG' ? '🟡' : '🟢'}
+                  </span>
+                  <span className="text-sm font-bold text-foreground">{selectedDishForFestive.name}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Category: <span className="font-semibold text-foreground">{selectedDishForFestive.category?.name || 'Main'}</span>
+                </div>
+                {selectedDishForFestive.description && (
+                  <p className="text-[11px] text-muted-foreground line-clamp-2">{selectedDishForFestive.description}</p>
+                )}
+              </div>
+
+              {/* Select Target Festive Menu (if multiple exist) */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                  <Gift className="w-3.5 h-3.5 text-purple-400" />
+                  Select Festive Menu ({specialMenus.length})
+                </label>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {specialMenus.map((sm) => {
+                    const isTarget = targetFestiveMenuId === sm.id;
+                    const isAlreadyIn = sm.items?.some((i) => i.itemId === selectedDishForFestive.id);
+                    return (
+                      <button
+                        key={sm.id}
+                        type="button"
+                        onClick={() => handleSelectTargetFestiveMenu(sm.id)}
+                        className={cn(
+                          'w-full p-2.5 text-left border transition-all flex items-center justify-between gap-2 rounded-none',
+                          isTarget
+                            ? 'bg-purple-500/15 border-purple-500 text-purple-200 font-bold shadow-xs'
+                            : 'bg-card hover:bg-muted/40 text-muted-foreground border-border'
+                        )}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <PartyPopper className="w-3 h-3 text-purple-400" />
+                            {sm.name}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Occasion: {sm.occasion} {sm.startDate ? `(${sm.startDate})` : ''}
+                          </div>
+                        </div>
+                        {isAlreadyIn && (
+                          <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 rounded-none shrink-0">
+                            ✓ In Menu
+                          </Badge>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Festive Pricing Customizer */}
+              <div className="p-3.5 bg-background border border-purple-500/30 rounded-none space-y-3">
+                <div className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Custom Festive Pricing</span>
+                  <span className="text-[10px] text-purple-400 font-mono">Special Occasion Rate</span>
+                </div>
+
+                {flyoutVariants.length > 1 ? (
+                  <div className="space-y-2">
+                    {flyoutVariants.map((v, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-2 p-2 bg-muted/20 border border-border rounded-none text-xs">
+                        <div>
+                          <div className="font-bold text-foreground">{v.name}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono">Std: ₹{v.originalPrice}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-purple-400 font-bold">₹</span>
+                          <Input
+                            type="number"
+                            value={v.festivePrice}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setFlyoutVariants((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, festivePrice: val } : item))
+                              );
+                            }}
+                            className="w-20 h-8 text-xs font-mono font-bold rounded-none"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2 p-2 bg-muted/20 border border-border rounded-none text-xs">
+                      <div>
+                        <div className="font-bold text-foreground">Portion Price</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          Std: ₹{selectedDishForFestive.variants?.[0]?.price || 200}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-purple-400 font-bold">₹</span>
+                        <Input
+                          type="number"
+                          value={flyoutCustomPrice}
+                          onChange={(e) => setFlyoutCustomPrice(parseFloat(e.target.value) || 0)}
+                          className="w-24 h-8 text-xs font-mono font-bold rounded-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick % adjustment buttons */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground font-semibold">Quick adjust:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = selectedDishForFestive.variants?.[0]?.price || 200;
+                      setFlyoutCustomPrice(Math.round(base * 0.9));
+                      setFlyoutVariants((prev) => prev.map((v) => ({ ...v, festivePrice: Math.round(v.originalPrice * 0.9) })));
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-none hover:bg-purple-500/20"
+                  >
+                    -10%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = selectedDishForFestive.variants?.[0]?.price || 200;
+                      setFlyoutCustomPrice(Math.round(base * 0.8));
+                      setFlyoutVariants((prev) => prev.map((v) => ({ ...v, festivePrice: Math.round(v.originalPrice * 0.8) })));
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-none hover:bg-purple-500/20"
+                  >
+                    -20%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = selectedDishForFestive.variants?.[0]?.price || 200;
+                      setFlyoutCustomPrice(Math.round(base * 1.1));
+                      setFlyoutVariants((prev) => prev.map((v) => ({ ...v, festivePrice: Math.round(v.originalPrice * 1.1) })));
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-none hover:bg-amber-500/20"
+                  >
+                    +10%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = selectedDishForFestive.variants?.[0]?.price || 200;
+                      setFlyoutCustomPrice(base);
+                      setFlyoutVariants((prev) => prev.map((v) => ({ ...v, festivePrice: v.originalPrice })));
+                    }}
+                    className="px-2 py-0.5 text-[10px] text-muted-foreground border border-border rounded-none hover:bg-muted"
+                  >
+                    Standard
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-2">
+              {specialMenus.find((m) => m.id === targetFestiveMenuId)?.items?.some((i) => i.itemId === selectedDishForFestive.id) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    removeDishFromFestiveMenuMutation.mutate({
+                      menuId: targetFestiveMenuId,
+                      itemId: selectedDishForFestive.id,
+                    })
+                  }
+                  disabled={removeDishFromFestiveMenuMutation.isPending}
+                  className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 text-xs rounded-none border-rose-500/30"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddToFestiveModalOpen(false)}
+                  className="rounded-none text-xs"
+                >
+                  Cancel
+                </Button>
+              )}
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSaveDishToFestiveMenu}
+                disabled={addDishToFestiveMenuMutation.isPending}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5 rounded-none px-4 shadow-sm"
+              >
+                <Check className="w-3.5 h-3.5" /> Save to Festive Menu
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW ALL FESTIVE MENUS OVERVIEW MODAL */}
+      {isViewAllFestiveMenusOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-purple-500/40 rounded-none max-w-3xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-none bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
+                  <PartyPopper className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    All Special Occasion &amp; Festive Menus ({specialMenus.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Overview of all configured festive menus, dish lineups, date ranges, and live pricing
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsViewAllFestiveMenusOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-4 pr-1">
+              {specialMenus.length > 0 ? (
+                <div className="space-y-4">
+                  {specialMenus.map((sm) => {
+                    const menuItems = sm.items || [];
+                    return (
+                      <div
+                        key={sm.id}
+                        className="p-4 rounded-none border border-purple-500/30 bg-card/60 space-y-3"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-extrabold text-foreground">{sm.name}</span>
+                              <Badge variant="outline" className="text-[10px] bg-purple-500/15 text-purple-300 border-purple-500/30 rounded-none">
+                                🎉 {sm.occasion}
+                              </Badge>
+                              {sm.startDate && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                                  <Calendar className="w-3 h-3" /> {sm.startDate} {sm.endDate ? `to ${sm.endDate}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            {sm.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{sm.description}</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setIsViewAllFestiveMenusOpen(false);
+                                handleOpenEditSpecialMenu(sm);
+                              }}
+                              className="h-7 text-xs text-purple-300 border-purple-500/30 hover:bg-purple-500/10 rounded-none gap-1"
+                            >
+                              <Edit3 className="w-3 h-3" /> Manage Menu
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Dish items in this menu */}
+                        <div>
+                          <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                            Configured Festive Dishes ({menuItems.length})
+                          </div>
+                          {menuItems.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {menuItems.map((itm) => (
+                                <div
+                                  key={itm.itemId}
+                                  className="p-2.5 rounded-none bg-background border border-border/70 flex flex-col justify-between gap-1 text-xs"
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-bold text-foreground truncate">{itm.name}</span>
+                                    <span className="text-[10px]">
+                                      {itm.foodType === 'NON_VEG' ? '🔴' : itm.foodType === 'EGG' ? '🟡' : '🟢'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-1 border-t border-border/40 font-mono text-[11px]">
+                                    {itm.variants && itm.variants.length > 0 ? (
+                                      <div className="space-y-0.5 w-full">
+                                        {itm.variants.map((v, idx) => (
+                                          <div key={idx} className="flex justify-between">
+                                            <span className="text-muted-foreground">{v.name}:</span>
+                                            <span className="font-bold text-purple-400">₹{v.festivePrice}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="text-muted-foreground">Festive Rate:</span>
+                                        <span className="font-bold text-purple-400">₹{itm.customPrice ?? itm.basePrice}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">
+                              No individual dish overrides. Serves full menu catalogue under this festive banner.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-10 border border-dashed rounded-none p-6 text-muted-foreground space-y-2">
+                  <PartyPopper className="w-10 h-10 text-muted-foreground mx-auto opacity-30" />
+                  <p className="text-xs font-semibold">No special festive menus created yet.</p>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setIsViewAllFestiveMenusOpen(false);
+                      handleOpenCreateSpecialMenu();
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-none"
+                  >
+                    + Create First Festive Menu
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-border/60 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none"
+                onClick={() => setIsViewAllFestiveMenusOpen(false)}
               >
                 Close
               </Button>

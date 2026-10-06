@@ -71,6 +71,24 @@ export function generateFoodLetterCode(name: string): string {
   return code || 'ITM';
 }
 
+export interface SpecialMenuVariantConfig {
+  id?: string;
+  name: string;
+  originalPrice: number;
+  festivePrice: number;
+}
+
+export interface SpecialMenuItemConfig {
+  itemId: string;
+  name: string;
+  foodType?: 'VEG' | 'NON_VEG' | 'EGG' | 'VEGAN' | string;
+  categoryName?: string;
+  imageUrl?: string;
+  basePrice?: number;
+  customPrice?: number;
+  variants?: SpecialMenuVariantConfig[];
+}
+
 export interface SpecialMenu {
   id: string;
   tenantId: string;
@@ -80,6 +98,7 @@ export interface SpecialMenu {
   startDate?: string;
   endDate?: string;
   categoryIds: string[];
+  items?: SpecialMenuItemConfig[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -102,6 +121,7 @@ function getInitialSpecialMenus(tenantId: string): SpecialMenu[] {
       startDate: now.toISOString().split('T')[0],
       endDate: nextMonth.toISOString().split('T')[0],
       categoryIds: [],
+      items: [],
       isActive: true,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -483,7 +503,7 @@ export class MenuController {
 
   static async createSpecialMenu(req: Request, res: Response): Promise<void> {
     const tid = req.user!.tid;
-    const { name, occasion, description, startDate, endDate, categoryIds, isActive } = req.body;
+    const { name, occasion, description, startDate, endDate, categoryIds, items, isActive } = req.body;
     if (!name || !name.trim()) {
       throw new AppError('VALIDATION_ERROR', 'Special menu name is required', 400);
     }
@@ -502,6 +522,7 @@ export class MenuController {
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       categoryIds: Array.isArray(categoryIds) ? categoryIds : [],
+      items: Array.isArray(items) ? items : [],
       isActive: isActive !== false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -516,7 +537,7 @@ export class MenuController {
   static async updateSpecialMenu(req: Request, res: Response): Promise<void> {
     const tid = req.user!.tid;
     const { id } = req.params;
-    const { name, occasion, description, startDate, endDate, categoryIds, isActive } = req.body;
+    const { name, occasion, description, startDate, endDate, categoryIds, items, isActive } = req.body;
 
     if (!specialMenusStore.has(tid)) {
       specialMenusStore.set(tid, getInitialSpecialMenus(tid));
@@ -535,6 +556,7 @@ export class MenuController {
       startDate: startDate !== undefined ? startDate : menus[idx].startDate,
       endDate: endDate !== undefined ? endDate : menus[idx].endDate,
       categoryIds: Array.isArray(categoryIds) ? categoryIds : menus[idx].categoryIds,
+      items: Array.isArray(items) ? items : (menus[idx].items || []),
       isActive: isActive !== undefined ? isActive : menus[idx].isActive,
       updatedAt: new Date().toISOString(),
     };
@@ -543,6 +565,75 @@ export class MenuController {
     await cacheDel(CacheKeys.menu(tid, req.user!.bid));
     emitToRoom(tid, req.user!.bid, { type: 'SPECIAL_MENU_UPDATED', payload: updated } as any);
     sendSuccess(res, updated);
+  }
+
+  static async addSpecialMenuItem(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    const { id } = req.params;
+    const { itemId, name, foodType, categoryName, imageUrl, basePrice, customPrice, variants } = req.body;
+
+    if (!itemId || !name) {
+      throw new AppError('VALIDATION_ERROR', 'Item ID and Name are required', 400);
+    }
+
+    if (!specialMenusStore.has(tid)) {
+      specialMenusStore.set(tid, getInitialSpecialMenus(tid));
+    }
+    const menus = specialMenusStore.get(tid)!;
+    const idx = menus.findIndex((m) => m.id === id);
+    if (idx === -1) {
+      throw new AppError('NOT_FOUND', 'Special festive menu not found', 404);
+    }
+
+    const menu = menus[idx];
+    const currentItems = Array.isArray(menu.items) ? [...menu.items] : [];
+    const existingIdx = currentItems.findIndex((i) => i.itemId === itemId);
+
+    const itemConfig: SpecialMenuItemConfig = {
+      itemId,
+      name,
+      foodType,
+      categoryName,
+      imageUrl,
+      basePrice: basePrice !== undefined ? Number(basePrice) : undefined,
+      customPrice: customPrice !== undefined ? Number(customPrice) : undefined,
+      variants: Array.isArray(variants) ? variants : undefined,
+    };
+
+    if (existingIdx >= 0) {
+      currentItems[existingIdx] = itemConfig;
+    } else {
+      currentItems.push(itemConfig);
+    }
+
+    menu.items = currentItems;
+    menu.updatedAt = new Date().toISOString();
+
+    await cacheDel(CacheKeys.menu(tid, req.user!.bid));
+    emitToRoom(tid, req.user!.bid, { type: 'SPECIAL_MENU_UPDATED', payload: menu } as any);
+    sendSuccess(res, { message: `Added "${name}" to festive menu`, menu });
+  }
+
+  static async removeSpecialMenuItem(req: Request, res: Response): Promise<void> {
+    const tid = req.user!.tid;
+    const { id, itemId } = req.params;
+
+    if (!specialMenusStore.has(tid)) {
+      specialMenusStore.set(tid, getInitialSpecialMenus(tid));
+    }
+    const menus = specialMenusStore.get(tid)!;
+    const idx = menus.findIndex((m) => m.id === id);
+    if (idx === -1) {
+      throw new AppError('NOT_FOUND', 'Special festive menu not found', 404);
+    }
+
+    const menu = menus[idx];
+    menu.items = (menu.items || []).filter((i) => i.itemId !== itemId);
+    menu.updatedAt = new Date().toISOString();
+
+    await cacheDel(CacheKeys.menu(tid, req.user!.bid));
+    emitToRoom(tid, req.user!.bid, { type: 'SPECIAL_MENU_UPDATED', payload: menu } as any);
+    sendSuccess(res, { message: 'Item removed from festive menu', menu });
   }
 
   static async deleteSpecialMenu(req: Request, res: Response): Promise<void> {

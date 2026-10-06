@@ -23,6 +23,8 @@ router.get('/special-menus',          requirePermission('menu:view', 'orders:cre
 router.post('/special-menus',         requirePermission('menu:create'), asyncHandler(MenuController.createSpecialMenu));
 router.patch('/special-menus/:id',     requirePermission('menu:edit'),   asyncHandler(MenuController.updateSpecialMenu));
 router.delete('/special-menus/:id',    requirePermission('menu:delete'), asyncHandler(MenuController.deleteSpecialMenu));
+router.post('/special-menus/:id/items', requirePermission('menu:edit'),  asyncHandler(MenuController.addSpecialMenuItem));
+router.delete('/special-menus/:id/items/:itemId', requirePermission('menu:edit'), asyncHandler(MenuController.removeSpecialMenuItem));
 router.get('/active-mode',            requirePermission('menu:view', 'orders:create', 'orders:view', 'tables:view'),   asyncHandler(MenuController.getActiveMenuMode));
 router.post('/active-mode',           requirePermission('menu:edit'),   asyncHandler(MenuController.setActiveMenuMode));
 
