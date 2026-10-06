@@ -23,6 +23,7 @@ import '../../features/customers/customers_screen.dart';
 import '../../features/marketing/promotions_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/help_screen.dart';
+import '../../features/splash/splash_screen.dart';
 import '../utils/shell.dart';
 
 import '../../features/superadmin/superadmin_screen.dart';
@@ -31,13 +32,15 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: '/tables',
+    initialLocation: '/splash',
     redirect: (context, state) {
-      final isLoggedIn = authState.isAuthenticated;
+      final goingToSplash = state.matchedLocation == '/splash';
       final goingToLogin = state.matchedLocation == '/login';
+      final isLoggedIn = authState.isAuthenticated;
       final user = authState.user;
       final isPlatformAdmin = user?.isPlatformAdmin ?? false;
 
+      if (goingToSplash) return null;
       if (!isLoggedIn && !goingToLogin) return '/login';
       if (isLoggedIn && goingToLogin) {
         return getDefaultLandingRoute(user);
@@ -53,6 +56,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // Startup / Splash Screen
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+
       // Login
       GoRoute(
         path: '/login',
