@@ -157,75 +157,177 @@ export default function OnboardingPage() {
   ]);
   const [newStationInput, setNewStationInput] = useState('');
 
-  // Step 4: Floor & Tables
-  const [floorName, setFloorName] = useState('Ground Floor Dining');
-  const [tableCount, setTableCount] = useState<number>(10);
-  const [tableCapacity, setTableCapacity] = useState<number>(4);
-  const [customTables, setCustomTables] = useState<Array<{
+  // Step 4: Multiple Dining Areas & Floor Plan Designer
+  const [diningAreas, setDiningAreas] = useState<Array<{
+    id: string;
     name: string;
-    capacity: number;
-    shape: 'SQUARE' | 'RECTANGLE' | 'CIRCLE';
-  }>>(() =>
-    Array.from({ length: 10 }, (_, i) => {
-      const num = i + 1;
-      return {
-        name: num < 10 ? '0' + num : `${num}`,
-        capacity: num % 4 === 0 ? 6 : num % 3 === 0 ? 2 : 4,
-        shape: num % 4 === 0 ? 'RECTANGLE' : num % 3 === 0 ? 'CIRCLE' : 'SQUARE',
-      };
-    })
-  );
+    tableCount: number;
+    tablePrefix: string;
+    defaultCapacity: number;
+    tables: Array<{
+      name: string;
+      capacity: number;
+      shape: 'SQUARE' | 'RECTANGLE' | 'CIRCLE';
+    }>;
+  }>>([
+    {
+      id: 'area-1',
+      name: 'Ground Floor Dining',
+      tableCount: 10,
+      tablePrefix: 'G',
+      defaultCapacity: 4,
+      tables: Array.from({ length: 10 }, (_, i) => {
+        const num = i + 1;
+        return {
+          name: `G-${num < 10 ? '0' + num : num}`,
+          capacity: num % 4 === 0 ? 6 : num % 3 === 0 ? 2 : 4,
+          shape: num % 4 === 0 ? 'RECTANGLE' : num % 3 === 0 ? 'CIRCLE' : 'SQUARE',
+        };
+      }),
+    },
+  ]);
+  const [activeAreaId, setActiveAreaId] = useState<string>('area-1');
   const [selectedTableIdx, setSelectedTableIdx] = useState<number | null>(null);
 
-  // Synchronize customTables when tableCount changes
-  const handleTableCountChange = (newCount: number) => {
-    setTableCount(newCount);
-    setCustomTables((prev) => {
-      const updated = [...prev];
-      if (newCount > prev.length) {
-        for (let i = prev.length; i < newCount; i++) {
-          const num = i + 1;
-          updated.push({
-            name: num < 10 ? '0' + num : `${num}`,
-            capacity: tableCapacity,
-            shape: num % 4 === 0 ? 'RECTANGLE' : num % 3 === 0 ? 'CIRCLE' : 'SQUARE',
-          });
-        }
-      } else if (newCount < prev.length) {
-        return updated.slice(0, newCount);
-      }
-      return updated;
+  const activeArea = diningAreas.find((a) => a.id === activeAreaId) || diningAreas[0];
+
+  const generateTablesForArea = (count: number, prefix: string, defaultCap: number = 4) => {
+    const p = prefix.trim().toUpperCase();
+    const prefixStr = p ? `${p}-` : '';
+    return Array.from({ length: Math.min(Math.max(count, 1), 100) }, (_, i) => {
+      const num = i + 1;
+      return {
+        name: `${prefixStr}${num < 10 ? '0' + num : num}`,
+        capacity: num % 4 === 0 ? 6 : num % 3 === 0 ? 2 : defaultCap,
+        shape: num % 4 === 0 ? ('RECTANGLE' as const) : num % 3 === 0 ? ('CIRCLE' as const) : ('SQUARE' as const),
+      };
     });
   };
 
-  const updateIndividualTableCapacity = (index: number, newCap: number) => {
-    const safeCap = Math.max(1, Math.min(newCap, 50));
-    setCustomTables((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, capacity: safeCap } : t))
-    );
+  const addDiningArea = (presetName?: string, presetPrefix?: string, count: number = 8) => {
+    const nextIdx = diningAreas.length + 1;
+    const name = presetName || `Dining Area ${nextIdx}`;
+    const prefix = presetPrefix || (name.charAt(0).toUpperCase() || `A${nextIdx}`);
+    const newId = `area-${Date.now()}-${nextIdx}`;
+    const newArea = {
+      id: newId,
+      name,
+      tableCount: count,
+      tablePrefix: prefix,
+      defaultCapacity: 4,
+      tables: generateTablesForArea(count, prefix, 4),
+    };
+    setDiningAreas((prev) => [...prev, newArea]);
+    setActiveAreaId(newId);
+    toast.success('Dining Area Added', `Configured '${name}' with ${count} tables.`);
   };
 
-  const updateIndividualTableShape = (index: number, shape: 'SQUARE' | 'RECTANGLE' | 'CIRCLE') => {
-    setCustomTables((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, shape } : t))
-    );
+  const removeDiningArea = (areaId: string) => {
+    if (diningAreas.length <= 1) {
+      toast.error('Cannot Remove', 'You must have at least one dining area configured.');
+      return;
+    }
+    const target = diningAreas.find((a) => a.id === areaId);
+    const updated = diningAreas.filter((a) => a.id !== areaId);
+    setDiningAreas(updated);
+    if (activeAreaId === areaId) {
+      setActiveAreaId(updated[0]?.id || 'area-1');
+    }
+    toast.success('Dining Area Removed', `Removed '${target?.name || 'Area'}'.`);
   };
 
-  const applyBatchCapacityPreset = (preset: 'all2' | 'all4' | 'all6' | 'smartMix') => {
-    setCustomTables((prev) =>
-      prev.map((t, i) => {
-        const num = i + 1;
-        if (preset === 'all2') return { ...t, capacity: 2, shape: 'CIRCLE' };
-        if (preset === 'all4') return { ...t, capacity: 4, shape: 'SQUARE' };
-        if (preset === 'all6') return { ...t, capacity: 6, shape: 'RECTANGLE' };
-        // smartMix: 2, 4, 6, 8
-        const cap = num % 4 === 0 ? 6 : num % 3 === 0 ? 2 : num % 5 === 0 ? 8 : 4;
-        const shape = cap === 2 ? 'CIRCLE' : cap === 6 || cap === 8 ? 'RECTANGLE' : 'SQUARE';
-        return { ...t, capacity: cap, shape: shape as any };
+  const updateActiveAreaCount = (newCount: number) => {
+    const safeCount = Math.min(Math.max(newCount, 1), 100);
+    setDiningAreas((prev) =>
+      prev.map((a) => {
+        if (a.id !== activeAreaId) return a;
+        const currentTables = [...a.tables];
+        const updatedTables = [];
+        const p = a.tablePrefix.trim().toUpperCase();
+        const prefixStr = p ? `${p}-` : '';
+
+        for (let i = 0; i < safeCount; i++) {
+          const num = i + 1;
+          const defaultName = `${prefixStr}${num < 10 ? '0' + num : num}`;
+          if (i < currentTables.length) {
+            updatedTables.push(currentTables[i]);
+          } else {
+            updatedTables.push({
+              name: defaultName,
+              capacity: a.defaultCapacity || 4,
+              shape: num % 4 === 0 ? ('RECTANGLE' as const) : num % 3 === 0 ? ('CIRCLE' as const) : ('SQUARE' as const),
+            });
+          }
+        }
+        return { ...a, tableCount: safeCount, tables: updatedTables };
       })
     );
-    toast.success('Table Presets Applied', 'Updated capacities across all configured tables.');
   };
+
+  const updateActiveAreaName = (name: string) => {
+    setDiningAreas((prev) =>
+      prev.map((a) => (a.id === activeAreaId ? { ...a, name } : a))
+    );
+  };
+
+  const updateActiveAreaPrefix = (prefix: string) => {
+    setDiningAreas((prev) =>
+      prev.map((a) => {
+        if (a.id !== activeAreaId) return a;
+        const cleanP = prefix.trim().toUpperCase();
+        const prefixStr = cleanP ? `${cleanP}-` : '';
+        const updatedTables = a.tables.map((t, idx) => {
+          const num = idx + 1;
+          return {
+            ...t,
+            name: `${prefixStr}${num < 10 ? '0' + num : num}`,
+          };
+        });
+        return { ...a, tablePrefix: prefix, tables: updatedTables };
+      })
+    );
+  };
+
+  const updateIndividualTableCapacity = (tableIndex: number, newCap: number) => {
+    const safeCap = Math.max(1, Math.min(newCap, 50));
+    setDiningAreas((prev) =>
+      prev.map((a) => {
+        if (a.id !== activeAreaId) return a;
+        const tables = a.tables.map((t, idx) => (idx === tableIndex ? { ...t, capacity: safeCap } : t));
+        return { ...a, tables };
+      })
+    );
+  };
+
+  const updateIndividualTableShape = (tableIndex: number, shape: 'SQUARE' | 'RECTANGLE' | 'CIRCLE') => {
+    setDiningAreas((prev) =>
+      prev.map((a) => {
+        if (a.id !== activeAreaId) return a;
+        const tables = a.tables.map((t, idx) => (idx === tableIndex ? { ...t, shape } : t));
+        return { ...a, tables };
+      })
+    );
+  };
+
+  const applyAreaBatchPreset = (preset: 'all2' | 'all4' | 'all6' | 'smartMix') => {
+    setDiningAreas((prev) =>
+      prev.map((a) => {
+        if (a.id !== activeAreaId) return a;
+        const tables = a.tables.map((t, i) => {
+          const num = i + 1;
+          if (preset === 'all2') return { ...t, capacity: 2, shape: 'CIRCLE' as const };
+          if (preset === 'all4') return { ...t, capacity: 4, shape: 'SQUARE' as const };
+          if (preset === 'all6') return { ...t, capacity: 6, shape: 'RECTANGLE' as const };
+          const cap = num % 4 === 0 ? 6 : num % 3 === 0 ? 2 : num % 5 === 0 ? 8 : 4;
+          const shape = cap === 2 ? ('CIRCLE' as const) : cap === 6 || cap === 8 ? ('RECTANGLE' as const) : ('SQUARE' as const);
+          return { ...t, capacity: cap, shape };
+        });
+        return { ...a, tables };
+      })
+    );
+    toast.success('Table Presets Applied', 'Updated table capacities for this dining area.');
+  };
+
 
   // Step 5: Menu Catalog & Upload Scanner
   const [menuTemplate, setMenuTemplate] = useState<string>('italian');
@@ -451,8 +553,13 @@ DESSERTS & DRINKS
       return true;
     }
     if (currentStep === 4) {
-      if (tableCount < 1) {
-        toast.error('Invalid Table Count', 'Please configure at least 1 table.');
+      if (diningAreas.length === 0) {
+        toast.error('Dining Area Required', 'Please configure at least one dining area.');
+        return false;
+      }
+      const totalTables = diningAreas.reduce((acc, a) => acc + a.tables.length, 0);
+      if (totalTables < 1) {
+        toast.error('Invalid Table Count', 'Please configure at least 1 table across your dining areas.');
         return false;
       }
       return true;
@@ -523,6 +630,8 @@ DESSERTS & DRINKS
     setIsSubmitting(true);
     setProvisioningStatus('Initiating Restaurant Operating System...');
 
+    const totalTablesCount = diningAreas.reduce((acc, a) => acc + a.tables.length, 0);
+
     const payload = {
       name: restaurantName.trim(),
       slug: slug.trim() || undefined,
@@ -547,14 +656,24 @@ DESSERTS & DRINKS
       diningModes: diningModes.length > 0 ? diningModes : ['DINE_IN', 'TAKEAWAY', 'DELIVERY', 'QR_ORDER'],
       kitchenStations: kitchenStations.length > 0 ? kitchenStations : ['Main Kitchen', 'Beverage Bar', 'Dessert & Bakery'],
 
-      floorName: floorName.trim() || 'Main Dining Floor',
-      tableCount: Number(tableCount) || 10,
-      tableCapacity: Number(tableCapacity) || 4,
-      customTables: customTables.map((t, idx) => ({
-        name: t.name || `T-${idx < 9 ? '0' + (idx + 1) : idx + 1}`,
-        capacity: Number(t.capacity) || 4,
-        shape: t.shape || 'SQUARE',
+      // Multi-Dining Areas & Table Grids
+      diningAreas: diningAreas.map((area) => ({
+        name: area.name.trim() || 'Dining Area',
+        tableCount: area.tables.length,
+        tablePrefix: area.tablePrefix,
+        tables: area.tables.map((t, idx) => ({
+          name: t.name || `${area.tablePrefix || 'T'}-${idx < 9 ? '0' + (idx + 1) : idx + 1}`,
+          capacity: Number(t.capacity) || 4,
+          shape: t.shape || 'SQUARE',
+        })),
       })),
+
+      // Legacy fallback fields for backward compatibility
+      floorName: diningAreas[0]?.name || 'Main Dining Floor',
+      tableCount: totalTablesCount,
+      tableCapacity: diningAreas[0]?.defaultCapacity || 4,
+      customTables: diningAreas.flatMap((a) => a.tables),
+
 
       menuTemplate: cuisineType,
       parsedMenuCategories: parsedMenuCategories.length > 0
@@ -1209,193 +1328,335 @@ DESSERTS & DRINKS
             </div>
           )}
 
-          {/* STEP 4: Floor & Table Grid Designer */}
+          {/* STEP 4: Floor & Table Grid Designer with Multiple Dining Areas */}
           {currentStep === 4 && (
             <div className="p-6 sm:p-8 space-y-6">
-              <div>
-                <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                  <LayoutGrid className="w-5 h-5 text-primary" />
-                  Floor Plan & Table Grid Layout
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Configure table count, adjust individual table seating capacities on-the-fly, and prepare QR ordering tokens
-                </p>
-              </div>
-
-              {/* Main Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Floor Name</label>
-                  <Input
-                    value={floorName}
-                    onChange={(e) => setFloorName(e.target.value)}
-                    placeholder="e.g. Main Dining Hall"
-                    className="h-11 bg-background text-sm"
-                  />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <LayoutGrid className="w-5 h-5 text-primary" />
+                    Floor Plan &amp; Table Grid Layout
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add multiple dining areas (e.g. Ground Floor, Rooftop, AC Lounge), customize table counts, shapes, and seating capacities.
+                  </p>
                 </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-semibold text-foreground">
-                      Total Tables <span className="text-destructive">*</span>
-                    </label>
-                    <span className="text-xs font-extrabold text-primary">{tableCount} Tables</span>
-                  </div>
-                  <select
-                    value={tableCount}
-                    onChange={(e) => handleTableCountChange(parseInt(e.target.value, 10) || 1)}
-                    className="w-full h-11 px-3 rounded-md border border-input bg-background text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    {Array.from({ length: 100 }, (_, i) => i + 1).map((num) => (
-                      <option key={num} value={num}>
-                        {num} {num === 1 ? 'Table' : 'Tables'} {num === 10 ? '— Standard (10)' : num === 20 ? '— Medium (20)' : num === 50 ? '— Large Hall (50)' : num === 100 ? '— Max Capacity (100)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-semibold text-foreground">Quick Batch Presets</label>
-                    <span className="text-[11px] text-muted-foreground">Bulk apply</span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => applyBatchCapacityPreset('all2')}
-                      className="py-2.5 rounded-lg text-xs font-bold transition-all border bg-muted/40 border-border/50 text-muted-foreground hover:bg-accent hover:text-foreground text-center"
-                      title="Set all tables to 2 guests"
-                    >
-                      2 Pax
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyBatchCapacityPreset('all4')}
-                      className="py-2.5 rounded-lg text-xs font-bold transition-all border bg-muted/40 border-border/50 text-muted-foreground hover:bg-accent hover:text-foreground text-center"
-                      title="Set all tables to 4 guests"
-                    >
-                      4 Pax
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyBatchCapacityPreset('all6')}
-                      className="py-2.5 rounded-lg text-xs font-bold transition-all border bg-muted/40 border-border/50 text-muted-foreground hover:bg-accent hover:text-foreground text-center"
-                      title="Set all tables to 6 guests"
-                    >
-                      6 Pax
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyBatchCapacityPreset('smartMix')}
-                      className="py-2.5 rounded-lg text-xs font-bold transition-all border bg-primary/15 border-primary/40 text-primary hover:bg-primary/25 text-center"
-                      title="Mix of 2, 4, 6 and 8 guests"
-                    >
-                      Mix
-                    </button>
-                  </div>
+                {/* Global Stats Counter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs font-mono py-1 px-2.5 bg-card border-border rounded-none">
+                    <Layers className="w-3.5 h-3.5 text-primary mr-1" />
+                    {diningAreas.length} {diningAreas.length === 1 ? 'Area' : 'Areas'}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs font-mono py-1 px-2.5 bg-card border-border rounded-none">
+                    <Store className="w-3.5 h-3.5 text-emerald-400 mr-1" />
+                    {diningAreas.reduce((acc, a) => acc + a.tables.length, 0)} Tables
+                  </Badge>
+                  <Badge variant="outline" className="text-xs font-mono py-1 px-2.5 bg-primary/10 text-primary border-primary/30 rounded-none">
+                    <Users className="w-3.5 h-3.5 mr-1" />
+                    {diningAreas.reduce((acc, a) => acc + a.tables.reduce((s, t) => s + (t.capacity || 0), 0), 0)} Seats
+                  </Badge>
                 </div>
               </div>
 
-              {/* Table Seating Statistics & Individual Capacity Adjuster */}
-              <div className="border border-border/70 rounded-2xl p-5 bg-card/40 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      Interactive Table Layout & Seating Customizer
-                    </span>
-                    <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                      Edit Any Table Capacity
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-muted-foreground">
-                      Total Floor Seating:{' '}
-                      <strong className="text-primary font-mono text-sm">
-                        {customTables.reduce((acc, t) => acc + (t.capacity || 0), 0)} Guests
-                      </strong>
-                    </span>
-                    <span className="text-muted-foreground">|</span>
-                    <span className="text-muted-foreground">
-                      Tables: <strong className="text-foreground font-mono">{customTables.length}</strong>
-                    </span>
-                  </div>
+              {/* Dining Area Navigation Pills & Presets */}
+              <div className="p-4 bg-muted/30 border border-border space-y-3 rounded-none">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                    <Layers className="w-4 h-4 text-primary" />
+                    Configured Dining Areas ({diningAreas.length})
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">Select an area to configure its tables</span>
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Click the <strong className="text-foreground">-</strong> or <strong className="text-foreground">+</strong> buttons on any table card below to edit its exact guest capacity. You can also edit table shapes or adjust capacity after onboarding under the Tables module.
-                </p>
-
-                {/* Table Grid with Direct Steppers */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                  {customTables.map((table, idx) => (
+                {/* Area Tabs */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {diningAreas.map((area, idx) => (
                     <div
-                      key={idx}
+                      key={area.id}
                       className={cn(
-                        'p-3 rounded-xl border transition-all flex flex-col justify-between gap-2.5',
-                        selectedTableIdx === idx
-                          ? 'border-primary bg-primary/10 shadow-md ring-1 ring-primary'
-                          : 'border-border/70 bg-background/80 hover:border-border'
+                        'flex items-center border transition-all cursor-pointer rounded-none',
+                        area.id === activeAreaId
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                          : 'bg-card hover:bg-accent text-foreground border-border'
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-xs text-foreground">{table.name}</span>
-                          <span className="text-[10px] text-muted-foreground uppercase font-mono">
-                            {table.shape === 'CIRCLE' ? '●' : table.shape === 'RECTANGLE' ? '▭' : '■'}
-                          </span>
-                        </div>
-                        <QrCode className="w-3.5 h-3.5 text-emerald-400 opacity-80" />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveAreaId(area.id)}
+                        className="px-3.5 py-2 text-xs font-bold flex items-center gap-2"
+                      >
+                        <span>{area.name || `Area ${idx + 1}`}</span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-[10px] font-mono py-0 px-1.5 rounded-none',
+                            area.id === activeAreaId ? 'border-primary-foreground/30 text-primary-foreground' : 'border-border text-muted-foreground'
+                          )}
+                        >
+                          {area.tables.length} tbl
+                        </Badge>
+                      </button>
 
-                      {/* Seating Stepper */}
-                      <div className="flex items-center justify-between bg-muted/40 rounded-lg p-1 border border-border/50">
+                      {diningAreas.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => updateIndividualTableCapacity(idx, table.capacity - 1)}
-                          disabled={table.capacity <= 1}
-                          className="w-6 h-6 rounded flex items-center justify-center bg-card hover:bg-accent text-foreground disabled:opacity-30 text-xs font-bold"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeDiningArea(area.id);
+                          }}
+                          className={cn(
+                            'pr-2.5 pl-1 py-2 text-xs hover:opacity-80 transition-opacity',
+                            area.id === activeAreaId ? 'text-primary-foreground/80 hover:text-white' : 'text-muted-foreground hover:text-destructive'
+                          )}
+                          title="Remove this dining area"
                         >
-                          -
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                        <div className="flex items-center gap-1 font-mono text-xs font-extrabold text-primary">
-                          <Users className="w-3 h-3 text-muted-foreground" />
-                          <span>{table.capacity} pax</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => updateIndividualTableCapacity(idx, table.capacity + 1)}
-                          disabled={table.capacity >= 30}
-                          className="w-6 h-6 rounded flex items-center justify-center bg-card hover:bg-accent text-foreground disabled:opacity-30 text-xs font-bold"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      {/* Shape toggle */}
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                        <span>Shape:</span>
-                        <div className="flex gap-1">
-                          {(['SQUARE', 'RECTANGLE', 'CIRCLE'] as const).map((s) => (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => updateIndividualTableShape(idx, s)}
-                              className={cn(
-                                'px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors',
-                                table.shape === s
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'hover:bg-muted text-muted-foreground'
-                              )}
-                            >
-                              {s === 'SQUARE' ? 'Sq' : s === 'RECTANGLE' ? 'Rec' : 'Cir'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      )}
                     </div>
+                  ))}
+
+                  {/* Add New Custom Area Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addDiningArea()}
+                    className="h-9 gap-1 text-xs font-bold border-dashed border-primary/50 text-primary hover:bg-primary/10 rounded-none"
+                  >
+                    <Plus className="w-4 h-4" /> Add Dining Area
+                  </Button>
+                </div>
+
+                {/* Quick Area Preset Chips */}
+                <div className="pt-2 border-t border-border/50 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-muted-foreground font-semibold">Quick Area Templates:</span>
+                  {[
+                    { label: '+ AC Family Lounge', prefix: 'AC', count: 10 },
+                    { label: '+ Rooftop / Terrace', prefix: 'R', count: 8 },
+                    { label: '+ Outdoor Garden Patio', prefix: 'P', count: 8 },
+                    { label: '+ Bar & High-Tops', prefix: 'BAR', count: 6 },
+                    { label: '+ VIP Private Room', prefix: 'VIP', count: 4 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => addDiningArea(preset.label.replace('+ ', ''), preset.prefix, preset.count)}
+                      className="px-2 py-1 text-[10px] font-semibold bg-background hover:bg-accent text-muted-foreground hover:text-foreground border border-border transition-colors rounded-none"
+                    >
+                      {preset.label}
+                    </button>
                   ))}
                 </div>
               </div>
+
+              {/* Active Dining Area Configuration Bar */}
+              {activeArea && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-card/60 border border-border rounded-none">
+                  {/* Area Name Input */}
+                  <div className="space-y-1.5 md:col-span-1">
+                    <label className="text-xs font-semibold text-foreground">
+                      Dining Area / Floor Name <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      value={activeArea.name}
+                      onChange={(e) => updateActiveAreaName(e.target.value)}
+                      placeholder="e.g. Rooftop Terrace"
+                      className="h-10 bg-background text-xs font-bold rounded-none"
+                    />
+                  </div>
+
+                  {/* Table Prefix */}
+                  <div className="space-y-1.5 md:col-span-1">
+                    <label className="text-xs font-semibold text-foreground">
+                      Table Number Prefix
+                    </label>
+                    <Input
+                      value={activeArea.tablePrefix}
+                      onChange={(e) => updateActiveAreaPrefix(e.target.value)}
+                      placeholder="e.g. G, R, AC, VIP"
+                      className="h-10 bg-background text-xs font-mono font-bold uppercase rounded-none"
+                    />
+                  </div>
+
+                  {/* Table Count Selector */}
+                  <div className="space-y-1.5 md:col-span-1">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">
+                        Tables in this Area <span className="text-destructive">*</span>
+                      </label>
+                      <span className="text-xs font-extrabold text-primary">{activeArea.tables.length} Tables</span>
+                    </div>
+                    <select
+                      value={activeArea.tables.length}
+                      onChange={(e) => updateActiveAreaCount(parseInt(e.target.value, 10) || 1)}
+                      className="w-full h-10 px-3 border border-input bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary rounded-none"
+                    >
+                      {Array.from({ length: 60 }, (_, i) => i + 1).map((num) => (
+                        <option key={num} value={num}>
+                          {num} {num === 1 ? 'Table' : 'Tables'} {num === 8 ? '— Standard (8)' : num === 12 ? '— Medium (12)' : num === 20 ? '— Large Area (20)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Quick Batch Presets for Active Area */}
+                  <div className="space-y-1.5 md:col-span-1">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">Batch Seating Presets</label>
+                      <span className="text-[10px] text-muted-foreground">For this area</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => applyAreaBatchPreset('all2')}
+                        className="py-2 text-[11px] font-bold border bg-muted/40 border-border/70 text-muted-foreground hover:bg-accent hover:text-foreground text-center rounded-none"
+                        title="Set all tables in this area to 2 guests"
+                      >
+                        2 Pax
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyAreaBatchPreset('all4')}
+                        className="py-2 text-[11px] font-bold border bg-muted/40 border-border/70 text-muted-foreground hover:bg-accent hover:text-foreground text-center rounded-none"
+                        title="Set all tables in this area to 4 guests"
+                      >
+                        4 Pax
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyAreaBatchPreset('all6')}
+                        className="py-2 text-[11px] font-bold border bg-muted/40 border-border/70 text-muted-foreground hover:bg-accent hover:text-foreground text-center rounded-none"
+                        title="Set all tables in this area to 6 guests"
+                      >
+                        6 Pax
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyAreaBatchPreset('smartMix')}
+                        className="py-2 text-[11px] font-bold border bg-primary/15 border-primary/40 text-primary hover:bg-primary/25 text-center rounded-none"
+                        title="Smart mix of 2, 4, 6 and 8 guests"
+                      >
+                        Mix
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Table Seating Grid for Active Area */}
+              {activeArea && (
+                <div className="border border-border p-5 bg-card/40 space-y-4 rounded-none">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        {activeArea.name} — Interactive Table Grid
+                      </span>
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 rounded-none">
+                        Live Capacity &amp; Shape Customizer
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-muted-foreground">
+                        Area Seating:{' '}
+                        <strong className="text-primary font-mono text-sm">
+                          {activeArea.tables.reduce((acc, t) => acc + (t.capacity || 0), 0)} Guests
+                        </strong>
+                      </span>
+                      <span className="text-muted-foreground">|</span>
+                      <span className="text-muted-foreground">
+                        Tables:{' '}
+                        <strong className="text-foreground font-mono">{activeArea.tables.length}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Click the <strong className="text-foreground">-</strong> or <strong className="text-foreground">+</strong> steppers on any table card to set guest capacity. Use the shape toggles (Sq = Square, Rec = Rectangle, Cir = Circle) to match your physical dining room layout.
+                  </p>
+
+                  {/* Table Grid Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                    {activeArea.tables.map((table, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          'p-3 border transition-all flex flex-col justify-between gap-2.5 rounded-none',
+                          selectedTableIdx === idx
+                            ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary'
+                            : 'border-border/80 bg-background/90 hover:border-border'
+                        )}
+                        onClick={() => setSelectedTableIdx(idx)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs text-foreground">{table.name}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-mono">
+                              {table.shape === 'CIRCLE' ? '●' : table.shape === 'RECTANGLE' ? '▭' : '■'}
+                            </span>
+                          </div>
+                          <QrCode className="w-3.5 h-3.5 text-emerald-400 opacity-80" />
+                        </div>
+
+                        {/* Seating Stepper */}
+                        <div className="flex items-center justify-between bg-muted/40 p-1 border border-border/50 rounded-none">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateIndividualTableCapacity(idx, table.capacity - 1);
+                            }}
+                            disabled={table.capacity <= 1}
+                            className="w-6 h-6 flex items-center justify-center bg-card hover:bg-accent text-foreground disabled:opacity-30 text-xs font-bold rounded-none"
+                          >
+                            -
+                          </button>
+                          <div className="flex items-center gap-1 font-mono text-xs font-extrabold text-primary">
+                            <Users className="w-3 h-3 text-muted-foreground" />
+                            <span>{table.capacity} pax</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateIndividualTableCapacity(idx, table.capacity + 1);
+                            }}
+                            disabled={table.capacity >= 30}
+                            className="w-6 h-6 flex items-center justify-center bg-card hover:bg-accent text-foreground disabled:opacity-30 text-xs font-bold rounded-none"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Shape toggle */}
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                          <span>Shape:</span>
+                          <div className="flex gap-1">
+                            {(['SQUARE', 'RECTANGLE', 'CIRCLE'] as const).map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateIndividualTableShape(idx, s);
+                                }}
+                                className={cn(
+                                  'px-1.5 py-0.5 text-[10px] font-semibold transition-colors rounded-none',
+                                  table.shape === s
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted text-muted-foreground'
+                                )}
+                              >
+                                {s === 'SQUARE' ? 'Sq' : s === 'RECTANGLE' ? 'Rec' : 'Cir'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1821,51 +2082,68 @@ DESSERTS & DRINKS
                   Review & Instant Launch
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Double check your configuration summary before provisioning your restaurant system
+                  Double check your configuration summary before provisioning your restaurant.
                 </p>
               </div>
 
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-border/70 bg-card/40 space-y-2">
+                <div className="p-4 rounded-none border border-border/70 bg-card/40 space-y-2">
                   <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Restaurant Brand</div>
                   <div className="text-base font-extrabold text-foreground">{restaurantName}</div>
                   <div className="text-xs text-muted-foreground">{tagline}</div>
                   <div className="flex items-center gap-2 pt-1">
-                    <Badge variant="secondary" className="text-[10px] font-bold uppercase">{cuisineType}</Badge>
-                    <Badge variant="outline" className="text-[10px] font-mono">{currency} • {timezone}</Badge>
+                    <Badge variant="secondary" className="text-[10px] font-bold uppercase rounded-none">{cuisineType}</Badge>
+                    <Badge variant="outline" className="text-[10px] font-mono rounded-none">{currency} • {timezone}</Badge>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl border border-border/70 bg-card/40 space-y-2">
+                <div className="p-4 rounded-none border border-border/70 bg-card/40 space-y-2">
                   <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Outlet & Taxes</div>
                   <div className="text-base font-extrabold text-foreground">{branchName || restaurantName}</div>
                   <div className="text-xs text-muted-foreground">{city} • {operatingHours}</div>
                   <div className="flex items-center gap-2 pt-1">
-                    <Badge variant="secondary" className="text-[10px] font-bold">GST: {taxRate}%</Badge>
+                    <Badge variant="secondary" className="text-[10px] font-bold rounded-none">GST: {taxRate}%</Badge>
                     {serviceChargeRate > 0 && (
-                      <Badge variant="secondary" className="text-[10px] font-bold">Service: {serviceChargeRate}%</Badge>
+                      <Badge variant="secondary" className="text-[10px] font-bold rounded-none">Service: {serviceChargeRate}%</Badge>
                     )}
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl border border-border/70 bg-card/40 space-y-2">
-                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Dining & Layout</div>
-                  <div className="text-sm font-bold text-foreground">{floorName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {tableCount} Tables (~{tableCount * tableCapacity} Seats) with Unique QR Tokens
+                <div className="p-4 rounded-none border border-border/70 bg-card/40 space-y-2">
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                    <span>Dining Areas & Layout</span>
+                    <Badge variant="outline" className="text-[10px] font-mono rounded-none">
+                      {diningAreas.length} {diningAreas.length === 1 ? 'Area' : 'Areas'}
+                    </Badge>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="space-y-1 pt-0.5">
+                    {diningAreas.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-foreground">{a.name}</span>
+                        <span className="text-muted-foreground font-mono">
+                          {a.tables.length} tables ({a.tables.reduce((sum, t) => sum + (t.capacity || 0), 0)} seats)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs text-primary font-semibold pt-1 border-t border-border/50 flex justify-between">
+                    <span>Total Seating Capacity:</span>
+                    <span className="font-mono font-bold">
+                      {diningAreas.reduce((sum, a) => sum + a.tables.length, 0)} Tables (~{diningAreas.reduce((sum, a) => sum + a.tables.reduce((s, t) => s + (t.capacity || 0), 0), 0)} Seats)
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground pt-0.5">
                     {kitchenStations.length} Kitchen Stations: {kitchenStations.join(', ')}
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl border border-border/70 bg-card/40 space-y-2">
+                <div className="p-4 rounded-none border border-border/70 bg-card/40 space-y-2">
                   <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Administrator Account</div>
                   <div className="text-sm font-bold text-foreground">{ownerName}</div>
                   <div className="text-xs text-muted-foreground font-mono">{ownerEmail}</div>
                   <div className="flex items-center gap-2 pt-1">
-                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
+                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold rounded-none">
                       ROLE: OWNER (Super Admin)
                     </Badge>
                   </div>
@@ -1874,7 +2152,7 @@ DESSERTS & DRINKS
 
               {/* Progress feedback when submitting */}
               {isSubmitting && (
-                <div className="p-5 rounded-2xl border border-primary/40 bg-primary/10 text-center space-y-3 animate-pulse">
+                <div className="p-5 rounded-none border border-primary/40 bg-primary/10 text-center space-y-3 animate-pulse">
                   <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
                   <div className="text-sm font-bold text-foreground">{provisioningStatus}</div>
                   <p className="text-xs text-muted-foreground">

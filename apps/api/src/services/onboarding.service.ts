@@ -496,76 +496,132 @@ export class OnboardingService {
         createdStations[sName] = station;
       }
 
-      // 7. Create Floor, Section, and Tables with unique QR Tokens
-      const floor = await tx.floor.create({
-        data: {
-          tenantId: tenant.id,
-          branchId: branch.id,
-          name: dto.floorName || 'Main Dining Hall',
-          sortOrder: 1,
-          isActive: true,
-        },
-      });
-
-      const section = await tx.tableSection.create({
-        data: {
-          floorId: floor.id,
-          name: 'Center Hall',
-          sortOrder: 1,
-        },
-      });
-
+      // 7. Create Multiple Dining Areas / Floors & Tables with unique QR Tokens
       let finalTableCount = 0;
 
-      if (dto.customTables && dto.customTables.length > 0) {
-        finalTableCount = dto.customTables.length;
-        for (let i = 0; i < dto.customTables.length; i++) {
-          const t = dto.customTables[i];
-          const qrCodeToken = `qr-${cleanSlug}-t${i + 1}-${crypto.randomBytes(4).toString('hex')}`;
-          await tx.restaurantTable.create({
+      if (dto.diningAreas && dto.diningAreas.length > 0) {
+        for (let areaIdx = 0; areaIdx < dto.diningAreas.length; areaIdx++) {
+          const area = dto.diningAreas[areaIdx];
+          const floor = await tx.floor.create({
             data: {
               tenantId: tenant.id,
               branchId: branch.id,
-              floorId: floor.id,
-              sectionId: section.id,
-              name: t.name || (i < 9 ? '0' + (i + 1) : `${i + 1}`),
-              capacity: t.capacity || dto.tableCapacity || 4,
-              shape: (t.shape as any) || 'SQUARE',
-              posX: (i % 5) * 140 + 20,
-              posY: Math.floor(i / 5) * 100 + 20,
-              width: 110,
-              height: 75,
-              status: 'AVAILABLE',
-              qrCodeToken,
+              name: area.name || `Dining Area ${areaIdx + 1}`,
+              sortOrder: areaIdx + 1,
               isActive: true,
             },
           });
+
+          const section = await tx.tableSection.create({
+            data: {
+              floorId: floor.id,
+              name: 'Main Section',
+              sortOrder: 1,
+            },
+          });
+
+          const tablesToCreate = area.tables && area.tables.length > 0
+            ? area.tables
+            : Array.from({ length: Math.min(Math.max(area.tableCount || 10, 1), 100) }, (_, i) => ({
+                name: `${area.tablePrefix || 'T'}-${i < 9 ? '0' + (i + 1) : i + 1}`,
+                capacity: 4,
+                shape: 'SQUARE' as const,
+              }));
+
+          for (let tIdx = 0; tIdx < tablesToCreate.length; tIdx++) {
+            const t = tablesToCreate[tIdx];
+            const qrCodeToken = `qr-${cleanSlug}-a${areaIdx + 1}-t${tIdx + 1}-${crypto.randomBytes(4).toString('hex')}`;
+            await tx.restaurantTable.create({
+              data: {
+                tenantId: tenant.id,
+                branchId: branch.id,
+                floorId: floor.id,
+                sectionId: section.id,
+                name: t.name || `${area.tablePrefix || 'T'}-${tIdx < 9 ? '0' + (tIdx + 1) : tIdx + 1}`,
+                capacity: t.capacity || 4,
+                shape: (t.shape as any) || 'SQUARE',
+                posX: (tIdx % 5) * 140 + 20,
+                posY: Math.floor(tIdx / 5) * 100 + 20,
+                width: 110,
+                height: 75,
+                status: 'AVAILABLE',
+                qrCodeToken,
+                isActive: true,
+              },
+            });
+            finalTableCount++;
+          }
         }
       } else {
-        const tableCount = Math.min(Math.max(dto.tableCount || 10, 1), 100);
-        finalTableCount = tableCount;
-        const tableCap = dto.tableCapacity || 4;
+        // Fallback: Legacy Single Floor & Tables
+        const floor = await tx.floor.create({
+          data: {
+            tenantId: tenant.id,
+            branchId: branch.id,
+            name: dto.floorName || 'Main Dining Hall',
+            sortOrder: 1,
+            isActive: true,
+          },
+        });
 
-        for (let i = 1; i <= tableCount; i++) {
-          const qrCodeToken = `qr-${cleanSlug}-t${i}-${crypto.randomBytes(4).toString('hex')}`;
-          await tx.restaurantTable.create({
-            data: {
-              tenantId: tenant.id,
-              branchId: branch.id,
-              floorId: floor.id,
-              sectionId: section.id,
-              name: i < 10 ? '0' + i : `${i}`,
-              capacity: i % 4 === 0 ? 6 : i % 3 === 0 ? 2 : tableCap,
-              shape: i % 4 === 0 ? 'RECTANGLE' : i % 3 === 0 ? 'CIRCLE' : 'SQUARE',
-              posX: ((i - 1) % 5) * 140 + 20,
-              posY: Math.floor((i - 1) / 5) * 100 + 20,
-              width: 110,
-              height: 75,
-              status: 'AVAILABLE',
-              qrCodeToken,
-              isActive: true,
-            },
-          });
+        const section = await tx.tableSection.create({
+          data: {
+            floorId: floor.id,
+            name: 'Center Hall',
+            sortOrder: 1,
+          },
+        });
+
+        if (dto.customTables && dto.customTables.length > 0) {
+          finalTableCount = dto.customTables.length;
+          for (let i = 0; i < dto.customTables.length; i++) {
+            const t = dto.customTables[i];
+            const qrCodeToken = `qr-${cleanSlug}-t${i + 1}-${crypto.randomBytes(4).toString('hex')}`;
+            await tx.restaurantTable.create({
+              data: {
+                tenantId: tenant.id,
+                branchId: branch.id,
+                floorId: floor.id,
+                sectionId: section.id,
+                name: t.name || (i < 9 ? '0' + (i + 1) : `${i + 1}`),
+                capacity: t.capacity || dto.tableCapacity || 4,
+                shape: (t.shape as any) || 'SQUARE',
+                posX: (i % 5) * 140 + 20,
+                posY: Math.floor(i / 5) * 100 + 20,
+                width: 110,
+                height: 75,
+                status: 'AVAILABLE',
+                qrCodeToken,
+                isActive: true,
+              },
+            });
+          }
+        } else {
+          const tableCount = Math.min(Math.max(dto.tableCount || 10, 1), 100);
+          finalTableCount = tableCount;
+          const tableCap = dto.tableCapacity || 4;
+
+          for (let i = 1; i <= tableCount; i++) {
+            const qrCodeToken = `qr-${cleanSlug}-t${i}-${crypto.randomBytes(4).toString('hex')}`;
+            await tx.restaurantTable.create({
+              data: {
+                tenantId: tenant.id,
+                branchId: branch.id,
+                floorId: floor.id,
+                sectionId: section.id,
+                name: i < 10 ? '0' + i : `${i}`,
+                capacity: i % 4 === 0 ? 6 : i % 3 === 0 ? 2 : tableCap,
+                shape: i % 4 === 0 ? 'RECTANGLE' : i % 3 === 0 ? 'CIRCLE' : 'SQUARE',
+                posX: ((i - 1) % 5) * 140 + 20,
+                posY: Math.floor((i - 1) / 5) * 100 + 20,
+                width: 110,
+                height: 75,
+                status: 'AVAILABLE',
+                qrCodeToken,
+                isActive: true,
+              },
+            });
+          }
         }
       }
 

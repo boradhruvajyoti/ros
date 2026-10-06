@@ -58,7 +58,7 @@ export const onboardRestaurantSchema = z.object({
   // Dining Modes
   diningModes: z.array(z.string()).optional(),
   
-  // Kitchen & Tables
+  // Kitchen & Tables / Multiple Dining Areas
   kitchenStations: z.array(z.string()).optional(),
   floorName: z.string().default('Main Dining Floor'),
   tableCount: z.coerce.number().min(1).max(100).default(10),
@@ -70,6 +70,19 @@ export const onboardRestaurantSchema = z.object({
       const upper = (s || 'SQUARE').toUpperCase();
       return ['RECTANGLE', 'CIRCLE', 'SQUARE'].includes(upper) ? (upper as 'RECTANGLE' | 'CIRCLE' | 'SQUARE') : 'SQUARE';
     }),
+  })).optional(),
+  diningAreas: z.array(z.object({
+    name: z.string().min(1, 'Dining area name is required'),
+    tableCount: z.coerce.number().min(1).max(100).default(10),
+    tablePrefix: z.string().optional(),
+    tables: z.array(z.object({
+      name: z.string().optional(),
+      capacity: z.coerce.number().min(1).max(50).default(4),
+      shape: z.string().optional().transform((s) => {
+        const upper = (s || 'SQUARE').toUpperCase();
+        return ['RECTANGLE', 'CIRCLE', 'SQUARE'].includes(upper) ? (upper as 'RECTANGLE' | 'CIRCLE' | 'SQUARE') : 'SQUARE';
+      }),
+    })).optional(),
   })).optional(),
   
   // Menu Starter & Uploaded Menu
