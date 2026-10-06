@@ -207,25 +207,38 @@ export function AppTopbar() {
         </button>
 
         {/* Frozen Brand Identity in Header */}
-        <div className="flex items-center gap-2.5 min-w-0 max-w-xs sm:max-w-sm">
-          <div className={cn(
-            'w-7 h-7 flex items-center justify-center shrink-0 overflow-hidden',
-            isPlatformSuperAdmin
-              ? 'bg-indigo-500/15 border border-indigo-500/20'
-              : tenantLogo
-              ? 'border border-border'
-              : 'bg-primary/15'
-          )}>
+        <div className="flex items-center gap-2.5 min-w-0 max-w-xs sm:max-w-md">
+          <div
+            className="flex items-center justify-center shrink-0 overflow-hidden"
+            style={{
+              height: isPlatformSuperAdmin && (platformDetails?.logoHeight || platformDetails?.logoScale)
+                ? `${Math.min(44, Math.max(20, Math.round((platformDetails?.logoHeight || 32) * ((platformDetails?.logoScale || 100) / 100))))}px`
+                : '30px',
+              maxWidth: '180px',
+            }}
+          >
             {isPlatformSuperAdmin ? (
-              tenantLogo ? (
-                <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover" />
+              (platformDetails?.logoUrl || tenantLogo) ? (
+                <img
+                  src={platformDetails?.logoUrl || tenantLogo}
+                  alt={tenantDisplayName}
+                  className="h-full w-auto max-w-full object-contain"
+                />
               ) : (
-                <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                <div className="w-7 h-7 bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center">
+                  <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                </div>
               )
             ) : tenantLogo ? (
-              <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover" />
+              <img
+                src={tenantLogo}
+                alt={tenantDisplayName}
+                className="h-full w-auto max-w-full object-contain"
+              />
             ) : (
-              <UtensilsCrossed className="w-3.5 h-3.5 text-primary" />
+              <div className="w-7 h-7 bg-primary/15 flex items-center justify-center">
+                <UtensilsCrossed className="w-3.5 h-3.5 text-primary" />
+              </div>
             )}
           </div>
           <div className="min-w-0">

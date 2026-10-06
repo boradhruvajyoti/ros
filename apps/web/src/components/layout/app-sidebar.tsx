@@ -157,23 +157,41 @@ export function AppSidebar() {
           collapsed && 'justify-center px-2'
         )}>
           <div className={cn(
-            'w-7 h-7 flex items-center justify-center shrink-0 overflow-hidden',
-            isPlatformSuperAdmin
-              ? 'bg-indigo-500/20'
-              : tenantLogo
-              ? 'border border-sidebar-border'
-              : 'bg-primary/20'
+            'flex items-center justify-center shrink-0 overflow-hidden',
+            collapsed ? 'w-7 h-7' : 'max-w-[140px]'
           )}>
             {isPlatformSuperAdmin ? (
-              tenantLogo ? (
-                <img src={tenantLogo} alt={platformName} className="w-full h-full object-cover" />
+              (platformDetails?.logoUrl || tenantLogo) ? (
+                <img
+                  src={platformDetails?.logoUrl || tenantLogo}
+                  alt={platformName}
+                  style={{
+                    height: collapsed
+                      ? '26px'
+                      : `${Math.min(36, Math.max(18, Math.round((platformDetails?.logoHeight || 32) * ((platformDetails?.logoScale || 100) / 100))))}px`,
+                    objectFit: 'contain',
+                  }}
+                  className="w-auto max-w-full"
+                />
               ) : (
-                <Globe className="w-4 h-4 text-indigo-300" />
+                <div className="w-7 h-7 bg-indigo-500/20 flex items-center justify-center">
+                  <Globe className="w-4 h-4 text-indigo-300" />
+                </div>
               )
             ) : tenantLogo ? (
-              <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover" />
+              <img
+                src={tenantLogo}
+                alt={tenantDisplayName}
+                style={{
+                  height: collapsed ? '26px' : '30px',
+                  objectFit: 'contain',
+                }}
+                className="w-auto max-w-full"
+              />
             ) : (
-              <UtensilsCrossed className="w-4 h-4 text-primary" />
+              <div className="w-7 h-7 bg-primary/20 flex items-center justify-center">
+                <UtensilsCrossed className="w-4 h-4 text-primary" />
+              </div>
             )}
           </div>
           {!collapsed && (
@@ -237,18 +255,28 @@ export function AppSidebar() {
             {/* Mobile Header */}
             <div className="flex items-center justify-between px-4 h-14 border-b border-sidebar-border/50">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className={cn(
-                  'w-7 h-7 flex items-center justify-center shrink-0 overflow-hidden',
-                  isPlatformSuperAdmin ? 'bg-indigo-500/20' : 'bg-primary/20'
-                )}>
+                <div className="flex items-center justify-center shrink-0 overflow-hidden max-w-[140px]">
                   {isPlatformSuperAdmin ? (
-                    tenantLogo
-                      ? <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover" />
-                      : <Globe className="w-4 h-4 text-indigo-300" />
+                    (platformDetails?.logoUrl || tenantLogo)
+                      ? <img
+                          src={platformDetails?.logoUrl || tenantLogo}
+                          alt={tenantDisplayName}
+                          style={{
+                            height: `${Math.min(36, Math.max(18, Math.round((platformDetails?.logoHeight || 32) * ((platformDetails?.logoScale || 100) / 100))))}px`,
+                            objectFit: 'contain',
+                          }}
+                          className="w-auto max-w-full"
+                        />
+                      : <div className="w-7 h-7 bg-indigo-500/20 flex items-center justify-center"><Globe className="w-4 h-4 text-indigo-300" /></div>
                   ) : tenantLogo ? (
-                    <img src={tenantLogo} alt={tenantDisplayName} className="w-full h-full object-cover" />
+                    <img
+                      src={tenantLogo}
+                      alt={tenantDisplayName}
+                      style={{ height: '30px', objectFit: 'contain' }}
+                      className="w-auto max-w-full"
+                    />
                   ) : (
-                    <UtensilsCrossed className="w-4 h-4 text-primary" />
+                    <div className="w-7 h-7 bg-primary/20 flex items-center justify-center"><UtensilsCrossed className="w-4 h-4 text-primary" /></div>
                   )}
                 </div>
                 <div className="min-w-0">

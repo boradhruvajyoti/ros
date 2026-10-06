@@ -232,6 +232,35 @@ class TenantSummary {
   }
 }
 
+class PlatformConfig {
+  final String platformName;
+  final String tagline;
+  final String? logoUrl;
+  final int logoHeight;
+  final int? logoWidth;
+  final int logoScale;
+
+  const PlatformConfig({
+    this.platformName = 'Restaurant OS (ROS)',
+    this.tagline = 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale',
+    this.logoUrl,
+    this.logoHeight = 40,
+    this.logoWidth,
+    this.logoScale = 100,
+  });
+
+  factory PlatformConfig.fromJson(Map<String, dynamic> json) {
+    return PlatformConfig(
+      platformName: json['platformName'] as String? ?? 'Restaurant OS (ROS)',
+      tagline: json['tagline'] as String? ?? 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale',
+      logoUrl: json['logoUrl'] as String?,
+      logoHeight: parseInt(json['logoHeight'], 40),
+      logoWidth: json['logoWidth'] != null ? parseInt(json['logoWidth'], 0) : null,
+      logoScale: parseInt(json['logoScale'], 100),
+    );
+  }
+}
+
 class SuperAdminOverview {
   final int totalTenants;
   final int activeTenants;
@@ -239,6 +268,7 @@ class SuperAdminOverview {
   final int totalOrdersProcessed;
   final String systemUptime;
   final int databaseLatencyMs;
+  final PlatformConfig? platformConfig;
   final List<TenantSummary> tenants;
 
   const SuperAdminOverview({
@@ -248,6 +278,7 @@ class SuperAdminOverview {
     required this.totalOrdersProcessed,
     required this.systemUptime,
     required this.databaseLatencyMs,
+    this.platformConfig,
     required this.tenants,
   });
 
@@ -259,6 +290,9 @@ class SuperAdminOverview {
       totalOrdersProcessed: parseInt(json['totalOrdersProcessed'], 0),
       systemUptime: json['systemUptime'] as String? ?? '99.9%',
       databaseLatencyMs: parseInt(json['databaseLatencyMs'], 15),
+      platformConfig: json['platformConfig'] is Map<String, dynamic>
+          ? PlatformConfig.fromJson(json['platformConfig'] as Map<String, dynamic>)
+          : null,
       tenants: (json['tenants'] as List<dynamic>?)
           ?.map((e) => TenantSummary.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],

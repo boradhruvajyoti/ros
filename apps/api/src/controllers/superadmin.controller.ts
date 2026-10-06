@@ -29,6 +29,10 @@ export interface SaasPlanItem {
 export interface PlatformConfigData {
   platformName: string;
   tagline: string;
+  logoUrl?: string | null;
+  logoHeight?: number | null;
+  logoWidth?: number | null;
+  logoScale?: number | null;
   faviconUrl?: string | null;
   supportEmail: string;
   supportPhone: string;
@@ -118,6 +122,10 @@ const DEFAULT_PLANS: SaasPlanItem[] = [
 const DEFAULT_PLATFORM_CONFIG: PlatformConfigData = {
   platformName: 'Restaurant OS (ROS)',
   tagline: 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale',
+  logoUrl: null,
+  logoHeight: 40,
+  logoWidth: null,
+  logoScale: 100,
   supportEmail: '',
   supportPhone: '',
   defaultCurrency: 'INR',
@@ -638,13 +646,17 @@ export class SuperAdminController {
 
     await prisma.tenant.upsert({
       where: { id: 'tenant-platform' },
-      update: { settings: JSON.stringify(settings) },
+      update: {
+        settings: JSON.stringify(settings),
+        logoUrl: newConfig.logoUrl || null,
+      },
       create: {
         id: 'tenant-platform',
         name: 'Platform SaaS Cloud',
         slug: 'platform',
         plan: 'enterprise',
         status: 'ACTIVE',
+        logoUrl: newConfig.logoUrl || null,
         settings: JSON.stringify(settings),
       },
     });

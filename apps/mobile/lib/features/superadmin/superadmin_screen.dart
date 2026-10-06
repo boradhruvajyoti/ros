@@ -20,6 +20,10 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _searchController = TextEditingController();
+  final _logoUrlController = TextEditingController();
+  double _logoHeight = 40.0;
+  double _logoScale = 100.0;
+  bool _logoConfigInitialized = false;
   String _searchQuery = '';
   String _statusFilter = 'ALL';
   bool _isActionLoading = false;
@@ -30,10 +34,22 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
     _tabController = TabController(length: 4, vsync: this);
   }
 
+  void _initLogoConfig(SuperAdminOverview overview) {
+    if (_logoConfigInitialized) return;
+    final cfg = overview.platformConfig;
+    if (cfg != null) {
+      _logoUrlController.text = cfg.logoUrl ?? '';
+      _logoHeight = cfg.logoHeight.toDouble().clamp(20.0, 120.0);
+      _logoScale = cfg.logoScale.toDouble().clamp(50.0, 200.0);
+    }
+    _logoConfigInitialized = true;
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _logoUrlController.dispose();
     super.dispose();
   }
 
@@ -115,6 +131,42 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to update status: $e'),
+            backgroundColor: RosTheme.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
+    }
+  }
+
+  Future<void> _savePlatformLogo() async {
+    setState(() => _isActionLoading = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final logoUrl = _logoUrlController.text.trim();
+      await api.post(
+        '/super-admin/platform-details',
+        data: {
+          'logoUrl': logoUrl.isEmpty ? null : logoUrl,
+          'logoHeight': _logoHeight.toInt(),
+          'logoScale': _logoScale.toInt(),
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Platform logo & sizing parameters updated successfully!'),
+            backgroundColor: RosTheme.success,
+          ),
+        );
+      }
+      ref.invalidate(superAdminOverviewProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save logo: $e'),
             backgroundColor: RosTheme.danger,
           ),
         );
@@ -780,14 +832,222 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
     );
   }
 
-  // ── Tab 4: System & Infra ───────────────────────────────────────────────────
-
   Widget _buildSystemTab(SuperAdminOverview overview) {
+    _initLogoConfig(overview);
+    final currentLogoUrl = _logoUrlController.text.trim();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Platform Logo & Custom Sizing Card ──
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: RosTheme.bgCard,
+              borderRadius: BorderRadius.zero,
+              border: Border.all(color: RosTheme.bgBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.photo_size_select_actual_rounded, color: RosTheme.primary, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Platform Logo & Sizing',
+                          style: TextStyle(
+                            color: RosTheme.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (currentLogoUrl.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _logoUrlController.clear());
+                        },
+                        child: const Text(
+                          'Clear Logo',
+                          style: TextStyle(color: RosTheme.danger, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Set the actual platform logo without forced square cropping. Adjust height & scale below.',
+                  style: TextStyle(color: RosTheme.textMuted, fontSize: 11),
+                ),
+                const SizedBox(height: 16),
+
+                // Live Logo Preview Box (Natural Dimensions)
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 80),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: RosTheme.bgElevated,
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: RosTheme.bgBorder),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Live Logo Preview (Natural Ratio):',
+                            style: TextStyle(color: RosTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: RosTheme.bgCard,
+                              borderRadius: BorderRadius.zero,
+                              border: Border.all(color: RosTheme.bgBorder),
+                            ),
+                            child: Text(
+                              'H: ${_logoHeight.toInt()}px | Scale: ${_logoScale.toInt()}%',
+                              style: const TextStyle(color: RosTheme.textSecondary, fontSize: 10, fontFamily: 'monospace'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: currentLogoUrl.isNotEmpty
+                            ? Image.network(
+                                currentLogoUrl,
+                                height: (_logoHeight * (_logoScale / 100)).clamp(20.0, 160.0),
+                                fit: BoxFit.contain,
+                                errorBuilder: (ctx, _, __) => Container(
+                                  padding: const EdgeInsets.all(12),
+                                  color: RosTheme.danger.withValues(alpha: 0.1),
+                                  child: const Text('Invalid Logo URL', style: TextStyle(color: RosTheme.danger, fontSize: 12)),
+                                ),
+                              )
+                            : Container(
+                                height: (_logoHeight * (_logoScale / 100)).clamp(20.0, 160.0),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                decoration: const BoxDecoration(
+                                  gradient: RosTheme.primaryGradient,
+                                  borderRadius: BorderRadius.zero,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.restaurant_menu_rounded, color: Colors.white, size: 24),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      overview.platformConfig?.platformName ?? 'ROS',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Logo URL Input
+                TextField(
+                  controller: _logoUrlController,
+                  style: const TextStyle(color: RosTheme.textPrimary, fontSize: 12.5),
+                  decoration: const InputDecoration(
+                    labelText: 'Platform Logo URL (PNG, SVG, or WebP)',
+                    hintText: 'https://example.com/platform-logo.png',
+                    prefixIcon: Icon(Icons.link_rounded, size: 18, color: RosTheme.textMuted),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 14),
+
+                // Height Slider
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Logo Height', style: TextStyle(color: RosTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('${_logoHeight.toInt()} px', style: const TextStyle(color: RosTheme.primary, fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'monospace')),
+                  ],
+                ),
+                Slider(
+                  value: _logoHeight,
+                  min: 20,
+                  max: 120,
+                  divisions: 50,
+                  activeColor: RosTheme.primary,
+                  inactiveColor: RosTheme.bgBorder,
+                  onChanged: (v) => setState(() => _logoHeight = v),
+                ),
+
+                // Scale Slider
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Scale Factor', style: TextStyle(color: RosTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('${_logoScale.toInt()} %', style: const TextStyle(color: RosTheme.primary, fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'monospace')),
+                  ],
+                ),
+                Slider(
+                  value: _logoScale,
+                  min: 50,
+                  max: 200,
+                  divisions: 30,
+                  activeColor: RosTheme.primary,
+                  inactiveColor: RosTheme.bgBorder,
+                  onChanged: (v) => setState(() => _logoScale = v),
+                ),
+                const SizedBox(height: 6),
+
+                // Presets
+                Row(
+                  children: [
+                    const Text('Presets: ', style: TextStyle(color: RosTheme.textMuted, fontSize: 11)),
+                    const SizedBox(width: 4),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        _buildPresetButton('28px', 28),
+                        _buildPresetButton('40px', 40),
+                        _buildPresetButton('56px', 56),
+                        _buildPresetButton('76px', 76),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RosTheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _isActionLoading ? null : _savePlatformLogo,
+                    icon: const Icon(Icons.save_rounded, size: 18),
+                    label: const Text('Save Logo & Sizing Parameters', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Infrastructure Health Card ──
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -874,6 +1134,31 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
     );
   }
 
+  Widget _buildPresetButton(String label, double height) {
+    final isSelected = (_logoHeight - height).abs() < 1;
+    return InkWell(
+      onTap: () => setState(() => _logoHeight = height),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? RosTheme.primary.withValues(alpha: 0.2) : RosTheme.bgCard,
+          border: Border.all(
+            color: isSelected ? RosTheme.primary : RosTheme.bgBorder,
+          ),
+          borderRadius: BorderRadius.zero,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? RosTheme.primary : RosTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSystemRow(String title, String value, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -899,3 +1184,4 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
     );
   }
 }
+

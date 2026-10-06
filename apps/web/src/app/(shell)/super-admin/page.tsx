@@ -9,12 +9,13 @@ import {
   Layers, Users, Activity, ShieldCheck, Zap, Lock, ChevronRight, Filter, AlertTriangle,
   ExternalLink, BarChart3, TrendingUp, DollarSign, Terminal, Edit, Trash2, Settings,
   Radio, Cpu, Check, AlertCircle, Info, Sparkles, Phone, Mail, Sliders,
-  Send, Eye, EyeOff, Key, Bot
+  Send, Eye, EyeOff, Key, Bot, UploadCloud, Image as ImageIcon, ZoomIn, ZoomOut, RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
+import { downscaleImage } from '@/lib/image-utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { connectSocket } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
@@ -54,6 +55,11 @@ export interface SaasPlan {
 export interface PlatformConfig {
   platformName: string;
   tagline: string;
+  logoUrl?: string | null;
+  logoHeight?: number | null;
+  logoWidth?: number | null;
+  logoScale?: number | null;
+  faviconUrl?: string | null;
   supportEmail: string;
   supportPhone: string;
   defaultCurrency: string;
@@ -191,6 +197,10 @@ export default function SuperAdminPage() {
   const [platformForm, setPlatformForm] = useState<PlatformConfig>({
     platformName: 'Restaurant OS (ROS)',
     tagline: 'Enterprise Multi-Tenant Restaurant Cloud & Point of Sale',
+    logoUrl: null,
+    logoHeight: 40,
+    logoWidth: null,
+    logoScale: 100,
     supportEmail: '',
     supportPhone: '',
     defaultCurrency: 'INR',
@@ -204,6 +214,23 @@ export default function SuperAdminPage() {
     dbEngine: 'SQLite 3 / Prisma Engine 5.22',
     cacheDriver: 'In-Memory High-Speed Cache (Redis Compatible)',
   });
+
+  const handlePlatformLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Please select an image under 10MB.');
+      return;
+    }
+    try {
+      // Downscale to max 600px while preserving full natural aspect ratio
+      const downscaled = await downscaleImage(file, 600);
+      setPlatformForm((prev) => ({ ...prev, logoUrl: downscaled }));
+      toast.success('Logo Selected', 'Natural aspect ratio preserved. Adjust size below.');
+    } catch (err: any) {
+      toast.error('Upload Failed', err?.message || 'Could not process logo');
+    }
+  };
 
   // Queries
   const { data: overview, isLoading: isOverviewLoading, refetch: refetchOverview } = useQuery<SuperAdminOverview>({
@@ -2089,6 +2116,139 @@ export default function SuperAdminPage() {
               Update platform identity, support channels, maintenance status, and cloud microservices.
             </p>
             <form onSubmit={handlePlatformSubmit} className="space-y-3.5">
+              {/* Platform Logo & Custom Sizing Section */}
+              <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-primary" />
+                    Platform Logo & Custom Sizing
+                  </label>
+                  {platformForm.logoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPlatformForm({ ...platformForm, logoUrl: null })}
+                      className="h-6 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-950/40 p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Remove Logo
+                    </Button>
+                  )}
+                </div>
+
+                {/* Upload or URL input */}
+                <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
+                  <label className="relative flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-semibold cursor-pointer transition-colors shrink-0">
+                    <UploadCloud className="w-4 h-4" />
+                    Upload Logo Image
+                    <input
+                      type="file"
+                      accept="image/*,.svg"
+                      className="hidden"
+                      onChange={handlePlatformLogoUpload}
+                    />
+                  </label>
+                  <span className="text-[11px] text-muted-foreground">or</span>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    value={platformForm.logoUrl || ''}
+                    onChange={(e) => setPlatformForm({ ...platformForm, logoUrl: e.target.value })}
+                    className="flex-1 h-9 px-3 border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Live Logo Preview Box — natural aspect ratio, not square cropped */}
+                {platformForm.logoUrl ? (
+                  <div className="p-3 bg-background border border-border space-y-2.5">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                      <span>Live Logo Preview (Natural Dimensions):</span>
+                      <Badge variant="outline" className="text-[10px] font-mono border-border">
+                        Height: {platformForm.logoHeight || 40}px | Scale: {platformForm.logoScale || 100}%
+                      </Badge>
+                    </div>
+
+                    <div className="min-h-[70px] p-3 flex items-center justify-center bg-card border border-border/60 overflow-auto">
+                      <img
+                        src={platformForm.logoUrl}
+                        alt="Platform Logo Preview"
+                        style={{
+                          height: `${Math.round((platformForm.logoHeight || 40) * ((platformForm.logoScale || 100) / 100))}px`,
+                          maxWidth: '100%',
+                          objectFit: 'contain',
+                        }}
+                        className="transition-all duration-150"
+                      />
+                    </div>
+
+                    {/* Sizing Controls */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <div className="flex justify-between text-[11px] font-semibold text-foreground mb-1">
+                          <span>Logo Height</span>
+                          <span className="text-primary font-mono">{platformForm.logoHeight || 40}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="120"
+                          step="2"
+                          value={platformForm.logoHeight || 40}
+                          onChange={(e) => setPlatformForm({ ...platformForm, logoHeight: Number(e.target.value) })}
+                          className="w-full accent-primary h-1.5 bg-muted rounded-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] font-semibold text-foreground mb-1">
+                          <span>Scale Factor</span>
+                          <span className="text-primary font-mono">{platformForm.logoScale || 100}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="50"
+                          max="200"
+                          step="5"
+                          value={platformForm.logoScale || 100}
+                          onChange={(e) => setPlatformForm({ ...platformForm, logoScale: Number(e.target.value) })}
+                          className="w-full accent-primary h-1.5 bg-muted rounded-none cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Preset Size Buttons */}
+                    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">Quick Presets:</span>
+                      {[
+                        { label: 'Compact (28px)', h: 28 },
+                        { label: 'Standard (40px)', h: 40 },
+                        { label: 'Medium (56px)', h: 56 },
+                        { label: 'Large (76px)', h: 76 },
+                      ].map((p) => (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => setPlatformForm({ ...platformForm, logoHeight: p.h, logoScale: 100 })}
+                          className={cn(
+                            "px-2 py-0.5 text-[10px] font-semibold border transition-colors cursor-pointer",
+                            (platformForm.logoHeight === p.h && (platformForm.logoScale || 100) === 100)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/60 hover:bg-muted text-foreground border-border"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    No custom platform logo uploaded. The default platform icon will be displayed.
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-foreground">Platform Brand Name</label>
                 <input
