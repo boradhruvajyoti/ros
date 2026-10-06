@@ -651,107 +651,9 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
 
     return Scaffold(
       backgroundColor: RosTheme.bg,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: (effectiveRole == 'COOK' ? RosTheme.warning : RosTheme.secondary)
-                    .withValues(alpha: 0.15),
-                borderRadius: BorderRadius.zero,
-                border: Border.all(
-                  color: (effectiveRole == 'COOK' ? RosTheme.warning : RosTheme.secondary)
-                      .withValues(alpha: 0.5),
-                  width: 1.5,
-                ),
-              ),
-              child: Icon(
-                effectiveRole == 'COOK' ? Icons.soup_kitchen_rounded : Icons.room_service_rounded,
-                color: effectiveRole == 'COOK' ? RosTheme.warning : RosTheme.secondary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Kitchen Display',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: RosTheme.textPrimary,
-                  ),
-                ),
-                Text(
-                  effectiveRole == 'COOK'
-                      ? '${cookNewKots.length} active in kitchen'
-                      : '${waiterReadyKots.length} tickets in queue',
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: RosTheme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          // Live status indicator badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: RosTheme.secondary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.zero,
-              border: Border.all(
-                color: RosTheme.secondary.withValues(alpha: 0.6),
-                width: 1.5,
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.wifi_rounded, color: RosTheme.secondary, size: 12),
-                SizedBox(width: 4),
-                Text(
-                  'LIVE',
-                  style: TextStyle(
-                    color: RosTheme.secondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-
-          // Sound Bell Toggle
-          IconButton(
-            icon: Icon(
-              _soundEnabled ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
-              color: _soundEnabled ? RosTheme.secondary : RosTheme.textMuted,
-              size: 20,
-            ),
-            tooltip: _soundEnabled ? 'Bell On' : 'Bell Muted',
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              setState(() => _soundEnabled = !_soundEnabled);
-            },
-          ),
-
-          // Manual refresh
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-            onPressed: () => _loadData(),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
       body: Column(
         children: [
-          // ── 1. Role Mode Switcher — always visible, dims inaccessible tab ──
+          // ── 1. Role Mode Switcher & Kitchen Controls ──
           Container(
             margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
             padding: const EdgeInsets.all(4),
@@ -866,6 +768,21 @@ class _KitchenScreenState extends ConsumerState<KitchenScreen> {
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(width: 4),
+                // Sound Bell Toggle
+                IconButton(
+                  icon: Icon(
+                    _soundEnabled ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+                    color: _soundEnabled ? RosTheme.secondary : RosTheme.textMuted,
+                    size: 19,
+                  ),
+                  tooltip: _soundEnabled ? 'Bell On' : 'Bell Muted',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _soundEnabled = !_soundEnabled);
+                  },
                 ),
               ],
             ),

@@ -153,89 +153,6 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              // Top Header & Action Row
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: RosTheme.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.zero,
-                              border: Border.all(
-                                color: RosTheme.primary.withValues(alpha: 0.35),
-                                width: 1,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.receipt_long_rounded,
-                              color: RosTheme.primary,
-                              size: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Current Orders',
-                                style: TextStyle(
-                                  color: RosTheme.textPrimary,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Text(
-                                '${allOrders.length} active tickets · Live sync',
-                                style: const TextStyle(
-                                  color: RosTheme.textMuted,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.refresh_rounded,
-                                color: RosTheme.textPrimary, size: 20),
-                            tooltip: 'Refresh Active Orders',
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              ref.invalidate(activeOrdersProvider);
-                              ref.invalidate(tablesProvider);
-                            },
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () => context.go('/tables'),
-                            icon: const Icon(Icons.grid_view_rounded, size: 16),
-                            label: const Text('Tables',
-                                style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.w800)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: RosTheme.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.zero),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
               // KPI Stats Horizontal Strip
               SliverToBoxAdapter(
                 child: SizedBox(
@@ -387,8 +304,7 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                             onPressed: () => ref.refresh(activeOrdersProvider),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: RosTheme.primary,
-                              shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.zero),
+                              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                             ),
                             child: const Text('Try Again'),
                           ),
@@ -451,8 +367,7 @@ class _CurrentOrdersScreenState extends ConsumerState<CurrentOrdersScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: RosTheme.primary,
                                   foregroundColor: Colors.white,
-                                  shape: const RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.zero),
+                                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                                 ),
                               ),
                             ],
@@ -745,9 +660,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
     showModalBottomSheet(
       context: context,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -810,8 +723,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                       backgroundColor: RosTheme.secondary,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.zero),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -830,8 +742,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                       backgroundColor: RosTheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.zero),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -850,10 +761,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                       backgroundColor: RosTheme.bgElevated,
                       foregroundColor: RosTheme.textPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.zero,
-                        side: BorderSide(color: RosTheme.bgBorder, width: 1.5),
-                      ),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -1511,8 +1419,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                         side: const BorderSide(color: RosTheme.bgBorder, width: 1.2),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
-                        shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.zero),
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                       ),
                     ),
                     // Settle & Mark Paid or Pre-Order Accept/Reject
@@ -1587,8 +1494,7 @@ class _CurrentOrderCardState extends ConsumerState<_CurrentOrderCard> {
                               foregroundColor: Colors.black,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
-                              shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.zero),
+                              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                             ),
                           ),
                         );

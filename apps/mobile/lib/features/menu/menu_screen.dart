@@ -84,43 +84,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     final activeMode = activeModeAsync.valueOrNull?['mode']?.toString() ?? 'ALL';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Menu Catalog & Specials'),
-        actions: [
-          // Manage Festive Menus button
-          IconButton(
-            icon: const Icon(Icons.celebration_rounded, color: RosTheme.accent),
-            tooltip: 'Festive & Occasion Menus',
-            onPressed: () => _showFestiveMenusSheet(context),
-          ),
-          // Add New Dish button
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: RosTheme.secondary),
-            tooltip: 'Add Dish',
-            onPressed: () => _showAddOrEditDishDialog(context),
-          ),
-          // Refresh
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh Menu',
-            onPressed: () {
-              ref.invalidate(posMenuProvider);
-              ref.invalidate(specialMenusProvider);
-              ref.invalidate(activeMenuModeProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Refreshing menu catalog...'),
-                  duration: Duration(seconds: 1),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      backgroundColor: RosTheme.bg,
       body: Column(
         children: [
-          // ── Active Menu Mode Switcher Bar ──────────────────────────────
+          // ── Active Menu Mode Switcher & Quick Actions Bar ──────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: const BoxDecoration(
@@ -132,7 +99,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                 const Icon(Icons.tune_rounded, size: 16, color: RosTheme.textMuted),
                 const SizedBox(width: 8),
                 const Text(
-                  'Active Mode:',
+                  'Mode:',
                   style: TextStyle(color: RosTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(width: 8),
@@ -141,7 +108,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildModePill('ALL', '🔥 Both Live', activeMode),
+                        _buildModePill('ALL', '🔥 All Live', activeMode),
                         const SizedBox(width: 6),
                         _buildModePill('MAIN_ONLY', '🌟 Main Only', activeMode),
                         const SizedBox(width: 6),
@@ -149,6 +116,21 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                       ],
                     ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                // Festive Menus
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.celebration_rounded, color: RosTheme.accent, size: 20),
+                  tooltip: 'Festive Menus',
+                  onPressed: () => _showFestiveMenusSheet(context),
+                ),
+                // Add New Dish button
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.add_circle_outline_rounded, color: RosTheme.secondary, size: 20),
+                  tooltip: 'Add Dish',
+                  onPressed: () => _showAddOrEditDishDialog(context),
                 ),
               ],
             ),
@@ -316,7 +298,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? RosTheme.primary.withValues(alpha: 0.2) : RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
             color: isSelected ? RosTheme.primary : RosTheme.bgBorder,
             width: isSelected ? 1.5 : 1.0,
@@ -342,7 +324,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? RosTheme.primary.withValues(alpha: 0.15) : RosTheme.bgElevated,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
             color: isSelected ? RosTheme.primary : RosTheme.bgBorder,
           ),
@@ -368,7 +350,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: item.isAvailable ? RosTheme.bgBorder : RosTheme.danger.withValues(alpha: 0.3),
         ),
@@ -386,7 +368,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                 color: isVeg ? RosTheme.secondary : RosTheme.danger,
                 width: 1.5,
               ),
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.zero,
             ),
             child: Center(
               child: Container(
@@ -424,7 +406,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: RosTheme.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
                       ),
                       child: Text(
@@ -457,7 +439,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: RosTheme.bgElevated,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(color: RosTheme.bgBorder),
                         ),
                         child: Text(
@@ -497,7 +479,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   color: item.isAvailable
                       ? RosTheme.secondary.withValues(alpha: 0.12)
                       : RosTheme.danger.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
                   item.isAvailable ? 'In Stock' : '86\'d',
@@ -531,9 +513,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => Consumer(
         builder: (context, ref, _) {
           final specialMenusAsync = ref.watch(specialMenusProvider);
@@ -549,7 +529,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     height: 4,
                     decoration: BoxDecoration(
                       color: RosTheme.textMuted.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.zero,
                     ),
                   ),
                 ),
@@ -576,7 +556,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                         backgroundColor: RosTheme.accent,
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                       ),
                       icon: const Icon(Icons.add_rounded, size: 16),
                       label: const Text('Create Menu', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
@@ -616,7 +596,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: RosTheme.bgElevated,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.zero,
                               border: Border.all(
                                 color: menu.isActive ? RosTheme.accent.withValues(alpha: 0.4) : RosTheme.bgBorder,
                               ),
@@ -627,7 +607,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: RosTheme.accent.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.zero,
                                   ),
                                   child: const Icon(Icons.celebration_rounded, color: RosTheme.accent, size: 18),
                                 ),
@@ -827,7 +807,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final categories = ref.watch(menuCategoriesProvider).valueOrNull ?? [];
@@ -855,7 +835,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                       height: 4,
                       decoration: BoxDecoration(
                         color: RosTheme.textMuted.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.zero,
                       ),
                     ),
                   ),
@@ -872,7 +852,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: RosTheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(color: RosTheme.primary.withValues(alpha: 0.35)),
                         ),
                         child: Text(
@@ -1085,7 +1065,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: RosTheme.primary,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                       ),
                       child: Text(
                         isEditing ? 'Save Changes' : 'Create Food Item',
@@ -1110,7 +1090,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? RosTheme.secondary.withValues(alpha: 0.15) : RosTheme.bgElevated,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
             color: isSelected ? RosTheme.secondary : RosTheme.bgBorder,
             width: isSelected ? 1.5 : 1.0,

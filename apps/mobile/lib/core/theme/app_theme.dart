@@ -248,9 +248,7 @@ class RosTheme {
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: bgCard,
         modalBackgroundColor: bgCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         dragHandleColor: bgBorder,
       ),
       switchTheme: SwitchThemeData(

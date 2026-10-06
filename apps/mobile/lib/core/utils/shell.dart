@@ -42,7 +42,7 @@ class AppShell extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: _buildTopBar(context, ref, user, isSuperAdmin),
+      appBar: _buildTopBar(context, ref, user, isSuperAdmin, location),
       body: Row(
         children: [
           // Side rail for tablets/desktop
@@ -63,45 +63,60 @@ class AppShell extends ConsumerWidget {
     WidgetRef ref,
     AuthUser? user,
     bool isSuperAdmin,
+    String location,
   ) {
-    final tenantName = user?.tenantName ?? 'Restaurant OS';
-    final roleName = isSuperAdmin
-        ? 'Platform Admin'
-        : (user?.roles.isNotEmpty == true ? user!.roles.first : 'Staff');
+    final routeInfo = _getRouteInfo(location);
+    final tenantName = isSuperAdmin ? 'Platform HQ' : (user?.tenantName ?? 'Restaurant OS');
+    final branchName = user?.branchName ?? 'Main Branch';
 
     return AppBar(
       elevation: 0,
       backgroundColor: RosTheme.bgCard,
       surfaceTintColor: Colors.transparent,
-      titleSpacing: 16,
+      titleSpacing: 12,
+      leading: routeInfo.isDetail
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: RosTheme.textPrimary, size: 22),
+              tooltip: 'Back',
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tables');
+                }
+              },
+            )
+          : null,
       title: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              gradient: isSuperAdmin
-                  ? const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)])
-                  : RosTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(8),
+          if (!routeInfo.isDetail) ...[
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                gradient: isSuperAdmin
+                    ? const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)])
+                    : RosTheme.primaryGradient,
+                borderRadius: BorderRadius.zero,
+              ),
+              child: Icon(
+                routeInfo.icon,
+                color: Colors.white,
+                size: 17,
+              ),
             ),
-            child: Icon(
-              isSuperAdmin ? Icons.hub_rounded : Icons.restaurant_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isSuperAdmin ? 'Platform HQ' : tenantName,
+                  routeInfo.title,
                   style: const TextStyle(
                     color: RosTheme.textPrimary,
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -112,16 +127,19 @@ class AppShell extends ConsumerWidget {
                       height: 6,
                       decoration: const BoxDecoration(
                         color: RosTheme.secondary,
-                        shape: BoxShape.circle,
+                        shape: BoxShape.rectangle,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      roleName,
-                      style: const TextStyle(
-                        color: RosTheme.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        isSuperAdmin ? 'Platform Admin · Online' : '$tenantName · $branchName',
+                        style: const TextStyle(
+                          color: RosTheme.textMuted,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -132,7 +150,17 @@ class AppShell extends ConsumerWidget {
         ],
       ),
       actions: [
-        // Compact Outlet Switcher chip (when not Platform SuperAdmin)
+        // 1. Universal Refresh button
+        IconButton(
+          tooltip: 'Refresh',
+          icon: const Icon(Icons.refresh_rounded, size: 20, color: RosTheme.textSecondary),
+          onPressed: () {
+            HapticFeedback.selectionClick();
+            refreshScreenRouteData(ref, location);
+          },
+        ),
+
+        // 2. Outlet Switcher chip (when not Platform SuperAdmin)
         if (!isSuperAdmin)
           GestureDetector(
             onTap: () {
@@ -140,12 +168,12 @@ class AppShell extends ConsumerWidget {
               OutletSwitcherSheet.show(context);
             },
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
               decoration: BoxDecoration(
                 color: RosTheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.zero,
+                border: Border.all(color: RosTheme.primary.withValues(alpha: 0.35)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -153,12 +181,12 @@ class AppShell extends ConsumerWidget {
                   const Icon(Icons.storefront_rounded, color: RosTheme.primary, size: 14),
                   const SizedBox(width: 4),
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 80),
+                    constraints: const BoxConstraints(maxWidth: 75),
                     child: Text(
-                      user?.branchName ?? 'Outlet',
+                      branchName,
                       style: const TextStyle(
                         color: RosTheme.primary,
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -169,64 +197,56 @@ class AppShell extends ConsumerWidget {
               ),
             ),
           ),
-        // Profile menu avatar button
+
+        // 3. Profile menu button
         GestureDetector(
           onTap: () => _showProfileModal(context, ref, user, isSuperAdmin),
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
             decoration: BoxDecoration(
               color: RosTheme.bgElevated,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: RosTheme.primary.withValues(alpha: 0.2),
+                Container(
+                  width: 18,
+                  height: 18,
+                  color: RosTheme.primary.withValues(alpha: 0.25),
+                  alignment: Alignment.center,
                   child: Text(
                     (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
                     style: const TextStyle(
                       color: RosTheme.primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 80),
-                  child: Text(
-                    user?.name.split(' ').first ?? 'Profile',
-                    style: const TextStyle(
-                      color: RosTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const Icon(Icons.arrow_drop_down_rounded, color: RosTheme.textMuted, size: 18),
+                const Icon(Icons.arrow_drop_down_rounded, color: RosTheme.textMuted, size: 16),
               ],
             ),
           ),
         ),
-        // Direct Quick Logout Icon Button
+
+        // 4. Quick Logout button
         IconButton(
           tooltip: 'Sign Out',
-          icon: const Icon(Icons.logout_rounded, color: RosTheme.danger, size: 20),
+          icon: const Icon(Icons.logout_rounded, color: RosTheme.danger, size: 19),
           onPressed: () => _confirmLogout(context, ref),
         ),
-        // Drawer toggle
+
+        // 5. Drawer toggle
         Builder(
           builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded, color: RosTheme.textSecondary, size: 22),
+            icon: const Icon(Icons.menu_rounded, color: RosTheme.textSecondary, size: 21),
             onPressed: () => Scaffold.of(ctx).openEndDrawer(),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 2),
       ],
       bottom: const PreferredSize(
         preferredSize: Size.fromHeight(1),
@@ -245,9 +265,7 @@ class AppShell extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: Column(
@@ -258,9 +276,9 @@ class AppShell extends ConsumerWidget {
               child: Container(
                 width: 36,
                 height: 4,
-                decoration: BoxDecoration(
-                  color: RosTheme.textMuted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+                decoration: const BoxDecoration(
+                  color: RosTheme.bgBorder,
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
             ),
@@ -269,13 +287,13 @@ class AppShell extends ConsumerWidget {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 28,
+                  radius: 26,
                   backgroundColor: RosTheme.primary.withValues(alpha: 0.15),
                   child: Text(
                     (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
                     style: const TextStyle(
                       color: RosTheme.primary,
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -379,7 +397,7 @@ class AppShell extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFF229ED9).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(
                       color: const Color(0xFF229ED9).withValues(alpha: 0.35),
                     ),
@@ -390,7 +408,7 @@ class AppShell extends ConsumerWidget {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: const Color(0xFF229ED9).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: const Icon(
                           Icons.send_rounded,
@@ -451,10 +469,7 @@ class AppShell extends ConsumerWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.bgElevated,
                     foregroundColor: RosTheme.textPrimary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: RosTheme.bgBorder),
-                    ),
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -473,10 +488,7 @@ class AppShell extends ConsumerWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: RosTheme.danger.withValues(alpha: 0.12),
                   foregroundColor: RosTheme.danger,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: RosTheme.danger.withValues(alpha: 0.3)),
-                  ),
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
               ),
             ),
@@ -491,7 +503,7 @@ class AppShell extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
@@ -667,7 +679,7 @@ class AppShell extends ConsumerWidget {
                     color: isSuperAdmin
                         ? const Color(0xFF6366F1).withValues(alpha: 0.15)
                         : RosTheme.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(
                       color: isSuperAdmin
                           ? const Color(0xFF6366F1).withValues(alpha: 0.3)
@@ -739,7 +751,7 @@ class AppShell extends ConsumerWidget {
                       refreshScreenRouteData(ref, item.path);
                       context.go(item.path);
                     },
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.zero,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
                       decoration: BoxDecoration(
@@ -748,7 +760,7 @@ class AppShell extends ConsumerWidget {
                                 ? const Color(0xFF6366F1).withValues(alpha: 0.12)
                                 : RosTheme.primary.withValues(alpha: 0.12))
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(
                           color: isActive
                               ? (isSuperAdmin
@@ -786,7 +798,7 @@ class AppShell extends ConsumerWidget {
                               height: 5,
                               decoration: BoxDecoration(
                                 color: isSuperAdmin ? const Color(0xFF818CF8) : RosTheme.primary,
-                                shape: BoxShape.circle,
+                                shape: BoxShape.rectangle,
                               ),
                             ),
                         ],
@@ -806,13 +818,13 @@ class AppShell extends ConsumerWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 15,
+                  radius: 14,
                   backgroundColor: RosTheme.primary.withValues(alpha: 0.15),
                   child: Text(
                     (user?.name ?? 'U').substring(0, 1).toUpperCase(),
                     style: const TextStyle(
                       color: RosTheme.primary,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -861,6 +873,7 @@ class AppShell extends ConsumerWidget {
 
     return Drawer(
       backgroundColor: RosTheme.bgCard,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: SafeArea(
         child: Column(
           children: [
@@ -874,13 +887,13 @@ class AppShell extends ConsumerWidget {
               child: Row(
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: isSuperAdmin
                           ? const Color(0xFF6366F1).withValues(alpha: 0.15)
                           : RosTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(
                         color: isSuperAdmin
                             ? const Color(0xFF6366F1).withValues(alpha: 0.3)
@@ -890,7 +903,7 @@ class AppShell extends ConsumerWidget {
                     child: Icon(
                       isSuperAdmin ? Icons.hub_rounded : Icons.restaurant,
                       color: isSuperAdmin ? const Color(0xFF818CF8) : RosTheme.primary,
-                      size: 20,
+                      size: 19,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -937,12 +950,12 @@ class AppShell extends ConsumerWidget {
                     Navigator.pop(context);
                     OutletSwitcherSheet.show(context);
                   },
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.zero,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: RosTheme.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.primary.withValues(alpha: 0.25)),
                     ),
                     child: Row(
@@ -1001,11 +1014,11 @@ class AppShell extends ConsumerWidget {
                         refreshScreenRouteData(ref, item.path);
                         context.go(item.path);
                       },
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: Row(
                           children: [
@@ -1041,12 +1054,12 @@ class AppShell extends ConsumerWidget {
                   Navigator.pop(context);
                   await _confirmLogout(context, ref);
                 },
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.zero,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: RosTheme.danger.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.danger.withValues(alpha: 0.2)),
                   ),
                   child: const Row(
@@ -1072,6 +1085,71 @@ class AppShell extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _RouteInfo {
+  final String title;
+  final IconData icon;
+  final bool isDetail;
+  const _RouteInfo(this.title, this.icon, {this.isDetail = false});
+}
+
+_RouteInfo _getRouteInfo(String location) {
+  if (location.startsWith('/super-admin')) {
+    return const _RouteInfo('Platform Super Admin', Icons.hub_rounded);
+  }
+  if (location.startsWith('/tables/') && location != '/tables') {
+    return const _RouteInfo('Table Details & Orders', Icons.table_restaurant_rounded, isDetail: true);
+  }
+  if (location.startsWith('/tables')) {
+    return const _RouteInfo('Tables & Seating', Icons.grid_view_rounded);
+  }
+  if (location.startsWith('/current-orders')) {
+    return const _RouteInfo('Current Orders', Icons.receipt_long_rounded);
+  }
+  if (location.startsWith('/pos')) {
+    return const _RouteInfo('POS Terminal', Icons.point_of_sale_rounded);
+  }
+  if (location.startsWith('/kitchen')) {
+    return const _RouteInfo('Kitchen KDS', Icons.soup_kitchen_rounded);
+  }
+  if (location.startsWith('/order-history/') && location != '/order-history') {
+    return const _RouteInfo('Order Details', Icons.receipt_rounded, isDetail: true);
+  }
+  if (location.startsWith('/order-history')) {
+    return const _RouteInfo('Order History', Icons.history_rounded);
+  }
+  if (location.startsWith('/menu')) {
+    return const _RouteInfo('Menu & Catalog', Icons.menu_book_rounded);
+  }
+  if (location.startsWith('/inventory')) {
+    return const _RouteInfo('Stock & Inventory', Icons.inventory_2_rounded);
+  }
+  if (location.startsWith('/staff')) {
+    return const _RouteInfo('Staff & HR', Icons.badge_rounded);
+  }
+  if (location.startsWith('/reports')) {
+    return const _RouteInfo('Reports & P&L', Icons.bar_chart_rounded);
+  }
+  if (location.startsWith('/reservations')) {
+    return const _RouteInfo('Table Bookings', Icons.event_seat_rounded);
+  }
+  if (location.startsWith('/customers')) {
+    return const _RouteInfo('Customer CRM', Icons.people_rounded);
+  }
+  if (location.startsWith('/promotions') || location.startsWith('/marketing')) {
+    return const _RouteInfo('Promotions & Deals', Icons.campaign_rounded);
+  }
+  if (location.startsWith('/dashboard')) {
+    return const _RouteInfo('Overview Dashboard', Icons.home_rounded);
+  }
+  if (location.startsWith('/settings')) {
+    return const _RouteInfo('Settings & Profile', Icons.settings_rounded);
+  }
+  if (location.startsWith('/help')) {
+    return const _RouteInfo('Help & Guides', Icons.help_outline_rounded);
+  }
+  return const _RouteInfo('Restaurant OS', Icons.restaurant_rounded);
 }
 
 class _NavItem {

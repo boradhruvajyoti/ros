@@ -215,7 +215,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   height: 38,
                   decoration: BoxDecoration(
                     color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.bgBorder),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -280,7 +280,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           color: isSelected
               ? (color ?? RosTheme.primary).withValues(alpha: 0.18)
               : RosTheme.bgElevated,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
             color: isSelected
                 ? (color ?? RosTheme.primary)
@@ -421,7 +421,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                       horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: RosTheme.bgElevated,
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.zero,
                                   ),
                                   child: Text(
                                     '${explodedCards.length}',
@@ -519,7 +519,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   color: isSelected
                       ? Colors.white.withValues(alpha: 0.22)
                       : RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
                   '$itemCount',
@@ -686,7 +686,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             height: 44,
             decoration: BoxDecoration(
               gradient: RosTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               boxShadow: [
                 BoxShadow(
                   color: RosTheme.primary.withValues(alpha: 0.3),
@@ -709,7 +709,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
                       color: RosTheme.secondary,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Text(
                       '$totalQty',
@@ -760,9 +760,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               backgroundColor: RosTheme.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
             icon: const Icon(Icons.receipt_long_rounded, size: 16),
             label: const Text(
@@ -782,9 +780,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => _OrderTicketDrawer(
         onFastPay: () {
           Navigator.pop(ctx);
@@ -799,9 +795,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => const _FastPaySheet(),
     );
   }
@@ -811,9 +805,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => _ModifierPickerSheet(card: card),
     );
   }
@@ -833,9 +825,7 @@ void showPosTablePickerModal(
   showModalBottomSheet(
     context: context,
     backgroundColor: RosTheme.bgCard,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     builder: (ctx) {
       return Container(
         padding: const EdgeInsets.all(18),
@@ -893,7 +883,7 @@ void showPosTablePickerModal(
                       decoration: BoxDecoration(
                         gradient: isSelected ? RosTheme.greenGradient : null,
                         color: isSelected ? null : RosTheme.bgElevated,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(
                           color: isSelected
                               ? Colors.transparent
@@ -992,7 +982,7 @@ class _FoodCardItem extends StatelessWidget {
           color: inCartCount > 0
               ? RosTheme.primary.withValues(alpha: 0.12)
               : RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
             color: borderColor,
             width: inCartCount > 0 ? 1.8 : 1.0,
@@ -1025,7 +1015,7 @@ class _FoodCardItem extends StatelessWidget {
                           color: isVeg ? RosTheme.secondary : RosTheme.danger,
                           width: 1.5,
                         ),
-                        borderRadius: BorderRadius.circular(3),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: Center(
                         child: Container(
@@ -1044,7 +1034,7 @@ class _FoodCardItem extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: RosTheme.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
                       ),
                       child: Text(
@@ -1064,7 +1054,7 @@ class _FoodCardItem extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       gradient: RosTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Text(
                       'x$inCartCount',
@@ -1165,7 +1155,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: RosTheme.textMuted.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.zero,
               ),
             ),
           ),
@@ -1300,7 +1290,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                 color: cart.orderType == 'TAKEAWAY'
                     ? RosTheme.warning.withValues(alpha: 0.12)
                     : RosTheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: cart.orderType == 'TAKEAWAY'
                       ? RosTheme.warning.withValues(alpha: 0.4)
@@ -1393,7 +1383,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                                       decoration: BoxDecoration(
                                         color: RosTheme.warning
                                             .withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.zero,
                                         border: Border.all(
                                           color: RosTheme.warning
                                               .withValues(alpha: 0.4),
@@ -1462,7 +1452,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                           Container(
                             decoration: BoxDecoration(
                               color: RosTheme.bgElevated,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.zero,
                               border: Border.all(color: RosTheme.bgBorder),
                             ),
                             child: Row(
@@ -1524,7 +1514,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(color: RosTheme.bgBorder),
                 ),
                 child: Column(
@@ -1558,7 +1548,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: RosTheme.secondary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(color: RosTheme.secondary.withValues(alpha: 0.3)),
                         ),
                         child: Row(
@@ -1590,8 +1580,8 @@ class _OrderTicketDrawer extends ConsumerWidget {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   filled: true,
                                   fillColor: RosTheme.bgCard,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: RosTheme.bgBorder)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
                                 ),
                               ),
                             ),
@@ -1652,7 +1642,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                               backgroundColor: RosTheme.secondary,
                               foregroundColor: Colors.black,
                               padding: const EdgeInsets.symmetric(horizontal: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                             ),
                             child: const Text('Apply', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
                           ),
@@ -1738,7 +1728,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: RosTheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
               ),
               child: Row(
@@ -1786,7 +1776,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                   Container(
                     decoration: BoxDecoration(
                       color: RosTheme.bgElevated,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.bgBorder),
                     ),
                     child: Row(
@@ -1842,9 +1832,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                     backgroundColor: RosTheme.secondary,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                   icon: const Icon(Icons.soup_kitchen_rounded, size: 18),
                   label: const Text(
@@ -1865,9 +1853,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                     backgroundColor: RosTheme.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                   icon: const Icon(Icons.bolt_rounded, size: 18),
                   label: const Text(
@@ -2012,7 +1998,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: RosTheme.bgBorder),
         ),
         child: Text(
@@ -2045,9 +2031,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setState) {
@@ -2069,7 +2053,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                       height: 4,
                       decoration: BoxDecoration(
                         color: RosTheme.textMuted.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.zero,
                       ),
                     ),
                   ),
@@ -2082,7 +2066,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: RosTheme.warning.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: const Icon(
                           Icons.edit_note_rounded,
@@ -2144,15 +2128,15 @@ class _OrderTicketDrawer extends ConsumerWidget {
                       fillColor: RosTheme.bgElevated,
                       contentPadding: const EdgeInsets.all(12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.zero,
                         borderSide: const BorderSide(color: RosTheme.bgBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.zero,
                         borderSide: const BorderSide(color: RosTheme.bgBorder),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.zero,
                         borderSide: const BorderSide(
                             color: RosTheme.warning, width: 1.5),
                       ),
@@ -2187,13 +2171,13 @@ class _OrderTicketDrawer extends ConsumerWidget {
                             }
                           });
                         },
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.zero,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: RosTheme.bgElevated,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.zero,
                             border: Border.all(color: RosTheme.bgBorder),
                           ),
                           child: Text(
@@ -2227,8 +2211,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                             side: const BorderSide(color: RosTheme.danger),
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                           ),
                           child: const Text('Clear',
                               style: TextStyle(fontWeight: FontWeight.w700)),
@@ -2249,8 +2232,7 @@ class _OrderTicketDrawer extends ConsumerWidget {
                             backgroundColor: RosTheme.warning,
                             foregroundColor: Colors.black,
                             padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                           ),
                           child: const Text(
                             'Save Instruction',
@@ -2329,7 +2311,7 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: RosTheme.bgElevated,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder),
             ),
             child: Row(
@@ -2407,8 +2389,7 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: RosTheme.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
               ),
               child: _isProcessing
                   ? const SizedBox(
@@ -2442,7 +2423,7 @@ class _FastPaySheetState extends ConsumerState<_FastPaySheet> {
           decoration: BoxDecoration(
             gradient: isSelected ? RosTheme.primaryGradient : null,
             color: isSelected ? null : RosTheme.bgElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.zero,
             border: Border.all(
               color: isSelected ? Colors.transparent : RosTheme.bgBorder,
             ),
@@ -2710,7 +2691,7 @@ class _ModifierPickerSheetState extends ConsumerState<_ModifierPickerSheet> {
               Container(
                 decoration: BoxDecoration(
                   color: RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(color: RosTheme.bgBorder),
                 ),
                 child: Row(
@@ -2763,8 +2744,7 @@ class _ModifierPickerSheetState extends ConsumerState<_ModifierPickerSheet> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: RosTheme.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
               ),
               child: Text(
                 'Add to Ticket — ₹${(widget.card.price * _quantity).toStringAsFixed(0)}',

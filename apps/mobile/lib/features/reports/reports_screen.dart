@@ -53,36 +53,51 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reports & P&L'),
-        actions: [
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _period,
-              dropdownColor: RosTheme.bgCard,
-              style: const TextStyle(color: RosTheme.textSecondary, fontSize: 13),
-              items: const [
-                DropdownMenuItem(value: 'today', child: Text('Today')),
-                DropdownMenuItem(value: 'week', child: Text('This Week')),
-                DropdownMenuItem(value: 'month', child: Text('This Month')),
+      backgroundColor: RosTheme.bg,
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: const BoxDecoration(
+              color: RosTheme.bgElevated,
+              border: Border(bottom: BorderSide(color: RosTheme.bgBorder)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.date_range_rounded, size: 16, color: RosTheme.textMuted),
+                const SizedBox(width: 8),
+                const Text(
+                  'Reporting Period:',
+                  style: TextStyle(color: RosTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _period,
+                    dropdownColor: RosTheme.bgElevated,
+                    style: const TextStyle(color: RosTheme.primary, fontSize: 13, fontWeight: FontWeight.w700),
+                    items: const [
+                      DropdownMenuItem(value: 'today', child: Text('Today')),
+                      DropdownMenuItem(value: 'week', child: Text('This Week')),
+                      DropdownMenuItem(value: 'month', child: Text('This Month')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) { setState(() => _period = v); _load(); }
+                    },
+                  ),
+                ),
               ],
-              onChanged: (v) {
-                if (v != null) { setState(() => _period = v); _load(); }
-              },
             ),
           ),
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: RosTheme.primary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Revenue
-                  _SectionTitle('Revenue Summary'),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: RosTheme.primary))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionTitle('Revenue Summary'),
                   const SizedBox(height: 8),
                   GridView.count(
                     shrinkWrap: true,
@@ -119,7 +134,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: RosTheme.bgCard,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(color: RosTheme.bgBorder),
                       ),
                       child: Column(
@@ -154,7 +169,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: RosTheme.bgCard,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.zero,
                                 border: Border.all(color: RosTheme.bgBorder),
                               ),
                               child: Row(children: [
@@ -162,7 +177,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                   width: 28, height: 28,
                                   decoration: BoxDecoration(
                                     color: RosTheme.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.zero,
                                   ),
                                   child: Center(child: Text('${i + 1}',
                                       style: const TextStyle(color: RosTheme.primary, fontWeight: FontWeight.w700))),
@@ -181,6 +196,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -207,7 +225,7 @@ class _ReportCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: gradient,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.zero,
         boxShadow: [
           BoxShadow(color: gradient.colors.first.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4)),
         ],

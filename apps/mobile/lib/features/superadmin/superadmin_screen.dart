@@ -127,108 +127,79 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
   @override
   Widget build(BuildContext context) {
     final overviewAsync = ref.watch(superAdminOverviewProvider);
-    final user = ref.watch(authProvider).user;
     final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
     return Scaffold(
       backgroundColor: RosTheme.bg,
-      appBar: AppBar(
-        backgroundColor: RosTheme.bgCard,
-        elevation: 0,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      body: Column(
+        children: [
+          Container(
+            color: RosTheme.bgCard,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorColor: RosTheme.primary,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: RosTheme.textMuted,
+                    labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    tabs: const [
+                      Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: 'Overview'),
+                      Tab(icon: Icon(Icons.business_outlined, size: 18), text: 'Tenants'),
+                      Tab(icon: Icon(Icons.credit_card_outlined, size: 18), text: 'Plans'),
+                      Tab(icon: Icon(Icons.dns_outlined, size: 18), text: 'System'),
+                    ],
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(10),
+                IconButton(
+                  tooltip: 'Purge Redis Cache',
+                  icon: const Icon(Icons.cleaning_services_rounded, size: 18, color: RosTheme.textMuted),
+                  onPressed: _isActionLoading ? null : _purgeCache,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: overviewAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: RosTheme.primary),
               ),
-              child: const Icon(Icons.hub_rounded, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Platform Super Admin',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              error: (err, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: RosTheme.danger, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to load platform data: $err',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: RosTheme.textSecondary),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => ref.invalidate(superAdminOverviewProvider),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
                 ),
-                Text(
-                  user?.email ?? 'superadmin@ros.com',
-                  style: const TextStyle(fontSize: 11, color: RosTheme.textMuted),
-                ),
-              ],
+              ),
+              data: (overview) => TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildOverviewTab(overview, currencyFmt),
+                  _buildTenantsTab(overview),
+                  _buildPlansTab(currencyFmt),
+                  _buildSystemTab(overview),
+                ],
+              ),
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh Metrics',
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-            onPressed: () {
-              ref.invalidate(superAdminOverviewProvider);
-              ref.invalidate(superAdminTenantsProvider);
-              ref.invalidate(saasPlansProvider);
-            },
           ),
-          IconButton(
-            tooltip: 'Purge Redis Cache',
-            icon: const Icon(Icons.cleaning_services_rounded, size: 20),
-            onPressed: _isActionLoading ? null : _purgeCache,
-          ),
-          const SizedBox(width: 8),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: RosTheme.primary,
-          labelColor: Colors.white,
-          unselectedLabelColor: RosTheme.textMuted,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          tabs: const [
-            Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: 'Overview'),
-            Tab(icon: Icon(Icons.business_outlined, size: 18), text: 'Tenants'),
-            Tab(icon: Icon(Icons.credit_card_outlined, size: 18), text: 'SaaS Plans'),
-            Tab(icon: Icon(Icons.dns_outlined, size: 18), text: 'System'),
-          ],
-        ),
-      ),
-      body: overviewAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: RosTheme.primary),
-        ),
-        error: (err, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: RosTheme.danger, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load platform data: $err',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: RosTheme.textSecondary),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => ref.invalidate(superAdminOverviewProvider),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        data: (overview) => TabBarView(
-          controller: _tabController,
-          children: [
-            _buildOverviewTab(overview, currencyFmt),
-            _buildTenantsTab(overview),
-            _buildPlansTab(currencyFmt),
-            _buildSystemTab(overview),
-          ],
-        ),
       ),
     );
   }
@@ -250,7 +221,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3)),
             ),
             child: Row(
@@ -259,7 +230,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: const Icon(Icons.cloud_done_rounded, color: Colors.white, size: 28),
                 ),
@@ -291,7 +262,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: RosTheme.success.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.success.withOpacity(0.4)),
                   ),
                   child: Row(
@@ -400,7 +371,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: RosTheme.bgBorder),
       ),
       child: Column(
@@ -422,7 +393,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Icon(icon, color: color, size: 16),
               ),
@@ -490,7 +461,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                   fillColor: RosTheme.bgInput,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -550,7 +521,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: isActive ? RosTheme.bgBorder : RosTheme.danger.withOpacity(0.3),
         ),
@@ -570,7 +541,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                       isActive ? const Color(0xFF8B5CF6) : Colors.grey,
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: const Icon(Icons.restaurant, color: Colors.white, size: 22),
               ),
@@ -605,7 +576,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                   color: isActive
                       ? RosTheme.success.withOpacity(0.15)
                       : RosTheme.danger.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
                   tenant.status,
@@ -632,7 +603,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: RosTheme.primary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
                   tenant.plan.toUpperCase(),
@@ -715,7 +686,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: RosTheme.bgCard,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.zero,
               border: Border.all(
                 color: plan.isPopular
                     ? RosTheme.primary
@@ -742,7 +713,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: RosTheme.primary.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: Text(
                           plan.badge!,
@@ -821,7 +792,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: RosTheme.bgCard,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder),
             ),
             child: Column(
@@ -853,7 +824,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: RosTheme.bgCard,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder),
             ),
             child: Column(
@@ -874,7 +845,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: RosTheme.primary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: const Icon(Icons.cleaning_services_rounded, color: RosTheme.primary, size: 20),
                   ),

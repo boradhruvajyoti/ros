@@ -29,7 +29,7 @@
     --border:             220 13% 88%;
     --input:              220 13% 91%;
     --ring:               38 92% 48%;
-    --radius:             0.25rem;       /* sharper corners globally */
+    --radius:             0px;           /* sharp corners universally */
 
     /* Sidebar — kept dark for contrast */
     --sidebar-background:          220 18% 14%;
@@ -132,6 +132,24 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/40;
+  }
+
+  /* Universal sharp rectangular corners for all buttons and cards */
+  button,
+  [role="button"],
+  .card,
+  [class*="card"],
+  [data-card],
+  .btn,
+  [class*="btn"],
+  .rounded,
+  .rounded-sm,
+  .rounded-md,
+  .rounded-lg,
+  .rounded-xl,
+  .rounded-2xl,
+  .rounded-3xl {
+    border-radius: 0px !important;
   }
 }
 

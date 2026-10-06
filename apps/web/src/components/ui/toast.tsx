@@ -23,7 +23,7 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitive.Viewport.displayName;
 
 const toastVariants = cva(
-  'group pointer-events-auto relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-xl border p-4 shadow-2xl transition-all animate-fade-in opacity-100',
+  'group pointer-events-auto relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-none border p-4 shadow-2xl transition-all animate-fade-in opacity-100',
   {
     variants: {
       variant: {
@@ -51,7 +51,7 @@ const ToastClose = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitive.Close
     ref={ref}
-    className={cn('rounded-md p-1 opacity-70 hover:opacity-100 focus:outline-none text-zinc-400 hover:text-zinc-100', className)}
+    className={cn('rounded-none p-1 opacity-70 hover:opacity-100 focus:outline-none text-zinc-400 hover:text-zinc-100', className)}
     {...props}
   >
     <X className="h-4 w-4" />

@@ -188,9 +188,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => const _TableSelectionSheet(),
     );
   }
@@ -208,9 +206,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => _TableInfoBottomSheet(
         table: table,
         activeOrder: activeOrder,
@@ -248,58 +244,6 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
 
     return Scaffold(
       backgroundColor: RosTheme.bg,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: RosTheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.grid_view_rounded,
-                  color: RosTheme.primary, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tables & Seating',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: RosTheme.textPrimary,
-                  ),
-                ),
-                Text(
-                  '${tables.length} Tables · $occupiedCount Dining · $availableCount Free',
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: RosTheme.textMuted,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-            onPressed: () {
-              ref.invalidate(tablesProvider);
-              ref.invalidate(floorsProvider);
-              ref.invalidate(activeOrdersProvider);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.menu_rounded, size: 20),
-            onPressed: () => Scaffold.of(context).openEndDrawer(),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
       body: Column(
         children: [
           // Order Type Selector Header Section (Dine In / Takeaway / Delivery)
@@ -481,7 +425,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
                   color: RosTheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(
                     color: RosTheme.primary.withValues(alpha: 0.35),
                   ),
@@ -518,9 +462,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => StatefulBuilder(
         builder: (modalCtx, setModalState) {
           return Padding(
@@ -540,7 +482,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                     height: 4,
                     decoration: BoxDecoration(
                       color: RosTheme.textMuted.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.zero,
                     ),
                   ),
                 ),
@@ -565,7 +507,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.bgBorder),
                   ),
                   child: Column(
@@ -651,7 +593,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: RosTheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.zero,
                           ),
                           child: const Icon(Icons.location_on_rounded, size: 16, color: RosTheme.primary),
                         ),
@@ -718,7 +660,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: selected ? RosTheme.primary.withValues(alpha: 0.15) : RosTheme.bgElevated,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.zero,
             border: Border.all(
               color: selected ? RosTheme.primary.withValues(alpha: 0.4) : RosTheme.bgBorder,
             ),
@@ -781,7 +723,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                   color: selected
                       ? color.withValues(alpha: 0.12)
                       : RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(
                     color: selected ? color.withValues(alpha: 0.5) : RosTheme.bgBorder,
                     width: 1,
@@ -807,7 +749,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen>
                         color: selected
                             ? color.withValues(alpha: 0.2)
                             : RosTheme.bgCard,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: Text(
                         '$count',
@@ -1280,7 +1222,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: RosTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(
           'Cancel "$dishName"?',
           style: const TextStyle(
@@ -1295,7 +1237,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
           decoration: InputDecoration(
             labelText: 'Reason for cancellation',
             labelStyle: const TextStyle(color: RosTheme.textMuted),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.zero),
           ),
         ),
         actions: [
@@ -1352,7 +1294,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: RosTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(
           'Cancel Order #${_currentOrder!.orderNumber}?',
           style: const TextStyle(
@@ -1424,7 +1366,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: RosTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1449,7 +1391,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.zero,
               ),
               child: QrImageView(
                 data: qrUrl,
@@ -1477,9 +1419,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
     showModalBottomSheet(
       context: context,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: Column(
@@ -1543,8 +1483,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                       backgroundColor: RosTheme.secondary,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -1563,8 +1502,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                       backgroundColor: RosTheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -1583,10 +1521,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                       backgroundColor: RosTheme.bgElevated,
                       foregroundColor: RosTheme.textPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: RosTheme.bgBorder),
-                      ),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -1649,7 +1584,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
               height: 4,
               decoration: BoxDecoration(
                 color: RosTheme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.zero,
               ),
             ),
           ),
@@ -1666,7 +1601,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                         horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: _statusColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(
                         color: _statusColor.withValues(alpha: 0.5),
                         width: 1.2,
@@ -1754,7 +1689,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: RosTheme.bgBorder),
               ),
               child: Row(
@@ -1777,7 +1712,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: RosTheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: Text(
                           _currentOrder!.status.replaceAll('_', ' '),
@@ -1836,7 +1771,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
               child: Container(
                 decoration: BoxDecoration(
                   color: RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(color: RosTheme.bgBorder),
                 ),
                 child: mergedItems.isEmpty
@@ -1879,7 +1814,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                                   decoration: BoxDecoration(
                                     color: RosTheme.primary
                                         .withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.zero,
                                   ),
                                   child: Center(
                                     child: Text(
@@ -1982,7 +1917,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: RosTheme.bgBorder),
               ),
               child: Column(
@@ -2107,9 +2042,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                       padding: const EdgeInsets.symmetric(vertical: 11),
                       side: const BorderSide(color: RosTheme.primary),
                       foregroundColor: RosTheme.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -2142,9 +2075,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                           : RosTheme.bgElevated,
                       foregroundColor: canPay ? Colors.black : RosTheme.textMuted,
                       padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
                   ),
                 ),
@@ -2195,9 +2126,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.secondary,
                     foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -2215,8 +2144,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         foregroundColor: RosTheme.statusReserved,
                         side: const BorderSide(color: RosTheme.statusReserved),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                       ),
                     ),
                   ),
@@ -2232,8 +2160,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         foregroundColor: RosTheme.statusCleaning,
                         side: const BorderSide(color: RosTheme.statusCleaning),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                       ),
                     ),
                   ),
@@ -2261,9 +2188,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.statusReserved,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -2280,8 +2205,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: RosTheme.statusAvailable,
                     side: const BorderSide(color: RosTheme.statusAvailable),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -2299,9 +2223,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.statusAvailable,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -2325,8 +2247,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: RosTheme.primary,
                     side: const BorderSide(color: RosTheme.primary),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -2344,9 +2265,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.statusAvailable,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -2367,8 +2286,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: RosTheme.textSecondary,
                   side: const BorderSide(color: RosTheme.bgBorder),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
               ),
             ),
@@ -2391,7 +2309,7 @@ class _TableInfoBottomSheetState extends ConsumerState<_TableInfoBottomSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isCurrent ? color.withValues(alpha: 0.22) : RosTheme.bgElevated,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
             color: isCurrent ? color : RosTheme.bgBorder,
             width: isCurrent ? 1.4 : 1,
@@ -2445,7 +2363,7 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
               height: 4,
               decoration: BoxDecoration(
                 color: RosTheme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.zero,
               ),
             ),
           ),
@@ -2496,7 +2414,7 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 gradient: RosTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.zero,
                 boxShadow: [
                   BoxShadow(
                     color: RosTheme.primary.withValues(alpha: 0.25),
@@ -2557,15 +2475,15 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: RosTheme.bgBorder),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: RosTheme.bgBorder),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: RosTheme.primary),
               ),
             ),
@@ -2767,7 +2685,7 @@ class _TableSelectionSheetState extends ConsumerState<_TableSelectionSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: selected ? RosTheme.primary : RosTheme.bgElevated,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.zero,
             border: Border.all(
               color: selected ? RosTheme.primary : RosTheme.bgBorder,
             ),

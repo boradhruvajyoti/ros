@@ -78,7 +78,7 @@ class SubmoduleGuard extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: RosTheme.bgCard.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder.withValues(alpha: 0.5)),
             ),
             child: Column(
@@ -88,7 +88,7 @@ class SubmoduleGuard extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.bgBorder),
                   ),
                   child: const Icon(

@@ -770,47 +770,43 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
 
     return CustomScrollView(
       slivers: [
-        SliverAppBar(
-          expandedHeight: 180,
-          pinned: true,
-          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-          flexibleSpace: FlexibleSpaceBar(
-            background: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF6366F1).withOpacity(0.15),
-                    const Color(0xFF3B82F6).withOpacity(0.05),
-                  ],
-                ),
+        SliverToBoxAdapter(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF6366F1).withOpacity(0.15),
+                  const Color(0xFF3B82F6).withOpacity(0.05),
+                ],
               ),
-              padding: const EdgeInsets.fromLTRB(20, 80, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3)),
-                        ),
-                        child: const Icon(Icons.help_outline_rounded, color: Color(0xFF6366F1), size: 22),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withOpacity(0.15),
+                        borderRadius: BorderRadius.zero,
+                        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3)),
                       ),
-                      const SizedBox(width: 12),
-                      Column(
+                      child: const Icon(Icons.help_outline_rounded, color: Color(0xFF6366F1), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Help & User Guide',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: isDark ? Colors.white : const Color(0xFF0F172A),
                             ),
@@ -824,58 +820,55 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Search bar
-                  Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        Icon(Icons.search_rounded, size: 18, color: isDark ? Colors.white38 : Colors.black38),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            onChanged: (v) => setState(() => _searchQuery = v),
-                            decoration: InputDecoration(
-                              hintText: 'Search modules, steps, FAQs...',
-                              hintStyle: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? Colors.white38 : Colors.black38,
-                              ),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            style: TextStyle(
+                    IconButton(
+                      onPressed: _showExportSheet,
+                      icon: const Icon(Icons.download_rounded),
+                      tooltip: 'Export Guide',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Search bar
+                Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      Icon(Icons.search_rounded, size: 18, color: isDark ? Colors.white38 : Colors.black38),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          onChanged: (v) => setState(() => _searchQuery = v),
+                          decoration: InputDecoration(
+                            hintText: 'Search modules, steps, FAQs...',
+                            hintStyle: TextStyle(
                               fontSize: 13,
-                              color: isDark ? Colors.white : Colors.black,
+                              color: isDark ? Colors.white38 : Colors.black38,
                             ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.white : Colors.black,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          title: const Text('Help Center', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          actions: [
-            IconButton(
-              onPressed: _showExportSheet,
-              icon: const Icon(Icons.download_rounded),
-              tooltip: 'Export Guide',
-            ),
-          ],
         ),
 
         if (sections.isEmpty)
@@ -942,7 +935,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
         ),
         child: Row(
@@ -952,7 +945,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
               height: 40,
               decoration: BoxDecoration(
                 color: section.iconColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
               ),
               child: Icon(section.icon, color: section.iconColor, size: 20),
             ),
@@ -1004,7 +997,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.zero,
       ),
       child: Text(
         label,
@@ -1038,47 +1031,71 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
       if (section.workflows.isNotEmpty) const Tab(text: 'Workflows'),
     ];
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => setState(() => _selectedSection = null),
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: section.iconColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(section.icon, color: section.iconColor, size: 16),
-            ),
-            const SizedBox(width: 10),
-            Text(section.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          ],
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: tabs,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-          indicatorColor: const Color(0xFF6366F1),
-          labelColor: const Color(0xFF6366F1),
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+    return Container(
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      child: Column(
         children: [
-          _buildGuideTab(section, isDark),
-          if (section.faqs.isNotEmpty) _buildFAQTab(section, isDark),
-          if (section.troubleshooting.isNotEmpty) _buildTroubleshootTab(section, isDark),
-          if (section.workflows.isNotEmpty) _buildWorkflowTab(section, isDark),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              border: Border(bottom: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _selectedSection = null),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: section.iconColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.zero,
+                  ),
+                  child: Icon(section.icon, color: section.iconColor, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    section.title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              tabs: tabs,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              indicatorColor: const Color(0xFF6366F1),
+              labelColor: const Color(0xFF6366F1),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildGuideTab(section, isDark),
+                if (section.faqs.isNotEmpty) _buildFAQTab(section, isDark),
+                if (section.troubleshooting.isNotEmpty) _buildTroubleshootTab(section, isDark),
+                if (section.workflows.isNotEmpty) _buildWorkflowTab(section, isDark),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1096,7 +1113,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.zero,
             border: Border.all(
               color: isExpanded
                   ? const Color(0xFF6366F1).withOpacity(0.4)
@@ -1161,7 +1178,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
                                 height: 22,
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF6366F1).withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.zero,
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
@@ -1194,7 +1211,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: const Color(0xFF3B82F6).withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.zero,
                             border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.2)),
                           ),
                           child: Column(
@@ -1255,7 +1272,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.zero,
             border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
           ),
           child: Column(
@@ -1269,7 +1286,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
                     height: 22,
                     decoration: BoxDecoration(
                       color: const Color(0xFFF59E0B).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.zero,
                     ),
                     alignment: Alignment.center,
                     child: const Text(
@@ -1300,7 +1317,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
                     height: 22,
                     decoration: BoxDecoration(
                       color: const Color(0xFF10B981).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.zero,
                     ),
                     alignment: Alignment.center,
                     child: const Text(
@@ -1340,7 +1357,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFFEF4444).withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.zero,
             border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
           ),
           child: Column(
@@ -1399,7 +1416,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFF10B981).withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.zero,
             border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
           ),
           child: Column(
@@ -1453,9 +1470,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
   void _showExportSheet() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(24),
@@ -1526,7 +1541,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Row(
@@ -1536,7 +1551,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
               height: 40,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.zero,
               ),
               child: Icon(icon, color: color, size: 20),
             ),
@@ -1638,7 +1653,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
         ),
         backgroundColor: const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         duration: const Duration(seconds: 3),
       ),
     );

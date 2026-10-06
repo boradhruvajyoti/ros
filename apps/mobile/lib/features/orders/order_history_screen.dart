@@ -308,15 +308,6 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
 
     return Scaffold(
       backgroundColor: RosTheme.bg,
-      appBar: AppBar(
-        title: const Text('Order History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _loadOrders(),
-          ),
-        ],
-      ),
       body: Column(
         children: [
           // ── 1. Date Range Presets Selector ─────────────────────────────────
@@ -352,7 +343,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                     side: BorderSide(
                       color: _datePreset == DatePreset.custom ? RosTheme.primary : RosTheme.bgBorder,
                     ),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     onPressed: _pickCustomRange,
                   ),
                 ),
@@ -371,7 +362,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     decoration: BoxDecoration(
                       color: RosTheme.bgCard,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.bgBorder),
                     ),
                     child: Column(
@@ -408,7 +399,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     decoration: BoxDecoration(
                       color: RosTheme.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
                     ),
                     child: Column(
@@ -453,7 +444,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     decoration: BoxDecoration(
                       color: RosTheme.bgCard,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.bgBorder),
                     ),
                     child: Column(
@@ -575,11 +566,11 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                         fillColor: RosTheme.bgElevated,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.zero,
                           borderSide: const BorderSide(color: RosTheme.bgBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.zero,
                           borderSide: const BorderSide(color: RosTheme.bgBorder),
                         ),
                       ),
@@ -611,7 +602,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: _typeFilter != null ? RosTheme.primary.withValues(alpha: 0.15) : RosTheme.bgElevated,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(
                         color: _typeFilter != null ? RosTheme.primary : RosTheme.bgBorder,
                       ),
@@ -657,7 +648,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                         color: selected ? RosTheme.primary : RosTheme.textSecondary,
                         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       ),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                     ),
                   );
@@ -690,7 +681,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                             margin: const EdgeInsets.only(bottom: 10),
                             decoration: BoxDecoration(
                               color: RosTheme.bgCard,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.zero,
                               border: Border.all(color: RosTheme.bgBorder),
                             ),
                             child: Column(
@@ -709,14 +700,12 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                                             }
                                           });
                                         },
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.zero,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                     decoration: BoxDecoration(
                                       color: RosTheme.bgElevated.withValues(alpha: 0.5),
-                                      borderRadius: isExpanded && group.orders.isNotEmpty
-                                          ? const BorderRadius.vertical(top: Radius.circular(12))
-                                          : BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.zero,
                                     ),
                                     child: Row(
                                       children: [
@@ -830,7 +819,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
           color: selected ? RosTheme.primary : RosTheme.textSecondary,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         side: BorderSide(
           color: selected ? RosTheme.primary : RosTheme.bgBorder,
         ),
@@ -849,12 +838,12 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
             _expandedGroupIds.clear();
           });
         },
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.zero,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: selected ? RosTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.zero,
             border: Border.all(
               color: selected ? RosTheme.primary : Colors.transparent,
               width: 1,
@@ -935,7 +924,7 @@ class _OrderTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: fg.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -962,7 +951,7 @@ class _OrderTile extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: RosTheme.bgElevated,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: RosTheme.bgBorder.withValues(alpha: 0.8)),
         ),
         child: Row(
@@ -974,7 +963,7 @@ class _OrderTile extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 color: RosTheme.bgCard,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: RosTheme.bgBorder),
               ),
               child: Icon(
@@ -1014,7 +1003,7 @@ class _OrderTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                         decoration: BoxDecoration(
                           color: RosTheme.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
                         ),
                         child: Row(
@@ -1076,7 +1065,7 @@ class _OrderTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: _statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: Text(
                     order.status.replaceAll('_', ' '),
@@ -1116,7 +1105,7 @@ class _OrderTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: RosTheme.secondary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: Text(
                           method.toUpperCase(),
@@ -1134,7 +1123,7 @@ class _OrderTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
                       color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: const Text(
                       'PAID',
@@ -1150,7 +1139,7 @@ class _OrderTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
                       color: RosTheme.danger.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Text(
                       'DUE ₹${order.balanceDue.toStringAsFixed(0)}',

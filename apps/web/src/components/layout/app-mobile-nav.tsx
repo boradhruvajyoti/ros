@@ -32,14 +32,14 @@ export function AppMobileNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 active:scale-90',
+                'flex flex-col items-center justify-center flex-1 py-1 rounded-none transition-all duration-200 active:scale-90',
                 active
                   ? 'text-primary font-black'
                   : 'text-muted-foreground hover:text-foreground font-medium'
               )}
             >
               <div className={cn(
-                'p-1.5 rounded-xl transition-all duration-200',
+                'p-1.5 rounded-none transition-all duration-200',
                 active ? 'bg-primary/15 shadow-xs' : ''
               )}>
                 <Icon className={cn('w-5 h-5', active ? 'text-primary stroke-[2.5]' : 'stroke-2')} />
@@ -54,12 +54,12 @@ export function AppMobileNav() {
           type="button"
           onClick={toggleMobileSidebar}
           className={cn(
-            'flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 active:scale-90 cursor-pointer',
+            'flex flex-col items-center justify-center flex-1 py-1 rounded-none transition-all duration-200 active:scale-90 cursor-pointer',
             mobileSidebarOpen ? 'text-primary font-black' : 'text-muted-foreground hover:text-foreground font-medium'
           )}
         >
           <div className={cn(
-            'p-1.5 rounded-xl transition-all duration-200',
+            'p-1.5 rounded-none transition-all duration-200',
             mobileSidebarOpen ? 'bg-primary/15 shadow-xs' : ''
           )}>
             <Menu className={cn('w-5 h-5', mobileSidebarOpen ? 'text-primary stroke-[2.5]' : 'stroke-2')} />

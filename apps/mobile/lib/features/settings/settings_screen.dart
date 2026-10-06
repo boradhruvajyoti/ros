@@ -37,7 +37,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final user = ref.watch(authProvider).user;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      backgroundColor: RosTheme.bg,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -46,7 +46,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: RosTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.zero,
             ),
             child: Row(children: [
               CircleAvatar(
@@ -222,7 +222,7 @@ class _SettingsTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: RosTheme.bgBorder),
       ),
       child: ListTile(
@@ -230,7 +230,7 @@ class _SettingsTile extends StatelessWidget {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: (color ?? RosTheme.primary).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.zero,
           ),
           child: Icon(icon, color: color ?? RosTheme.primary, size: 18),
         ),

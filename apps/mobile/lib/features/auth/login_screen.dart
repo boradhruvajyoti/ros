@@ -97,7 +97,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           height: 80,
                           decoration: BoxDecoration(
                             gradient: RosTheme.primaryGradient,
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.zero,
                             boxShadow: [
                               BoxShadow(
                                 color: RosTheme.primary.withOpacity(0.4),
@@ -137,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           padding: const EdgeInsets.all(28),
                           decoration: BoxDecoration(
                             color: RosTheme.bgCard,
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.zero,
                             border: Border.all(color: RosTheme.bgBorder),
                             boxShadow: [
                               BoxShadow(
@@ -247,7 +247,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: RosTheme.danger.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.zero,
                                       border: Border.all(
                                           color: RosTheme.danger.withOpacity(0.3)),
                                     ),

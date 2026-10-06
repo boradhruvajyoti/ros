@@ -23,27 +23,6 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: RosTheme.bg,
-      appBar: AppBar(
-        title: const Text(
-          'Overview',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: RosTheme.textPrimary,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-            tooltip: 'Refresh Overview',
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              ref.invalidate(dashboardProvider);
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
       body: dashAsync.when(
         data: (data) => _buildDashboard(context, data, user),
         loading: () => const Center(
@@ -106,12 +85,12 @@ class DashboardScreen extends ConsumerWidget {
                   HapticFeedback.selectionClick();
                   OutletSwitcherSheet.show(context);
                 },
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.zero,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: RosTheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Row(
@@ -273,7 +252,7 @@ class DashboardScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: RosTheme.bgCard,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder),
             ),
             child: const Row(
@@ -364,7 +343,7 @@ class _MinimalKpiCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: RosTheme.bgBorder,
           width: 1,
@@ -389,7 +368,7 @@ class _MinimalKpiCard extends StatelessWidget {
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Icon(icon, color: iconColor, size: 14),
               ),
@@ -449,11 +428,11 @@ class _MinimalQuickAction extends ConsumerWidget {
         refreshScreenRouteData(ref, route);
         context.go(route);
       },
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.zero,
       child: Container(
         decoration: BoxDecoration(
           color: RosTheme.bgCard,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: RosTheme.bgBorder),
         ),
         child: Column(
@@ -463,7 +442,7 @@ class _MinimalQuickAction extends ConsumerWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.zero,
               ),
               child: Icon(icon, color: RosTheme.textPrimary, size: 18),
             ),
@@ -502,7 +481,7 @@ class _MinimalRevenueChart extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 16, 16, 12),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: RosTheme.bgBorder),
       ),
       child: LineChart(

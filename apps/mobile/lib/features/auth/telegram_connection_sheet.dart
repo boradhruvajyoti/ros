@@ -15,9 +15,7 @@ class TelegramConnectionSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => const TelegramConnectionSheet(),
     );
   }
@@ -354,7 +352,7 @@ class _TelegramConnectionSheetState
               height: 4,
               decoration: BoxDecoration(
                 color: RosTheme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.zero,
               ),
             ),
           ),
@@ -367,7 +365,7 @@ class _TelegramConnectionSheetState
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: const Color(0xFF229ED9).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(
                     color: const Color(0xFF229ED9).withValues(alpha: 0.3),
                   ),
@@ -439,7 +437,7 @@ class _TelegramConnectionSheetState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF229ED9).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: const Color(0xFF229ED9).withValues(alpha: 0.25),
         ),
@@ -455,7 +453,7 @@ class _TelegramConnectionSheetState
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: RosTheme.secondary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(
                     color: RosTheme.secondary.withValues(alpha: 0.4),
                   ),
@@ -485,7 +483,7 @@ class _TelegramConnectionSheetState
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: RosTheme.bgElevated,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.bgBorder),
                     ),
                     child: Row(
@@ -520,7 +518,7 @@ class _TelegramConnectionSheetState
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: RosTheme.bgCard,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder),
             ),
             child: Row(
@@ -580,9 +578,7 @@ class _TelegramConnectionSheetState
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     side: const BorderSide(color: RosTheme.bgBorder),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                   child: const Text(
                     'Change Account',
@@ -608,12 +604,7 @@ class _TelegramConnectionSheetState
                     foregroundColor: RosTheme.danger,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: RosTheme.danger.withValues(alpha: 0.3),
-                      ),
-                    ),
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -635,7 +626,7 @@ class _TelegramConnectionSheetState
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             color: RosTheme.bgElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.zero,
             border: Border.all(color: RosTheme.bgBorder),
           ),
           child: Row(
@@ -652,7 +643,7 @@ class _TelegramConnectionSheetState
                       color: _connectMode == 'username'
                           ? const Color(0xFF229ED9)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Text(
                       'By Username (@)',
@@ -682,7 +673,7 @@ class _TelegramConnectionSheetState
                       color: _connectMode == 'phone'
                           ? const Color(0xFF229ED9)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Text(
                       'By Mobile Phone',
@@ -729,15 +720,15 @@ class _TelegramConnectionSheetState
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: RosTheme.bgBorder),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: RosTheme.bgBorder),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: Color(0xFF229ED9)),
               ),
             ),
@@ -766,15 +757,15 @@ class _TelegramConnectionSheetState
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: RosTheme.bgBorder),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: RosTheme.bgBorder),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 borderSide: const BorderSide(color: Color(0xFF229ED9)),
               ),
             ),
@@ -789,7 +780,7 @@ class _TelegramConnectionSheetState
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF229ED9).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: const Color(0xFF229ED9).withValues(alpha: 0.25),
                 ),
@@ -847,9 +838,7 @@ class _TelegramConnectionSheetState
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF229ED9),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
           ),
         ),
@@ -882,7 +871,7 @@ class _TelegramConnectionSheetState
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFF229ED9).withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.zero,
             border: Border.all(
               color: const Color(0xFF229ED9).withValues(alpha: 0.3),
             ),
@@ -974,15 +963,15 @@ class _TelegramConnectionSheetState
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               borderSide: const BorderSide(color: RosTheme.bgBorder),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               borderSide: const BorderSide(color: RosTheme.bgBorder),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               borderSide: const BorderSide(color: RosTheme.secondary),
             ),
           ),
@@ -1017,9 +1006,7 @@ class _TelegramConnectionSheetState
             style: ElevatedButton.styleFrom(
               backgroundColor: RosTheme.secondary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
           ),
         ),

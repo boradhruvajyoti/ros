@@ -18,9 +18,7 @@ class OutletSwitcherSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => const OutletSwitcherSheet(),
     );
   }
@@ -57,7 +55,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
               height: 4,
               decoration: BoxDecoration(
                 color: RosTheme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.zero,
               ),
             ),
           ),
@@ -70,7 +68,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: RosTheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: const Icon(
                   Icons.storefront_rounded,
@@ -122,7 +120,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.bgBorder),
                   ),
                   child: Center(
@@ -171,7 +169,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
                     final isSwitchingThis = _switchingBranchId == b.id;
 
                     return InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.zero,
                       onTap: (isCurrent || _switchingBranchId != null)
                           ? null
                           : () => _handleSwitchBranch(b),
@@ -181,7 +179,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
                           color: isCurrent
                               ? RosTheme.primary.withValues(alpha: 0.08)
                               : RosTheme.bgElevated,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(
                             color: isCurrent
                                 ? RosTheme.primary.withValues(alpha: 0.4)
@@ -248,7 +246,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
                                             color: RosTheme.secondary
                                                 .withValues(alpha: 0.15),
                                             borderRadius:
-                                                BorderRadius.circular(6),
+                                                BorderRadius.zero,
                                             border: Border.all(
                                               color: RosTheme.secondary
                                                   .withValues(alpha: 0.3),
@@ -330,7 +328,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: RosTheme.danger.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
               ),
               child: Text(
                 'Could not load outlets: $err',
@@ -358,9 +356,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
                   side: BorderSide(
                     color: RosTheme.primary.withValues(alpha: 0.4),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
               ),
             ),
@@ -386,7 +382,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
           SnackBar(
             backgroundColor: RosTheme.secondary,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             content: Row(
               children: [
                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
@@ -406,7 +402,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
           SnackBar(
             backgroundColor: RosTheme.danger,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             content: const Text(
               'Failed to switch operating outlet context.',
               style: TextStyle(color: Colors.white),
@@ -429,7 +425,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
           backgroundColor: RosTheme.bgCard,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           title: const Row(
             children: [
               Icon(Icons.add_business_rounded, color: RosTheme.primary, size: 22),
@@ -546,7 +542,7 @@ class _OutletSwitcherSheetState extends ConsumerState<OutletSwitcherSheet> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: RosTheme.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
               ),
               child: isSubmitting
                   ? const SizedBox(

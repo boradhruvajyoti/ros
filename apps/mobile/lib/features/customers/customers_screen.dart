@@ -50,12 +50,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Customers & CRM'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
-        ],
-      ),
+      backgroundColor: RosTheme.bg,
       body: Column(
         children: [
           // Search
@@ -90,7 +85,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: RosTheme.bgCard,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.zero,
                               border: Border.all(color: RosTheme.bgBorder),
                             ),
                             child: Row(children: [

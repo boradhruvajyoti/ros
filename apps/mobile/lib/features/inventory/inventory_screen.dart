@@ -16,15 +16,7 @@ class InventoryScreen extends ConsumerWidget {
     final inventoryAsync = ref.watch(inventoryProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Stock & Inventory'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(inventoryProvider),
-          ),
-        ],
-      ),
+      backgroundColor: RosTheme.bg,
       body: inventoryAsync.when(
         data: (items) {
           final lowStock = items.where((i) => i.isLowStock).toList();
@@ -36,7 +28,7 @@ class InventoryScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: RosTheme.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.warning.withValues(alpha: 0.3)),
                   ),
                   child: Row(children: [
@@ -58,7 +50,7 @@ class InventoryScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: RosTheme.bgCard,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(
                           color: isLow ? RosTheme.warning.withValues(alpha: 0.4) : RosTheme.bgBorder,
                         ),

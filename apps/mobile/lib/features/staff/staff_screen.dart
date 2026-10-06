@@ -698,15 +698,6 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
 
     return Scaffold(
       backgroundColor: RosTheme.bg,
-      appBar: AppBar(
-        title: const Text('Staff & HR Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(staffProvider),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showStaffSheet(context, null),
         backgroundColor: RosTheme.primary,
@@ -729,11 +720,11 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                 fillColor: RosTheme.bgElevated,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.zero,
                   borderSide: const BorderSide(color: RosTheme.bgBorder),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.zero,
                   borderSide: const BorderSide(color: RosTheme.bgBorder),
                 ),
               ),
@@ -833,12 +824,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         selectedColor: RosTheme.primary,
         backgroundColor: RosTheme.bgElevated,
         showCheckmark: false,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: isSelected ? RosTheme.primary : RosTheme.bgBorder,
-          ),
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         onSelected: (_) {
           HapticFeedback.selectionClick();
           setState(() => _selectedDept = id);
@@ -854,7 +840,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: RosTheme.bgBorder),
         boxShadow: [
           BoxShadow(
@@ -905,7 +891,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                             color: m.isActive
                                 ? RosTheme.secondary.withValues(alpha: 0.15)
                                 : RosTheme.danger.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.zero,
                           ),
                           child: Text(
                             m.isActive ? 'Active' : 'Inactive',
@@ -971,7 +957,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF229ED9).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: const Color(0xFF229ED9).withValues(alpha: 0.3)),
                   ),
                   child: Row(
@@ -995,7 +981,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: const Text(
                     'No Telegram Alerts',
@@ -1008,12 +994,12 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
               // Edit Button
               InkWell(
                 onTap: () => _showStaffSheet(context, m),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.zero,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: RosTheme.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1054,9 +1040,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => _StaffFormSheet(staff: staff),
     ).then((_) {
       ref.invalidate(staffProvider);
@@ -1068,7 +1052,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: RosTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: const Text('Remove Staff Member?', style: TextStyle(color: RosTheme.textPrimary)),
         content: Text(
           'Are you sure you want to remove "${m.name}"? This action cannot be undone.',
@@ -1407,7 +1391,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: RosTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Icon(
                       isEditing ? Icons.manage_accounts_rounded : Icons.person_add_rounded,
@@ -1487,7 +1471,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       color: RosTheme.bgElevated,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.bgBorder),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -1592,7 +1576,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.bgBorder),
                   ),
                   child: Row(
@@ -1627,7 +1611,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(color: RosTheme.bgBorder),
                 ),
                 child: Row(
@@ -1682,7 +1666,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
               Container(
                 decoration: BoxDecoration(
                   color: RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(color: RosTheme.bgBorder),
                 ),
                 child: Column(
@@ -1806,7 +1790,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                   margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
                                     color: RosTheme.bgCard,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.zero,
                                     border: Border.all(
                                       color: selectedInCat > 0
                                           ? RosTheme.primary.withValues(alpha: 0.35)
@@ -1823,7 +1807,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                           color: selectedInCat > 0
                                               ? RosTheme.primary.withValues(alpha: 0.08)
                                               : RosTheme.bgElevated.withValues(alpha: 0.5),
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                                          borderRadius: BorderRadius.zero,
                                         ),
                                         child: Row(
                                           children: [
@@ -1848,7 +1832,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                       color: selectedInCat > 0
                                                           ? RosTheme.primary.withValues(alpha: 0.2)
                                                           : RosTheme.bgElevated,
-                                                      borderRadius: BorderRadius.circular(8),
+                                                      borderRadius: BorderRadius.zero,
                                                     ),
                                                     child: Text(
                                                       '$selectedInCat/${catModules.length}',
@@ -1863,7 +1847,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                               ),
                                             ),
                                             InkWell(
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius: BorderRadius.zero,
                                               onTap: () {
                                                 setState(() {
                                                   _selectedRolePreset = null;
@@ -1936,7 +1920,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                       color: activeSubCount > 0
                                                           ? RosTheme.primary.withValues(alpha: 0.15)
                                                           : RosTheme.bgElevated,
-                                                      borderRadius: BorderRadius.circular(6),
+                                                      borderRadius: BorderRadius.zero,
                                                     ),
                                                     child: Text(
                                                       '$activeSubCount/${mod.submodules.length}',
@@ -1964,7 +1948,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                     children: mod.submodules.map((sub) {
                                                       final isSubActive = _selectedSubmodules.contains(sub.id);
                                                       return InkWell(
-                                                        borderRadius: BorderRadius.circular(6),
+                                                        borderRadius: BorderRadius.zero,
                                                         onTap: () => _toggleSubmodule(mod, sub),
                                                         child: AnimatedContainer(
                                                           duration: const Duration(milliseconds: 150),
@@ -1973,7 +1957,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                                                             color: isSubActive
                                                                 ? RosTheme.primary.withValues(alpha: 0.18)
                                                                 : RosTheme.bgElevated,
-                                                            borderRadius: BorderRadius.circular(6),
+                                                            borderRadius: BorderRadius.zero,
                                                             border: Border.all(
                                                               color: isSubActive
                                                                   ? RosTheme.primary.withValues(alpha: 0.5)
@@ -2032,7 +2016,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
               Container(
                 decoration: BoxDecoration(
                   color: RosTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(color: const Color(0xFF229ED9).withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -2177,7 +2161,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                   backgroundColor: RosTheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   elevation: 2,
                 ),
                 child: _submitting
@@ -2209,11 +2193,11 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
       fillColor: RosTheme.bgCard,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         borderSide: const BorderSide(color: RosTheme.bgBorder),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         borderSide: const BorderSide(color: RosTheme.bgBorder),
       ),
     );

@@ -120,9 +120,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => const _CreatePromoSheet(),
     );
   }
@@ -133,9 +131,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: RosTheme.bgCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => _PrintCouponSheet(campaign: campaign),
     );
   }
@@ -155,96 +151,34 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // ── App Header Bar ──
-          SliverToBoxAdapter(
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              decoration: const BoxDecoration(
-                color: RosTheme.bgCard,
-                border: Border(bottom: BorderSide(color: RosTheme.bgBorder)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              gradient: RosTheme.primaryGradient,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Promotions & Offers',
-                                style: TextStyle(
-                                  color: RosTheme.textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              Text(
-                                'Coupons, Spend Rewards & Combos',
-                                style: TextStyle(
-                                  color: RosTheme.textMuted,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          ref.invalidate(promotionsProvider);
-                        },
-                        icon: const Icon(Icons.refresh_rounded, color: RosTheme.textSecondary),
-                        tooltip: 'Refresh Promotions',
-                      ),
-                    ],
-                  ),
-
-                  if (_broadcastNotification != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: RosTheme.secondary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: RosTheme.secondary.withValues(alpha: 0.4)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.mark_chat_read_rounded, color: RosTheme.secondary, size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _broadcastNotification!,
-                              style: const TextStyle(
-                                color: RosTheme.secondary,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
+          if (_broadcastNotification != null)
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: RosTheme.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.zero,
+                  border: Border.all(color: RosTheme.secondary.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.mark_chat_read_rounded, color: RosTheme.secondary, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _broadcastNotification!,
+                        style: const TextStyle(
+                          color: RosTheme.secondary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
-          ),
 
           // ── Stats Summary Bar ──
           SliverToBoxAdapter(
@@ -259,7 +193,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: RosTheme.bgElevated,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: RosTheme.bgBorder),
                   ),
                   child: Row(
@@ -404,7 +338,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? RosTheme.primary.withValues(alpha: 0.2) : RosTheme.bgElevated,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.zero,
           border: Border.all(
             color: isSelected ? RosTheme.primary : RosTheme.bgBorder,
             width: isSelected ? 1.5 : 1,
@@ -467,13 +401,13 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: isActive ? RosTheme.bgBorder : RosTheme.bgBorder.withValues(alpha: 0.5),
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -487,7 +421,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: typeColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: typeColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
@@ -508,7 +442,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: RosTheme.secondary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: const Text(
                         '⚡ Auto-Applies',
@@ -575,7 +509,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: RosTheme.bgElevated,
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.zero,
                                   border: Border.all(color: RosTheme.bgBorder),
                                 ),
                                 child: Row(
@@ -597,7 +531,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                         decoration: BoxDecoration(
                                           color: RosTheme.primary.withValues(alpha: 0.2),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.zero,
                                         ),
                                         child: Text(
                                           '+${campaign.generatedCodes.length - 1} codes',
@@ -627,7 +561,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
                         color: RosTheme.bgElevated,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(color: RosTheme.bgBorder),
                       ),
                       child: Row(
@@ -652,7 +586,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: RosTheme.bgElevated,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: Row(
                         children: [
@@ -675,7 +609,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: RosTheme.bgElevated,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1022,7 +956,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: RosTheme.bgBorder,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
             ),
@@ -1109,7 +1043,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                           height: 48,
                           decoration: BoxDecoration(
                             color: RosTheme.bgElevated,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.zero,
                             border: Border.all(color: RosTheme.bgBorder),
                           ),
                           child: Row(
@@ -1121,7 +1055,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       color: _discountType == 'PERCENTAGE' ? RosTheme.primary : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(11),
+                                      borderRadius: BorderRadius.zero,
                                     ),
                                     child: Text(
                                       '% Percent',
@@ -1141,7 +1075,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       color: _discountType == 'FLAT' ? RosTheme.primary : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(11),
+                                      borderRadius: BorderRadius.zero,
                                     ),
                                     child: Text(
                                       '₹ Flat',
@@ -1194,8 +1128,8 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                             filled: true,
                             fillColor: RosTheme.bgElevated,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: RosTheme.bgBorder)),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
                           ),
                         ),
                       ),
@@ -1279,7 +1213,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: _thresholdRewardType == 'COMPLIMENTARY_ITEM' ? RosTheme.secondary.withValues(alpha: 0.2) : RosTheme.bgElevated,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(
                             color: _thresholdRewardType == 'COMPLIMENTARY_ITEM' ? RosTheme.secondary : RosTheme.bgBorder,
                           ),
@@ -1297,7 +1231,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: _thresholdRewardType == 'DISCOUNT' ? RosTheme.primary.withValues(alpha: 0.2) : RosTheme.bgElevated,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(
                             color: _thresholdRewardType == 'DISCOUNT' ? RosTheme.primary : RosTheme.bgBorder,
                           ),
@@ -1442,7 +1376,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
                   backgroundColor: RosTheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
                 child: _isSaving
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
@@ -1466,7 +1400,7 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? RosTheme.primary.withValues(alpha: 0.2) : RosTheme.bgElevated,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: isSelected ? RosTheme.primary : RosTheme.bgBorder, width: isSelected ? 1.5 : 1),
         ),
         child: Row(
@@ -1514,9 +1448,9 @@ class _CreatePromoSheetState extends ConsumerState<_CreatePromoSheet> {
             filled: true,
             fillColor: RosTheme.bgElevated,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.bgBorder)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.bgBorder)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.primary)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.primary)),
           ),
         ),
       ],
@@ -1731,7 +1665,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
       padding: const pw.EdgeInsets.all(8),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey500, width: 0.8, style: pw.BorderStyle.dashed),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        borderRadius: pw.BorderRadius.zero,
         color: PdfColors.white,
       ),
       child: pw.Column(
@@ -1764,7 +1698,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                 padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                 decoration: pw.BoxDecoration(
                   color: PdfColors.amber100,
-                  borderRadius: pw.BorderRadius.circular(3),
+                  borderRadius: pw.BorderRadius.zero,
                   border: pw.Border.all(color: PdfColors.amber400, width: 0.5),
                 ),
                 child: pw.Text(
@@ -1807,7 +1741,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
             decoration: pw.BoxDecoration(
               color: PdfColors.amber50,
               border: pw.Border.all(color: PdfColors.amber700, width: 0.8, style: pw.BorderStyle.dashed),
-              borderRadius: pw.BorderRadius.circular(4),
+              borderRadius: pw.BorderRadius.zero,
             ),
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -1886,7 +1820,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: RosTheme.bgBorder,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
             ),
@@ -1898,7 +1832,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: const Icon(Icons.print_rounded, color: Color(0xFFF59E0B), size: 22),
                 ),
@@ -1954,9 +1888,9 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                       filled: true,
                       fillColor: RosTheme.bgElevated,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.bgBorder)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.bgBorder)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RosTheme.primary)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.bgBorder)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: RosTheme.primary)),
                     ),
                     onChanged: (val) {
                       final n = int.tryParse(val);
@@ -1981,7 +1915,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                               decoration: BoxDecoration(
                                 color: isSelected ? const Color(0xFFF59E0B).withValues(alpha: 0.2) : RosTheme.bgElevated,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.zero,
                                 border: Border.all(
                                   color: isSelected ? const Color(0xFFF59E0B) : RosTheme.bgBorder,
                                   width: isSelected ? 1.5 : 1,
@@ -2019,7 +1953,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: Colors.grey.shade400, width: 1.5, style: BorderStyle.solid),
               ),
               child: Column(
@@ -2034,7 +1968,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
                               color: Colors.amber.shade100,
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.zero,
                             ),
                             child: const Text('🍽️', style: TextStyle(fontSize: 12)),
                           ),
@@ -2058,7 +1992,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: Text(
                           'VOUCHER',
@@ -2100,7 +2034,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     decoration: BoxDecoration(
                       color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: Colors.amber.shade400, width: 1),
                     ),
                     child: Row(
@@ -2155,7 +2089,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: RosTheme.bgElevated,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: RosTheme.bgBorder),
               ),
               child: Row(
@@ -2183,7 +2117,7 @@ class _PrintCouponSheetState extends ConsumerState<_PrintCouponSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF59E0B),
                   foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   elevation: 2,
                 ),
                 icon: _generating

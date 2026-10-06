@@ -73,12 +73,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reservations'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
-        ],
-      ),
+      backgroundColor: RosTheme.bg,
       body: Column(
         children: [
           // Date picker row
@@ -148,7 +143,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                             margin: const EdgeInsets.only(bottom: 10),
                             decoration: BoxDecoration(
                               color: RosTheme.bgCard,
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.zero,
                               border: Border.all(color: color.withValues(alpha: 0.25)),
                             ),
                             child: Padding(
@@ -165,7 +160,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: color.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.zero,
                                       ),
                                       child: Text(r.status, style: TextStyle(
                                           color: color, fontSize: 10, fontWeight: FontWeight.w600)),

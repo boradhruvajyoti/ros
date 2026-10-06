@@ -128,15 +128,6 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
 
     return Scaffold(
       backgroundColor: RosTheme.bg,
-      appBar: AppBar(
-        title: Text(table.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadTable,
-          ),
-        ],
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -147,7 +138,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: RosTheme.bgCard,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: statusColor.withValues(alpha: 0.5),
                   width: 1.5,
@@ -159,7 +150,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Icon(
                       Icons.table_restaurant_rounded,
@@ -189,7 +180,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.zero,
                           ),
                           child: Text(
                             table.status.replaceAll('_', ' '),
@@ -245,8 +236,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -261,8 +251,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: RosTheme.textMuted,
                     side: const BorderSide(color: RosTheme.bgBorder),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -279,8 +268,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -297,8 +285,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.statusAvailable,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -315,8 +302,7 @@ class _TableDetailScreenState extends ConsumerState<TableDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.statusAvailable,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -395,7 +381,7 @@ class _DetailActiveOrderCardState extends ConsumerState<_DetailActiveOrderCard> 
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: RosTheme.bgCard,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: RosTheme.statusOccupied.withValues(alpha: 0.5),
           width: 1.5,
@@ -430,7 +416,7 @@ class _DetailActiveOrderCardState extends ConsumerState<_DetailActiveOrderCard> 
           Container(
             decoration: BoxDecoration(
               color: RosTheme.bgElevated,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: RosTheme.bgBorder),
             ),
             child: ListView.separated(
@@ -457,7 +443,7 @@ class _DetailActiveOrderCardState extends ConsumerState<_DetailActiveOrderCard> 
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: RosTheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: Text(
                           '${item.totalQuantity}x',
@@ -552,8 +538,7 @@ class _DetailActiveOrderCardState extends ConsumerState<_DetailActiveOrderCard> 
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: RosTheme.primary),
                     foregroundColor: RosTheme.primary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -574,8 +559,7 @@ class _DetailActiveOrderCardState extends ConsumerState<_DetailActiveOrderCard> 
                   style: ElevatedButton.styleFrom(
                     backgroundColor: RosTheme.secondary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   ),
                 ),
               ),
@@ -610,7 +594,7 @@ class _DetailStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: _color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.zero,
       ),
       child: Text(
         status.replaceAll('_', ' '),

@@ -89,7 +89,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: method == m ? RosTheme.primary.withValues(alpha: 0.15) : RosTheme.bgElevated,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(color: method == m ? RosTheme.primary : RosTheme.bgBorder),
                       ),
                       child: Text(m, style: TextStyle(
@@ -138,12 +138,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     };
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Order #${order.orderNumber}'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
-        ],
-      ),
+      backgroundColor: RosTheme.bg,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -154,7 +149,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: statusColor.withValues(alpha: 0.3)),
               ),
               child: Row(
@@ -173,7 +168,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: Text(order.status.replaceAll('_', ' '),
                         style: TextStyle(color: statusColor, fontWeight: FontWeight.w700)),
@@ -191,7 +186,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
             Container(
               decoration: BoxDecoration(
                 color: RosTheme.bgCard,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: RosTheme.bgBorder),
               ),
               child: Column(
@@ -232,7 +227,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: RosTheme.bgCard,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(color: RosTheme.bgBorder),
               ),
               child: Column(children: [
@@ -259,7 +254,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: RosTheme.bgCard,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.zero,
                   border: Border.all(color: RosTheme.bgBorder),
                 ),
                 child: Column(
@@ -274,7 +269,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.zero,
                           ),
                           child: Text(
                             p.method.toUpperCase(),
@@ -333,7 +328,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
                       color: RosTheme.warning.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: RosTheme.warning.withValues(alpha: 0.3)),
                     ),
                     child: Row(
